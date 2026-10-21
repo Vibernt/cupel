@@ -53,7 +53,7 @@ Delivered as a CLI (`cupel`), a local MCP server (stdio) and a GitHub Action tha
 ## Audience
 
 - Teams using Claude Code, Cursor, Codex or similar at scale, watching CI time and review load climb.
-- First languages: JavaScript/TypeScript (node:test, Vitest, Jest) and Python (pytest). Then Java and Kotlin, Go, .NET, Rust and Ruby, through collectors and importers that emit the public input format (D10).
+- First languages: JavaScript/TypeScript (node:test, Vitest, Jest) and Python (pytest). Then Java and Kotlin, Go, .NET, Rust, Ruby and PHP, in that order, through collectors and importers that emit the public input format (D10, D11). Every framework works at file level; popular frameworks get per-test adapters (D12).
 - Advice is weakest for end-to-end and browser tests that span services: Cupel labels, guards and orders them, but marks their keep/retire advice as low evidence.
 
 ## Success at launch

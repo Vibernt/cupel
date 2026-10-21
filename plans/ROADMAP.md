@@ -13,4 +13,4 @@
 | **M7 Launch** | Public repo, npm `@vibernt/cupel` and PyPI `vibernt-cupel` releases, launch post with results on Assay, CodeCrystal and the forks | Owner approves going public and publishing |
 | **M8 Integrations** | `--assay` connector; CodeCrystal delivery integration | Opt-in only; Cupel still fully useful offline |
 
-Order is strict for M0–M3. M4, M5, M6 and M6b can run in parallel once M3's CLI contract and the input format are stable. Whether M6b ships before or after M7 is the owner's call (D11).
+Order is strict for M0–M3. M4, M5, M6 and M6b can run in parallel once M3's CLI contract and the input format are stable. Launch (M7) covers JavaScript, TypeScript and Python; M6b languages ship after it, one by one (D11).
