@@ -22,6 +22,7 @@
 | D10 | **The engine's input format is public**: a versioned JSON Schema in the spec, beside the report schema. `cupel import` reads it and supported tool formats. Every collector, native or third-party, emits it; existing mutation and coverage tools are imported rather than re-implemented. This is how Cupel reaches languages beyond JS and Python | 2026-10-21 (owner) |
 | D11 | **Languages:** launch with JavaScript, TypeScript and Python. Then add Java and Kotlin, Go, .NET, Rust, Ruby and PHP, in that order, shipping each as it passes its conformance cases and a real-repository run | 2026-10-21 (owner) |
 | D12 | **Frameworks:** coverage and mutation are built once per language. Per-file coverage works for every framework with no framework code. Per-test coverage uses a thin framework adapter that implements a contract in the spec (list, select, boundaries, tags) | 2026-10-21 |
+| D13 | **Extensibility is first-class.** People extend Cupel through config (tier rules, brittleness patterns), the public input format, external collector commands and framework adapters, all **outside Cupel's process**: no third-party code is loaded into Cupel. Extensions prove themselves with the adapter conformance kit; `docs/extending/` documents every extension point, and one adapter is built from the docs alone before launch | 2026-10-21 (owner) |
 
 ## Dependencies
 

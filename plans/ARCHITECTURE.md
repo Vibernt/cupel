@@ -24,6 +24,8 @@ The first implementation is JavaScript (Node 22+, ESM). A Python implementation 
 | `cupel guard --base <ref>` | Compares the suite at a base ref with the working tree | Pass or fail: coverage (line, branch) never falls; critical mutation score never falls; no critical test removed or downgraded without an approval marker; removed tests listed with evidence |
 | `cupel plan [--changed <files>]` | Priority order for a run | Critical first, then tests affected by the change (coverage map, naming, imports), then the rest; with expected time |
 | `cupel label` | Shows and checks tiers | Tier per test from path rules and tags; refuses unknown tags |
+| `cupel validate <file>` | Checks an input, report or config file against the spec's schemas | Every error with its JSON path and the rule it breaks; exit 1 if invalid |
+| `cupel conformance --adapter <command>` | Runs an adapter or external collector against the adapter conformance kit | Pass or fail per fixture, with each mismatch |
 | `cupel import <files> [--format <f>]` | Reads engine inputs from files instead of running a collector: Cupel's own input format, or a supported tool format | Validated inputs, then the same `report`, `check`, `guard` and `plan` as a native run |
 | `cupel mcp` | Starts the MCP server | stdio |
 
@@ -82,6 +84,30 @@ First-party adapters:
 | PHP | PHPUnit, Pest |
 
 Any other framework can be added by the community through the public input format (D10).
+
+## Extending Cupel (D13)
+
+Cupel is built to be extended by people who never read its source. Extensions run **outside** Cupel's process: Cupel never loads third-party code into itself, so the engine stays pure and deterministic and plugins add no supply-chain risk.
+
+| Extension point | Needs code? | How |
+|---|---|---|
+| Tier path rules and in-test tags | No | `cupel.json` |
+| Brittleness patterns | No | Pattern rules as data in `cupel.json`, alongside the built-in ones |
+| Inputs from any tool or language | A converter, in any language | Write the public input format; `cupel import` reads it; `cupel validate` checks it against the schema and explains every error |
+| External collector | A command, in any language | `cupel.json` names a command that runs the tests and writes the input format. Cupel runs it like the user's test command |
+| Framework adapter | Yes, small | Implements the contract: list, select, boundaries, tags. One template per language |
+| Importer for a tool's output | Yes, small | Maps the tool's format to the input format; contributed upstream or kept as an external command |
+
+**Proving an extension works.** The adapter conformance kit (`spec/conformance/adapters/`) holds a tiny fixture project per language, with known tests and the exact expected per-test coverage, results and tags. `cupel conformance --adapter <command>` runs an adapter against it and reports each mismatch. First-party adapters must pass the same kit.
+
+**Stability.** The input and report schemas follow semver within `cupel-spec/<major>`. Additive changes are minor. A breaking change bumps the major, and the previous major stays readable for at least one major release.
+
+**Docs** (`docs/extending/`):
+- the input and report schema references, generated from the schemas
+- one worked example per extension point
+- adapter templates
+- the stability promise
+- a list of community adapters (a docs page in the repo, not a hosted registry)
 
 **Where advice is weaker.** End-to-end and browser tests (for example Playwright), and any test that drives several services or processes, cannot have their coverage attributed reliably to one test. Cupel still labels, guards and orders them, but it marks their keep and retire advice "low evidence" and never advises retiring them on coverage alone. Flakiness and real catches need run history (Vibernt Assay).
 
