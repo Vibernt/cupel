@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// cupel: keep only the tests worth running. See docs/cli.md.
+// cupel: CLI commands and the local MCP stdio server. See docs/cli.md and docs/mcp.md.
 import { main } from '../src/cli/main.mjs';
 
 const colour = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;

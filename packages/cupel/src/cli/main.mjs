@@ -74,6 +74,11 @@ const COMMANDS = {
     about: 'run an adapter on every fixture and match expected.json',
     options: { adapter: S, fixtures: S },
   },
+  mcp: {
+    usage: 'cupel mcp [--root <dir>]',
+    about: 'start the local MCP server over stdio',
+    options: { root: S },
+  },
 };
 
 function help() {
@@ -84,7 +89,6 @@ Usage: cupel <command> [options]
 
 Commands:
 ${Object.entries(COMMANDS).map(([c, d]) => `  ${c.padEnd(width)}  ${d.about}`).join('\n')}
-  ${'mcp'.padEnd(width)}  start the local MCP server (not implemented yet, M4)
 
 Common options:
   --config <file>  config file (default: cupel.json at the git root)
@@ -184,11 +188,13 @@ class Context {
   async mutator() {
     if (this.o['no-mutation']) return null;
     const m = await loadModule('mutator', this.env);
+    if (!m && this.io.strictDependencies) throw environment('mutation not available');
     if (!m) this.log('mutation not available; continuing without mutation data');
     return m;
   }
 
   emit(result) {
+    this.io.result?.(result);
     if (this.o.json) this.io.out(`${JSON.stringify(result.report, null, 2)}\n`);
     else this.io.out(formatReport(this.command, result.report, this.io.colour));
     return result.exit;
@@ -334,10 +340,13 @@ const commands = {
   async check(ctx) {
     if (ctx.o.input !== undefined && ctx.o['head-input'] !== undefined) throw usage('use either --input or --head-input, not both');
     const collecting = (ctx.o.input ?? ctx.o['head-input']) === undefined || ctx.o.base !== undefined;
-    const pre = collecting && ctx.preflight('check', { ...ctx.args, tests: ctx.positionals });
+    const pre = collecting && !ctx.io.allTests && ctx.preflight('check', { ...ctx.args, tests: ctx.positionals });
     if (pre) return ctx.emit(pre);
     const { base, head } = await baseAndHead(ctx, 'input');
-    const tests = expandTests(ctx, ctx.positionals, head);
+    const requested = ctx.io.allTests && ctx.positionals.length === 0
+      ? [...new Set((head.tests ?? []).map((t) => t.unit ?? t.id))].sort(cmp)
+      : ctx.positionals;
+    const tests = expandTests(ctx, requested, head);
     const args = { ...ctx.args, tests };
     return ctx.emit(ctx.engine('check', base !== undefined ? { base, head } : { input: head }, args));
   },
@@ -345,7 +354,8 @@ const commands = {
   async guard(ctx) {
     if (ctx.o.base === undefined && ctx.o['base-input'] === undefined) throw usage(`guard needs --base <ref> or --base-input <file>\nusage: ${COMMANDS.guard.usage}`);
     const args = { ...ctx.args };
-    if (ctx.o.approvals !== undefined) {
+    if (ctx.io.approvals !== undefined) args.approvals = ctx.io.approvals;
+    else if (ctx.o.approvals !== undefined) {
       // A list of { action, id, by }, or an object with that list as `approvals`.
       const a = readJson(ctx.path(ctx.o.approvals), 'approvals');
       args.approvals = a !== null && typeof a === 'object' && !Array.isArray(a) && Object.hasOwn(a, 'approvals') ? a.approvals : a;
@@ -524,10 +534,6 @@ export async function main(argv, io) {
     io.out(`${version()}\n`);
     return EXIT_OK;
   }
-  if (cmd === 'mcp') {
-    io.err('cupel mcp: not implemented yet (M4)\n');
-    return EXIT_USAGE;
-  }
   if (!Object.hasOwn(COMMANDS, cmd)) {
     io.err(`cupel: unknown command "${cmd}" (see cupel --help)\n`);
     return EXIT_USAGE;
@@ -535,8 +541,13 @@ export async function main(argv, io) {
   try {
     const parsed = parse(cmd, rest);
     if (parsed.values.help) {
-      io.out(`usage: ${COMMANDS[cmd].usage}\n\n${COMMANDS[cmd].about}. See docs/cli.md.\n`);
+      io.out(`usage: ${COMMANDS[cmd].usage}\n\n${COMMANDS[cmd].about}. See docs/${cmd === 'mcp' ? 'mcp' : 'cli'}.md.\n`);
       return EXIT_OK;
+    }
+    if (cmd === 'mcp') {
+      if (parsed.positionals.length) throw usage('mcp takes no positional arguments');
+      const { startServer } = await import('../mcp/server.mjs');
+      return await startServer({ cwd: io.cwd, env: io.env, rootOption: parsed.values.root, err: io.err });
     }
     const ctx = new Context(cmd, parsed, io);
     return await commands[cmd](ctx);
