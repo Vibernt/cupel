@@ -9,3 +9,6 @@ export const EXIT = Object.freeze({
   USAGE: 2, // bad arguments or unknown command
   ENVIRONMENT: 3, // a collector could not run
 });
+
+// The pure engine (cupel-spec/1): run(command, inputs, config, args, schemas) -> { report, exit }.
+export { run } from './engine/index.mjs';
