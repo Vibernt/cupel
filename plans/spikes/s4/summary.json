@@ -1,0 +1,685 @@
+{
+ "coverage": {
+  "guardrail": "pass",
+  "lost": 0,
+  "notEveryAfter": 10,
+  "gained": 46,
+  "gainedByFile": {
+   "public/app/lib/api.mjs": 1,
+   "public/app/lib/events.mjs": 33,
+   "public/app/lib/router.mjs": 2,
+   "public/app/pages/pipelines/detail.mjs": 1,
+   "public/app/pages/pipelines/job-detail.mjs": 9
+  },
+  "sets": {
+   "before": {
+    "reps": 3,
+    "files": 3,
+    "tests": 42,
+    "fileLines": 958,
+    "ever": 21562,
+    "always": 21554,
+    "flaky": 8,
+    "flakyByFile": {
+     "public/app/lib/router.mjs": 2,
+     "public/app/pages/pipelines/detail.mjs": 5,
+     "public/app/lib/events.mjs": 1
+    },
+    "testDriven": 11573,
+    "uniqueLines": 4641,
+    "zeroUnique": [
+     "tests/ui-pipelines.test.mjs :: pipelines UI: matrix preview matches the compiler expansion",
+     "tests/ui-pipelines-v2.test.mjs :: pipelines v2: plan rows follow the compiled plan, one per job after matrix expansion",
+     "tests/ui-pipelines-v2.test.mjs :: pipelines v2: the New pipeline steps come from the query, and the create body is the template for the project",
+     "tests/ui-pipelines-v2.test.mjs :: pipelines v2: audit findings sort by severity then line, filter by severity and keep stable keys",
+     "tests/ui-pipelines-volt.test.mjs :: pipelines volt: list filters match name, project and job, project id and the newest run",
+     "tests/ui-pipelines-volt.test.mjs :: pipelines volt: every template compiles as it is and says what creating it does",
+     "tests/ui-pipelines-volt.test.mjs :: /pipelines (negative): at the limit, a role that cannot manage runners is told who can, with no Add runners button",
+     "tests/ui-pipelines-volt.test.mjs :: /pipelines/:id: success rate and durations of the newest 50 runs on Overview, said as such",
+     "tests/ui-pipelines-volt.test.mjs :: /pipelines/:id?tab=settings: a viewer sees the settings and cannot change them"
+    ],
+    "suiteOnly": 1425
+   },
+   "after": {
+    "reps": 3,
+    "files": 1,
+    "tests": 23,
+    "fileLines": 869,
+    "ever": 21608,
+    "always": 21588,
+    "flaky": 20,
+    "flakyByFile": {
+     "public/app/lib/router.mjs": 2,
+     "public/app/pages/pipelines/detail.mjs": 4,
+     "public/app/pages/pipelines/job-detail.mjs": 9,
+     "public/app/lib/events.mjs": 1,
+     "public/app/lib/api.mjs": 4
+    },
+    "testDriven": 11619,
+    "uniqueLines": 7362,
+    "zeroUnique": [
+     "tests/ui-pipelines.test.mjs :: pipelines models: the matrix preview and the plan rows follow the compiler expansion"
+    ],
+    "suiteOnly": 1458
+   }
+  }
+ },
+ "timing": {
+  "node": "v26.7.0",
+  "sessions": 2,
+  "reps": 14,
+  "summary": {
+   "before/together": {
+    "reps": 14,
+    "tests": 42,
+    "wallMs": {
+     "median": 1117,
+     "min": 926,
+     "max": 1368
+    },
+    "cpuMs": {
+     "median": 1665,
+     "min": 1530,
+     "max": 1940
+    },
+    "load1": {
+     "median": 55,
+     "min": 41,
+     "max": 71
+    }
+   },
+   "before/serial": {
+    "reps": 14,
+    "tests": 42,
+    "wallMs": {
+     "median": 2186,
+     "min": 1873,
+     "max": 2613
+    },
+    "cpuMs": {
+     "median": 1750,
+     "min": 1520,
+     "max": 2070
+    },
+    "load1": {
+     "median": 56,
+     "min": 41,
+     "max": 71
+    }
+   },
+   "after/together": {
+    "reps": 14,
+    "tests": 23,
+    "wallMs": {
+     "median": 1166,
+     "min": 948,
+     "max": 2669
+    },
+    "cpuMs": {
+     "median": 1020,
+     "min": 870,
+     "max": 1170
+    },
+    "load1": {
+     "median": 55,
+     "min": 44,
+     "max": 71
+    }
+   },
+   "after/serial": {
+    "reps": 14,
+    "tests": 23,
+    "wallMs": {
+     "median": 1185,
+     "min": 954,
+     "max": 1978
+    },
+    "cpuMs": {
+     "median": 985,
+     "min": 870,
+     "max": 1210
+    },
+    "load1": {
+     "median": 55,
+     "min": 44,
+     "max": 71
+    }
+   }
+  }
+ },
+ "mutation": {
+  "kills-area": {
+   "sameMutants": true,
+   "lost": 0,
+   "gained": [
+    "public/app/pages/pipelines/settings.mjs:150:66:cmp-flip:<=",
+    "public/app/pages/pipelines/model.mjs:322:106:logical:||",
+    "public/app/pages/pipelines/model.mjs:323:41:logical:||"
+   ],
+   "before": {
+    "seed": 20261021,
+    "ids": "b7f7a80ab222d222",
+    "modules": {
+     "editor": {
+      "run": 150,
+      "killed": 6,
+      "timeout": 1,
+      "survived": 30,
+      "noCoverage": 113,
+      "error": 0,
+      "score": 4.7
+     },
+     "settings": {
+      "run": 150,
+      "killed": 36,
+      "timeout": 0,
+      "survived": 47,
+      "noCoverage": 67,
+      "error": 0,
+      "score": 24
+     },
+     "model": {
+      "run": 150,
+      "killed": 94,
+      "timeout": 2,
+      "survived": 23,
+      "noCoverage": 31,
+      "error": 0,
+      "score": 64
+     }
+    },
+    "total": {
+     "run": 450,
+     "killed": 136,
+     "timeout": 3,
+     "survived": 100,
+     "noCoverage": 211,
+     "error": 0,
+     "score": 30.9
+    }
+   },
+   "after": {
+    "modules": {
+     "editor": {
+      "run": 150,
+      "killed": 6,
+      "timeout": 1,
+      "survived": 30,
+      "noCoverage": 113,
+      "error": 0,
+      "score": 4.7
+     },
+     "settings": {
+      "run": 150,
+      "killed": 37,
+      "timeout": 0,
+      "survived": 46,
+      "noCoverage": 67,
+      "error": 0,
+      "score": 24.7
+     },
+     "model": {
+      "run": 150,
+      "killed": 96,
+      "timeout": 2,
+      "survived": 21,
+      "noCoverage": 31,
+      "error": 0,
+      "score": 65.3
+     }
+    },
+    "total": {
+     "run": 450,
+     "killed": 139,
+     "timeout": 3,
+     "survived": 97,
+     "noCoverage": 211,
+     "error": 0,
+     "score": 31.6
+    }
+   }
+  },
+  "kills-suite": {
+   "sameMutants": true,
+   "lost": 0,
+   "gained": [
+    "public/app/pages/pipelines/settings.mjs:150:66:cmp-flip:<=",
+    "public/app/pages/pipelines/model.mjs:322:106:logical:||",
+    "public/app/pages/pipelines/model.mjs:323:41:logical:||"
+   ],
+   "before": {
+    "seed": 20261021,
+    "ids": "b7f7a80ab222d222",
+    "modules": {
+     "editor": {
+      "run": 150,
+      "killed": 6,
+      "timeout": 1,
+      "survived": 30,
+      "noCoverage": 113,
+      "error": 0,
+      "score": 4.7
+     },
+     "settings": {
+      "run": 150,
+      "killed": 36,
+      "timeout": 0,
+      "survived": 47,
+      "noCoverage": 67,
+      "error": 0,
+      "score": 24
+     },
+     "model": {
+      "run": 150,
+      "killed": 100,
+      "timeout": 2,
+      "survived": 24,
+      "noCoverage": 24,
+      "error": 0,
+      "score": 68
+     }
+    },
+    "total": {
+     "run": 450,
+     "killed": 142,
+     "timeout": 3,
+     "survived": 101,
+     "noCoverage": 204,
+     "error": 0,
+     "score": 32.2
+    }
+   },
+   "after": {
+    "modules": {
+     "editor": {
+      "run": 150,
+      "killed": 6,
+      "timeout": 1,
+      "survived": 30,
+      "noCoverage": 113,
+      "error": 0,
+      "score": 4.7
+     },
+     "settings": {
+      "run": 150,
+      "killed": 37,
+      "timeout": 0,
+      "survived": 46,
+      "noCoverage": 67,
+      "error": 0,
+      "score": 24.7
+     },
+     "model": {
+      "run": 150,
+      "killed": 102,
+      "timeout": 2,
+      "survived": 22,
+      "noCoverage": 24,
+      "error": 0,
+      "score": 69.3
+     }
+    },
+    "total": {
+     "run": 450,
+     "killed": 145,
+     "timeout": 3,
+     "survived": 98,
+     "noCoverage": 204,
+     "error": 0,
+     "score": 32.9
+    }
+   }
+  },
+  "killsx-area": {
+   "sameMutants": true,
+   "lost": 0,
+   "gained": [
+    "public/app/pages/pipelines/detail.mjs:81:137:cmp-flip:!==",
+    "public/app/pages/pipelines/detail.mjs:113:104:logical:||",
+    "public/app/pages/pipelines/detail.mjs:176:28:logical:&&",
+    "public/app/pages/pipelines/detail.mjs:178:9:remove-call:remove events.on…",
+    "public/app/pages/pipelines/detail.mjs:179:13:remove-call:remove clearTimeout…",
+    "public/app/pages/pipelines/detail.mjs:197:85:boundary:>=",
+    "public/app/pages/pipelines/detail.mjs:198:169:arith:/",
+    "public/app/pages/pipelines/detail.mjs:269:9:return-value:return undefined",
+    "public/app/pages/pipelines/detail.mjs:321:25:logical:||"
+   ],
+   "before": {
+    "seed": 20261021,
+    "ids": "ce8f96c1c1579a1c",
+    "modules": {
+     "settings-model": {
+      "run": 141,
+      "killed": 113,
+      "timeout": 1,
+      "survived": 7,
+      "noCoverage": 20,
+      "error": 0,
+      "score": 80.9
+     },
+     "detail": {
+      "run": 150,
+      "killed": 50,
+      "timeout": 0,
+      "survived": 39,
+      "noCoverage": 61,
+      "error": 0,
+      "score": 33.3
+     },
+     "list": {
+      "run": 150,
+      "killed": 46,
+      "timeout": 0,
+      "survived": 45,
+      "noCoverage": 59,
+      "error": 0,
+      "score": 30.7
+     },
+     "new": {
+      "run": 83,
+      "killed": 31,
+      "timeout": 0,
+      "survived": 37,
+      "noCoverage": 15,
+      "error": 0,
+      "score": 37.3
+     },
+     "audit": {
+      "run": 106,
+      "killed": 27,
+      "timeout": 0,
+      "survived": 38,
+      "noCoverage": 41,
+      "error": 0,
+      "score": 25.5
+     },
+     "small-models": {
+      "run": 35,
+      "killed": 22,
+      "timeout": 0,
+      "survived": 3,
+      "noCoverage": 10,
+      "error": 0,
+      "score": 62.9
+     }
+    },
+    "total": {
+     "run": 665,
+     "killed": 289,
+     "timeout": 1,
+     "survived": 169,
+     "noCoverage": 206,
+     "error": 0,
+     "score": 43.6
+    }
+   },
+   "after": {
+    "modules": {
+     "settings-model": {
+      "run": 141,
+      "killed": 114,
+      "timeout": 0,
+      "survived": 7,
+      "noCoverage": 20,
+      "error": 0,
+      "score": 80.9
+     },
+     "detail": {
+      "run": 150,
+      "killed": 59,
+      "timeout": 0,
+      "survived": 31,
+      "noCoverage": 60,
+      "error": 0,
+      "score": 39.3
+     },
+     "list": {
+      "run": 150,
+      "killed": 46,
+      "timeout": 0,
+      "survived": 45,
+      "noCoverage": 59,
+      "error": 0,
+      "score": 30.7
+     },
+     "new": {
+      "run": 83,
+      "killed": 31,
+      "timeout": 0,
+      "survived": 37,
+      "noCoverage": 15,
+      "error": 0,
+      "score": 37.3
+     },
+     "audit": {
+      "run": 106,
+      "killed": 27,
+      "timeout": 0,
+      "survived": 38,
+      "noCoverage": 41,
+      "error": 0,
+      "score": 25.5
+     },
+     "small-models": {
+      "run": 35,
+      "killed": 22,
+      "timeout": 0,
+      "survived": 3,
+      "noCoverage": 10,
+      "error": 0,
+      "score": 62.9
+     }
+    },
+    "total": {
+     "run": 665,
+     "killed": 299,
+     "timeout": 0,
+     "survived": 161,
+     "noCoverage": 205,
+     "error": 0,
+     "score": 45
+    }
+   }
+  },
+  "killsx-suite": {
+   "sameMutants": true,
+   "lost": 0,
+   "gained": [
+    "public/app/pages/pipelines/detail.mjs:179:13:remove-call:remove clearTimeout…",
+    "public/app/pages/pipelines/detail.mjs:197:85:boundary:>=",
+    "public/app/pages/pipelines/detail.mjs:198:169:arith:/",
+    "public/app/pages/pipelines/detail.mjs:269:9:return-value:return undefined",
+    "public/app/pages/pipelines/detail.mjs:321:25:logical:||"
+   ],
+   "before": {
+    "seed": 20261021,
+    "ids": "ce8f96c1c1579a1c",
+    "modules": {
+     "settings-model": {
+      "run": 141,
+      "killed": 114,
+      "timeout": 0,
+      "survived": 7,
+      "noCoverage": 20,
+      "error": 0,
+      "score": 80.9
+     },
+     "detail": {
+      "run": 150,
+      "killed": 61,
+      "timeout": 0,
+      "survived": 42,
+      "noCoverage": 47,
+      "error": 0,
+      "score": 40.7
+     },
+     "list": {
+      "run": 150,
+      "killed": 47,
+      "timeout": 0,
+      "survived": 44,
+      "noCoverage": 59,
+      "error": 0,
+      "score": 31.3
+     },
+     "new": {
+      "run": 83,
+      "killed": 31,
+      "timeout": 0,
+      "survived": 37,
+      "noCoverage": 15,
+      "error": 0,
+      "score": 37.3
+     },
+     "audit": {
+      "run": 106,
+      "killed": 32,
+      "timeout": 0,
+      "survived": 34,
+      "noCoverage": 40,
+      "error": 0,
+      "score": 30.2
+     },
+     "small-models": {
+      "run": 35,
+      "killed": 22,
+      "timeout": 0,
+      "survived": 3,
+      "noCoverage": 10,
+      "error": 0,
+      "score": 62.9
+     }
+    },
+    "total": {
+     "run": 665,
+     "killed": 307,
+     "timeout": 0,
+     "survived": 167,
+     "noCoverage": 191,
+     "error": 0,
+     "score": 46.2
+    }
+   },
+   "after": {
+    "modules": {
+     "settings-model": {
+      "run": 141,
+      "killed": 114,
+      "timeout": 0,
+      "survived": 7,
+      "noCoverage": 20,
+      "error": 0,
+      "score": 80.9
+     },
+     "detail": {
+      "run": 150,
+      "killed": 66,
+      "timeout": 0,
+      "survived": 38,
+      "noCoverage": 46,
+      "error": 0,
+      "score": 44
+     },
+     "list": {
+      "run": 150,
+      "killed": 47,
+      "timeout": 0,
+      "survived": 44,
+      "noCoverage": 59,
+      "error": 0,
+      "score": 31.3
+     },
+     "new": {
+      "run": 83,
+      "killed": 31,
+      "timeout": 0,
+      "survived": 37,
+      "noCoverage": 15,
+      "error": 0,
+      "score": 37.3
+     },
+     "audit": {
+      "run": 106,
+      "killed": 32,
+      "timeout": 0,
+      "survived": 34,
+      "noCoverage": 40,
+      "error": 0,
+      "score": 30.2
+     },
+     "small-models": {
+      "run": 35,
+      "killed": 22,
+      "timeout": 0,
+      "survived": 3,
+      "noCoverage": 10,
+      "error": 0,
+      "score": 62.9
+     }
+    },
+    "total": {
+     "run": 665,
+     "killed": 312,
+     "timeout": 0,
+     "survived": 163,
+     "noCoverage": 190,
+     "error": 0,
+     "score": 46.9
+    }
+   }
+  }
+ },
+ "pins": {
+  "before": {
+   "tests": 42,
+   "source": 0,
+   "class": 39,
+   "copy": 31,
+   "style": 2,
+   "testsWithPins": 24
+  },
+  "after": {
+   "tests": 23,
+   "source": 0,
+   "class": 0,
+   "copy": 14,
+   "style": 0,
+   "testsWithPins": 9
+  }
+ },
+ "similar": {
+  "threshold": 0.8,
+  "groups": [
+   [
+    "ui-pipelines.test.mjs :: pipelines UI: matrix preview matches the compiler expansion",
+    "ui-pipelines-v2.test.mjs :: pipelines v2: plan rows follow the compiled plan, one per job after matrix expansion",
+    "ui-pipelines-v2.test.mjs :: pipelines v2: the New pipeline steps come from the query, and the create body is the template for the project",
+    "ui-pipelines-volt.test.mjs :: pipelines volt: every template compiles as it is and says what creating it does"
+   ],
+   [
+    "ui-pipelines-v2.test.mjs :: /pipelines/:id?tab=definition: jobs and steps as a tree beside the source, with no extra request",
+    "ui-pipelines-v2.test.mjs :: /pipelines/:id?tab=plan: the compiled plan as rows and one table row per expanded job",
+    "ui-pipelines-v2.test.mjs :: /pipelines/:id?tab=settings: a text value reads first, Edit opens its field, Escape cancels and Save is one versioned update",
+    "ui-pipelines-v2.test.mjs :: /pipelines/:id?tab=settings: a viewer gets no Edit; an archived pipeline shows Edit disabled with the reason",
+    "ui-pipelines-volt.test.mjs :: /pipelines/:id: tabs with the one primary action, the latest run banner, key facts and titled cards",
+    "ui-pipelines-volt.test.mjs :: /pipelines/:id: success rate and durations of the newest 50 runs on Overview, said as such",
+    "ui-pipelines-volt.test.mjs :: /pipelines/:id?tab=settings: a switch is one versioned update; a newer save is never overwritten",
+    "ui-pipelines-volt.test.mjs :: /pipelines/:id?tab=settings: a version conflict says so and offers a reload",
+    "ui-pipelines-volt.test.mjs :: /pipelines/:id?tab=settings: a viewer sees the settings and cannot change them"
+   ],
+   [
+    "ui-pipelines-v2.test.mjs :: /pipelines/new review: what will be created, the same call as an API request, and one pipeline.create",
+    "ui-pipelines-v2.test.mjs :: /pipelines/new review: a refused create says why in place and offers the editor",
+    "ui-pipelines-v2.test.mjs :: /pipelines/new?template=blank&mode=yaml: \"Write YAML\" opens the editor on its YAML tab, with the save docked",
+    "ui-pipelines-volt.test.mjs :: /pipelines/new: the ways to start, the templates, then the editor says what creating it will do"
+   ],
+   [
+    "ui-pipelines-volt.test.mjs :: /pipelines: the list, its usage column and health in a fixed number of requests",
+    "ui-pipelines-volt.test.mjs :: /pipelines: filters in the query string really filter, show as chips and clear",
+    "ui-pipelines-volt.test.mjs :: /pipelines: at the concurrency limit the usage column says jobs wait and how to get more capacity",
+    "ui-pipelines-volt.test.mjs :: /pipelines (negative): at the limit, a role that cannot manage runners is told who can, with no Add runners button",
+    "ui-pipelines-volt.test.mjs :: /pipelines: an empty workspace offers a template and an import, a viewer is told who can"
+   ]
+  ]
+ }
+}
