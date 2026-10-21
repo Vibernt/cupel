@@ -8,6 +8,10 @@ import { join, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 
+// Node renamed --experimental-test-isolation to --test-isolation in 23.6; Node 22 accepts only the old name.
+const [NODE_MAJOR, NODE_MINOR] = process.versions.node.split('.').map(Number);
+const ISOLATION_FLAG = NODE_MAJOR > 23 || (NODE_MAJOR === 23 && NODE_MINOR >= 6) ? '--test-isolation=none' : '--experimental-test-isolation=none';
+
 const HOOK_URL = pathToFileURL(fileURLToPath(new URL('./hook.mjs', import.meta.url))).href;
 const REPORTER = fileURLToPath(new URL('./reporter.mjs', import.meta.url));
 
@@ -71,7 +75,7 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
   if (mutantSpec) childEnv.CUPEL_MUTANT = mutantSpec;
   return new Promise((resolve) => {
     const started = performance.now();
-    const child = spawn(process.execPath, ['--test', '--test-isolation=none', `--test-reporter=${REPORTER}`, file], {
+    const child = spawn(process.execPath, ['--test', ISOLATION_FLAG, `--test-reporter=${REPORTER}`, file], {
       cwd: root, env: childEnv, detached: true, stdio: ['ignore', 'ignore', 'pipe'],
     });
     let stderr = '';

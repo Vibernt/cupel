@@ -16,6 +16,6 @@ The plans in `plans/` are the source of truth. The locked decisions in `plans/DE
 
 ## How to work
 
-- Keep test runs quiet and targeted while iterating. Run the full suite (`npm run verify`) before each commit to `main`. There is no hosted CI for this repo; the pre-push hook (`.githooks/pre-push`) runs `verify`.
+- Keep test runs quiet and targeted while iterating. Run the full suite (`npm run verify`) before each commit to `main`. There is no hosted CI for this repo; the pre-push hook (`.githooks/pre-push`) runs `verify`. Cupel supports Node 22+: before merging work that spawns Node or uses newer Node APIs, also run the Node tests on Node 22 (`PATH=/opt/homebrew/opt/node@22/bin:$PATH npm test`).
 - Record each spike in `plans/spikes/S<n>.md` with its method, numbers and verdict.
 - Report at each milestone with what was done, the numbers, the decisions made, what needs the owner's decision, and what was not verified.
