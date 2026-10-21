@@ -46,8 +46,42 @@ The engine is language-neutral: it sees only test ids, the lines each test cover
 | .NET | coverlet, per test | Import Stryker.NET | M6b |
 | Rust | `cargo llvm-cov` per test | Import cargo-mutants | M6b |
 | Ruby | standard-library `Coverage` with RSpec or Minitest hooks | Import mutant | M6b |
+| PHP | php-code-coverage (PCOV or Xdebug) with PHPUnit's per-test "covered by" data; Pest runs on PHPUnit | Import Infection | M6b |
 
 Results and durations come from JUnit XML wherever a runner emits it.
+
+### Frameworks: per language, plus a thin adapter
+
+Most of the work is per language, not per framework:
+
+| Layer | Varies by | Notes |
+|---|---|---|
+| Coverage engine | Language | V8 for every JS framework, `sys.monitoring` for Python, JaCoCo for the JVM, and so on |
+| Mutation | Language | Mutates the source, then re-runs the selected tests through the framework's own filter |
+| Results and durations | Almost nothing | JUnit XML |
+| Per-file coverage | Nothing | Coverage per process, tagged with its test file (S1). Works for any framework with no framework code |
+| Per-test coverage | Framework | Needs the boundaries between tests |
+
+Every framework gets per-file coverage with no adapter. Per-test coverage needs a **framework adapter** (about 100–200 lines) that implements a contract the spec defines:
+1. **List:** enumerate tests with stable ids (file plus full name).
+2. **Select:** run a given subset of tests (the framework's name or id filter).
+3. **Boundaries:** mark where each test starts and ends, including hooks and setup, for per-test coverage.
+4. **Tags:** read in-test tier tags in the framework's idiom (a title tag, a marker, an annotation or a group).
+
+First-party adapters:
+
+| Language | Frameworks |
+|---|---|
+| JavaScript, TypeScript | node:test, Vitest, Jest, Mocha |
+| Python | pytest, unittest |
+| Java, Kotlin | JUnit 5, Kotest |
+| Go | `go test` (the only one) |
+| .NET | xUnit, NUnit, MSTest (one VSTest data collector covers all three) |
+| Rust | `cargo test`, cargo-nextest |
+| Ruby | RSpec, Minitest |
+| PHP | PHPUnit, Pest |
+
+Any other framework can be added by the community through the public input format (D10).
 
 **Where advice is weaker.** End-to-end and browser tests (for example Playwright), and any test that drives several services or processes, cannot have their coverage attributed reliably to one test. Cupel still labels, guards and orders them, but it marks their keep and retire advice "low evidence" and never advises retiring them on coverage alone. Flakiness and real catches need run history (Vibernt Assay).
 
