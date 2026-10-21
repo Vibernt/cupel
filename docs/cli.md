@@ -19,7 +19,7 @@ Cupel never uses the network and never modifies your working tree. Every command
 | `cupel validate <file>` | Checks an input, report or config against the spec schemas |
 | `cupel conformance --adapter "<command>" [--fixtures <dir>]` | Runs an adapter in each fixture of `spec/conformance/adapters/` and matches its output against `expected.json` |
 
-`cupel mcp` is reserved for the MCP server (M4).
+`cupel mcp [--root <dir>]` starts the [local MCP server](mcp.md) over stdio.
 
 ## Options
 

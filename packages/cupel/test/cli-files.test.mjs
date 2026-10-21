@@ -171,7 +171,7 @@ test('usage errors exit 2', () => {
     ['import'],
     ['validate'],
     ['conformance'],
-    ['mcp'],
+    ['mcp', '--bogus'],
     ['frobnicate'],
     [],
   ];
