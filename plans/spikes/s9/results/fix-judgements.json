@@ -1,0 +1,245 @@
+{
+ "note": "Hand judgements of results/fix-sample.json, in order. y = a bug-fix commit (repairs behaviour that was wrong, broken or flaky), p = partly (a feature or chore commit that also fixes a named bug), n = not a fix. One judge (the S9 author), from subject and body only.",
+ "judgements": [
+  [
+   "y",
+   "Makes a flaky rate-limit test deterministic (window roll-over under load)."
+  ],
+  [
+   "p",
+   "A timed onboarding report; also lists small UX fixes."
+  ],
+  [
+   "n",
+   "Feature (test intelligence); \"flaky\" names a feature."
+  ],
+  [
+   "n",
+   "Feature (fan-out); \"fixed\" names a mode."
+  ],
+  [
+   "n",
+   "Rename and host split; feature work."
+  ],
+  [
+   "n",
+   "Feature (ratings); \"bug\" names a finding class."
+  ],
+  [
+   "n",
+   "Feature (settings pages); \"reverts on failure\" describes behaviour."
+  ],
+  [
+   "y",
+   "Phone layout and table fixes found in a sweep."
+  ],
+  [
+   "y",
+   "Completes an earlier security fix: the gate key was still readable by app code."
+  ],
+  [
+   "y",
+   "Hardening: fixes an invite race and allowlist matching bugs."
+  ],
+  [
+   "p",
+   "Audit items; mostly changes, some fixes."
+  ],
+  [
+   "y",
+   "Fixes two bugs the realistic fixture exposed."
+  ],
+  [
+   "y",
+   "Fixes a time bomb in the metering test."
+  ],
+  [
+   "n",
+   "Feature (performance page); \"regressed\" describes data."
+  ],
+  [
+   "p",
+   "Capacity refusals: retries and diagnosis after production refusals; part fix, part feature."
+  ],
+  [
+   "y",
+   "Fixes a blank page (tabs assigned after connect); no fix word."
+  ],
+  [
+   "n",
+   "Polish for narrow screens."
+  ],
+  [
+   "n",
+   "Feature (policy proposal reason)."
+  ],
+  [
+   "n",
+   "Doc redaction."
+  ],
+  [
+   "p",
+   "Consistency pass; also stops 104 places hiding errors."
+  ],
+  [
+   "n",
+   "Feature (speed percentiles)."
+  ],
+  [
+   "p",
+   "Encryption feature; also fixes erasure that stopped at 5,000 calls."
+  ],
+  [
+   "n",
+   "Packaging feature."
+  ],
+  [
+   "n",
+   "Copy change."
+  ],
+  [
+   "n",
+   "Feature (reviews list)."
+  ],
+  [
+   "n",
+   "Benchmark script."
+  ],
+  [
+   "n",
+   "Feature (optimization PRs)."
+  ],
+  [
+   "n",
+   "Refactor to shared pieces."
+  ],
+  [
+   "y",
+   "Fixes a receipt link that showed a generic error; no fix word."
+  ],
+  [
+   "n",
+   "Feature (policy as code)."
+  ],
+  [
+   "p",
+   "Validation run; also fixes misleading skill text."
+  ],
+  [
+   "y",
+   "Phone layout fixes."
+  ],
+  [
+   "n",
+   "Feature; \"regressions\" names a view."
+  ],
+  [
+   "n",
+   "Feature (graph views)."
+  ],
+  [
+   "n",
+   "Feature; \"no-regress\" names a benchmark mode."
+  ],
+  [
+   "y",
+   "Fixes four findings (module names)."
+  ],
+  [
+   "y",
+   "Conventional fix(hub)."
+  ],
+  [
+   "p",
+   "Parity port; also two shared fixes."
+  ],
+  [
+   "y",
+   "Fixes lost memory when a session ends without hooks (a product gap found by a run)."
+  ],
+  [
+   "y",
+   "Conventional fix(api)."
+  ],
+  [
+   "p",
+   "Performance: memory per vector \"measured and fixed\", plus a feature."
+  ],
+  [
+   "y",
+   "Finishes audit fixes in the device client."
+  ],
+  [
+   "n",
+   "Feature; \"bugs\" in prose."
+  ],
+  [
+   "p",
+   "Plan and research notes; one script fix."
+  ],
+  [
+   "y",
+   "Fixes lost patches in the harness, with a regression test."
+  ],
+  [
+   "n",
+   "Research notes."
+  ],
+  [
+   "n",
+   "Feature (Hub backend)."
+  ],
+  [
+   "n",
+   "Feature (design system governs implementation)."
+  ],
+  [
+   "n",
+   "Tooling and plan."
+  ],
+  [
+   "p",
+   "Corrects a reported count (results, not code)."
+  ],
+  [
+   "n",
+   "Port of parsers."
+  ],
+  [
+   "n",
+   "Test count."
+  ],
+  [
+   "n",
+   "Feature."
+  ],
+  [
+   "n",
+   "Benchmark."
+  ],
+  [
+   "n",
+   "Feature (validators)."
+  ],
+  [
+   "n",
+   "Feature (grants)."
+  ],
+  [
+   "n",
+   "A new isolation test."
+  ],
+  [
+   "n",
+   "Decision record."
+  ],
+  [
+   "n",
+   "Plan."
+  ],
+  [
+   "n",
+   "A new pinning test."
+  ]
+ ]
+}

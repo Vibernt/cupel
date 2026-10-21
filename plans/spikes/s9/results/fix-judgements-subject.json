@@ -1,0 +1,85 @@
+{
+ "note": "Hand judgements of results/fix-sample-subject.json, in order; codes as in fix-judgements.json.",
+ "judgements": [
+  [
+   "n",
+   "Docs; \"fixed sources\" is not a fix."
+  ],
+  [
+   "p",
+   "A doc formatting tweak to a note about a fix."
+  ],
+  [
+   "y",
+   "Onboarding fixes found by a timed run."
+  ],
+  [
+   "n",
+   "Feature named \"Assign fix\"."
+  ],
+  [
+   "y",
+   "Fixes spike findings (download, DNS, readiness)."
+  ],
+  [
+   "p",
+   "Feature, plus a widened flaky timing budget."
+  ],
+  [
+   "y",
+   "Fixes from the first live run (stuck prep)."
+  ],
+  [
+   "p",
+   "Unifies drifted implementations; the gate and report disagreed."
+  ],
+  [
+   "p",
+   "Refinement with a list of component fixes."
+  ],
+  [
+   "y",
+   "Fixes a ReferenceError on /admin."
+  ],
+  [
+   "p",
+   "Tracks study files; names a fix done elsewhere."
+  ],
+  [
+   "n",
+   "A new operator command named reset-crashes."
+  ],
+  [
+   "y",
+   "Conventional fix(companion)."
+  ],
+  [
+   "y",
+   "Fixes a stopped turn and crash backoff."
+  ],
+  [
+   "y",
+   "Audit fixes (WIP)."
+  ],
+  [
+   "y",
+   "Conventional fix(companion)."
+  ],
+  [
+   "y",
+   "Conventional fix(companion)."
+  ],
+  [
+   "y",
+   "Fixes a test whose fake was never consulted."
+  ],
+  [
+   "p",
+   "Feature, plus smoke-test fixes."
+  ],
+  [
+   "y",
+   "Fixes from a delivery-pipeline audit."
+  ]
+ ]
+}

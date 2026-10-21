@@ -1,0 +1,794 @@
+{
+ "assay": {
+  "groups": {
+   "all units (base)": {
+    "n": 4294,
+    "fixSubject": 264,
+    "fixAny": 950,
+    "fixSmall": 24,
+    "fixSmallAny": 61,
+    "rateSubject": 0.061,
+    "rateAny": 0.221,
+    "rateSmall": 0.006,
+    "rateSmallAny": 0.014,
+    "pSmallVsRest": null,
+    "pSubjectVsRest": null,
+    "pAnyVsRest": null
+   },
+   "v0 retire advice (coverage only)": {
+    "n": 669,
+    "fixSubject": 39,
+    "fixAny": 142,
+    "fixSmall": 5,
+    "fixSmallAny": 13,
+    "rateSubject": 0.058,
+    "rateAny": 0.212,
+    "rateSmall": 0.007,
+    "rateSmallAny": 0.019,
+    "pSmallVsRest": 0.408,
+    "pSubjectVsRest": 0.793,
+    "pAnyVsRest": 0.577
+   },
+   "v1 unverified retire (kept, marked)": {
+    "n": 938,
+    "fixSubject": 60,
+    "fixAny": 219,
+    "fixSmall": 4,
+    "fixSmallAny": 13,
+    "rateSubject": 0.064,
+    "rateAny": 0.233,
+    "rateSmall": 0.004,
+    "rateSmallAny": 0.014,
+    "pSmallVsRest": 0.804,
+    "pSubjectVsRest": 0.701,
+    "pAnyVsRest": 0.306
+   },
+   "v1 keep: has a unique line": {
+    "n": 1973,
+    "fixSubject": 134,
+    "fixAny": 472,
+    "fixSmall": 7,
+    "fixSmallAny": 21,
+    "rateSubject": 0.068,
+    "rateAny": 0.239,
+    "rateSmall": 0.004,
+    "rateSmallAny": 0.011,
+    "pSmallVsRest": 0.105,
+    "pSubjectVsRest": 0.111,
+    "pAnyVsRest": 0.0098
+   },
+   "v1 critical": {
+    "n": 2166,
+    "fixSubject": 120,
+    "fixAny": 417,
+    "fixSmall": 10,
+    "fixSmallAny": 18,
+    "rateSubject": 0.055,
+    "rateAny": 0.193,
+    "rateSmall": 0.005,
+    "rateSmallAny": 0.008,
+    "pSmallVsRest": 0.419,
+    "pSubjectVsRest": 0.0987,
+    "pAnyVsRest": 0.00000505
+   },
+   "v1 no coverage evidence": {
+    "n": 121,
+    "fixSubject": 6,
+    "fixAny": 23,
+    "fixSmall": 2,
+    "fixSmallAny": 5,
+    "rateSubject": 0.05,
+    "rateAny": 0.19,
+    "rateSmall": 0.017,
+    "rateSmallAny": 0.041,
+    "pSmallVsRest": 0.146,
+    "pSubjectVsRest": 0.703,
+    "pAnyVsRest": 0.439
+   }
+  },
+  "sensitivity": {
+   "all units (base)": {
+    "oldestLine": {
+     "n": 4294,
+     "fixSubject": 266,
+     "fixAny": 941,
+     "fixSmall": 25,
+     "fixSmallAny": 61
+    },
+    "unambiguousOnly": {
+     "n": 3998,
+     "fixSubject": 252,
+     "fixAny": 858,
+     "fixSmall": 24,
+     "fixSmallAny": 59
+    }
+   },
+   "v0 retire advice (coverage only)": {
+    "oldestLine": {
+     "n": 669,
+     "fixSubject": 38,
+     "fixAny": 138,
+     "fixSmall": 5,
+     "fixSmallAny": 11
+    },
+    "unambiguousOnly": {
+     "n": 611,
+     "fixSubject": 34,
+     "fixAny": 127,
+     "fixSmall": 5,
+     "fixSmallAny": 11
+    }
+   },
+   "v1 unverified retire (kept, marked)": {
+    "oldestLine": {
+     "n": 938,
+     "fixSubject": 61,
+     "fixAny": 219,
+     "fixSmall": 5,
+     "fixSmallAny": 12
+    },
+    "unambiguousOnly": {
+     "n": 866,
+     "fixSubject": 56,
+     "fixAny": 206,
+     "fixSmall": 4,
+     "fixSmallAny": 11
+    }
+   },
+   "v1 keep: has a unique line": {
+    "oldestLine": {
+     "n": 1973,
+     "fixSubject": 135,
+     "fixAny": 473,
+     "fixSmall": 7,
+     "fixSmallAny": 22
+    },
+    "unambiguousOnly": {
+     "n": 1849,
+     "fixSubject": 131,
+     "fixAny": 431,
+     "fixSmall": 7,
+     "fixSmallAny": 21
+    }
+   },
+   "v1 critical": {
+    "oldestLine": {
+     "n": 2166,
+     "fixSubject": 122,
+     "fixAny": 407,
+     "fixSmall": 10,
+     "fixSmallAny": 18
+    },
+    "unambiguousOnly": {
+     "n": 2030,
+     "fixSubject": 117,
+     "fixAny": 367,
+     "fixSmall": 10,
+     "fixSmallAny": 18
+    }
+   },
+   "v1 no coverage evidence": {
+    "oldestLine": {
+     "n": 121,
+     "fixSubject": 5,
+     "fixAny": 22,
+     "fixSmall": 2,
+     "fixSmallAny": 5
+    },
+    "unambiguousOnly": {
+     "n": 113,
+     "fixSubject": 5,
+     "fixAny": 21,
+     "fixSmall": 2,
+     "fixSmallAny": 5
+    }
+   }
+  },
+  "judged": [
+   {
+    "round": "v0",
+    "id": "tests/ui-runs.test.mjs :: runs ui: raw report artifact ids follow the executor naming",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/ui-runs.test.mjs:116",
+    "intro": "9fe4b2963c",
+    "introSubject": "Add Runs pages: list, run detail with live logs, reports, artifacts, plan and ETA calibration",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 7
+   },
+   {
+    "round": "v0",
+    "id": "tests/tia-rails.test.mjs :: freshness rail: only a reachable history with the base rolled up and a small backlog allows selection",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/tia-rails.test.mjs:21",
+    "intro": "0c67a6bffc",
+    "introSubject": "Test impact analysis: stale history runs everything (tia-01)",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 8
+   },
+   {
+    "round": "v0",
+    "id": "tests/crypto.test.mjs :: SHA implementations match native crypto: length 64",
+    "judgement": "wrong",
+    "fp": "row",
+    "site": "tests/crypto.test.mjs:12",
+    "intro": "a1fc30abcf",
+    "introSubject": "Import CRI CI 0.1.0; fix runner portability; configure ci.vibernt.ai deployment",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [
+     "boundary"
+    ],
+    "batch": 79
+   },
+   {
+    "round": "v0",
+    "id": "tests/yaml.test.mjs :: yaml: realistic workflow",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/yaml.test.mjs:188",
+    "intro": "3950d9eacb",
+    "introSubject": "Add GitHub Actions and Jenkins migrators with workflow-compatible execution",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 52
+   },
+   {
+    "round": "v0",
+    "id": "tests/source-links.test.mjs :: tar: links stay unsafe by default (unpacking and deploys), and are listed, never read or followed, with links: list",
+    "judgement": "wrong",
+    "fp": "tier",
+    "site": "tests/source-links.test.mjs:51",
+    "intro": "2a78c61fe1",
+    "introSubject": "Test selection tolerates links between inert files in the source archive",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 4
+   },
+   {
+    "round": "v0",
+    "id": "tests/credential-leak.test.mjs :: deployment and registry clients parse credentials without echoing them",
+    "judgement": "wrong",
+    "fp": "tier",
+    "site": "tests/credential-leak.test.mjs:67",
+    "intro": "767dce259b",
+    "introSubject": "Admit bearer tokens at the edge and keep credential text out of errors",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 19
+   },
+   {
+    "round": "v0",
+    "id": "tests/test-impact-ecosystems.test.mjs :: Java: Surefire and Gradle class names map to test sources; nested classes map to their file; ties are unmapped",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test-impact-ecosystems.test.mjs:399",
+    "intro": "ebe1444fa0",
+    "introSubject": "Test impact analysis for Java and Kotlin: Maven reactors and Gradle builds (tia-17)",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 5
+   },
+   {
+    "round": "v0",
+    "id": "tests/migrate-travis.test.mjs :: travis: simple fixture -> version matrix, phase semantics, branch filters, cache and env-passed variables",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/migrate-travis.test.mjs:29",
+    "intro": "ae910221f2",
+    "introSubject": "Add GitLab CI, CircleCI, Azure Pipelines, Bitbucket, Travis and Drone migrators",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 69
+   },
+   {
+    "round": "v0",
+    "id": "tests/observability-config.test.mjs :: every container application states its logs, and customer-command containers keep them off",
+    "judgement": "wrong",
+    "fp": "empty",
+    "site": "tests/observability-config.test.mjs:28",
+    "intro": "569f019cb6",
+    "introSubject": "Observability cost guard and rate card cf-2026-10-09 (v045-g2)",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 15
+   },
+   {
+    "round": "v0",
+    "id": "tests/findings.test.mjs :: findings project onto the problem-report shape the console and agents already read",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/findings.test.mjs:290",
+    "intro": "89c5f97060",
+    "introSubject": "Tests: fingerprints, comparison, SARIF per tool, packs and web budgets",
+    "fixSubject": false,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 55
+   }
+  ],
+  "judgedSummary": {
+   "wrongOrDebatable": {
+    "n": 10,
+    "fixSubject": 0,
+    "fixAny": 1,
+    "fixSmall": 0
+   },
+   "correct": {
+    "n": 0,
+    "fixSubject": 0,
+    "fixAny": 0,
+    "fixSmall": 0
+   },
+   "pWrongVsBaseSmall": 1,
+   "pWrongVsBaseSubject": 1,
+   "pWrongVsBaseAny": 0.918
+  }
+ },
+ "cc": {
+  "groups": {
+   "all units (base)": {
+    "n": 1191,
+    "fixSubject": 344,
+    "fixAny": 434,
+    "fixSmall": 4,
+    "fixSmallAny": 35,
+    "rateSubject": 0.289,
+    "rateAny": 0.364,
+    "rateSmall": 0.003,
+    "rateSmallAny": 0.029,
+    "pSmallVsRest": null,
+    "pSubjectVsRest": null,
+    "pAnyVsRest": null
+   },
+   "v0 retire advice (coverage only)": {
+    "n": 96,
+    "fixSubject": 27,
+    "fixAny": 34,
+    "fixSmall": 0,
+    "fixSmallAny": 2,
+    "rateSubject": 0.281,
+    "rateAny": 0.354,
+    "rateSmall": 0,
+    "rateSmallAny": 0.021,
+    "pSmallVsRest": 1,
+    "pSubjectVsRest": 0.907,
+    "pAnyVsRest": 0.912
+   },
+   "v1 unverified retire (kept, marked)": {
+    "n": 370,
+    "fixSubject": 92,
+    "fixAny": 131,
+    "fixSmall": 1,
+    "fixSmallAny": 12,
+    "rateSubject": 0.249,
+    "rateAny": 0.354,
+    "rateSmall": 0.003,
+    "rateSmallAny": 0.032,
+    "pSmallVsRest": 1,
+    "pSubjectVsRest": 0.045,
+    "pAnyVsRest": 0.649
+   },
+   "v1 keep: has a unique line": {
+    "n": 670,
+    "fixSubject": 193,
+    "fixAny": 223,
+    "fixSmall": 3,
+    "fixSmallAny": 16,
+    "rateSubject": 0.288,
+    "rateAny": 0.333,
+    "rateSmall": 0.004,
+    "rateSmallAny": 0.024,
+    "pSmallVsRest": 0.636,
+    "pSubjectVsRest": 0.949,
+    "pAnyVsRest": 0.0108
+   },
+   "v1 critical": {
+    "n": 128,
+    "fixSubject": 67,
+    "fixAny": 80,
+    "fixSmall": 0,
+    "fixSmallAny": 0,
+    "rateSubject": 0.523,
+    "rateAny": 0.625,
+    "rateSmall": 0,
+    "rateSmallAny": 0,
+    "pSmallVsRest": 1,
+    "pSubjectVsRest": 3.5e-9,
+    "pAnyVsRest": 3.66e-10
+   },
+   "v1 no coverage evidence": {
+    "n": 18,
+    "fixSubject": 2,
+    "fixAny": 3,
+    "fixSmall": 0,
+    "fixSmallAny": 1,
+    "rateSubject": 0.111,
+    "rateAny": 0.167,
+    "rateSmall": 0,
+    "rateSmallAny": 0.056,
+    "pSmallVsRest": 1,
+    "pSubjectVsRest": 0.117,
+    "pAnyVsRest": 0.0883
+   }
+  },
+  "sensitivity": {
+   "all units (base)": {
+    "oldestLine": {
+     "n": 1191,
+     "fixSubject": 335,
+     "fixAny": 425,
+     "fixSmall": 4,
+     "fixSmallAny": 34
+    },
+    "unambiguousOnly": {
+     "n": 1088,
+     "fixSubject": 324,
+     "fixAny": 413,
+     "fixSmall": 4,
+     "fixSmallAny": 34
+    }
+   },
+   "v0 retire advice (coverage only)": {
+    "oldestLine": {
+     "n": 96,
+     "fixSubject": 26,
+     "fixAny": 32,
+     "fixSmall": 0,
+     "fixSmallAny": 1
+    },
+    "unambiguousOnly": {
+     "n": 87,
+     "fixSubject": 26,
+     "fixAny": 32,
+     "fixSmall": 0,
+     "fixSmallAny": 1
+    }
+   },
+   "v1 unverified retire (kept, marked)": {
+    "oldestLine": {
+     "n": 370,
+     "fixSubject": 91,
+     "fixAny": 131,
+     "fixSmall": 1,
+     "fixSmallAny": 12
+    },
+    "unambiguousOnly": {
+     "n": 333,
+     "fixSubject": 91,
+     "fixAny": 130,
+     "fixSmall": 1,
+     "fixSmallAny": 12
+    }
+   },
+   "v1 keep: has a unique line": {
+    "oldestLine": {
+     "n": 670,
+     "fixSubject": 190,
+     "fixAny": 219,
+     "fixSmall": 3,
+     "fixSmallAny": 15
+    },
+    "unambiguousOnly": {
+     "n": 620,
+     "fixSubject": 184,
+     "fixAny": 213,
+     "fixSmall": 3,
+     "fixSmallAny": 15
+    }
+   },
+   "v1 critical": {
+    "oldestLine": {
+     "n": 128,
+     "fixSubject": 59,
+     "fixAny": 72,
+     "fixSmall": 0,
+     "fixSmallAny": 0
+    },
+    "unambiguousOnly": {
+     "n": 107,
+     "fixSubject": 50,
+     "fixAny": 63,
+     "fixSmall": 0,
+     "fixSmallAny": 0
+    }
+   },
+   "v1 no coverage evidence": {
+    "oldestLine": {
+     "n": 18,
+     "fixSubject": 2,
+     "fixAny": 3,
+     "fixSmall": 0,
+     "fixSmallAny": 1
+    },
+    "unambiguousOnly": {
+     "n": 18,
+     "fixSubject": 2,
+     "fixAny": 3,
+     "fixSmall": 0,
+     "fixSmallAny": 1
+    }
+   }
+  },
+  "judged": [
+   {
+    "round": "v0",
+    "id": "tests/test_companion_connect_daemon.py::test_stale_socket_is_reported_without_pid_kill",
+    "judgement": "correct",
+    "fp": null,
+    "site": "tests/test_companion_connect_daemon.py:186",
+    "intro": "964b413fa1",
+    "introSubject": "test(companion): use short private daemon socket paths",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [
+     "title-newer"
+    ],
+    "batch": 3
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_client_build_scripts.py::test_scripts_are_executable",
+    "judgement": "wrong",
+    "fp": "empty",
+    "site": "tests/test_client_build_scripts.py:119",
+    "intro": "18c6932ac2",
+    "introSubject": "P3-F33: signed client builds keep Keychain access; Keychain failures are explicit",
+    "fixSubject": false,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 5
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_context_efficiency_budget.py::test_durable_limits_cannot_change_on_reopen",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test_context_efficiency_budget.py:160",
+    "intro": "18812053a1",
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "fixSubject": true,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 131
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_companion_audit_hardening.py::test_warm_with_a_failed_refresh_gives_up_quietly_and_keeps_the_login",
+    "judgement": "wrong",
+    "fp": "tier",
+    "site": "tests/test_companion_audit_hardening.py:97",
+    "intro": "58fbaf05cc",
+    "introSubject": "Companion audit fixes: keep the login on a transient refresh failure, redact the guard and checkpoints, private config, quoted hook path",
+    "fixSubject": true,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 12
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_context_efficiency_launcher.py::test_cli_arguments_hold_launcher_fixed_and_pin_sonnet_effort",
+    "judgement": "wrong",
+    "fp": "tier",
+    "site": "tests/test_context_efficiency_launcher.py:24",
+    "intro": "18812053a1",
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "fixSubject": true,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 131
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_v7_implementation_links.py::test_current_v7_implementation_references_exist",
+    "judgement": "debatable",
+    "fp": "empty",
+    "site": "tests/test_v7_implementation_links.py:13",
+    "intro": "6a733325fb",
+    "introSubject": "docs: index current V7 implementation status",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 2
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_transient_context_adapter.py::test_pinned_cli_indexes_then_searches_literal_output",
+    "judgement": "wrong",
+    "fp": "notrun",
+    "site": "tests/test_transient_context_adapter.py:15",
+    "intro": "074ef03d6a",
+    "introSubject": "Record actual Context Mode and Headroom component screen with recovery audit",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 35
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_procedures.py::test_classify[make build-build]",
+    "judgement": "wrong",
+    "fp": "row",
+    "site": "tests/test_procedures.py:124",
+    "intro": "64b7f4fc64",
+    "introSubject": "S5: declared commands from CI and task runners, and a test map with runner-specific commands",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 6
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_companion_design.py::test_every_rule_has_a_case",
+    "judgement": "wrong",
+    "fp": "empty",
+    "site": "tests/test_companion_design.py:378",
+    "intro": "240c726a96",
+    "introSubject": "crystal design: the runtime's board lint rules, and render over a local HTTP server",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 8
+   },
+   {
+    "round": "v0",
+    "id": "tests/test_companion_reclaim.py::test_daemon_refreshes_stale_unsent_measurement",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test_companion_reclaim.py:129",
+    "intro": "fe26d0cdb9",
+    "introSubject": "Report device telemetry and journal conservative cache reclaim",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 8
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_context_efficiency_integrity.py::test_changed_dependency_refuses_execution",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test_context_efficiency_integrity.py:12",
+    "intro": "18812053a1",
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "fixSubject": true,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 131
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_v7_implementation_links.py::test_plan_and_older_status_point_to_current_v7_page",
+    "judgement": "debatable",
+    "fp": "empty",
+    "site": "tests/test_v7_implementation_links.py:22",
+    "intro": "6a733325fb",
+    "introSubject": "docs: index current V7 implementation status",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 2
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_intent_change.py::test_an_approved_claim_is_linked_to_code_and_reaches_the_briefing",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test_intent_change.py:251",
+    "intro": "62c5877b85",
+    "introSubject": "Phases 1b and 1c: the code propagates itself, a document can only propose (D75)",
+    "fixSubject": false,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 13
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_retrieval.py::test_index_rows_follow_file_changes",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test_retrieval.py:278",
+    "intro": "a21b5f9312",
+    "introSubject": "Fix indexing of real repositories; add coverage scoring arm",
+    "fixSubject": true,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 34
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_procedures.py::test_classify[echo hi-None]",
+    "judgement": "wrong",
+    "fp": "row",
+    "site": "tests/test_procedures.py:124",
+    "intro": "64b7f4fc64",
+    "introSubject": "S5: declared commands from CI and task runners, and a test map with runner-specific commands",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 6
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_github_draft_publisher.py::test_identity_permission_and_head_conflicts_refuse_before_post[change1]",
+    "judgement": "wrong",
+    "fp": "row",
+    "site": "tests/test_github_draft_publisher.py:118",
+    "intro": "124d38cd4d",
+    "introSubject": "Add fail-closed GitHub draft PR reconciliation connector",
+    "fixSubject": false,
+    "fixAny": false,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 6
+   },
+   {
+    "round": "v0-firstrun",
+    "id": "tests/test_context_efficiency_budget.py::test_concurrent_token_reservations_cannot_share_remaining_allowance",
+    "judgement": "wrong",
+    "fp": "assert",
+    "site": "tests/test_context_efficiency_budget.py:107",
+    "intro": "18812053a1",
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "fixSubject": true,
+    "fixAny": true,
+    "fixSmall": false,
+    "flags": [],
+    "batch": 131
+   }
+  ],
+  "judgedSummary": {
+   "wrongOrDebatable": {
+    "n": 16,
+    "fixSubject": 6,
+    "fixAny": 8,
+    "fixSmall": 0
+   },
+   "correct": {
+    "n": 1,
+    "fixSubject": 0,
+    "fixAny": 0,
+    "fixSmall": 0
+   },
+   "pWrongVsBaseSmall": 1,
+   "pWrongVsBaseSubject": 0.304,
+   "pWrongVsBaseAny": 0.191
+  }
+ }
+}

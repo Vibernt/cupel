@@ -1,0 +1,494 @@
+{
+ "assay": {
+  "pinned": {
+   "n": 172,
+   "edited": 51,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 22,
+   "editedNeverWithLogic": 18,
+   "introPresentationOrUi": 30
+  },
+  "unpinned": {
+   "n": 4122,
+   "edited": 539,
+   "editedPresentation": 7,
+   "editedPresentationOrUi": 103,
+   "editedNeverWithLogic": 114,
+   "introPresentationOrUi": 298
+  },
+  "uiFilesPinned": {
+   "n": 102,
+   "edited": 41,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 22,
+   "editedNeverWithLogic": 18,
+   "introPresentationOrUi": 30
+  },
+  "uiFilesUnpinned": {
+   "n": 707,
+   "edited": 174,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 94,
+   "editedNeverWithLogic": 94,
+   "introPresentationOrUi": 228
+  },
+  "pUiFilesEditedPresentationOrUi": 0.0336,
+  "pJudgedCorrectVsWrong": 0.164,
+  "pEditedPresentationOrUi": 2.3e-9,
+  "pIntroPresentationOrUi": 0.0000122,
+  "judged": {
+   "correct": {
+    "n": 8,
+    "edited": 2,
+    "presentationEdit": 2,
+    "neverWithLogic": 2,
+    "introPresentationOrUi": 1
+   },
+   "wrong": {
+    "n": 11,
+    "edited": 1,
+    "presentationEdit": 0,
+    "neverWithLogic": 0,
+    "introPresentationOrUi": 1
+   },
+   "debatable": {
+    "n": 1,
+    "edited": 0,
+    "presentationEdit": 0,
+    "neverWithLogic": 0,
+    "introPresentationOrUi": 0
+   }
+  },
+  "judgedItems": [
+   {
+    "id": "tests/ui-deliver.test.mjs :: deliver ui: every adapter links to a guide section that exists",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "ui",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/cli-packaging.test.mjs :: built and installed from the tarballs: cri runs outside the repository, the clients import, the digests agree",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/github-sign-in.test.mjs :: switch off (negative): the start endpoint answers 404, the challenge offers no provider and the page hides the button",
+    "round": "v0",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/drop-in-onboarding-api.test.mjs :: preview: the exact diff touches only runs-on lines of the picked jobs; incompatible and unknown jobs are refused",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/eval-frameworks.test.mjs :: normalized framework reports keep failures, errors and unknown cost explicit",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/ui-caches.test.mjs :: caches page: registered as Settings, Caches; the old Actions cache path redirects; in the sections and the palette",
+    "round": "v0",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 2,
+    "editKinds": [
+     "ui",
+     "ui"
+    ],
+    "introKind": "logic",
+    "presentationEdit": true,
+    "neverWithLogic": true
+   },
+   {
+    "id": "tests/data-handling.test.mjs :: data handling: the retention table on the page is the one generated from the code constants",
+    "round": "v0",
+    "judgement": "debatable",
+    "fp": "intent",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/tia-precision.test.mjs :: scip: our Python edges against the recorded scip-python index",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/drop-in-switch.test.mjs :: CRLF files stay CRLF and still change only runs-on",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/ui-alerts.test.mjs :: alerts page: every section has a loading, empty and error state, and errors are never empty states",
+    "round": "v0",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 1,
+    "editKinds": [
+     "ui"
+    ],
+    "introKind": "logic",
+    "presentationEdit": true,
+    "neverWithLogic": true
+   },
+   {
+    "id": "tests/ui-get-started-features.test.mjs :: routes and links: the page is registered under Get started and reached from the card, the drop-in flow and the checklist",
+    "round": "v1",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/ui-audit-r3-r8.test.mjs :: r8: recent runs keep Started in view: priorities drop Trigger, then Duration, in a narrow card; phones keep every column",
+    "round": "v1",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/cli-packaging.test.mjs :: the CLI release pipeline can only publish behind the manual gate",
+    "round": "v1",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/steps.test.mjs :: the collector stores live and final steps and annotations on the attempt",
+    "round": "v1",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/ui-caches.test.mjs :: caches model: retention, node_modules restores, the store never shows an unmetered hit rate, layers from both places",
+    "round": "v1",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 1,
+    "editKinds": [
+     "logic"
+    ],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/github-sign-in.test.mjs :: registry: githubSignIn is operator-only, off by default, loosens nothing; the two callback path constants agree",
+    "round": "v1",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/drop-in-switch.test.mjs :: inspect: the mixed workflow lists every job with its verdict",
+    "round": "v1",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/ui-foundation-pieces.test.mjs :: meter mode=\"progress\": no amber or red, a full bar is done, one progress colour for every progress fill",
+    "round": "v1",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "ui",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/actions-workspace.test.mjs :: build once: the plan job uploads its prepared workspace in sealed parts, a leg restores it over its checkout and skips its setup",
+    "round": "v1",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/ui-operator-console.test.mjs :: the forms of load tests, purges, status incidents and the Jev probe require a reason and send it",
+    "round": "v1",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   }
+  ],
+  "commitKinds": {
+   "logic": 457,
+   "ui": 75,
+   "presentation": 99,
+   "data": 15,
+   "test-only": 26
+  }
+ },
+ "cc": {
+  "pinned": {
+   "n": 7,
+   "edited": 0,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 0,
+   "editedNeverWithLogic": 0,
+   "introPresentationOrUi": 0
+  },
+  "unpinned": {
+   "n": 1184,
+   "edited": 65,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 0,
+   "editedNeverWithLogic": 2,
+   "introPresentationOrUi": 2
+  },
+  "uiFilesPinned": {
+   "n": 0,
+   "edited": 0,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 0,
+   "editedNeverWithLogic": 0,
+   "introPresentationOrUi": 0
+  },
+  "uiFilesUnpinned": {
+   "n": 0,
+   "edited": 0,
+   "editedPresentation": 0,
+   "editedPresentationOrUi": 0,
+   "editedNeverWithLogic": 0,
+   "introPresentationOrUi": 0
+  },
+  "pUiFilesEditedPresentationOrUi": 1,
+  "pJudgedCorrectVsWrong": 1,
+  "pEditedPresentationOrUi": 1,
+  "pIntroPresentationOrUi": 1,
+  "judged": {
+   "correct": {
+    "n": 4,
+    "edited": 0,
+    "presentationEdit": 0,
+    "neverWithLogic": 0,
+    "introPresentationOrUi": 0
+   },
+   "wrong": {
+    "n": 2,
+    "edited": 2,
+    "presentationEdit": 0,
+    "neverWithLogic": 0,
+    "introPresentationOrUi": 0
+   },
+   "debatable": {
+    "n": 5,
+    "edited": 0,
+    "presentationEdit": 0,
+    "neverWithLogic": 0,
+    "introPresentationOrUi": 0
+   }
+  },
+  "judgedItems": [
+   {
+    "id": "tests/test_status_manifest.py::test_the_status_page_is_up_to_date",
+    "round": "v0",
+    "judgement": "debatable",
+    "fp": "intent",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_companion_design.py::test_the_enforcer_is_the_design_systems_own",
+    "round": "v0",
+    "judgement": "debatable",
+    "fp": "intent",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_cri_hub_cf.py::test_roles_and_token_lifetime_are_the_typescript_hubs",
+    "round": "v0",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_distribution_v3.py::test_native_and_runtime_have_separate_consistent_package_metadata",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 1,
+    "editKinds": [
+     "logic"
+    ],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_s2_fixtures.py::test_the_websites_are_static_and_share_one_html_reader",
+    "round": "v0",
+    "judgement": "debatable",
+    "fp": "intent",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_s2_review.py::test_the_review_page_is_self_contained_and_blind",
+    "round": "v0",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_v7_authoring_preparation.py::test_historical_luna_cohort_is_hashed_and_its_seven_misses_remain_separate",
+    "round": "v0",
+    "judgement": "debatable",
+    "fp": "intent",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_replay.py::test_the_filter_arm_is_voided_when_its_packets_were_never_judged",
+    "round": "v0",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_graph.py::test_web_project_html_and_css_are_indexed_and_linked",
+    "round": "v0",
+    "judgement": "wrong",
+    "fp": "detector",
+    "edits": 1,
+    "editKinds": [
+     "logic"
+    ],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_replay.py::test_every_arm_built_on_trim_cli_runs_trimmed",
+    "round": "v1",
+    "judgement": "correct",
+    "fp": null,
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   },
+   {
+    "id": "tests/test_v7_authoring_preparation.py::test_every_dispatch_input_is_hashed_before_dispatch",
+    "round": "v0-firstrun",
+    "judgement": "debatable",
+    "fp": "intent",
+    "edits": 0,
+    "editKinds": [],
+    "introKind": "logic",
+    "presentationEdit": false,
+    "neverWithLogic": false
+   }
+  ],
+  "commitKinds": {
+   "logic": 574,
+   "ui": 12,
+   "presentation": 130,
+   "data": 20,
+   "test-only": 41
+  }
+ }
+}

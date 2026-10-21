@@ -1,0 +1,52 @@
+{
+ "assay": {
+  "commits": 982,
+  "merges": 310,
+  "rootCommits": 1,
+  "sites": 4295,
+  "mapped": 4295,
+  "missingBlame": 0,
+  "flags": {
+   "moved": 19,
+   "title-newer": 127,
+   "possible-move": 170,
+   "not-in-log": 0,
+   "boundary": 79
+  },
+  "ambiguous": 296,
+  "introCommits": 427,
+  "sitesFromRootCommit": 79,
+  "timing": {
+   "parseHistoryMs": 86,
+   "blameParseMs": 655,
+   "blameFiles": 421,
+   "blameLines": 109861,
+   "totalMs": 785
+  }
+ },
+ "cc": {
+  "commits": 917,
+  "merges": 140,
+  "rootCommits": 1,
+  "sites": 1191,
+  "mapped": 1191,
+  "missingBlame": 0,
+  "flags": {
+   "moved": 0,
+   "title-newer": 25,
+   "possible-move": 78,
+   "not-in-log": 0,
+   "boundary": 0
+  },
+  "ambiguous": 103,
+  "introCommits": 148,
+  "sitesFromRootCommit": 0,
+  "timing": {
+   "parseHistoryMs": 13,
+   "blameParseMs": 142,
+   "blameFiles": 173,
+   "blameLines": 22385,
+   "totalMs": 245
+  }
+ }
+}

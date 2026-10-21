@@ -17,5 +17,6 @@ Source suites (local checkouts, read-only):
 | S6 | Is advice credible to a person? | Run the draft engine on Assay and CodeCrystal; hand-check 30 suggestions each | Precision of retire/consolidate advice; false positives explained | 1 day |
 | S7 | What do CodeCrystal's 439 experiment-harness tests protect? | Coverage of `scripts/*` harnesses vs product code | Per harness: keep, move to opt-in, or retire | ½ day |
 | S8 | Does an agent add fewer no-value tests with `cupel check`? | On 10 recent agent-written PRs (Assay, forks), unique coverage of the new tests on changed lines; then a small A/B with an agent using the MCP tool | Share of no-value tests with and without; false positive rate | 1 day |
+| S9 | Does local git history make the advice more credible? | Map every Assay and CodeCrystal test to its introducing commit (blame of the title line); test fix-commit origin, batches and agent authorship, and co-change against S6's advice and hand-checks; time `git log` and `git blame` | A verdict with numbers per hypothesis, and a spec recommendation ([S9](spikes/S9.md): no history fields) | 1 day |
 
 S1, S2, S3 decide the collector design; S4 and S6 decide whether advice is trustworthy enough to ship; S8 is the launch story.
