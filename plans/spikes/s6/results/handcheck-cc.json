@@ -1,0 +1,1409 @@
+[
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 0,
+  "class": "retire",
+  "id": "tests/test_companion_connect_daemon.py::test_stale_socket_is_reported_without_pid_kill",
+  "signals": "own 29, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (29 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Duplicates the stale-socket half of test_status_distinguishes_unresponsive_owner_from_stale_socket (same call, same 'stale' assertion); the 'without pid kill' in its title is not asserted.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 1,
+  "class": "retire",
+  "id": "tests/test_client_build_scripts.py::test_scripts_are_executable",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "File-mode check (the build scripts are executable); runs no code, so coverage cannot judge it.",
+  "fp": "empty"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 2,
+  "class": "retire",
+  "id": "tests/test_context_efficiency_budget.py::test_durable_limits_cannot_change_on_reopen",
+  "signals": "own 33, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (33 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "The budget Ledger's durable limits cannot change on reopen; the overlapping test checks a different class (LiveUsageGuard). A quota test, too.",
+  "fp": "assert"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 3,
+  "class": "retire",
+  "id": "tests/test_companion_audit_hardening.py::test_warm_with_a_failed_refresh_gives_up_quietly_and_keeps_the_login",
+  "signals": "own 60, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (60 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Token handling: a failed refresh keeps the login. Auth by intent, not by path name.",
+  "fp": "tier"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 4,
+  "class": "retire",
+  "id": "tests/test_context_efficiency_launcher.py::test_cli_arguments_hold_launcher_fixed_and_pin_sonnet_effort",
+  "signals": "own 31, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (31 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Security assertions on the launcher argv (no permission skip, no shell expansion).",
+  "fp": "tier"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 5,
+  "class": "retire",
+  "id": "tests/test_v7_implementation_links.py::test_current_v7_implementation_references_exist",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Checks the status page's links resolve; a docs integrity check, not code.",
+  "fp": "empty"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 6,
+  "class": "retire",
+  "id": "tests/test_transient_context_adapter.py::test_pinned_cli_indexes_then_searches_literal_output",
+  "signals": "own 0, uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Skipped in this run (the pinned CLI is not installed), so it covers nothing; no evidence either way.",
+  "fp": "notrun"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 7,
+  "class": "retire",
+  "id": "tests/test_procedures.py::test_classify[make build-build]",
+  "signals": "own 10, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (10 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of the parametrized classify table.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 8,
+  "class": "retire",
+  "id": "tests/test_companion_design.py::test_every_rule_has_a_case",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A meta-check that every board rule has a test case; runs no product code.",
+  "fp": "empty"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 9,
+  "class": "retire",
+  "id": "tests/test_companion_reclaim.py::test_daemon_refreshes_stale_unsent_measurement",
+  "signals": "own 195, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (195 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Asserts that a stale (over 300 s) unsent sample is regenerated; its sibling asserts the opposite case (the same sample is retried).",
+  "fp": "assert"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 10,
+  "class": "consolidate",
+  "id": "tests/test_companion_audit_hardening.py::test_the_guard_redacts_secrets_before_asking_the_hub[curl -H \"Authorization: Bearer fake0bearer1value2xyz\" -X POST https://api.example.com/v1/items-fake0bearer1value2xyz-curl -H]",
+  "signals": "own 60, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_the_guard_redacts_secrets_before_asking_the_hub[GITHUB_TOKEN=ghp_Fa1keFa1ke",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of the secret-redaction table (security); already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 11,
+  "class": "consolidate",
+  "id": "tests/test_github_delivery_journal.py::test_lost_branch_with_no_remote_ref_stays_uncertain_without_second_write",
+  "signals": "own 74, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_branch_and_pr_intents_are_durable_and_reconcile_only",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A crash between the fsynced intent and the API call stays uncertain without a second write: a different failure from the sibling's.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 12,
+  "class": "consolidate",
+  "id": "tests/test_replay.py::test_attempt_schema_fails_closed[<lambda>7]",
+  "signals": "own 214, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_attempt_schema_fails_closed[<lambda>8]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 13,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_budget.py::test_unknown_cost_keeps_the_reservation_and_is_never_zero",
+  "signals": "own 96, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_pending_reservation_survives_restart_and_known_settlement_releases_room",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Unknown cost keeps the reservation and is never zero, against a reservation surviving a restart: different behaviours.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 14,
+  "class": "consolidate",
+  "id": "tests/test_companion_design.py::test_push_conflict_lists_paths_and_changes_nothing_locally[details]",
+  "signals": "own 514, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.998): test_push_conflict_lists_paths_and_changes_nothing_locally[paths]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 15,
+  "class": "consolidate",
+  "id": "tests/test_design_art_cli.py::test_request_validates_locally_before_calling[argv3-16..4096]",
+  "signals": "own 381, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_request_validates_locally_before_calling[argv4-16..4096]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 16,
+  "class": "consolidate",
+  "id": "tests/test_companion_provenance.py::test_no_commits_since_the_base_lists_none",
+  "signals": "own 42, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_a_base_rebased_away_lists_nothing_rather_than_guessing",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "No commits since the base against a base rebased away: different histories and setup.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 17,
+  "class": "consolidate",
+  "id": "tests/test_companion_mcp.py::test_still_open_through_mcp_is_a_result_not_an_error",
+  "signals": "own 537, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.952): test_ask_through_mcp_waits_for_the_answer",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Still open against answered through MCP: could be one test parametrized by wait and expected prefix, but the sibling also checks the posted fields.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 18,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_evidence.py::test_overlapping_ranges_keep_distinct_source_identities_and_are_not_silently_lost",
+  "signals": "own 83, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_low_ranked_evidence_is_deferred_then_recovered_by_exact_handle",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Overlapping ranges keep distinct identities against deferred evidence recovered by handle: different behaviours.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 19,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_accounting.py::test_negative_boolean_and_nonfinite_cost_are_invalid",
+  "signals": "own 82, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.976): test_counts_cache_once_and_never_adds_reasoning_twice",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Invalid cost values against cache counting: different assertions.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 20,
+  "class": "rewrite",
+  "id": "tests/test_status_manifest.py::test_the_status_page_is_up_to_date",
+  "signals": "own 107, uniq 6, file-snapshot+doc-wording, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 22: (ROOT / 'docs' / 'STATUS.md').read_text()); doc-wording (line 22: ROOT / 'docs' / 'STATUS.md')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Generated STATUS.md must equal the generator's output: a deliberate freshness gate.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 21,
+  "class": "rewrite",
+  "id": "tests/test_companion_design.py::test_the_enforcer_is_the_design_systems_own",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 498: REPO / 'hub-ts/src/slices/design/assets.ts')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "An embedded copy must equal the file: a deliberate sync check (better generated).",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 22,
+  "class": "rewrite",
+  "id": "tests/test_cri_hub_cf.py::test_roles_and_token_lifetime_are_the_typescript_hubs",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 95: HUB_TS / 'slices' / 'operator' / 'routes.ts')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins a constant's source line in the TypeScript Hub (DEFAULT_TOKEN_SECONDS).",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 23,
+  "class": "rewrite",
+  "id": "tests/test_distribution_v3.py::test_native_and_runtime_have_separate_consistent_package_metadata",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 82: ROOT / 'pyproject.toml')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "TOML is parsed and versions compared: structured data, not a text pin.",
+  "fp": "detector"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 24,
+  "class": "rewrite",
+  "id": "tests/test_s2_fixtures.py::test_the_websites_are_static_and_share_one_html_reader",
+  "signals": "own 9, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 39: BENCH / 'apps' / app / 'acceptance' / 'html.mjs')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Byte equality of copies of one reader: a deliberate sync check.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 25,
+  "class": "rewrite",
+  "id": "tests/test_s2_review.py::test_the_review_page_is_self_contained_and_blind",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 168: REVIEW / 'review.html')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins identifiers and words in the review page's source; the self-containment checks are fine.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 26,
+  "class": "rewrite",
+  "id": "tests/test_v7_authoring_preparation.py::test_historical_luna_cohort_is_hashed_and_its_seven_misses_remain_separate",
+  "signals": "own 0, uniq 0, file-snapshot, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 100: digest(f\"{historical['path']}/{name}\"))",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Hash pins of frozen benchmark inputs: deliberate provenance checks.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 27,
+  "class": "rewrite",
+  "id": "tests/test_replay.py::test_the_filter_arm_is_voided_when_its_packets_were_never_judged",
+  "signals": "own 11, uniq 11, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 290: ROOT / 'scripts/harness/claude_code_driver.py')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The tail pins a code fragment (**judge_vars}) in the driver's source.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 28,
+  "class": "rewrite",
+  "id": "tests/test_companion_coordination.py::test_paths_the_hub_refuses_are_dropped_and_the_pending_list_is_bounded",
+  "signals": "own 206, uniq 1, 5178 ms, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "slow and low value: 5178 ms for 1 unique line(s); move down a layer",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Slow (5.2 s in this run, 2.7 s in the first; contended) for one unique line; where the time goes was not checked.",
+  "fp": "slow"
+ },
+ {
+  "suite": "cc",
+  "round": "v0",
+  "n": 29,
+  "class": "rewrite",
+  "id": "tests/test_graph.py::test_web_project_html_and_css_are_indexed_and_linked",
+  "signals": "own 1307, uniq 45, css-class, minor",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: css-class (line 475: <!doctype html>\n<html><head>\n<link rel=\"stylesheet)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "HTML and CSS are input data for the indexer; class= is not asserted.",
+  "fp": "detector"
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 0,
+  "class": "consolidate",
+  "id": "tests/test_file_read_screen_enforced_freeze.py::test_rejects_stale_oracle",
+  "signals": "own 30, uniq 1, shape 0.87, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.87): test_rejects_wrong_image_in_any_gate",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Same setup, one gate field changed, same ValueError check: one parametrized test.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 1,
+  "class": "consolidate",
+  "id": "files: tests/test_intent.py, tests/test_intent_change.py",
+  "signals": "files 2, tests 21, target src/cri/intent.py",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/cri/intent.py; their names extend one another"
+  ],
+  "judgement": "debatable",
+  "reason": "Two files for the intent module with duplicated fixture records; merging is reasonable but they cover different phases.",
+  "fp": "files"
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 2,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_live_guard.py::test_duplicate_attempt_ids_and_unmatched_completion_are_rejected",
+  "signals": "own 268, uniq 2, shape 0.882, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.882): test_observed_hard_cap_refuses_every_kind_of_work",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Similar guard setup but different scenarios (replays versus a hard cap).",
+  "fp": "shape"
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 3,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_ecc2_boundaries.py::test_replayed_start_on_one_channel_is_not_treated_as_new_usage",
+  "signals": "own 116, uniq 1, shape 1, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 1): test_repeated_stop_is_not_silently_accepted",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Identical shape (insert an event, expect not comparable with an issue code): one table.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 4,
+  "class": "consolidate",
+  "id": "tests/test_intelligence.py::test_plan_cycle_preflight",
+  "signals": "own 833, uniq 0, shape 0.805, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.805): test_invalid_plan_preflight_does_not_execute_first_step",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Invalid plan and cycle plan both refuse before the first step: one parametrized test.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 5,
+  "class": "consolidate",
+  "id": "tests/test_file_read_screen_enforced_freeze.py::test_rejects_wrong_image_in_any_gate",
+  "signals": "own 33, uniq 0, shape 0.87, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.87): test_rejects_stale_oracle",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The pair of item 0 (same suggestion from the other side).",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 6,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_ecc2_boundaries.py::test_regressing_cumulative_delta_is_not_comparable",
+  "signals": "own 116, uniq 1, shape 0.833, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.833): test_stop_before_start_is_not_reordered_into_a_valid_call",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Same shape as item 3's family: one table of event edits and issue codes.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 7,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_trace_audit.py::test_standard_python_execution_and_discovery_are_not_other_workspace_reads",
+  "signals": "own 117, uniq 4, shape 0.815, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.815): test_relative_find_glob_is_not_an_absolute_file_access",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Similar audit calls, but one test has a second, failing phase.",
+  "fp": "shape"
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 8,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_ecc2_boundaries.py::test_stop_before_start_is_not_reordered_into_a_valid_call",
+  "signals": "own 115, uniq 0, shape 0.833, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.833): test_regressing_cumulative_delta_is_not_comparable",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The pair of item 6.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 9,
+  "class": "consolidate",
+  "id": "tests/test_security.py::TestPathContainment::test_symlinked_parent_directory_is_refused",
+  "signals": "own 13, uniq 0, shape 0.8, critical",
+  "advice": "consolidate",
+  "reasons": [
+   "critical: test file name",
+   "same shape as a sibling (body similarity 0.8): TestPathContainment::test_symlinked_file_is_refused",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Symlinked file and symlinked parent are both refused: one parametrized test (critical into critical).",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 10,
+  "class": "rewrite",
+  "id": "tests/test_replay.py::test_every_arm_built_on_trim_cli_runs_trimmed",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 252: ROOT / 'scripts/harness/claude_code_driver.py')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins the absence of a code fragment in the driver's source. (Also judged in the first-run v0 sample.)",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 11,
+  "class": "rewrite",
+  "id": "tests/test_context_efficiency_oracle.py:102 (6 rows of test_report_identity_and_schema_fail_closed)",
+  "signals": "own 104, uniq 3, 3803 ms, 6 rows, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "slow and low value: 3803 ms for 3 unique line(s); move down a layer",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Six rows each start a fake evaluator process (0.6 s each) only to vary the report JSON; the classification could be tested directly, with one end-to-end row.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1",
+  "n": 12,
+  "class": "rewrite",
+  "id": "tests/test_shaping.py:179 (6 rows of test_each_shaping_arm_packs_and_sends_no_more_than_the_plain_packet)",
+  "signals": "own 1379, uniq 1, 3256 ms, 6 rows, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "slow and low value: 3256 ms for 1 unique line(s); move down a layer",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Six rows each build their own index (0.5 s each) for one unique line; a module-scoped fixture would cut it.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 0,
+  "class": "retire",
+  "id": "tests/test_context_efficiency_integrity.py::test_changed_dependency_refuses_execution",
+  "signals": "own 18, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (18 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Tamper detection (a changed dependency refuses execution); heavier tests cover verify_files without this negative.",
+  "fp": "assert"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 1,
+  "class": "retire",
+  "id": "tests/test_v7_implementation_links.py::test_plan_and_older_status_point_to_current_v7_page",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Docs link check (plans point to the current status page); belongs in a docs lint, but it is not worthless.",
+  "fp": "empty"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 2,
+  "class": "retire",
+  "id": "tests/test_intent_change.py::test_an_approved_claim_is_linked_to_code_and_reaches_the_briefing",
+  "signals": "own 1691, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (1691 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "End-to-end approval flow of intent claims to the briefing; distinct assertions.",
+  "fp": "assert"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 3,
+  "class": "retire",
+  "id": "tests/test_retrieval.py::test_index_rows_follow_file_changes",
+  "signals": "own 1279, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (1279 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Index rows follow a file deletion (stale rows removed); distinct behaviour.",
+  "fp": "assert"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 4,
+  "class": "retire",
+  "id": "tests/test_procedures.py::test_classify[echo hi-None]",
+  "signals": "own 10, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (10 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "One row of a parametrized classify table (a command with no purpose).",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 5,
+  "class": "retire",
+  "id": "tests/test_v7_implementation_links.py::test_current_v7_implementation_references_exist",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Checks the status page's links resolve; a docs integrity check, not code.",
+  "fp": "empty"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 6,
+  "class": "retire",
+  "id": "tests/test_github_draft_publisher.py::test_identity_permission_and_head_conflicts_refuse_before_post[change1]",
+  "signals": "own 45, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (45 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a permission-conflict negative table (refuse before posting).",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 7,
+  "class": "retire",
+  "id": "tests/test_companion_audit_hardening.py::test_warm_with_a_failed_refresh_gives_up_quietly_and_keeps_the_login",
+  "signals": "own 60, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (60 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Token handling: a failed refresh keeps the login. Auth by intent, not by path name.",
+  "fp": "tier"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 8,
+  "class": "retire",
+  "id": "tests/test_context_efficiency_budget.py::test_concurrent_token_reservations_cannot_share_remaining_allowance",
+  "signals": "own 87, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (87 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Concurrent token reservations cannot share an allowance: a race and quota test that line coverage cannot see.",
+  "fp": "assert"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 9,
+  "class": "retire",
+  "id": "tests/test_context_efficiency_launcher.py::test_cli_arguments_hold_launcher_fixed_and_pin_sonnet_effort",
+  "signals": "own 31, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (31 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Security assertions on the launcher argv (no permission skip, no shell expansion).",
+  "fp": "tier"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 10,
+  "class": "consolidate",
+  "id": "tests/test_companion_questions.py::test_addressing[project:pj_1-expected1]",
+  "signals": "own 6, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_addressing[None-expected0]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 11,
+  "class": "consolidate",
+  "id": "tests/test_security.py::TestPathContainment::test_rejected[/absolute/path.py]",
+  "signals": "own 6, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: TestPathContainment::test_rejected[../escape.py]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a path-containment security table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 12,
+  "class": "consolidate",
+  "id": "tests/test_file_read_screen_audit.py::test_nonconforming_access_is_retained_as_violation[/tmp/frozen-worker read --requests /tmp/private.json]",
+  "signals": "own 38, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_nonconforming_access_is_retained_as_violation[/tmp/frozen-worker edit --req",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 13,
+  "class": "consolidate",
+  "id": "tests/test_codex_transcript.py::test_incomplete_or_conflicting_codex_trace_remains_unsettled[events1-invalid_turn_completion]",
+  "signals": "own 47, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.958): test_complete_codex_turn_reports_inclusive_tokens",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Unsettled traces against a complete trace: different outcomes.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 14,
+  "class": "consolidate",
+  "id": "tests/test_companion_delivery_hash_isolation.py::test_companion_digest_preserves_hub_wire_hash[value1]",
+  "signals": "own 4, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_companion_digest_preserves_hub_wire_hash[value2]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 15,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_launcher.py::test_bad_session_limit_rejected[NaN]",
+  "signals": "own 16, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_bad_session_limit_rejected[Infinity]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 16,
+  "class": "consolidate",
+  "id": "tests/test_github_delivery_journal.py::test_the_branch_is_bound_to_the_hubs_patch_hash",
+  "signals": "own 107, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_branch_and_pr_intents_are_durable_and_reconcile_only",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "A three-line check (branch bound to the patch hash) on the same setup; could be one more assertion in a happy-path sibling.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 17,
+  "class": "consolidate",
+  "id": "tests/test_s2_fixtures.py::test_vendored_libraries_match_their_provenance_pins",
+  "signals": "own 16, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_the_oracle_fails_the_start_and_the_rule_break_and_passes_the_reference[dens",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Vendored-library pins against an oracle calibration row: wrong sibling.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 18,
+  "class": "consolidate",
+  "id": "tests/test_intelligence.py::test_operator_policy_is_strict[policy0]",
+  "signals": "own 4, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_operator_policy_is_strict[policy1]",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a parametrized table; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 19,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_retrieval.py::test_candidate_limit_bounds_the_frozen_pool_and_receipt",
+  "signals": "own 1366, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: test_same_starting_snapshot_creates_the_same_immutable_candidate_bundle",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Candidate limit versus snapshot determinism: different behaviours.",
+  "fp": "subset"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 20,
+  "class": "rewrite",
+  "id": "tests/test_v7_authoring_preparation.py::test_historical_luna_cohort_is_hashed_and_its_seven_misses_remain_separate",
+  "signals": "own 0, uniq 0, file-snapshot, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 100: digest(f\"{historical['path']}/{name}\"))",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Hash pins of frozen benchmark inputs: deliberate provenance checks.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 21,
+  "class": "rewrite",
+  "id": "tests/test_distribution_v3.py::test_native_and_runtime_have_separate_consistent_package_metadata",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 82: ROOT / 'pyproject.toml')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "TOML is parsed and versions compared: structured data, not a text pin.",
+  "fp": "detector"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 22,
+  "class": "rewrite",
+  "id": "tests/test_companion_coordination.py::test_paths_the_hub_refuses_are_dropped_and_the_pending_list_is_bounded",
+  "signals": "own 206, uniq 1, 2664 ms, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "slow and low value: 2664 ms for 1 unique line(s); move down a layer",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Slow (2.7 s, contended) for one unique line; where the time goes was not checked, so 'move down a layer' may or may not be the fix.",
+  "fp": "slow"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 23,
+  "class": "rewrite",
+  "id": "tests/test_replay.py::test_the_filter_arm_is_voided_when_its_packets_were_never_judged",
+  "signals": "own 11, uniq 11, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 290: ROOT / 'scripts/harness/claude_code_driver.py')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The tail pins a code fragment (**judge_vars}) in the driver's source.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 24,
+  "class": "rewrite",
+  "id": "tests/test_graph.py::test_web_project_html_and_css_are_indexed_and_linked",
+  "signals": "own 1307, uniq 45, css-class, minor",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: css-class (line 475: <!doctype html>\n<html><head>\n<link rel=\"stylesheet)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "HTML and CSS are input data for the indexer; class= is not asserted.",
+  "fp": "detector"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 25,
+  "class": "rewrite",
+  "id": "tests/test_cri_hub_cf.py::test_roles_and_token_lifetime_are_the_typescript_hubs",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 95: HUB_TS / 'slices' / 'operator' / 'routes.ts')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins a constant's source line in the TypeScript Hub (DEFAULT_TOKEN_SECONDS).",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 26,
+  "class": "rewrite",
+  "id": "tests/test_companion_design.py::test_the_enforcer_is_the_design_systems_own",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 498: REPO / 'hub-ts/src/slices/design/assets.ts')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "An embedded copy must equal the file: a deliberate sync check (better generated).",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 27,
+  "class": "rewrite",
+  "id": "tests/test_v7_authoring_preparation.py::test_every_dispatch_input_is_hashed_before_dispatch",
+  "signals": "own 0, uniq 0, file-snapshot, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 33: digest(manifest['private_oracle']['path']))",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Hash pins of frozen benchmark inputs: deliberate provenance checks.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 28,
+  "class": "rewrite",
+  "id": "tests/test_status_manifest.py::test_the_status_page_is_up_to_date",
+  "signals": "own 6, uniq 6, file-snapshot+doc-wording, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 22: (ROOT / 'docs' / 'STATUS.md').read_text()); doc-wording (line 22: ROOT / 'docs' / 'STATUS.md')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Generated STATUS.md must equal the generator's output: a deliberate freshness gate.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v0-firstrun",
+  "n": 29,
+  "class": "rewrite",
+  "id": "tests/test_replay.py::test_every_arm_built_on_trim_cli_runs_trimmed",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 252: ROOT / 'scripts/harness/claude_code_driver.py')",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins the absence of a code fragment in the driver's source.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 0,
+  "class": "consolidate",
+  "id": "tests/test_file_read_screen_enforced_freeze.py::test_rejects_stale_oracle",
+  "signals": "own 30, uniq 1, shape 0.87, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.87): test_rejects_wrong_image_in_any_gate",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Same setup, one gate field changed, same ValueError check: one parametrized test.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 1,
+  "class": "consolidate",
+  "id": "files: tests/test_intent.py, tests/test_intent_change.py",
+  "signals": "files 2, tests 21, target src/cri/intent.py",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/cri/intent.py; their names extend one another"
+  ],
+  "judgement": "debatable",
+  "reason": "Two files for the intent module with duplicated fixture records; merging is reasonable but they cover different phases.",
+  "fp": "files"
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 2,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_live_guard.py::test_duplicate_attempt_ids_and_unmatched_completion_are_rejected",
+  "signals": "own 268, uniq 2, shape 0.882, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.882): test_observed_hard_cap_refuses_every_kind_of_work",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Similar guard setup but different scenarios (replays versus a hard cap).",
+  "fp": "shape"
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 3,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_ecc2_boundaries.py::test_replayed_start_on_one_channel_is_not_treated_as_new_usage",
+  "signals": "own 116, uniq 1, shape 1, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 1): test_repeated_stop_is_not_silently_accepted",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Identical shape (insert an event, expect not comparable with an issue code): one table.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 4,
+  "class": "consolidate",
+  "id": "tests/test_intelligence.py::test_plan_cycle_preflight",
+  "signals": "own 833, uniq 0, shape 0.805, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.805): test_invalid_plan_preflight_does_not_execute_first_step",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Invalid plan and cycle plan both refuse before the first step: one parametrized test.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 5,
+  "class": "consolidate",
+  "id": "tests/test_file_read_screen_enforced_freeze.py::test_rejects_wrong_image_in_any_gate",
+  "signals": "own 33, uniq 0, shape 0.87, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.87): test_rejects_stale_oracle",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The pair of item 0 (same suggestion from the other side).",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 6,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_ecc2_boundaries.py::test_regressing_cumulative_delta_is_not_comparable",
+  "signals": "own 116, uniq 1, shape 0.833, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.833): test_stop_before_start_is_not_reordered_into_a_valid_call",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Same shape as item 3's family: one table of event edits and issue codes.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 7,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_trace_audit.py::test_standard_python_execution_and_discovery_are_not_other_workspace_reads",
+  "signals": "own 117, uniq 4, shape 0.815, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.815): test_relative_find_glob_is_not_an_absolute_file_access",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Similar audit calls, but one test has a second, failing phase.",
+  "fp": "shape"
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 8,
+  "class": "consolidate",
+  "id": "tests/test_context_efficiency_ecc2_boundaries.py::test_stop_before_start_is_not_reordered_into_a_valid_call",
+  "signals": "own 115, uniq 0, shape 0.833, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.833): test_regressing_cumulative_delta_is_not_comparable",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The pair of item 6.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 9,
+  "class": "consolidate",
+  "id": "tests/test_security.py::TestPathContainment::test_symlinked_parent_directory_is_refused",
+  "signals": "own 13, uniq 0, shape 0.8, critical",
+  "advice": "consolidate",
+  "reasons": [
+   "critical: test file name",
+   "same shape as a sibling (body similarity 0.8): TestPathContainment::test_symlinked_file_is_refused",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Symlinked file and symlinked parent are both refused: one parametrized test (critical into critical).",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 10,
+  "class": "rewrite",
+  "id": "tests/test_s2_review.py::test_the_review_page_is_self_contained_and_blind",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 168: REVIEW / 'review.html')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins identifiers and words in the review page's source; the self-containment checks are fine.",
+  "fp": null
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 11,
+  "class": "rewrite",
+  "id": "tests/test_s2_fixtures.py::test_the_websites_are_static_and_share_one_html_reader",
+  "signals": "own 9, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 39: BENCH / 'apps' / app / 'acceptance' / 'html.mjs')",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Byte equality of copies of one reader: a deliberate sync check.",
+  "fp": "intent"
+ },
+ {
+  "suite": "cc",
+  "round": "v1-firstrun",
+  "n": 12,
+  "class": "rewrite",
+  "id": "tests/test_shaping.py:179 (6 rows of test_each_shaping_arm_packs_and_sends_no_more_than_the_plain_packet)",
+  "signals": "own 1379, uniq 1, 3191 ms, 6 rows, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "slow and low value: 3191 ms for 1 unique line(s); move down a layer",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Six rows each build their own index (0.5 s each) for one unique line; a module-scoped fixture would cut it.",
+  "fp": null
+ }
+]

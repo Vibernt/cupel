@@ -1,0 +1,23 @@
+{
+  "spec": "cupel-s6-draft/1",
+  "note": "v1: one round of rule changes after the v0 hand-check. Use with the --strict detector output. See S6.md.",
+  "critical": {
+    "paths": "(^|[/_.-])(auth|permissions?|tenan(t|ts|cy)|tokens?|secrets?|egress|billing|quotas?|migrations?|backups?|deletion|delete)([/_.-]|$)|(^|/)(contracts?|openapi)([/_.-]|$)",
+    "byTestFile": true,
+    "byCoveredSource": "any",
+    "neverRetire": true
+  },
+  "minor": { "testFiles": "(^|/)(docs?-[^/]*|[^/]*-docs?)\\.test\\.mjs$", "brittleKinds": ["doc-wording", "css-class"] },
+  "keep": { "uniqueLines": 1, "uniqueKills": 1 },
+  "partialCoverage": { "spawnsInterpreterNeverRetire": true },
+  "rewrite": { "brittleKinds": ["source-text", "doc-wording", "css-class", "file-snapshot"], "slowMs": 2000, "lowValueUniqueLines": 5 },
+  "consolidate": { "siblingScope": "file", "subsetOfSibling": false, "jaccard": 2, "fileGroups": true, "fileGroupNamePrefix": true },
+  "tuned": {
+    "groupRows": true,
+    "extraCriticalPaths": "credential|crypto|leak|unsafe|sign-?in|login|security|isolation|sandbox|privacy|integrity|redact|phish|inject|travers|hardening|admission|budget",
+    "criticalTags": "\\bnegative\\b|security|forged|tamper|leak|credential|secret|token|permission|unsafe|travers|inject|phish|refuses?\\b",
+    "shapeSimilarity": 0.8,
+    "lineJaccard": 0.3,
+    "duplicateShape": 0.9
+  }
+}

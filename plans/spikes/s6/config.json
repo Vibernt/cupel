@@ -1,0 +1,16 @@
+{
+  "spec": "cupel-s6-draft/0",
+  "note": "v0: the draft rules as given, before tuning. Regexes are matched against repository-relative paths.",
+  "critical": {
+    "paths": "(^|[/_.-])(auth|permissions?|tenan(t|ts|cy)|tokens?|secrets?|egress|billing|quotas?|migrations?|backups?|deletion|delete)([/_.-]|$)|(^|/)(contracts?|openapi)([/_.-]|$)",
+    "byTestFile": true,
+    "byCoveredSource": "any",
+    "neverRetire": true
+  },
+  "minor": { "testFiles": "(^|/)(docs?-[^/]*|[^/]*-docs?)\\.test\\.mjs$", "brittleKinds": ["doc-wording", "css-class"] },
+  "keep": { "uniqueLines": 1, "uniqueKills": 1 },
+  "partialCoverage": { "spawnsInterpreterNeverRetire": true },
+  "rewrite": { "brittleKinds": ["source-text", "doc-wording", "css-class", "file-snapshot"], "slowMs": 2000, "lowValueUniqueLines": 5 },
+  "consolidate": { "siblingScope": "file", "subsetOfSibling": true, "jaccard": 0.9, "fileGroups": true, "fileGroupNamePrefix": true },
+  "retire": { "emptyAfterSetup": "retire" }
+}

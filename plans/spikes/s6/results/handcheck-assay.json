@@ -1,0 +1,814 @@
+[
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 0,
+  "class": "retire",
+  "id": "tests/ui-runs.test.mjs :: runs ui: raw report artifact ids follow the executor naming",
+  "signals": "own 47, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (47 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "The direct unit test of the executor's report-artifact naming; page tests run the same lines but never assert the ids (att_report0_0) or their kinds.",
+  "fp": "assert"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 1,
+  "class": "retire",
+  "id": "tests/tia-rails.test.mjs :: freshness rail: only a reachable history with the base rolled up and a small backlog allows selection",
+  "signals": "own 34, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (34 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Pins freshnessRail's boundaries (at the backlog limit is still current); the scenario tests in the file only cover the lines.",
+  "fp": "assert"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 2,
+  "class": "retire",
+  "id": "tests/crypto.test.mjs :: SHA implementations match native crypto: length 64",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "One row of a looped SHA test; length 64 is the block boundary. Rows share lines, the data is the point; the SHA code also runs at module load elsewhere.",
+  "fp": "row"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 3,
+  "class": "retire",
+  "id": "tests/yaml.test.mjs :: yaml: realistic workflow",
+  "signals": "own 218, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (218 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Exact parse results of the hand-written YAML parser (block scalars, line map); 333 other tests run the parser but assert on what they build from it.",
+  "fp": "assert"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 4,
+  "class": "retire",
+  "id": "tests/source-links.test.mjs :: tar: links stay unsafe by default (unpacking and deploys), and are listed, never read or followed, with links: list",
+  "signals": "own 134, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (134 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Security negative: symlinks to /etc/passwd stay unsafe by default. The tier rule has no word for it.",
+  "fp": "tier"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 5,
+  "class": "retire",
+  "id": "tests/credential-leak.test.mjs :: deployment and registry clients parse credentials without echoing them",
+  "signals": "own 50, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (50 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Credential-leak negative test (malformed credentials never echoed). 'credential' and 'leak' are not D4 words.",
+  "fp": "tier"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 6,
+  "class": "retire",
+  "id": "tests/test-impact-ecosystems.test.mjs :: Java: Surefire and Gradle class names map to test sources; nested classes map to their file; ties are unmapped",
+  "signals": "own 738, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (738 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Distinct Java mapping cases (nested classes, ties unmapped, build files escalate); integration tests cover the lines without these assertions.",
+  "fp": "assert"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 7,
+  "class": "retire",
+  "id": "tests/migrate-travis.test.mjs :: travis: simple fixture -> version matrix, phase semantics, branch filters, cache and env-passed variables",
+  "signals": "own 969, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (969 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "The only exact-semantics test of the Travis converter; the fixture sweep that covers 966 of its 969 lines only checks that it compiles.",
+  "fp": "assert"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 8,
+  "class": "retire",
+  "id": "tests/observability-config.test.mjs :: every container application states its logs, and customer-command containers keep them off",
+  "signals": "own 0, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "covers no line beyond module load and setup",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Config policy check (customer-command containers keep logs off); covers no code at all, so coverage cannot judge it.",
+  "fp": "empty"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 9,
+  "class": "retire",
+  "id": "tests/findings.test.mjs :: findings project onto the problem-report shape the console and agents already read",
+  "signals": "own 179, uniq 0, recheck uniq 0, standard",
+  "advice": "retire",
+  "reasons": [
+   "no unique line (179 lines, all covered by other tests)",
+   "per-process re-check: still no unique line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Pins the projection onto the problem-report shape that the console and agents read; siblings cover the lines, not this contract.",
+  "fp": "assert"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 10,
+  "class": "consolidate",
+  "id": "tests/ui-tia.test.mjs :: impact metrics view: tiles, reasons with labels, holdout without a made-up risk, savings per run",
+  "signals": "own 58, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: impact metrics view: nothing measured says so, and lagging is flagged",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Populated view versus empty and lagging view of one function: two scenarios with different assertions; merging saves nothing (1 ms each).",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 11,
+  "class": "consolidate",
+  "id": "tests/ui-tabs.test.mjs :: tabs: the tab named in the URL is honoured, also when the tabs are assigned after connecting",
+  "signals": "own 98, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: tabs: an undefined or unknown value is ignored rather than closing every panel",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Different behaviours of one component (URL tab honoured versus unknown value ignored).",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 12,
+  "class": "consolidate",
+  "id": "tests/migrate-azure-pipelines.test.mjs :: azure negative: non-JUnit results -> REPORT_FORMAT",
+  "signals": "own 498, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.948): azure negative: unknown task -> TASK_UNSUPPORTED",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a table that is already looped (azure negatives).",
+  "fp": "row"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 13,
+  "class": "consolidate",
+  "id": "tests/status-page.test.mjs :: incident segments follow the journal: impact changes, backdating, and a maintenance only inside its window",
+  "signals": "own 20, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: scheduled maintenance: upcoming, then in progress, then completed",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A unit test of segmentsOf against an end-to-end API test: a line subset across layers, not same setup.",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 14,
+  "class": "consolidate",
+  "id": "tests/capture-lifecycle.test.mjs :: the segments still deduplicate across turns after the frame was added",
+  "signals": "own 159, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.944): a missing segment makes the read null rather than a body with a hole in it",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Dedupe across turns versus a missing segment: different behaviours of one store.",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 15,
+  "class": "consolidate",
+  "id": "tests/code-review.test.mjs :: a rebase that changes no reviewed byte hits the content cache and costs nothing",
+  "signals": "own 84, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same target as a sibling (Jaccard 0.965): a second push reviews only the files that moved since the last reviewed head",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Cache hit versus incremental review: different behaviours and assertions.",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 16,
+  "class": "consolidate",
+  "id": "tests/connected-scans.test.mjs :: sonar and snyk compile to their own job holding the scan step and nothing else",
+  "signals": "own 29, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: pack sonar: every job it compiles to passes pipeline validation, advisory and bl",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Own-job assertions (advisory default, no job-level token) against a generated per-pack row.",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 17,
+  "class": "consolidate",
+  "id": "tests/sdk-capture.test.mjs :: conformance: sampling-call-openai-chat-full-0p5",
+  "signals": "own 29, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: conformance: sampling-call-sample-in-1",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a shared conformance-case loop; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 18,
+  "class": "consolidate",
+  "id": "tests/ui-settings-v2.test.mjs :: old Usage anchors land on Limits and Metered costs",
+  "signals": "own 225, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: members model: groups, the last active words and the label use only recorded dat",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Unrelated targets (a route guard and a members model); both only share the console harness lines.",
+  "fp": "subset"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 19,
+  "class": "consolidate",
+  "id": "tests/connected-scans.test.mjs :: pack python: every job it compiles to passes pipeline validation, advisory and blocking",
+  "signals": "own 38, uniq 0, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "lines are a subset of a sibling's: pack java-spring: every job it compiles to passes pipeline validation, advisory ",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A row of a generated per-pack loop; already table-driven.",
+  "fp": "row"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 20,
+  "class": "rewrite",
+  "id": "tests/ui-deliver.test.mjs :: deliver ui: every adapter links to a guide section that exists",
+  "signals": "own 10, uniq 1, doc-wording, minor",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: doc-wording (line 242: (new URL(`../docs/${guide.id}.md`, import.meta.url)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "Checks that every guide anchor the console links exists: a link-integrity check, not a wording pin.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 21,
+  "class": "rewrite",
+  "id": "tests/cli-packaging.test.mjs :: built and installed from the tarballs: cri runs outside the repository, the clients import, the digests agree",
+  "signals": "own 22, uniq 0, file-snapshot+source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 119: equal(sha256(join(out, name)), digest); source-text (line 178: (join(pkg, 'client.d.ts'), 'utf8'))",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "sha256 digest verification of packaged files was read as a file snapshot; a packaging end-to-end test.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 22,
+  "class": "rewrite",
+  "id": "tests/github-sign-in.test.mjs :: switch off (negative): the start endpoint answers 404, the challenge offers no provider and the page hides the button",
+  "signals": "own 458, uniq 1, css-class+source-text, critical",
+  "advice": "rewrite",
+  "reasons": [
+   "critical: covers a critical source",
+   "brittle: css-class (line 177: /<div id=\"providers\" class=\"stack\" hidden>/); source-text (line 176: (resolve(root, 'public/login.html'), 'utf8'))",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "The tail pins login.html markup and a regex of login.mjs source; a DOM-level check would say the same without the pin.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 23,
+  "class": "rewrite",
+  "id": "tests/drop-in-onboarding-api.test.mjs :: preview: the exact diff touches only runs-on lines of the picked jobs; incompatible and unknown jobs are refused",
+  "signals": "own 970, uniq 0, kills 0, uniq kills 0, file-snapshot+source-text, critical",
+  "advice": "rewrite",
+  "reasons": [
+   "critical: covers a critical source",
+   "brittle: file-snapshot (line 155: equal(writesOf(w.github).length, 0,); source-text (line 155: writesOf)",
+   "evidence: mutation+coverage"
+  ],
+  "judgement": "wrong",
+  "reason": "writesOf(w.github) was tainted through a read inside a helper function (taint leaked across scopes).",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 24,
+  "class": "rewrite",
+  "id": "tests/eval-frameworks.test.mjs :: normalized framework reports keep failures, errors and unknown cost explicit",
+  "signals": "own 161, uniq 3, file-snapshot, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 50: equal(normalizePromptfoo(JSON.parse(fixture('promp)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A JSON fixture parsed and fed to the code was read as a file snapshot.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 25,
+  "class": "rewrite",
+  "id": "tests/ui-caches.test.mjs :: caches page: registered as Settings, Caches; the old Actions cache path redirects; in the sections and the palette",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 36: routes)",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Regexes over the route table's source text; the routes could be imported and checked as data.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 26,
+  "class": "rewrite",
+  "id": "tests/data-handling.test.mjs :: data handling: the retention table on the page is the one generated from the code constants",
+  "signals": "own 48, uniq 2, file-snapshot, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 19: equal(block(doc), await retentionBlock(), 'a reten)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Generated doc must equal the generator's output: a deliberate freshness gate (could be a check script).",
+  "fp": "intent"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 27,
+  "class": "rewrite",
+  "id": "tests/tia-precision.test.mjs :: scip: our Python edges against the recorded scip-python index",
+  "signals": "own 525, uniq 0, file-snapshot, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: file-snapshot (line 32: deepEqual(plain(edgesOf('python')), {\n        'sho)",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A recorded fixture index decoded and compared with inline expected values: not a snapshot.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 28,
+  "class": "rewrite",
+  "id": "tests/drop-in-switch.test.mjs :: CRLF files stay CRLF and still change only runs-on",
+  "signals": "own 431, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 201: input)",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A local `input` string was tainted by a read of the same name in another function.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v0",
+  "n": 29,
+  "class": "rewrite",
+  "id": "tests/ui-alerts.test.mjs :: alerts page: every section has a loading, empty and error state, and errors are never empty states",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 34: page)",
+   "and no unique coverage or kill",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Asserts on the page module's source text (includes, regex) instead of its behaviour.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 0,
+  "class": "consolidate",
+  "id": "files: tests/automerge-agent-policy.test.mjs, tests/automerge-agent-prs.test.mjs, tests/automerge.test.mjs",
+  "signals": "files 3, tests 49, target src/domain/automerge.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "3 test files share the primary target src/domain/automerge.mjs; their names extend one another"
+  ],
+  "judgement": "debatable",
+  "reason": "Three automerge files (documented policy, agent PR gaps, core) for one module; one 1,150-line file would be harder to read.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 1,
+  "class": "consolidate",
+  "id": "files: tests/prestage-sim.test.mjs, tests/prestage.test.mjs",
+  "signals": "files 2, tests 18, target src/platform/gha-runner-do.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/platform/gha-runner-do.mjs; their names extend one another"
+  ],
+  "judgement": "wrong",
+  "reason": "A slow simulation file and the feature's unit file: different purposes.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 2,
+  "class": "consolidate",
+  "id": "files: tests/web-report-platform.test.mjs, tests/web-report.test.mjs",
+  "signals": "files 2, tests 72, target src/lib/web-report.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/lib/web-report.mjs; their names extend one another"
+  ],
+  "judgement": "wrong",
+  "reason": "Platform recording and sharing versus the pure report builder: different layers.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 3,
+  "class": "consolidate",
+  "id": "files: tests/fanout-cost.test.mjs, tests/fanout.test.mjs",
+  "signals": "files 2, tests 53, target src/platform/fanout-queue-store.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/platform/fanout-queue-store.mjs; their names extend one another"
+  ],
+  "judgement": "debatable",
+  "reason": "Cost-aware fan-out and core fan-out: one feature, but 1,250 lines together.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 4,
+  "class": "consolidate",
+  "id": "tests/migrate-drone.test.mjs :: drone: narrower-behaviour cases report warnings with lines",
+  "signals": "own 768, uniq 27, shape 0.805, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.805): drone: negative cases report their code and line",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Two loops over [code, text, line] tables that differ only in severity: one table with a severity column.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 5,
+  "class": "consolidate",
+  "id": "tests/import-graph-python.test.mjs :: python resolve: a relative import that points nowhere is unresolved, and so is one that climbs out of the repository",
+  "signals": "own 201, uniq 12, shape 0.83, standard",
+  "advice": "consolidate",
+  "reasons": [
+   "same shape as a sibling (body similarity 0.83): python (CodeCrystal package importers): an __init__ re-export is followed throug",
+   "evidence: coverage-only"
+  ],
+  "judgement": "debatable",
+  "reason": "Scenario tests with the same graphOf/view shape; a table of {files, expected} is possible but the cases differ.",
+  "fp": "shape"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 6,
+  "class": "consolidate",
+  "id": "files: tests/drop-in-capacity-refusals.test.mjs, tests/drop-in-cold-start.test.mjs, tests/drop-in-warm-attribution.test.mjs, tests/drop-in-warm.test.mjs, tests/drop-in.test.mjs",
+  "signals": "files 5, tests 101, target src/platform/gha-runner-do.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "5 test files share the primary target src/platform/gha-runner-do.mjs; their names extend one another"
+  ],
+  "judgement": "wrong",
+  "reason": "Five drop-in files including a 2,181-line one; merging makes one unreadable file.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 7,
+  "class": "consolidate",
+  "id": "files: tests/agent-connect-cli.test.mjs, tests/agent-connect-code.test.mjs, tests/agent-connect.test.mjs",
+  "signals": "files 3, tests 23, target src/services/agent-connect.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "3 test files share the primary target src/services/agent-connect.mjs; their names extend one another"
+  ],
+  "judgement": "wrong",
+  "reason": "CLI end to end, a one-definition check and the service tests: different layers.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 8,
+  "class": "consolidate",
+  "id": "files: tests/api-retry-safe.test.mjs, tests/api.test.mjs",
+  "signals": "files 2, tests 29, target src/api/openapi.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/api/openapi.mjs; their names extend one another"
+  ],
+  "judgement": "wrong",
+  "reason": "Idempotency tests and the API file; the shared target (openapi.mjs) is spurious.",
+  "fp": "files"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 9,
+  "class": "consolidate",
+  "id": "files: tests/browser-switch.test.mjs, tests/browser.test.mjs",
+  "signals": "files 2, tests 10, target src/services/builds.mjs",
+  "advice": "consolidate",
+  "reasons": [
+   "2 test files share the primary target src/services/builds.mjs; their names extend one another"
+  ],
+  "judgement": "correct",
+  "reason": "Two small files (4 and 6 tests) about browser jobs; one file is reasonable.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 10,
+  "class": "rewrite",
+  "id": "tests/ui-get-started-features.test.mjs :: routes and links: the page is registered under Get started and reached from the card, the drop-in flow and the checklist",
+  "signals": "own 0, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 29: read)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Regexes over route and page source text.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 11,
+  "class": "rewrite",
+  "id": "tests/ui-audit-r3-r8.test.mjs :: r8: recent runs keep Started in view: priorities drop Trigger, then Duration, in a narrow card; phones keep every column",
+  "signals": "own 1728, uniq 0, css-class+source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: css-class (line 152: /class=\"truncate\" style=\"max-width: 180px\" title=\\); source-text (line 144: ('public/app/pages/overview.mjs'))",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Regexes over CSS and page source next to a behaviour check; the pins could go.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 12,
+  "class": "rewrite",
+  "id": "tests/cli-packaging.test.mjs :: the CLI release pipeline can only publish behind the manual gate",
+  "signals": "own 268, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 252: ('examples/pipelines/cli-release.yaml'))",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A pipeline YAML is parsed and its fields asserted: data, not text.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 13,
+  "class": "rewrite",
+  "id": "tests/steps.test.mjs :: the collector stores live and final steps and annotations on the attempt",
+  "signals": "own 1626, uniq 1, kills 0, uniq kills 0, file-snapshot, critical",
+  "advice": "rewrite",
+  "reasons": [
+   "critical: covers a critical source",
+   "brittle: file-snapshot (line 58: snapshot)",
+   "evidence: mutation+coverage"
+  ],
+  "judgement": "wrong",
+  "reason": "A local function named snapshot was read as a snapshot API.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 14,
+  "class": "rewrite",
+  "id": "tests/ui-caches.test.mjs :: caches model: retention, node_modules restores, the store never shows an unmetered hit rate, layers from both places",
+  "signals": "own 229, uniq 8, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 75: SUMMARY)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "An inline object constant was tainted through second-order taint; the test checks view functions.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 15,
+  "class": "rewrite",
+  "id": "tests/github-sign-in.test.mjs :: registry: githubSignIn is operator-only, off by default, loosens nothing; the two callback path constants agree",
+  "signals": "own 0, uniq 0, source-text, critical",
+  "advice": "rewrite",
+  "reasons": [
+   "critical: test file name",
+   "brittle: source-text (line 149: (resolve(root, 'public/assets/login.mjs'), 'utf8'))",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Pins the wording of refusal messages in the login script's source.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 16,
+  "class": "rewrite",
+  "id": "tests/drop-in-switch.test.mjs :: inspect: the mixed workflow lists every job with its verdict",
+  "signals": "own 244, uniq 3, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 96: (resolve(dir, 'mixed.input.yml'), 'utf8'))",
+   "evidence: coverage-only"
+  ],
+  "judgement": "wrong",
+  "reason": "A fixture input read through a directory variable (fixtures/...) was taken for source text.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 17,
+  "class": "rewrite",
+  "id": "tests/ui-foundation-pieces.test.mjs :: meter mode=\"progress\": no amber or red, a full bar is done, one progress colour for every progress fill",
+  "signals": "own 73, uniq 0, css-class, minor",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: css-class (line 332: (resolve(import.meta.dirname, '../public/app/style)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Regexes over tokens.css rules.",
+  "fp": null
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 18,
+  "class": "rewrite",
+  "id": "tests/actions-workspace.test.mjs :: build once: the plan job uploads its prepared workspace in sealed parts, a leg restores it over its checkout and skips its setup",
+  "signals": "own 2366, uniq 4, kills 0, uniq kills 0, file-snapshot+source-text, critical",
+  "advice": "rewrite",
+  "reasons": [
+   "critical: covers a critical source",
+   "brittle: file-snapshot (line 199: equal(readFileSync(join(leg, 'node_modules/dep/ind); source-text (line 199: (join(leg, 'node_modules/dep/index.js'), 'utf8'))",
+   "evidence: mutation+coverage"
+  ],
+  "judgement": "wrong",
+  "reason": "Reads a file the code under test restored into a temporary checkout: an output check.",
+  "fp": "detector"
+ },
+ {
+  "suite": "assay",
+  "round": "v1",
+  "n": 19,
+  "class": "rewrite",
+  "id": "tests/ui-operator-console.test.mjs :: the forms of load tests, purges, status incidents and the Jev probe require a reason and send it",
+  "signals": "own 13, uniq 0, source-text, standard",
+  "advice": "rewrite",
+  "reasons": [
+   "brittle: source-text (line 168: read)",
+   "evidence: coverage-only"
+  ],
+  "judgement": "correct",
+  "reason": "Regexes over admin page source text.",
+  "fp": null
+ }
+]
