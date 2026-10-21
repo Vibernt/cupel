@@ -1,0 +1,367 @@
+{
+ "reps": [
+  1,
+  2,
+  3
+ ],
+ "cost": [
+  {
+   "file": "drop-in.test.mjs",
+   "tests": 59,
+   "plainWall": [
+    4506.574917,
+    3716.597167,
+    3770.040209
+   ],
+   "plainCpu": [
+    2640,
+    2170,
+    2250
+   ],
+   "directWall": [
+    4391.6465,
+    3498.561333,
+    3810.10675
+   ],
+   "directCpu": [
+    2550,
+    1930,
+    2170
+   ],
+   "hooksWall": [
+    4300.594458,
+    3821.000833,
+    3712.519625
+   ],
+   "hooksCpu": [
+    2560,
+    2190,
+    2180
+   ],
+   "startWall": [
+    4530.940208,
+    3884.347875,
+    3794.187375
+   ],
+   "startCpu": [
+    2730,
+    2340,
+    2260
+   ],
+   "bWall": [
+    4540.282208,
+    4398.135875,
+    4666.166625
+   ],
+   "bCpu": [
+    2990,
+    2880,
+    3110
+   ],
+   "bTakes": 121,
+   "bTakeMsPer": 4.319963197816502,
+   "bTakeMsTotal": 522.7155469357967,
+   "bWriteMs": 10.827415987849236,
+   "bRawBytes": 7420227,
+   "aWall": [
+    33855.48249899999,
+    24124.341122,
+    42349.09433400001
+   ],
+   "aCpu": [
+    30060,
+    25030,
+    36300
+   ],
+   "aWallWithSetup": [
+    34158.207416,
+    24487.746372000005,
+    42853.38525100001
+   ],
+   "aCpuWithSetup": [
+    30390,
+    25400,
+    36700
+   ],
+   "aProcessMs": [
+    1028.4471219999998,
+    705.6590790000001,
+    1043.729711
+   ],
+   "aPerTestWallMedian": 497.259208,
+   "aPerTestWallMin": 276.947875,
+   "aPerTestWallMax": 1681.071083,
+   "aPerTestCpuMedian": 500,
+   "aSetupWall": 363.40525,
+   "aChecks": 0,
+   "bFails": 0
+  },
+  {
+   "file": "previews.test.mjs",
+   "tests": 27,
+   "plainWall": [
+    617.881375,
+    687.8365,
+    758.384167
+   ],
+   "plainCpu": [
+    710,
+    750,
+    830
+   ],
+   "directWall": [
+    581.127792,
+    561.199334,
+    676.314916
+   ],
+   "directCpu": [
+    650,
+    620,
+    730
+   ],
+   "hooksWall": [
+    624.097334,
+    655.374709,
+    687.48725
+   ],
+   "hooksCpu": [
+    720,
+    760,
+    800
+   ],
+   "startWall": [
+    638.874167,
+    634.767375,
+    757.447709
+   ],
+   "startCpu": [
+    740,
+    720,
+    860
+   ],
+   "bWall": [
+    815.513459,
+    809.507583,
+    941.279917
+   ],
+   "bCpu": [
+    910,
+    900,
+    1040
+   ],
+   "bTakes": 57,
+   "bTakeMsPer": 2.969777719493498,
+   "bTakeMsTotal": 169.27733001112938,
+   "bWriteMs": 2.1572089940309525,
+   "bRawBytes": 1323015,
+   "aWall": [
+    12579.155127999999,
+    6278.638338,
+    7699.172580000001
+   ],
+   "aCpu": [
+    10650,
+    7090,
+    8190
+   ],
+   "aWallWithSetup": [
+    12877.372669,
+    6473.099713,
+    8067.011288000001
+   ],
+   "aCpuWithSetup": [
+    10970,
+    7310,
+    8540
+   ],
+   "aProcessMs": [
+    333.20758699999993,
+    223.971624,
+    261.655749
+   ],
+   "aPerTestWallMedian": 245.329917,
+   "aPerTestWallMin": 196.317625,
+   "aPerTestWallMax": 655.88375,
+   "aPerTestCpuMedian": 280,
+   "aSetupWall": 298.217541,
+   "aChecks": 0,
+   "bFails": 0
+  },
+  {
+   "file": "fanout.test.mjs",
+   "tests": 36,
+   "plainWall": [
+    3579.625542,
+    3528.752584,
+    3935.1565
+   ],
+   "plainCpu": [
+    4020,
+    3950,
+    4330
+   ],
+   "directWall": [
+    3640.78225,
+    3403.629208,
+    3949.516791
+   ],
+   "directCpu": [
+    4120,
+    3790,
+    4460
+   ],
+   "hooksWall": [
+    3620.40375,
+    3596.0885,
+    3860.1105
+   ],
+   "hooksCpu": [
+    4120,
+    4050,
+    4370
+   ],
+   "startWall": [
+    5727.990292,
+    5696.7195,
+    5905.142625
+   ],
+   "startCpu": [
+    6180,
+    6150,
+    6330
+   ],
+   "bWall": [
+    6002.509625,
+    6390.170167,
+    5928.386583
+   ],
+   "bCpu": [
+    6450,
+    6720,
+    6420
+   ],
+   "bTakes": 75,
+   "bTakeMsPer": 2.2980678401390713,
+   "bTakeMsTotal": 172.35508801043034,
+   "bWriteMs": 2.0416669994592667,
+   "bRawBytes": 1493112,
+   "aWall": [
+    24724.796125999997,
+    14208.796252000002,
+    12634.682495999998
+   ],
+   "aCpu": [
+    19710,
+    14640,
+    13950
+   ],
+   "aWallWithSetup": [
+    25104.793417999997,
+    14393.958252000002,
+    12834.604578999995
+   ],
+   "aCpuWithSetup": [
+    20050,
+    14840,
+    14170
+   ],
+   "aProcessMs": [
+    413.339375,
+    271.5688349999999,
+    253.80045800000008
+   ],
+   "aPerTestWallMedian": 282.125042,
+   "aPerTestWallMin": 186.885792,
+   "aPerTestWallMax": 8156.774666,
+   "aPerTestCpuMedian": 310,
+   "aSetupWall": 199.922083,
+   "aChecks": 0,
+   "bFails": 0
+  }
+ ],
+ "files": [
+  {
+   "file": "drop-in.test.mjs",
+   "tests": 59,
+   "jRaw": 0.9974546768607306,
+   "jRawMin": 0.9939692044482463,
+   "jTest": 0.9761391595107324,
+   "jTestMin": 0.9427991886409737,
+   "jTest95": 56,
+   "uA": 754,
+   "uB": 828,
+   "zA": 20,
+   "zB": 19,
+   "sameVerdict": 58,
+   "fileUA": 11686,
+   "fileUB": 11686,
+   "fileUAtests": 4410,
+   "fileUAsingle": 754,
+   "fileLinesA": 25974,
+   "fileLinesB": 25974,
+   "setupA": 20915,
+   "setupB": 20915,
+   "setupBLoad": 20915,
+   "betweenB": 0
+  },
+  {
+   "file": "previews.test.mjs",
+   "tests": 27,
+   "jRaw": 1,
+   "jRawMin": 1,
+   "jTest": 1,
+   "jTestMin": 1,
+   "jTest95": 27,
+   "uA": 118,
+   "uB": 118,
+   "zA": 11,
+   "zB": 11,
+   "sameVerdict": 27,
+   "fileUA": 775,
+   "fileUB": 775,
+   "fileUAtests": 775,
+   "fileUAsingle": 118,
+   "fileLinesA": 14771,
+   "fileLinesB": 14771,
+   "setupA": 13577,
+   "setupB": 13577,
+   "setupBLoad": 13577,
+   "betweenB": 0
+  },
+  {
+   "file": "fanout.test.mjs",
+   "tests": 36,
+   "jRaw": 0.9998087962500368,
+   "jRawMin": 0.9989485542621104,
+   "jTest": 0.9953816806285065,
+   "jTestMin": 0.9783950617283951,
+   "jTest95": 36,
+   "uA": 1552,
+   "uB": 1551,
+   "zA": 11,
+   "zB": 11,
+   "sameVerdict": 36,
+   "fileUA": 3063,
+   "fileUB": 3063,
+   "fileUAtests": 3033,
+   "fileUAsingle": 1552,
+   "fileLinesA": 16270,
+   "fileLinesB": 16270,
+   "setupA": 12667,
+   "setupB": 12677,
+   "setupBLoad": 12667,
+   "betweenB": 0
+  }
+ ],
+ "sharedSegments": 0,
+ "stability": {
+  "A": {
+   "mean": 1,
+   "min": 1
+  },
+  "B": {
+   "mean": 0.9999985015134715,
+   "min": 0.9996343692870201
+  }
+ }
+}
