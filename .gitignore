@@ -30,3 +30,6 @@ cupel-out/
 *.key
 *.p12
 credentials*.json
+
+# Claude Code agent worktrees
+.claude/worktrees/
