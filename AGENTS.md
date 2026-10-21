@@ -5,7 +5,7 @@ The plans in `plans/` are the source of truth. The locked decisions in `plans/DE
 ## Rules
 
 - **No telemetry, no analytics, no network calls.** The only network call Cupel will ever make is the opt-in `--assay` connector, and it is not part of this build. `scripts/check.mjs` enforces this.
-- **No model calls inside Cupel.** It must be deterministic: the same inputs give the same report. The engine may not read the clock or use randomness unless a seed or time is passed in. `scripts/check.mjs` enforces this for `packages/cupel/src/engine/`.
+- **No model calls inside Cupel.** It must be deterministic: the same inputs give the same report. The engine may not read the clock or use randomness unless a seed or time is passed in. The engine is pure: it does no I/O and imports no `node:` modules and no `process`, so the same engine can run inside Vibernt Assay on Cloudflare Workers. `scripts/check.mjs` enforces this for `packages/cupel/src/engine/`.
 - **Keep dependencies minimal.** Each one must be pinned to an exact version and justified in `plans/DECISIONS.md`. Prefer the Node and Python standard libraries.
 - **Never weaken a guardrail to make a test pass.** Every rule in the spec has a conformance case, including negative cases.
 - **The repo stays PRIVATE.** Do not make it public, publish to npm or PyPI, create releases or tags meant for publishing, or post anywhere without the owner's explicit approval in chat. Packages stay `"private": true` (npm) and carry `Private :: Do Not Upload` (PyPI) until then.

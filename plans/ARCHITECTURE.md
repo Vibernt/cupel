@@ -6,7 +6,7 @@
 |---|---|
 | **Spec** (`spec/`) | The single source of truth: tier labels and path rules, the value signals and how they combine, the keep/consolidate/rewrite/retire rules, guardrails, the report format (JSON Schema), the config format. Versioned (`cupel-spec/1`) |
 | **Conformance cases** (`spec/conformance/`) | Input fixtures (results, coverage, mutation outcomes, config) with the exact expected report. Every implementation must pass all of them |
-| **Engine** | Pure, deterministic functions: inputs in, report out. No I/O beyond what is passed in, no clock, no randomness without a seed |
+| **Engine** | Pure, deterministic functions: inputs in, report out. No I/O beyond what is passed in, no clock, no randomness without a seed, no runtime APIs (`node:*`, `process`). So the same engine runs in the CLI, the MCP server and, later, server-side in Vibernt Assay (Cloudflare Workers): local scores and Assay scores always match |
 | **Collectors** | Run the user's tests and produce the engine's inputs: per-test results, per-test coverage, changed-line mutation outcomes. One per runner: node:test, Vitest, Jest, pytest first |
 | **CLI** (`cupel`) | Commands below; human output by default, `--json` for machines and agents |
 | **MCP server** (`cupel mcp`) | Local stdio server exposing the same commands as tools |

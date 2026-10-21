@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Repository rule checks (AGENTS.md). Run with `npm run check`; CI runs it on every push.
 //  1. No network: shipped code never imports network modules or calls fetch.
-//  2. Determinism: the engine never reads the clock or uses unseeded randomness.
+//  2. Determinism and purity: the engine never reads the clock, uses unseeded randomness,
+//     or imports runtime APIs (node:*, process), so the same engine runs in the CLI and in
+//     Vibernt Assay on Cloudflare Workers.
 //  3. Dependencies: exact versions only, each one named in plans/DECISIONS.md.
 //  4. Still private: npm packages are "private": true; the Python package carries
 //     the "Private :: Do Not Upload" classifier. Lifting either needs the owner (L6).
@@ -32,6 +34,14 @@ const JS_NONDETERMINISM = [
   /\bcrypto\.random/,
   /\brandomUUID\s*\(/,
 ];
+const JS_ENGINE_IMPURE = [
+  /\bfrom\s+['"]node:/,
+  /\bimport\(\s*['"]node:/,
+  /\brequire\s*\(/,
+  /\bprocess\./,
+];
+
+export { JS_ENGINE_IMPURE };
 
 export function findViolations(text, patterns) {
   const hits = [];
@@ -82,7 +92,9 @@ export function runChecks(root = ROOT) {
     report(f, findViolations(readFileSync(f, 'utf8'), PY_NETWORK), 'network call');
   }
   for (const f of walk(join(root, 'packages/cupel/src/engine'), ['.mjs', '.js', '.cjs'])) {
-    report(f, findViolations(readFileSync(f, 'utf8'), JS_NONDETERMINISM), 'clock or randomness in engine');
+    const text = readFileSync(f, 'utf8');
+    report(f, findViolations(text, JS_NONDETERMINISM), 'clock or randomness in engine');
+    report(f, findViolations(text, JS_ENGINE_IMPURE), 'runtime API in engine (engine must be pure)');
   }
 
   const decisions = readFileSync(join(root, 'plans/DECISIONS.md'), 'utf8');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findViolations, checkDependencies, runChecks } from './check.mjs';
+import { findViolations, checkDependencies, runChecks, JS_ENGINE_IMPURE } from './check.mjs';
 
 const NETWORK = [/\bfetch\s*\(/, /\bfrom\s+['"](node:)?(http|https)['"]/];
 
@@ -15,6 +15,11 @@ test('clean code has no violations', () => {
 
 test('an explicit allow marker suppresses a line', () => {
   assert.deepEqual(findViolations('await fetch(u); // cupel-allow-network: --assay connector', NETWORK), []);
+});
+
+test('engine purity flags node: imports, require and process', () => {
+  const src = "import { readFileSync } from 'node:fs';\nconst x = require('y');\nprocess.exit(1);\nexport const f = (a) => a + 1;";
+  assert.deepEqual(findViolations(src, JS_ENGINE_IMPURE).map((h) => h.line).sort(), [1, 2, 3]);
 });
 
 test('ranges and unjustified dependencies are rejected', () => {
