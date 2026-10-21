@@ -1007,6 +1007,73 @@ kase('051-ratios-and-timestamp', {
   },
 });
 
+// ---------- readings settled with the independent engine ----------
+
+kase('052-retire-pass-trusts-passed-units', {
+  description: 'A failing test\'s coverage is not trusted: a unit covered only by a failing test is not retired.',
+  command: 'report',
+  rules: rules('-A10 +A1'),
+  input: input({
+    tests: [t('f', 'tests/f.test.mjs', 'f', { status: 'failed' }), t('r', 'tests/r.test.mjs')],
+    cov: { f: '1-6', r: '2-4' },
+    rechecked: ['r'],
+    mutation: { mutants: [], targeted: ['r'] },
+  }),
+  expectExit: 0,
+  expected: {
+    units: [
+      { id: 'f', advice: 'none', reasons: ['failed'] },
+      { id: 'r', signals: { uniqueLines: 0 }, advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified', 'retire-conflict'] },
+    ],
+  },
+});
+
+const AGG = (bCoverable, bHash) => input({
+  sources: { 'src/auth-a.mjs': { coverable: '1-10', hash: 'a1' }, 'src/auth-b.mjs': { coverable: bCoverable, hash: bHash } },
+  tests: [t('k', 'tests/k.test.mjs')],
+  cov: { k: { 'src/auth-a.mjs': '1-10' } },
+});
+
+kase('053-guard-critical-aggregate', {
+  description: 'Each critical source holds its ratio, but uncovered critical code grew: the aggregate falls and the guard fails.',
+  command: 'guard',
+  rules: rules('-G5 -G4'),
+  base: AGG('1-10', 'b1'),
+  head: AGG('1-30', 'b2'),
+  expectExit: 1,
+  expected: {
+    guard: {
+      pass: false,
+      checks: checks({
+        'coverage-ratio': { base: { covered: 10, coverable: 20, pct: 50 }, head: { covered: 10, coverable: 40, pct: 25 } },
+        'critical-coverage': {},
+      }),
+      removed: [],
+    },
+  },
+});
+
+kase('054-invalid-config-empty-word', {
+  description: 'A tier word with no letters or digits would match every path, so the config is refused.',
+  command: 'report',
+  rules: rules('-I1'),
+  config: { tiers: { extraPathWords: ['-'] } },
+  input: input({ tests: SIMPLE_TESTS, cov: { t1: '1' } }),
+  expectExit: 2,
+  expected: { diagnostics: [{ code: 'invalid-config', severity: 'error', path: '/tiers/extraPathWords/0' }], units: '$absent' },
+});
+
+kase('055-check-weakens-without-head-mutation', {
+  description: 'When head has no mutation data, every mutant the test detected at base counts as lost.',
+  command: 'check',
+  rules: rules('+C3'),
+  args: { tests: ['w'] },
+  base: input({ tests: W_TESTS, cov: { o: '1-2', w: '1-5' }, mutation: { mutants: [m('m1', 4, 'killed', ['w'])] } }),
+  head: input({ tests: W_TESTS, cov: { o: '1-2', w: '1-5' } }),
+  expectExit: 1,
+  expected: { check: { verdicts: [{ id: 'w', verdict: 'weakens', lost: { lines: {}, mutants: ['m1'] } }] } },
+});
+
 // ---------- write ----------
 
 function filesFor(c) {

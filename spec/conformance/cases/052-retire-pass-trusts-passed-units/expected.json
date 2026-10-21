@@ -1,0 +1,23 @@
+{
+  "units": [
+    {
+      "id": "f",
+      "advice": "none",
+      "reasons": [
+        "failed"
+      ]
+    },
+    {
+      "id": "r",
+      "signals": {
+        "uniqueLines": 0
+      },
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-coverage-unverified",
+        "retire-conflict"
+      ]
+    }
+  ]
+}

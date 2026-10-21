@@ -1,0 +1,15 @@
+{
+  "description": "Each critical source holds its ratio, but uncovered critical code grew: the aggregate falls and the guard fails.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G5",
+      "polarity": "negative"
+    },
+    {
+      "id": "G4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

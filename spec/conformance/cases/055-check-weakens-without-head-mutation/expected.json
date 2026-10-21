@@ -1,0 +1,16 @@
+{
+  "check": {
+    "verdicts": [
+      {
+        "id": "w",
+        "verdict": "weakens",
+        "lost": {
+          "lines": {},
+          "mutants": [
+            "m1"
+          ]
+        }
+      }
+    ]
+  }
+}

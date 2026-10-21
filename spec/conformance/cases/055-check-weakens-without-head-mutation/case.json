@@ -1,0 +1,16 @@
+{
+  "description": "When head has no mutation data, every mutant the test detected at base counts as lost.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C3",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "tests": [
+      "w"
+    ]
+  },
+  "expectExit": 1
+}

@@ -8,6 +8,7 @@ import { buildModel } from './model.mjs';
 import { advise, fileSummaries } from './advice.mjs';
 import { suiteSection, unitEntry, planSection, checkSection, guardSection } from './commands.mjs';
 import { orderKeys } from './keyorder.mjs';
+import { tokens } from './match.mjs';
 
 export const SPEC_VERSION = 'cupel-spec/1';
 export const COMMANDS = Object.freeze(['report', 'plan', 'check', 'guard', 'label', 'validate']);
@@ -67,6 +68,7 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   }
   // I1
   diagnostics.push(...schemaDiagnostics(schemas.config, config ?? {}, 'invalid-config', null));
+  diagnostics.push(...emptyWordDiagnostics(config ?? {}));
   for (const [label, doc] of docs) {
     if (doc !== undefined && doc !== null) diagnostics.push(...schemaDiagnostics(schemas.input, doc, 'invalid-input', label));
   }
@@ -142,4 +144,19 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     }
   }
   return finish(schemas, base, out, diagnostics, exit);
+}
+
+/** I1: a tier word with no tokens would match every path, so it is an invalid config. */
+function emptyWordDiagnostics(config) {
+  const out = [];
+  for (const key of ['pathWords', 'titleWords', 'extraPathWords', 'extraTitleWords']) {
+    const words = config?.tiers?.[key];
+    if (!Array.isArray(words)) continue;
+    words.forEach((w, i) => {
+      if (typeof w === 'string' && tokens(w).length === 0) {
+        out.push({ code: 'invalid-config', severity: 'error', path: `/tiers/${key}/${i}`, message: `word ${JSON.stringify(w)} has no letters or digits` });
+      }
+    });
+  }
+  return out;
 }

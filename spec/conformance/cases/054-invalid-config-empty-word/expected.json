@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "invalid-config",
+      "severity": "error",
+      "path": "/tiers/extraPathWords/0"
+    }
+  ],
+  "units": "$absent"
+}

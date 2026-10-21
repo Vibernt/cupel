@@ -1,0 +1,11 @@
+{
+  "description": "A tier word with no letters or digits would match every path, so the config is refused.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

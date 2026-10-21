@@ -26,7 +26,9 @@ test('every case is well formed and its inputs and config validate', () => {
     const inputs = c.command === 'guard' || files.includes('base.json') ? ['base.json', 'head.json'] : ['input.json'];
     for (const f of inputs) assert.ok(files.includes(f), `${dir} needs ${f}`);
     assert.ok(files.includes('expected.json'), `${dir} needs expected.json`);
-    const expectInvalid = c.rules.some((r) => r.id === 'I1' && r.polarity === 'negative');
+    // An I1-negative case must really be invalid, in the document its diagnostic names.
+    const codes = (read(`${CASES}${dir}/expected.json`).diagnostics ?? []).map((d) => d.code);
+    const expectInvalid = c.rules.some((r) => r.id === 'I1' && r.polarity === 'negative') && codes.includes('invalid-input');
     for (const f of inputs) {
       const errors = validate(schema('input'), read(`${CASES}${dir}/${f}`));
       if (expectInvalid) assert.notDeepEqual(errors, [], `${dir}/${f} should be invalid`);

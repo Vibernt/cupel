@@ -2,7 +2,9 @@
 
 This is the normative definition of Cupel. Every implementation, in any language, must produce the reports this spec defines, and must pass every case in [`conformance/`](conformance/).
 
-The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119. Rule identifiers such as **T3** are stable. Every engine rule (prefixes I, T, S, A, P, C, G, L, R) has at least one positive and one negative conformance case. Collector rules (prefix K) are proved by the adapter conformance kit.
+The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119. Rule identifiers such as **T3** are stable. Every engine rule (prefixes I, T, S, A, P, C, G, L, R, E) has at least one positive and one negative conformance case. Collector rules (prefix K) are proved by the adapter conformance kit. A reference such as "spike S6" points to [`plans/spikes/`](../plans/spikes/), never to a rule.
+
+The clarifications in this spec record the readings an independent implementation needed (see `packages/cupel/ENGINE-NOTES.md`). Where the spec once allowed two readings, it now names the one that protects tests or fails the guard.
 
 The evidence behind each rule is in [`plans/spikes/`](../plans/spikes/), and the decisions in [`plans/DECISIONS.md`](../plans/DECISIONS.md).
 
@@ -44,7 +46,7 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 - **The unit of advice is the unit, never a single row.** Rows of a unit MUST share `file`.
 - A test's `status` is `passed`, `failed` or `skipped`. A unit is **failed** if any row failed; otherwise **skipped** if every row was skipped; otherwise **passed**.
 - `kind` is `unit` (default) or `e2e`. `e2e` marks end-to-end or browser tests whose coverage cannot be attributed reliably.
-- `spawnsInterpreter: true` marks a test that starts another interpreter, whose coverage the per-test method cannot see (S2).
+- `spawnsInterpreter: true` marks a test that starts another interpreter, whose coverage the per-test method cannot see (spike S2).
 
 ### 3.4 Coverage
 
@@ -68,14 +70,14 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 
 ### 3.6 Brittleness findings and shapes
 
-- `brittleness` lists findings `{ test, kind, line?, deliberate? }`. `kind` is `source-text`, `css-class`, `doc-wording` or `file-snapshot`. `deliberate: true` marks a pin that is intended, such as a freshness check of a generated file or a provenance hash (S6).
+- `brittleness` lists findings `{ test, kind, line?, deliberate? }`. `kind` is `source-text`, `css-class`, `doc-wording` or `file-snapshot`. `deliberate: true` marks a pin that is intended, such as a freshness check of a generated file or a provenance hash (spike S6).
 - `shapes` maps a unit id to its **shape**: a set of integer shingle hashes of the unit's body (K12).
 
 ### 3.7 Arguments
 
 | Argument | Used by | Meaning |
 |---|---|---|
-| `changed` | plan, check | Changed lines per path, as line sets. A path with the empty line set counts as changed in full |
+| `changed` | plan | Changed lines per path, as line sets. A path with the empty line set counts as changed in full |
 | `tests` | check | The units or test ids to check |
 | `approvals` | guard | A list of `{ action: "remove" \| "downgrade", id, by }`. Approvals come from a person, outside the agent's write scope (L5) |
 | `generatedAt` | all | When present, copied into the report. The engine never reads a clock |
@@ -84,7 +86,17 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 
 - **I1** The input MUST validate against `input.schema.json`, and every config against `config.schema.json`. Otherwise the engine reports the diagnostic `invalid-input` (or `invalid-config`) with the JSON path, and exits 2.
 - **I2** Every test id referenced in `coverage`, `mutation.mutants[].killedBy`, `brittleness`, and argument `tests` MUST exist in `tests`. Every unit id in `coverage.rechecked`, `mutation.targeted` and `shapes` MUST be a unit. Rows of a unit MUST share `file`, and test ids MUST be unique. Otherwise the diagnostic is `unknown-test`, `unknown-unit`, `unit-spans-files` or `duplicate-test`, and the exit code is 2.
-- **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range MUST have start ≤ end. Otherwise the diagnostic is `line-not-coverable`, `unknown-source` or `bad-range`, and the exit code is 2.
+- **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range (in `sources`, coverage, mutation and argument `changed`) MUST have start ≤ end. Otherwise the diagnostic is `line-not-coverable`, `unknown-source` or `bad-range`, and the exit code is 2.
+
+**Diagnostics.**
+- There is one diagnostic per problem, with `path` as a JSON pointer into the document when there is one.
+- Diagnostics are sorted by code, then path, then test, then message, with exact duplicates dropped.
+- When a command has two inputs, `message` starts with `base:` or `head:`.
+- Schema problems (I1) stop the run before I2 and I3 are checked.
+- Mutant ids MUST be unique within an input (`duplicate-mutant`).
+- A tier word with no tokens would match every path, so it is an invalid config (`invalid-config`).
+- Invalid arguments are `invalid-arguments`; `check` without tests is `missing-argument`; a command without its input or inputs is `missing-input`. Approvals need a non-empty `by`.
+- Each of these exits 2.
 
 ## 5. Tiers
 
@@ -96,7 +108,9 @@ A mutant is **detected** when its status is `killed` or `timeout`.
   - `*` matches any run of characters except `/`.
   - `?` matches one character except `/`.
   - Every other character matches itself.
-  - A glob must match the whole path.
+  - A glob must match the whole path, and `a/**` also matches `a`. `[` and `]` are literal.
+  - A `**` that is not a whole path segment (as in `src/**.ts`) crosses `/` in critical globs and acts as `*` in minor globs, so an unclear glob always errs towards protection.
+- Letters and digits are Unicode letters and decimal digits; strings compare by code point everywhere in this spec.
 
 **Critical sources.** A source is **critical** when its path matches a `tiers.critical` glob, or when its path matches a path word.
 
@@ -106,10 +120,10 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 
 **Rules.** A unit's tier is decided by the first rule that applies, and `tierReason` names it:
 
-- **T1** **Tag.** If any row carries a tier tag (`critical`, `standard` or `minor`) in `tags`, the unit takes the most protective tag present (critical over standard over minor). Reason: `tag`.
+- **T1** **Tag.** If any row carries a tier tag (`critical`, `standard` or `minor`, matched exactly, case included) in `tags`, the unit takes the most protective tag present (critical over standard over minor). Reason: `tag`. A tag can lower a tier below what T3 to T5 would give; between base and head that is a downgrade, which G8 catches, and T8 still protects any unit that covers a critical source.
 - **T2** **Unknown tag.** A tag other than the three tier tags produces the diagnostic `unknown-tag` (severity `error`) naming the test id. It does not change the tier. `label` exits 1 when any `unknown-tag` diagnostic exists; other commands report it and are otherwise unaffected.
 - **T3** **Path rule.** If the unit's file matches a `tiers.critical` glob, the tier is `critical`. Reason: `path-rule`.
-- **T4** **Word.** If a path word matches the unit's file, or a title word matches the name of any row, the tier is `critical`. Reason: `critical-word`.
+- **T4** **Word.** If a path word matches the unit's file, or a title word matches the `name` of any row, the tier is `critical`. Reason: `critical-word`.
 - **T5** **Unique critical lines.** If the unit has at least one unique line (S2) in a critical source, the tier is `critical`. Reason: `unique-critical-lines`.
 - **T6** **Minor path rule.** If the unit's file matches a `tiers.minor` glob, the tier is `minor`. Reason: `path-rule`.
 - **T7** **Default.** Otherwise, the tier is `standard`. Reason: `default`.
@@ -119,7 +133,7 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 
 For a unit `u` with rows `R(u)` in test file `f`:
 
-- **S1** **Own lines.** `own(u)` is the union of the rows' covered lines (`coverage.byTest`), minus `coverage.setup[f]`. Lines are compared as (source, line) pairs.
+- **S1** **Own lines.** `own(u)` is the union of the rows' covered lines (`coverage.byTest`), minus `coverage.setup[f]`. Lines are compared as (source, line) pairs. At `file` granularity, `own(u)` is the file's coverage (`coverage.byFile[f]`) plus any rows' coverage, minus `coverage.setup[f]`; it feeds protection (T8), plan (P2) and check, never uniqueness.
 - **S2** **Unique lines.** `unique(u)` is `own(u)` minus the own lines of every other unit, minus the setup lines of every test file. `uniqueLines` is its size. A line that only loads in some file is never unique evidence.
 - **S3** **Kills.**
   - `kills(u)` is the number of detected mutants whose `killedBy` contains a row of `u`.
@@ -127,26 +141,26 @@ For a unit `u` with rows `R(u)` in test file `f`:
 - **S4** **Duration.**
   - A row's duration is the median of its `durationsMs`: the middle value, or for an even count the mean of the two middle values rounded down. A row with no durations has duration 0.
   - `durationMs(u)` is the sum of its rows' durations.
-  - `runs(u)` is the smallest number of durations recorded for any row.
+  - `runs(u)` is the smallest number of durations recorded for any row (0 when a row has none).
 - **S5** **Brittleness.** The unit's findings are its rows' findings. `brittle` is the sorted list of their distinct kinds. The unit is **pinned** when it has a finding with `deliberate` not true, and **deliberately pinned** when all its findings are deliberate.
 - **S6** **Similarity.**
-  - `shape(u, v)` is the Jaccard index of the two shapes: the size of their intersection over the size of their union, 0 when either shape is missing or both are empty.
+  - `shape(u, v)` is the Jaccard index of the two shapes, each taken as a set: the size of their intersection over the size of their union, 0 when either shape is missing or both are empty.
   - `lineJaccard(u, v)` is the same index over `own(u)` and `own(v)`, 0 when both are empty.
 
 ## 7. Advice
 
 Each unit gets exactly one `advice`: `keep`, `consolidate`, `rewrite`, `move-to-check`, `retire` or `none`. It also gets ordered `reasons` and sorted `hints`.
 
-**Advice rules.** Rules are tried in order and the first that applies decides the advice:
+**Advice rules.** Consolidation groups (A9) are computed first. Then rules are tried in order and the first that applies decides the advice. "Critical" in A6 and A9 means tier `critical`. Thresholds compare exactly against the decimal as written (`0.8` means 8/10), never as binary floating point.
 
 - **A1** A **failed** unit gets `none`, reason `failed`. A failing test's coverage and kills are not trusted.
 - **A2** A **skipped** unit gets `none`, reason `not-run`.
-- **A3** A **pinned** unit gets `rewrite`, with reasons `brittle:<kind>` for each kind, in sorted order.
-- **A4** A **deliberately pinned** unit gets `move-to-check`, reason `deliberate-pin`.
+- **A3** A **pinned** unit gets `rewrite`, with reasons `brittle:<kind>` for each kind in `brittle` (deliberate kinds included), in sorted order.
+- **A4** A **deliberately pinned** unit (at least one finding, all deliberate) gets `move-to-check`, reason `deliberate-pin`.
 - **A5** A member of a consolidation group (A9) gets `consolidate`, reason `same-shape`, with `group` set to the group id.
 - **A6** **Slow and low value.** A passed unit that is not critical, with `runs(u)` ≥ `advice.minRuns`, `durationMs(u)` ≥ `advice.slowMs` and `uniqueLines` < `advice.lowValueUniqueLines`, gets `rewrite`, reason `slow-low-value`. This needs `test` granularity.
 - **A7** **Keep with evidence.** A unit whose tier is `critical`, or with `uniqueLines` ≥ 1, or with `uniqueKills` ≥ 1, gets `keep`. Its reasons are those that hold, in this order: `critical`, `unique-lines`, `unique-kills`.
-- **A8** **No evidence.** A unit with an empty `own(u)` gets `none`, with hint `no-coverage-evidence`. Covering nothing is not the same as being worth nothing (S6).
+- **A8** **No evidence.** A unit with an empty `own(u)` gets `none`, with hint `no-coverage-evidence`. Covering nothing is not the same as being worth nothing (spike S6).
 - **A10** **Retire.** A unit selected by the retire pass gets `retire`, with reason `no-unique-lines`, plus `no-unique-kills` (mutation path) or `duplicate-of` (duplicate path; `duplicateOf` names the other unit).
 - **A11** **Otherwise** the unit gets `keep` with hint `no-unique-coverage-unverified`. This is a review hint, never advice to remove.
 
@@ -156,10 +170,10 @@ Each unit gets exactly one `advice`: `keep`, `consolidate`, `rewrite`, `move-to-
 - `retire-conflict` when A10 rejected the unit only because of joint safety.
 
 **A9 Consolidation groups.**
-- **Which units can join.** Eligible units have status passed and no brittleness finding, and are measured at `test` granularity, with `advice.consolidate` true.
+- **Which units can join.** Eligible units have status passed and no brittleness finding (deliberate or not), and are measured at `test` granularity, with `advice.consolidate` true.
 - **When two units are linked.** Two eligible units of the same file are linked when `shape` ≥ `advice.shapeSimilarity`, `lineJaccard` ≥ `advice.lineJaccard`, and both or neither are critical.
 - **Groups.** Groups are the connected components of two or more units. They are numbered `g1`, `g2` and so on, in ascending order of each group's smallest unit id. Within a group, units are listed in ascending id order.
-- **What is ignored.** "Own lines are a subset of a sibling's" is not a consolidation signal (S6).
+- **What is ignored.** "Own lines are a subset of a sibling's" is not a consolidation signal (spike S6).
 
 **A10 Retire eligibility and the retire pass.**
 
@@ -173,22 +187,24 @@ A unit is a **retire candidate** when all of these hold:
 
 Missing mutation data is never "no kill".
 
+Only units that reach A10 (no earlier rule applied) are candidates. A failing test's coverage and kills are not trusted (A1), so the pass counts **passed units only** as remaining coverage, remaining killers and duplicate partners.
+
 **The retire pass** keeps retiring jointly safe:
 1. Sort candidates by `durationMs` descending, then by id ascending.
 2. Take each candidate in turn and accept it only if, after removing it and every unit accepted before it:
-   1. the own lines of the remaining units, plus all setup lines, still include every line in the own lines of all units;
-   2. every detected mutant still has a `killedBy` row in a remaining unit;
-   3. for the duplicate path, at least one qualifying `v` remains.
+   1. the own lines of the remaining passed units, plus the setup lines of test files that keep at least one unit, still include every line in the own lines of all passed units;
+   2. every detected mutant that had a passed killer still has a `killedBy` row in a remaining passed unit;
+   3. for the duplicate path, at least one qualifying passed `v` remains, for this candidate and for every duplicate-path candidate accepted before it.
 
    A candidate that fails only these conditions gets hint `retire-conflict` and falls through to A11.
-3. Accepted candidates get `retire`. `duplicateOf` is the smallest qualifying `v` id.
+3. Accepted candidates get `retire`. A candidate qualifying by both paths gets reasons `no-unique-lines`, `no-unique-kills`, `duplicate-of`. `duplicateOf` is the smallest qualifying `v` id still present after the pass.
 
 **A12 File granularity.** At `file` granularity, these do not apply:
 - unique lines and unique kills for units (reported as `null`);
 - A5, A6 and A10;
 - T5.
 
-Units that reach A7 or later get `keep` with hint `file-granularity`, unless they are critical, in which case they get `keep` with reason `critical`. The report's `files` list each test file's `uniqueLines`. A file with 0 gets hint `file-no-unique-coverage`.
+Units that reach A7 or later get `keep` with hint `file-granularity`, unless they are critical, in which case they get `keep` with reason `critical` and no hint. A8 does not apply. `files` appears only at `file` granularity, sorted by file. The report's `files` list each test file's `uniqueLines`. A file with 0 gets hint `file-no-unique-coverage`.
 
 ## 8. Plan
 
@@ -199,6 +215,7 @@ Units that reach A7 or later get `keep` with hint `file-granularity`, unless the
   - `rest`: the other standard units.
 
   Minor units that are not affected are left out of the order and listed in `skipped`. Ordering within buckets is as in P1.
+Failed and skipped units are planned like any other. A test file counts as changed when any `changed` entry names it, whatever its lines.
 - **P3** `expectedMs` is the sum of `durationMs` over the ordered units. Each order entry is `{ id, bucket, durationMs }`.
 
 ## 9. Check
@@ -206,24 +223,26 @@ Units that reach A7 or later get `keep` with hint `file-granularity`, unless the
 `check` answers, for each unit named in argument `tests` (a test id names its unit):
 
 - **C1** `adds-value` when the unit is critical, or has `uniqueLines` ≥ 1, or `uniqueKills` ≥ 1.
-- **C2** `adds-nothing` otherwise. `extend` names the other unit with the largest overlap of own lines (ties: smallest id), or is `null` when nothing overlaps.
-- **C3** `weakens` when a `base` input is given, the unit exists in both, and its own lines at head do not include its own lines at base, or a mutant it detected at base (present at head by id) is not detected by it at head. `lost` lists the lost lines (line sets per source) and mutant ids.
+- **C2** `adds-nothing` otherwise. `extend` names the other unit (of any status) with the largest overlap of own lines (ties: smallest id), or is `null` when nothing overlaps. At `file` granularity only critical units add value.
+- **C3** `weakens` when a `base` input is given, the unit exists in both, and its own lines at head do not include its own lines at base, or a mutant it detected at base (present at head by id) is not detected by it at head. `lost` lists the lost lines (line sets per source) and mutant ids. A head mutant counts as detected by the unit when it is detected and its `killedBy` names a head row of the unit. When head has no `mutation` data, every mutant the unit detected at base counts as lost, as in G6.
 - **C4** `fails` when the unit is failed, and `not-run` when it is skipped. These take precedence over C1 to C3, which take precedence in the order C3, C1, C2.
 
 Verdicts are listed once per unit, in ascending unit id order. Each entry lists `brittle` kinds; `extend` appears only with `adds-nothing`, and `lost` only with `weakens`. `check` exits 0 when every verdict is `adds-value`, and 1 otherwise.
 
 ## 10. Guard
 
-`guard` compares a `base` input with a `head` input under one config.
+`guard` compares a `base` input with a `head` input under one config. There is no rule G2. Approvals match unit ids exactly.
 
-- **G1** **Runtime.** If `runtime.name` or `runtime.version` differs between base and head, the engine reports the diagnostic `runtime-mismatch` and exits 3. Coverage differs slightly between runtime versions (S2), so guard never compares across them.
+- **G1** **Runtime.** If `runtime.name` or `runtime.version` differs between base and head, the engine reports the diagnostic `runtime-mismatch` and exits 3. Coverage differs slightly between runtime versions (spike S2), so guard never compares across them.
 - **G3** **Head passes.** The check `head-passes` fails when any unit at head is failed.
-- **G4** **Coverage never falls.** Covered lines are every line in any row's coverage plus every setup line.
+- **G4** **Coverage never falls.** Covered lines are every line in any row's coverage (failed rows included), any file's coverage, and every setup line.
   - Check `coverage-lines`: for each source present in both inputs with equal, present `hash`, the head's covered lines must include the base's. `lost` lists the missing lines.
   - Check `coverage-ratio`: covered over coverable, summed over all sources, must not be lower at head than at base. It is compared as exact fractions, and the check reports both ratios as `base` and `head`.
 - **G5** **Critical coverage.** The check `critical-coverage` covers every critical source present in both inputs:
-  - With `guard.criticalCoverage` `"ratchet"` (default), its covered-over-coverable at head must not be lower than at base.
-  - With a number N, it must also be at least N percent at head.
+  - With `guard.criticalCoverage` `"ratchet"` (default), each critical source's covered-over-coverable at head must not be lower than at base, **and** the same must hold for all those sources together.
+  - With a number N, each of them and their aggregate must also be at least N percent at head, compared as exact fractions.
+  - A ratio with nothing coverable at base passes; with nothing coverable at head it fails if base covered anything. A floor is met when nothing is coverable.
+  - A critical source deleted at head, or a mutant whose id changed, is not compared: code that changed is judged by G4's ratio and by the mutants that still exist.
   - `sources` lists the critical sources that fail, sorted.
 - **G6** **Critical mutation never falls.** Check `critical-mutation`:
   - Every mutant on a critical source that is detected at base and present at head (same id) must be detected at head. `lost` lists the mutant ids.
@@ -231,6 +250,8 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 - **G7** **No critical unit removed without approval.** Check `critical-removed`: each unit critical at base and absent at head needs an approval `{ action: "remove", id }`. `units` lists the unapproved ones, sorted.
 - **G8** **No critical unit downgraded without approval.** Check `critical-downgraded`: each unit critical at base and present but not critical at head needs an approval `{ action: "downgrade", id }`. `units` lists the unapproved ones, sorted.
 - **G9** **Evidence.** `removed` lists every unit present at base and absent at head as `{ id, tier, uniqueLines, uniqueKills }`, with values from base, sorted by id.
+
+Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when it passes); `coverage-ratio` has `base` and `head`; `critical-coverage` has `sources`; `critical-mutation` has `lost.mutants`, or `missing: true` and no `lost`; `critical-removed` and `critical-downgraded` have `units`; `head-passes` has none of these.
 
 `guard.checks` lists each of the seven checks exactly once, in the order G3, G4 (`coverage-lines`, then `coverage-ratio`), G5, G6, G7, G8. `guard.pass` is true when every check passes. Guard exits 0 when it passes, and 1 when it does not.
 
@@ -244,7 +265,10 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
   - The same command, inputs, config and arguments MUST give byte-identical JSON.
   - Arrays are sorted as this spec says, and `units` by id.
   - Object keys appear in the order the report schema lists them.
-  - `generatedAt` appears only when passed as an argument.
+  - `generatedAt` appears only when passed as an argument, and never after exit 2 or 3.
+  - Report `spec` is always `cupel-spec/1`, whatever minor version the input names.
+  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `guard` emits `runtime` and `guard`. With two inputs, `runtime` is the head's.
+  - Every list whose order this spec does not state (rows, `skipped`, map keys such as `lost.lines`) is sorted by code point.
 - **R2** **Ratios.**
   - Coverage is reported as `{ covered, coverable, pct }`.
   - Mutation is reported as `{ detected, undetected, score }`, where undetected is survived plus no-coverage; `error` mutants are excluded.
@@ -267,7 +291,7 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 
 ## 14. Collector obligations (proved by the adapter kit, not by engine cases)
 
-- **K1** **Line rule** (S1, S2):
+- **K1** **Line rule** (spikes S1, S2):
   - Each UTF-16 code unit of a source is classified as whitespace, comment or code.
   - A line is coverable when it holds a code character.
   - Coverage counts are painted widest range first, so a character takes the count of the innermost range containing it.
@@ -280,8 +304,8 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
   - Concurrent tests' overlapping coverage is attributed to every one of them and MUST NOT make any line unique to one of them.
 - **K4** **Re-check.** A unit is listed in `rechecked` only after it has been run in its own process and that run's coverage replaced the shared-process coverage.
 - **K5** **Kills.** A mutant counts as killed only when a test reports a failure. A process crash before any test reports is an environment error, to be re-run.
-- **K6** **Mutants in memory.** Mutants are served in memory (for example by a module load hook), never written to disk, so source-text pins earn no kills (S3). A unit is listed in `targeted` only when every mutant generated on its own lines was run.
-- **K7** **Flakes.** A mutant detected at base that survives at head is re-run at least twice more before it is reported as survived (S4).
+- **K6** **Mutants in memory.** Mutants are served in memory (for example by a module load hook), never written to disk, so source-text pins earn no kills (spike S3). A unit is listed in `targeted` only when every mutant generated on its own lines was run.
+- **K7** **Flakes.** A mutant detected at base that survives at head is re-run at least twice more before it is reported as survived (spike S4).
 - **K8** **Durations.** Durations are recorded from at least `advice.minRuns` runs where that is affordable.
 - **K9** **Runtime.** `runtime` names the interpreter and its exact version.
 - **K10** **Test ids.** Ids are stable across runs: the file path, `::`, then the full test name as written (tier tags included), with ` > ` between suite levels. Tests that come from one definition (a parametrized or looped test) are rows: they have distinct ids and share `unit`, which is the file path, `::@`, and the line of the definition (for example `tests/math.test.mjs::@15`). A test that is the only one from its definition has no `unit`. Adapters list `tests` sorted by id.

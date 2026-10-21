@@ -1,0 +1,46 @@
+{
+  "guard": {
+    "pass": false,
+    "checks": [
+      {
+        "id": "head-passes",
+        "pass": true
+      },
+      {
+        "id": "coverage-lines",
+        "pass": true
+      },
+      {
+        "id": "coverage-ratio",
+        "pass": false,
+        "base": {
+          "covered": 10,
+          "coverable": 20,
+          "pct": 50
+        },
+        "head": {
+          "covered": 10,
+          "coverable": 40,
+          "pct": 25
+        }
+      },
+      {
+        "id": "critical-coverage",
+        "pass": false
+      },
+      {
+        "id": "critical-mutation",
+        "pass": true
+      },
+      {
+        "id": "critical-removed",
+        "pass": true
+      },
+      {
+        "id": "critical-downgraded",
+        "pass": true
+      }
+    ],
+    "removed": []
+  }
+}

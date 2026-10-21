@@ -1,0 +1,15 @@
+{
+  "description": "A failing test's coverage is not trusted: a unit covered only by a failing test is not retired.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "negative"
+    },
+    {
+      "id": "A1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}
