@@ -213,8 +213,10 @@ class Session {
       if (failing.size) this.log(`mutate: ${file} fails unmutated (${[...failing].join(', ')}); those failures are not kills`);
       this.baselines.set(file, { wallMs: r.wallMs, code: r.code, failing, count: r.results.filter((x) => !x.suite).length });
     });
-    if (this.baselines.size && !this.probeFile) {
-      this.probeFile = [...this.baselines.keys()].sort((a, b) => (this.baselines.get(a).wallMs - this.baselines.get(b).wallMs) || cmp(a, b))[0];
+    // The known-good probe: the fastest file that passed cleanly unmutated.
+    if (!this.probeFile) {
+      const clean = [...this.baselines.keys()].filter((f) => this.baselines.get(f).failing.size === 0);
+      this.probeFile = clean.sort((a, b) => (this.baselines.get(a).wallMs - this.baselines.get(b).wallMs) || cmp(a, b))[0];
     }
   }
 
@@ -274,7 +276,8 @@ class Session {
       if (hung.length === 0) hung = covering.filter((t) => t.file === file).map((t) => t.id);
       if (hung.length === 0) hung = (this.passedByFile.get(file) ?? []).map((t) => t.id);
       for (const id of hung) killers.add(id);
-      return { kind: 'timeout', killers };
+      // A test that reported a failure before the time ran out is a kill in its own right (K5).
+      return { kind: fails.length ? 'killed' : 'timeout', killers };
     }
     if (fails.length) return { kind: 'killed', killers };
     const tested = r.results.filter((x) => !x.suite).length;
