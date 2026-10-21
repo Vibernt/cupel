@@ -59,10 +59,11 @@ export async function pool(items, jobs, fn) {
 let counter = 0;
 
 /**
- * Runs one test file. Returns { code, signal, timedOut, wallMs, results, started, ended, stderr }, where `results`
- * are the reporter's lines and `started`/`ended` the full names of tests whose beforeEach/afterEach ran.
+ * Runs one test file. Returns { code, signal, timedOut, cut, wallMs, results, started, ended, stderr }, where
+ * `results` are the reporter's lines and `started`/`ended` the full names of tests whose beforeEach/afterEach ran.
+ * `stopAt` (a performance.now() time) kills the run when the time budget ends: then `cut` is true.
  */
-export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs }) {
+export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs, stopAt = Infinity }) {
   const n = ++counter;
   const report = join(tmp, `report-${n}.jsonl`);
   const marks = join(tmp, `marks-${n}.txt`);
@@ -75,11 +76,15 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
     });
     let stderr = '';
     let timedOut = false;
+    let cut = false;
     child.stderr.setEncoding('utf8').on('data', (d) => { stderr = (stderr + d).slice(-4000); });
+    const budget = stopAt - started;
+    const byBudget = budget < timeoutMs;
     const timer = setTimeout(() => {
-      timedOut = true;
+      if (byBudget) cut = true;
+      else timedOut = true;
       try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
-    }, Math.max(1, Math.round(timeoutMs)));
+    }, Math.max(1, Math.round(Math.min(timeoutMs, budget))));
     let finished = false;
     const finish = (code, signal) => {
       if (finished) return;
@@ -99,7 +104,7 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
           else if (l.startsWith('E ')) endedTests.push(l.slice(2));
         }
       }
-      resolve({ code, signal, timedOut, wallMs, results, started: startedTests, ended: endedTests, stderr });
+      resolve({ code, signal, timedOut, cut, wallMs, results, started: startedTests, ended: endedTests, stderr });
     };
     child.on('error', (error) => { stderr += String(error); finish(-1, null); });
     child.on('close', finish);

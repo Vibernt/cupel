@@ -164,6 +164,7 @@ class Session {
       this.passedByFile.get(t.file).push(t);
     }
     this.baselines = new Map();
+    this.deadline = Infinity; // performance.now() time when the budget (maxSeconds) ends
     this.urls = new Map();
     this.specs = 0;
   }
@@ -215,9 +216,10 @@ class Session {
     await pool(todo, this.jobs, async (file) => {
       let r;
       for (let attempt = 0; attempt < 2; attempt++) {
-        r = await runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS });
-        if (!this.baselineBroken(r, file)) break;
+        r = await runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: this.deadline });
+        if (r.cut || !this.baselineBroken(r, file)) break;
       }
+      if (r.cut) return; // out of time: mutants that need this file are not run
       if (this.baselineBroken(r, file)) {
         throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
       }
@@ -239,15 +241,20 @@ class Session {
     return r.code !== 0 && !r.results.some((x) => x.s === 'fail');
   }
 
-  /** S3's lesson: before trusting an `error`, check a known-good file still passes unmutated. */
+  /**
+   * S3's lesson: before trusting an `error`, check a known-good file still passes unmutated. Returns true when it
+   * does, false when the time budget ended first, and throws EnvironmentError when it fails.
+   */
   async knownGood() {
-    if (!this.probeFile) return;
+    if (!this.probeFile) return true;
     const base = this.baselines.get(this.probeFile);
-    const r = await runTestFile({ root: this.root, file: this.probeFile, env: this.env, tmp: this.tmp, timeoutMs: Math.max(TIMEOUT_FACTOR * RECHECK_FACTOR * base.wallMs, 60000) });
+    const r = await runTestFile({ root: this.root, file: this.probeFile, env: this.env, tmp: this.tmp, timeoutMs: Math.max(TIMEOUT_FACTOR * RECHECK_FACTOR * base.wallMs, 60000), stopAt: this.deadline });
+    if (r.cut) return false;
     const failing = r.results.filter((x) => x.s === 'fail').length;
     if (this.baselineBroken(r, this.probeFile) || r.code !== base.code || failing !== base.failing.size) {
       throw new EnvironmentError(`the known-good file ${this.probeFile} no longer passes unmutated (exit ${r.code}); the environment changed during the run`);
     }
+    return true;
   }
 
   url(source) {
@@ -303,28 +310,27 @@ class Session {
   }
 
   /** One file with one mutant: a timeout is re-run once with a longer limit, a crash is re-run once, then `error`. */
-  async runFile(m, spec, file, covering, deadline) {
+  async runFile(m, spec, file, covering) {
+    const deadline = this.deadline;
+    const CUT = { kind: 'cut', killers: new Set() };
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
-    const go = (timeoutMs) => runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, mutantSpec: spec.path, timeoutMs });
-    let out = this.classify(file, await go(limit), base, covering);
-    if ((out.kind === 'timeout' || out.kind === 'crash') && performance.now() > deadline) return { kind: 'cut', killers: new Set() };
+    const go = async (timeoutMs) => {
+      const r = await runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, mutantSpec: spec.path, timeoutMs, stopAt: deadline });
+      return r.cut ? CUT : this.classify(file, r, base, covering);
+    };
+    let out = await go(limit);
+    if (out.kind === 'cut' || ((out.kind === 'timeout' || out.kind === 'crash') && performance.now() > deadline)) return CUT;
     if (out.kind === 'timeout') {
       // A timeout may be the machine, not the mutant: time the file unmutated now, under the current load, and give
       // the mutant 3x the larger of the two limits before calling it a timeout.
-      const fresh = await runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS });
-      if (this.baselineBroken(fresh, file)) {
-        await this.knownGood();
-        return { kind: 'error', killers: new Set() };
-      }
-      const recheck = RECHECK_FACTOR * Math.max(limit, TIMEOUT_FACTOR * fresh.wallMs);
-      out = this.classify(file, await go(recheck), base, covering);
+      const fresh = await runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: deadline });
+      if (fresh.cut) return CUT;
+      if (this.baselineBroken(fresh, file)) return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
+      out = await go(RECHECK_FACTOR * Math.max(limit, TIMEOUT_FACTOR * fresh.wallMs));
     }
-    if (out.kind === 'crash') out = this.classify(file, await go(limit), base, covering);
-    if (out.kind === 'crash') {
-      await this.knownGood();
-      out = { kind: 'error', killers: new Set() };
-    }
+    if (out.kind === 'crash') out = await go(limit);
+    if (out.kind === 'crash') return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
     return out;
   }
 
@@ -332,16 +338,17 @@ class Session {
    * The kill check of one mutant: its selected files, once each, stopping after 2 killing files unless a targeted
    * unit covers the mutant (then every file runs, so its kill data is exact). Returns null when the deadline cut it.
    */
-  async killCheck(m, deadline = Infinity) {
+  async killCheck(m) {
     const sel = this.select(m);
     if (sel.counts.size === 0) return { status: 'no-coverage', killedBy: [] };
+    if ([...sel.counts.keys()].some((f) => !this.baselines.has(f))) return null; // the budget ended before its baseline
     const spec = this.spec(m);
     const outcomes = [];
     let killing = 0;
     for (const file of this.order(sel.counts)) {
       if (!sel.needsFull && killing >= STOP_AFTER_FILES) break;
-      if (performance.now() > deadline) return null;
-      const out = await this.runFile(m, spec, file, sel.tests, deadline);
+      if (performance.now() > this.deadline) return null;
+      const out = await this.runFile(m, spec, file, sel.tests);
       if (out.kind === 'cut') return null;
       outcomes.push(out);
       if (out.kind === 'killed' || out.kind === 'timeout') killing++;
@@ -395,6 +402,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
   if (sampled) log(`mutate: sampled ${chosen.length} of ${eligible.length} (seed ${seed})`);
 
   const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()), jobs, timeoutFloorMs, log });
+  session.deadline = deadline;
   try {
     const files = new Set();
     for (const m of chosen) for (const f of session.select(m).counts.keys()) files.add(f);
@@ -403,7 +411,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     let done = 0;
     const results = await pool(chosen, session.jobs, async (m) => {
       if (performance.now() > deadline) return null;
-      const r = await session.killCheck(m, deadline);
+      const r = await session.killCheck(m);
       if (++done % 25 === 0) log(`mutate: ${done}/${chosen.length}`);
       return r;
     });

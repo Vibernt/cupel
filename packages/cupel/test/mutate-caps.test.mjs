@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { mutateNode, generateMutants, sample } from '../src/mutate/index.mjs';
 import { makeProject, ID } from './mutate-helpers.mjs';
 
@@ -60,10 +61,13 @@ test('a targeted unit is listed only when every mutant on its own lines ran', as
 test('maxSeconds stops the run, drops what did not finish and sets sampled', async (t) => {
   const p = makeProject();
   t.after(p.cleanup);
+  const t0 = performance.now();
   const r = await mutateNode({ root: p.root, config: { mutation: { maxSeconds: 1 } }, input: p.input, scope: { changed: { 'src/calc.mjs': '' } }, jobs: 1 });
+  // Runs still going when the budget ends are killed, so the run ends soon after it.
+  assert.ok(performance.now() - t0 < 5000, `took ${Math.round(performance.now() - t0)} ms`);
   assert.equal(r.sampled, true);
-  // The infinite loop alone outlasts the budget (its first run takes at least the 1 s timeout floor), so it is
-  // dropped rather than reported half-run.
+  // The infinite loop outlasts the budget (its first run takes at least the 1 s timeout floor), so it is dropped
+  // rather than reported half-run.
   assert.ok(r.mutants.length < 10, `${r.mutants.length} mutants ran in 1 s with one process`);
   assert.equal(r.mutants.some((m) => m.line === 8 && m.operator === 'arith'), false);
   for (const m of r.mutants) assert.notEqual(m.status, 'error');
