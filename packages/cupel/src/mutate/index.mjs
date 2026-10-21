@@ -283,10 +283,20 @@ class Session {
 
   /** Classifies one run of a file: killed, timeout, crash or survived, with the killing test ids. */
   classify(file, r, base, covering) {
-    const fails = r.results.filter((x) => x.s === 'fail' && !base.failing.has(x.suite ? `suite:${x.t}` : x.t));
+    // Failures that never count: tests that fail unmutated here, and tests the input does not list as passed (A1:
+    // a failing or flaky test's results are not trusted).
+    const untrusted = (x) => {
+      if (base.failing.has(x.suite ? `suite:${x.t}` : x.t)) return true;
+      const t = x.suite ? null : this.tests.get(`${file}::${x.t}`);
+      return t !== undefined && t !== null && t.status !== 'passed';
+    };
+    const allFails = r.results.filter((x) => x.s === 'fail');
+    const fails = allFails.filter((x) => !untrusted(x));
+    const ignored = allFails.length - fails.length;
     const killers = new Set(fails.flatMap((x) => this.killersOf(file, x, base)));
-    // A kill is a failure of a test the input knows (K5). A failure that no input test accounts for (a test that
-    // did not exist when the input was collected, or a renamed one) cannot be credited, so it is not a kill.
+    // A kill is a failure credited to a test the input lists as passed (K5). A failure no input test accounts for
+    // (a test the input does not know, or a renamed one) is not a kill: the run counts as a crash, is re-run once,
+    // then ends as error.
     const credited = killers.size > 0;
     if (fails.length && !credited) this.log(`mutate: ${file}: failures no input test accounts for: ${fails.map((x) => x.t).join(', ')}`);
     if (r.timedOut) {
@@ -305,7 +315,9 @@ class Session {
     if (credited) return { kind: 'killed', killers };
     if (fails.length) return { kind: 'crash', killers };
     const tested = r.results.filter((x) => !x.suite).length;
-    if (r.signal || r.code !== base.code || tested < base.count) return { kind: 'crash', killers };
+    // Exit 1 is what node:test gives for an ignored failure; any other change of exit code is a crash.
+    const codeOk = r.code === base.code || (ignored > 0 && r.code === 1);
+    if (r.signal || !codeOk || tested < base.count) return { kind: 'crash', killers };
     return { kind: 'survived', killers };
   }
 

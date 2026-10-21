@@ -19,18 +19,22 @@ test('a crash before any test reports is an error, never a kill', async (t) => {
   assert.equal(ops['remove-call'].status, 'survived');
 });
 
-test('a failure no input test accounts for is not a kill', async (t) => {
+test('a failure no input test accounts for is not a kill; a test the input lists as failed is ignored', async (t) => {
   const p = makeProject();
   t.after(p.cleanup);
   // The input does not know the test that catches `x > 10` -> `x <= 10`, so its failure cannot be credited.
   const input = { ...p.input, tests: p.input.tests.filter((x) => x.id !== ID.caps), coverage: { ...p.input.coverage, byTest: { ...p.input.coverage.byTest } } };
   delete input.coverage.byTest[ID.caps];
-  const r = await mutateNode({ root: p.root, input, scope: { changed: { 'src/calc.mjs': '3' } } });
-  assert.deepEqual(r.mutants.map((m) => m.status), ['survived']);
-  const r2 = await mutateNode({ root: p.root, input, scope: { changed: { 'src/calc.mjs': '2' } } });
-  const flip = r2.mutants.find((m) => m.operator === 'cmp-flip');
-  assert.equal(flip.status, 'error');
-  assert.equal(flip.killedBy, undefined);
+  // The input lists that test as failed: its results are not trusted (A1), so its failure is ignored.
+  const failed = { ...p.input, tests: p.input.tests.map((x) => (x.id === ID.caps ? { ...x, status: 'failed' } : x)) };
+  const [unknown, ignored] = await Promise.all([
+    mutateNode({ root: p.root, input, scope: { changed: { 'src/calc.mjs': '2' } } }),
+    mutateNode({ root: p.root, input: failed, scope: { changed: { 'src/calc.mjs': '2' } } }),
+  ]);
+  const flip = (r) => r.mutants.find((m) => m.operator === 'cmp-flip');
+  assert.equal(flip(unknown).status, 'error');
+  assert.equal(flip(unknown).killedBy, undefined);
+  assert.equal(flip(ignored).status, 'survived');
 });
 
 test('confirmSurvivors keeps a survivor only when it survives twice more', async (t) => {
