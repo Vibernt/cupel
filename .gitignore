@@ -1,0 +1,32 @@
+# dependencies and build output
+node_modules/
+dist/
+build/
+*.tgz
+coverage/
+.nyc_output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# spike scratch copies and runs (never committed)
+.scratch/
+cupel-out/
+
+# local editor and OS files
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# secrets: never commit
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials*.json

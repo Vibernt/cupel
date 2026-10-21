@@ -1,0 +1,15 @@
+# Roadmap
+
+| Milestone | Contents | Done when |
+|---|---|---|
+| **M0 Kickoff** | Private repo `Vibernt/cupel`, licence file (Apache-2.0 unless D2 changes), README stub, AGENTS.md and CLAUDE.md, CI on GitHub Actions for the repo itself, plans moved in | Repo exists, CI green, plans committed |
+| **M1 Spikes** | S1, S2, S3 (collector and mutation design), then S4, S6 | Results in `plans/spikes/`; D6 and D7 decided |
+| **M2 Spec v1** | `spec/` with tiers, signals, rules, guardrails, report and config schemas; 30+ conformance cases | Cases cover every rule and guardrail, including negative cases |
+| **M3 Node build** | Engine, node:test collector (per-file then per-test coverage), mutation (critical + changed lines), CLI `report`, `check`, `guard`, `plan`, `label` with `--json` | Passes all conformance cases; runs on Assay's suite end to end within a set time budget |
+| **M4 Agents** | `cupel mcp` (stdio) with the five tools; docs for Claude Code, Cursor, Codex setup | An agent can call `cupel_check` and `cupel_guard` in a real session; S8 measured |
+| **M5 CI** | GitHub Action running `guard` with a job summary | Blocks a PR that removes a critical test or lowers coverage, on a test repo |
+| **M6 More runners** | Vitest and Jest collectors; pytest collector (`vibernt-cupel`) | Conformance passes; runs on CodeCrystal's pytest and hub-ts suites |
+| **M7 Launch** | Public repo, npm `@vibernt/cupel` and PyPI `vibernt-cupel` releases, launch post with results on Assay, CodeCrystal and the forks | Owner approves going public and publishing |
+| **M8 Integrations** | `--assay` connector; CodeCrystal delivery integration | Opt-in only; Cupel still fully useful offline |
+
+Order is strict for M0–M3. M4 and M5 can run in parallel once M3's CLI contract is stable.
