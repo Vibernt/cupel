@@ -1,0 +1,455 @@
+{
+ "tokensAllSrc": {
+  "files": 1020,
+  "tokens": 1999093,
+  "lexErrors": [],
+  "acornErrors": 0,
+  "filesWithMismatch": 0,
+  "onlyMine": 0,
+  "onlyTheirs": 0,
+  "lexMs": 462,
+  "acornTokenizeMs": 357,
+  "acornParseMs": 644,
+  "examples": []
+ },
+ "sitesAllSrc": {
+  "files": 628,
+  "lexer": 92340,
+  "ast": 92483,
+  "both": 92340,
+  "onlyLexer": 0,
+  "onlyAst": 143,
+  "onlyLexerByOp": {},
+  "onlyAstByOp": {
+   "remove-call": 104,
+   "remove-not": 27,
+   "arith": 12
+  },
+  "astOnlyExtras": {
+   "ast-only:ternary-cond": 7946,
+   "ast-only:arrow-return": 8988,
+   "ast-only:nullish": 1717,
+   "ast-only:for-cond": 286
+  },
+  "examplesOnlyLexer": [],
+  "examplesOnlyAst": [
+   {
+    "file": "src/domain/backtest.mjs",
+    "op": "remove-call",
+    "line": 484,
+    "why": null,
+    "text": "(byGroup.get(s.g) || byGroup.set(s.g, []).get(s.g)).push(s);"
+   },
+   {
+    "file": "src/domain/caches.mjs",
+    "op": "remove-call",
+    "line": 96,
+    "why": null,
+    "text": "(entry.expiresAt > c.time ? live : evicted).push(entry);"
+   },
+   {
+    "file": "src/domain/compiler.mjs",
+    "op": "remove-not",
+    "line": 155,
+    "why": null,
+    "text": "invariant(!!step.run !== !!step.uses, 'STEP_KIND', `${where} \"${step.name}\" needs exactly one of run or uses.`);"
+   },
+   {
+    "file": "src/domain/compiler.mjs",
+    "op": "remove-not",
+    "line": 155,
+    "why": null,
+    "text": "invariant(!!step.run !== !!step.uses, 'STEP_KIND', `${where} \"${step.name}\" needs exactly one of run or uses.`);"
+   },
+   {
+    "file": "src/domain/concurrency.mjs",
+    "op": "remove-call",
+    "line": 14,
+    "why": null,
+    "text": "(definition.triggers?.schedules || []).forEach((schedule, i) => {"
+   },
+   {
+    "file": "src/domain/data-lifecycle.mjs",
+    "op": "remove-call",
+    "line": 164,
+    "why": null,
+    "text": "(activeCommits[r.project] ||= []).push(r.run_commit);"
+   },
+   {
+    "file": "src/domain/eta-calibration.mjs",
+    "op": "remove-not",
+    "line": 108,
+    "why": null,
+    "text": "const calibrated = !!issued.calibrated;"
+   },
+   {
+    "file": "src/domain/eta-model.mjs",
+    "op": "remove-not",
+    "line": 176,
+    "why": null,
+    "text": "const usable = kept.filter(r => !r.competing).map(r => ({ x: Math.log(r.ms), w: weight(r.at), censored: !!r.censored }));"
+   },
+   {
+    "file": "src/domain/eta-model.mjs",
+    "op": "remove-call",
+    "line": 209,
+    "why": null,
+    "text": "(jobs[jk] ||= { pipelineId: s.pipelineId, jobId: s.jobId, rows: [], children: [], observed: 0 }).rows.push(...s.rows);"
+   },
+   {
+    "file": "src/domain/eta-model.mjs",
+    "op": "remove-call",
+    "line": 215,
+    "why": null,
+    "text": "(pipelines[j.pipelineId] ||= { rows: [], children: [] }).rows.push(...j.rows);"
+   },
+   {
+    "file": "src/domain/eta-model.mjs",
+    "op": "remove-not",
+    "line": 270,
+    "why": null,
+    "text": "survival: kaplanMeier(recentQueue.map(r => ({ ms: r.ms, censored: !!r.censored, w: weight(r.at) })))"
+   },
+   {
+    "file": "src/domain/eta-service.mjs",
+    "op": "remove-not",
+    "line": 131,
+    "why": null,
+    "text": "const dispatched = !!attempt.executionDispatched;"
+   },
+   {
+    "file": "src/domain/eta-service.mjs",
+    "op": "remove-not",
+    "line": 185,
+    "why": null,
+    "text": "dispatched: !!state.dispatched,"
+   },
+   {
+    "file": "src/domain/eval-checks.mjs",
+    "op": "remove-call",
+    "line": 396,
+    "why": null,
+    "text": "invariant(false, 'GRADER', `Check ${check.type} is not deterministic.`);"
+   },
+   {
+    "file": "src/domain/eval-checks.mjs",
+    "op": "remove-call",
+    "line": 437,
+    "why": null,
+    "text": "invariant(false, 'GRADER', `Check ${check.type} is not a preset.`);"
+   },
+   {
+    "file": "src/domain/eval-induction.mjs",
+    "op": "remove-call",
+    "line": 84,
+    "why": null,
+    "text": "((fnv1a(`induce:${sample.id}`) % 10000) / 10000 < rate ? holdout : fit).push(sample);"
+   },
+   {
+    "file": "src/domain/eval-replay.mjs",
+    "op": "remove-call",
+    "line": 209,
+    "why": null,
+    "text": "(typeof call.input === 'string' && call.input.trim() ? eligible : metadataOnly).push(call);"
+   },
+   {
+    "file": "src/domain/eval-suite-file.mjs",
+    "op": "remove-call",
+    "line": 104,
+    "why": null,
+    "text": "(doc.value.checks || []).forEach((check, i) => {"
+   },
+   {
+    "file": "src/domain/eval-suites.mjs",
+    "op": "remove-call",
+    "line": 943,
+    "why": null,
+    "text": "(body.triggers?.pipelines || []).forEach((id, i) => {"
+   },
+   {
+    "file": "src/domain/evals.mjs",
+    "op": "remove-call",
+    "line": 141,
+    "why": null,
+    "text": "(job?.definition?.reports || []).forEach((spec, specIndex) => {"
+   },
+   {
+    "file": "src/domain/evals.mjs",
+    "op": "remove-call",
+    "line": 144,
+    "why": null,
+    "text": "(attempt?.reportResults || []).filter(r => (r.specPath || r.path) === spec.path && r.format === spec.format).forEach((result, fileIndex) => "
+   },
+   {
+    "file": "src/domain/flakes.mjs",
+    "op": "remove-call",
+    "line": 72,
+    "why": null,
+    "text": "(runs.get(r.runId) || runs.set(r.runId, []).get(r.runId)).push(r);"
+   },
+   {
+    "file": "src/domain/flakes.mjs",
+    "op": "remove-call",
+    "line": 108,
+    "why": null,
+    "text": "(groups.get(key) || groups.set(key, []).get(key)).push(a);"
+   },
+   {
+    "file": "src/domain/framework-test-rules.mjs",
+    "op": "remove-call",
+    "line": 115,
+    "why": null,
+    "text": "(index.get(key) || index.set(key, []).get(key)).push(unit);"
+   },
+   {
+    "file": "src/domain/import-graph/csharp.mjs",
+    "op": "arith",
+    "line": 164,
+    "why": null,
+    "text": "code += masked + '\\n'.repeat((text.slice(i, end).match(/\\n/g) || []).length);"
+   }
+  ]
+ },
+ "sitesTargets": {
+  "src/domain/permissions.mjs": {
+   "lexer": 132,
+   "ast": 143,
+   "both": 132,
+   "onlyLexer": [],
+   "onlyAst": [
+    {
+     "op": "bool-literal",
+     "line": 144,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 147,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 149,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 151,
+     "why": null,
+     "text": "return true;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 156,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 173,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 176,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 180,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 182,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 184,
+     "why": null,
+     "text": "return true;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 189,
+     "why": null,
+     "text": "return false;"
+    }
+   ],
+   "astOnlyExtras": {
+    "ast-only:arrow-return": 11,
+    "ast-only:ternary-cond": 3
+   },
+   "tokens": {
+    "tokens": 1384,
+    "onlyMine": 0,
+    "onlyTheirs": 0
+   }
+  },
+  "src/services/agent-connect.mjs": {
+   "lexer": 137,
+   "ast": 137,
+   "both": 137,
+   "onlyLexer": [],
+   "onlyAst": [],
+   "astOnlyExtras": {
+    "ast-only:arrow-return": 14,
+    "ast-only:ternary-cond": 6,
+    "ast-only:nullish": 1,
+    "ast-only:for-cond": 1
+   },
+   "tokens": {
+    "tokens": 2594,
+    "onlyMine": 0,
+    "onlyTheirs": 0
+   }
+  },
+  "src/lib/agent-connect-code.mjs": {
+   "lexer": 4,
+   "ast": 4,
+   "both": 4,
+   "onlyLexer": [],
+   "onlyAst": [],
+   "astOnlyExtras": {
+    "ast-only:ternary-cond": 1,
+    "ast-only:arrow-return": 3
+   },
+   "tokens": {
+    "tokens": 108,
+    "onlyMine": 0,
+    "onlyTheirs": 0
+   }
+  },
+  "src/domain/billing.mjs": {
+   "lexer": 209,
+   "ast": 209,
+   "both": 209,
+   "onlyLexer": [],
+   "onlyAst": [],
+   "astOnlyExtras": {
+    "ast-only:arrow-return": 18,
+    "ast-only:nullish": 2,
+    "ast-only:ternary-cond": 10
+   },
+   "tokens": {
+    "tokens": 2503,
+    "onlyMine": 0,
+    "onlyTheirs": 0
+   }
+  },
+  "src/services/billing.mjs": {
+   "lexer": 191,
+   "ast": 196,
+   "both": 191,
+   "onlyLexer": [],
+   "onlyAst": [
+    {
+     "op": "bool-literal",
+     "line": 141,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 145,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 147,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 154,
+     "why": null,
+     "text": "return false;"
+    },
+    {
+     "op": "bool-literal",
+     "line": 343,
+     "why": null,
+     "text": "return false;"
+    }
+   ],
+   "astOnlyExtras": {
+    "ast-only:ternary-cond": 7,
+    "ast-only:nullish": 2,
+    "ast-only:arrow-return": 7
+   },
+   "tokens": {
+    "tokens": 3760,
+    "onlyMine": 0,
+    "onlyTheirs": 0
+   }
+  },
+  "src/services/billing-ledger.mjs": {
+   "lexer": 341,
+   "ast": 341,
+   "both": 341,
+   "onlyLexer": [],
+   "onlyAst": [],
+   "astOnlyExtras": {
+    "ast-only:arrow-return": 20,
+    "ast-only:nullish": 7,
+    "ast-only:ternary-cond": 29,
+    "ast-only:for-cond": 3
+   },
+   "tokens": {
+    "tokens": 6052,
+    "onlyMine": 0,
+    "onlyTheirs": 0
+   }
+  }
+ },
+ "fileMode": {
+  "agentConnectCode": [
+   {
+    "id": "src/lib/agent-connect-code.mjs:13:30:logical:&&",
+    "failing": {
+     "tests/agent-connect-code.test.mjs": [
+      "user code: the API and the console code field use the one definition, not a copy of its letters"
+     ]
+    }
+   },
+   {
+    "id": "src/lib/agent-connect-code.mjs:14:5:return-value:return undefined",
+    "failing": {
+     "tests/agent-connect-code.test.mjs": [
+      "user code: the API and the console code field use the one definition, not a copy of its letters"
+     ]
+    }
+   },
+   {
+    "id": "src/lib/agent-connect-code.mjs:14:24:cmp-flip:!==",
+    "failing": {
+     "tests/agent-connect-code.test.mjs": [
+      "user code: the API and the console code field use the one definition, not a copy of its letters"
+     ]
+    }
+   },
+   {
+    "id": "src/lib/agent-connect-code.mjs:14:45:logical:||",
+    "failing": {
+     "tests/agent-connect-code.test.mjs": [
+      "user code: the API and the console code field use the one definition, not a copy of its letters"
+     ]
+    }
+   }
+  ],
+  "billingDomainPricingPin": {
+   "mutants": 42,
+   "killedOnDisk": 0
+  }
+ }
+}

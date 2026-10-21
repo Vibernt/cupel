@@ -1,0 +1,14 @@
+{
+  "seed": 20261021,
+  "capPerModule": 150,
+  "minutesPerModule": 30,
+  "timeoutFactor": 3,
+  "timeoutFloorMs": 2000,
+  "recheckTimeoutFactor": 10,
+  "tests": "tests",
+  "modules": {
+    "permissions": ["src/domain/permissions.mjs"],
+    "agent-connect": ["src/services/agent-connect.mjs", "src/lib/agent-connect-code.mjs"],
+    "billing": ["src/domain/billing.mjs", "src/services/billing.mjs", "src/services/billing-ledger.mjs"]
+  }
+}
