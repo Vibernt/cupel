@@ -1,0 +1,34 @@
+{
+  "assay": {
+    "snapshot": ".scratch/assay-s6 (origin/main 5a5a1313)",
+    "node": "v26.7.0",
+    "tests": 4723,
+    "skipped": 1,
+    "collection": { "plainWallS": 36.7, "plainCpuS": 332.5, "coverageWallS": 53.5, "coverageCpuS": 478.0, "ratioWall": 1.46, "ratioCpu": 1.44, "scope": "whole repository minus tests/, node_modules and dot-directories" },
+    "zeroUniqueTests": 2626,
+    "emptyOwnTests": 302,
+    "recheck": { "method": "S2 method A, one process per retire candidate", "candidates": 744, "wallS": 62, "jobs": 4, "flippedToKeep": 1 },
+    "v0": { "keep": 3014, "consolidate": 709, "consolidateFileGroups": 10, "retire": 744, "rewrite": 256, "critical": 1879, "criticalByCoveredSourceOnly": 1578, "minor": 54, "retireMs": 43703, "keptAsPartialCoverage": 21 },
+    "v1": { "units": 4294, "multiRowUnits": 29, "keep": 4116, "consolidate": 3, "consolidateFileGroups": 10, "retire": 0, "rewrite": 175, "critical": 2166, "unverifiedRetire": 1059 },
+    "brittleDetector": { "default": { "flagged": 251, "file-snapshot": 60, "source-text": 164, "doc-wording": 25, "css-class": 57 }, "strict": { "flagged": 172, "file-snapshot": 13, "source-text": 133, "doc-wording": 18, "css-class": 37 } },
+    "mutationBackedRetireCheck": "5 tests with >= 80% of their own lines in S3's mutated files, no unique line and no unique kill: all 5 are billing-engine money invariants a person would keep (billing mutants were a 20% sample)"
+  },
+  "codecrystal": {
+    "snapshot": ".scratch/cc-s6 (HEAD 09fc900)",
+    "python": "3.14.8",
+    "pytest": "9.1.1",
+    "tests": 1585,
+    "skipped": 10,
+    "failedInFinalRun": "tests/test_claude_launch_contract.py::test_owned_process_enforces_output_and_time_bounds (timing-bound, under load)",
+    "fallThroughToOriginal": "0 tests loaded code from /Users/vid/codecrystal/src (watched by the plugin)",
+    "plugin": { "restarts": 3171, "restartSeconds": 0.08, "writeSeconds": 0.19, "outputMB": 3.2, "bugFixed": "armed code objects were kept in a set (equality by value); a module loaded twice under two names was not recorded the second time; fixed by keying on id(). All numbers are from the fixed run (coverage-r3)" },
+    "zeroUniqueTests": 891,
+    "emptyOwnTests": 70,
+    "subprocess": { "testsThatStartAny": 527, "testsThatStartAnInterpreter": 90 },
+    "recheck": { "method": "pytest <nodeid> alone with the plugin", "candidates": 107, "wallS": 38, "jobs": 3, "flippedToKeep": 3, "skippedAmongCandidates": 10, "firstRunWithPluginBug": { "candidates": 132, "flippedToKeep": 24 } },
+    "v0": { "keep": 785, "consolidate": 684, "consolidateFileGroups": 1, "retire": 104, "rewrite": 12, "critical": 35, "retireMs": 18448 },
+    "v0SrcOnlyScope": { "retire": 546, "consolidate": 518, "keep": 509 },
+    "v1": { "units": 1213, "multiRowUnits": 95, "keep": 1182, "consolidate": 21, "consolidateFileGroups": 1, "retire": 0, "rewrite": 10, "critical": 128, "unverifiedRetire": 397 },
+    "brittleDetector": { "default": { "flagged": 11 }, "strict": { "flagged": 7 } }
+  }
+}

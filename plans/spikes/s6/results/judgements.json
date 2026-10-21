@@ -1,0 +1,699 @@
+{
+ "note": "Hand-check judgements, keyed by suite, round and sample index (sample-v0.json: seed 6; sample-v1.json: seed 7, v0 items excluded). c = correct, w = wrong, d = debatable. fp = the false-positive cause code (see S6.md). For CodeCrystal, v0 and v1 are the samples from the fixed collector's run (coverage-r3); v0-firstrun and v1-firstrun are the samples drawn first, from the run with the plugin bug (see S6.md), kept as extra evidence.",
+ "assay": {
+  "v0": [
+   [
+    "w",
+    "The direct unit test of the executor's report-artifact naming; page tests run the same lines but never assert the ids (att_report0_0) or their kinds.",
+    "assert"
+   ],
+   [
+    "w",
+    "Pins freshnessRail's boundaries (at the backlog limit is still current); the scenario tests in the file only cover the lines.",
+    "assert"
+   ],
+   [
+    "w",
+    "One row of a looped SHA test; length 64 is the block boundary. Rows share lines, the data is the point; the SHA code also runs at module load elsewhere.",
+    "row"
+   ],
+   [
+    "w",
+    "Exact parse results of the hand-written YAML parser (block scalars, line map); 333 other tests run the parser but assert on what they build from it.",
+    "assert"
+   ],
+   [
+    "w",
+    "Security negative: symlinks to /etc/passwd stay unsafe by default. The tier rule has no word for it.",
+    "tier"
+   ],
+   [
+    "w",
+    "Credential-leak negative test (malformed credentials never echoed). 'credential' and 'leak' are not D4 words.",
+    "tier"
+   ],
+   [
+    "w",
+    "Distinct Java mapping cases (nested classes, ties unmapped, build files escalate); integration tests cover the lines without these assertions.",
+    "assert"
+   ],
+   [
+    "w",
+    "The only exact-semantics test of the Travis converter; the fixture sweep that covers 966 of its 969 lines only checks that it compiles.",
+    "assert"
+   ],
+   [
+    "w",
+    "Config policy check (customer-command containers keep logs off); covers no code at all, so coverage cannot judge it.",
+    "empty"
+   ],
+   [
+    "w",
+    "Pins the projection onto the problem-report shape that the console and agents read; siblings cover the lines, not this contract.",
+    "assert"
+   ],
+   [
+    "w",
+    "Populated view versus empty and lagging view of one function: two scenarios with different assertions; merging saves nothing (1 ms each).",
+    "subset"
+   ],
+   [
+    "w",
+    "Different behaviours of one component (URL tab honoured versus unknown value ignored).",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a table that is already looped (azure negatives).",
+    "row"
+   ],
+   [
+    "w",
+    "A unit test of segmentsOf against an end-to-end API test: a line subset across layers, not same setup.",
+    "subset"
+   ],
+   [
+    "w",
+    "Dedupe across turns versus a missing segment: different behaviours of one store.",
+    "subset"
+   ],
+   [
+    "w",
+    "Cache hit versus incremental review: different behaviours and assertions.",
+    "subset"
+   ],
+   [
+    "w",
+    "Own-job assertions (advisory default, no job-level token) against a generated per-pack row.",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a shared conformance-case loop; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "Unrelated targets (a route guard and a members model); both only share the console harness lines.",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a generated per-pack loop; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "Checks that every guide anchor the console links exists: a link-integrity check, not a wording pin.",
+    "detector"
+   ],
+   [
+    "w",
+    "sha256 digest verification of packaged files was read as a file snapshot; a packaging end-to-end test.",
+    "detector"
+   ],
+   [
+    "c",
+    "The tail pins login.html markup and a regex of login.mjs source; a DOM-level check would say the same without the pin.",
+    ""
+   ],
+   [
+    "w",
+    "writesOf(w.github) was tainted through a read inside a helper function (taint leaked across scopes).",
+    "detector"
+   ],
+   [
+    "w",
+    "A JSON fixture parsed and fed to the code was read as a file snapshot.",
+    "detector"
+   ],
+   [
+    "c",
+    "Regexes over the route table's source text; the routes could be imported and checked as data.",
+    ""
+   ],
+   [
+    "d",
+    "Generated doc must equal the generator's output: a deliberate freshness gate (could be a check script).",
+    "intent"
+   ],
+   [
+    "w",
+    "A recorded fixture index decoded and compared with inline expected values: not a snapshot.",
+    "detector"
+   ],
+   [
+    "w",
+    "A local `input` string was tainted by a read of the same name in another function.",
+    "detector"
+   ],
+   [
+    "c",
+    "Asserts on the page module's source text (includes, regex) instead of its behaviour.",
+    ""
+   ]
+  ],
+  "v1": [
+   [
+    "d",
+    "Three automerge files (documented policy, agent PR gaps, core) for one module; one 1,150-line file would be harder to read.",
+    "files"
+   ],
+   [
+    "w",
+    "A slow simulation file and the feature's unit file: different purposes.",
+    "files"
+   ],
+   [
+    "w",
+    "Platform recording and sharing versus the pure report builder: different layers.",
+    "files"
+   ],
+   [
+    "d",
+    "Cost-aware fan-out and core fan-out: one feature, but 1,250 lines together.",
+    "files"
+   ],
+   [
+    "c",
+    "Two loops over [code, text, line] tables that differ only in severity: one table with a severity column.",
+    ""
+   ],
+   [
+    "d",
+    "Scenario tests with the same graphOf/view shape; a table of {files, expected} is possible but the cases differ.",
+    "shape"
+   ],
+   [
+    "w",
+    "Five drop-in files including a 2,181-line one; merging makes one unreadable file.",
+    "files"
+   ],
+   [
+    "w",
+    "CLI end to end, a one-definition check and the service tests: different layers.",
+    "files"
+   ],
+   [
+    "w",
+    "Idempotency tests and the API file; the shared target (openapi.mjs) is spurious.",
+    "files"
+   ],
+   [
+    "c",
+    "Two small files (4 and 6 tests) about browser jobs; one file is reasonable.",
+    ""
+   ],
+   [
+    "c",
+    "Regexes over route and page source text.",
+    ""
+   ],
+   [
+    "c",
+    "Regexes over CSS and page source next to a behaviour check; the pins could go.",
+    ""
+   ],
+   [
+    "w",
+    "A pipeline YAML is parsed and its fields asserted: data, not text.",
+    "detector"
+   ],
+   [
+    "w",
+    "A local function named snapshot was read as a snapshot API.",
+    "detector"
+   ],
+   [
+    "w",
+    "An inline object constant was tainted through second-order taint; the test checks view functions.",
+    "detector"
+   ],
+   [
+    "c",
+    "Pins the wording of refusal messages in the login script's source.",
+    ""
+   ],
+   [
+    "w",
+    "A fixture input read through a directory variable (fixtures/...) was taken for source text.",
+    "detector"
+   ],
+   [
+    "c",
+    "Regexes over tokens.css rules.",
+    ""
+   ],
+   [
+    "w",
+    "Reads a file the code under test restored into a temporary checkout: an output check.",
+    "detector"
+   ],
+   [
+    "c",
+    "Regexes over admin page source text.",
+    ""
+   ]
+  ]
+ },
+ "cc": {
+  "v0": [
+   [
+    "c",
+    "Duplicates the stale-socket half of test_status_distinguishes_unresponsive_owner_from_stale_socket (same call, same 'stale' assertion); the 'without pid kill' in its title is not asserted.",
+    ""
+   ],
+   [
+    "w",
+    "File-mode check (the build scripts are executable); runs no code, so coverage cannot judge it.",
+    "empty"
+   ],
+   [
+    "w",
+    "The budget Ledger's durable limits cannot change on reopen; the overlapping test checks a different class (LiveUsageGuard). A quota test, too.",
+    "assert"
+   ],
+   [
+    "w",
+    "Token handling: a failed refresh keeps the login. Auth by intent, not by path name.",
+    "tier"
+   ],
+   [
+    "w",
+    "Security assertions on the launcher argv (no permission skip, no shell expansion).",
+    "tier"
+   ],
+   [
+    "d",
+    "Checks the status page's links resolve; a docs integrity check, not code.",
+    "empty"
+   ],
+   [
+    "w",
+    "Skipped in this run (the pinned CLI is not installed), so it covers nothing; no evidence either way.",
+    "notrun"
+   ],
+   [
+    "w",
+    "A row of the parametrized classify table.",
+    "row"
+   ],
+   [
+    "w",
+    "A meta-check that every board rule has a test case; runs no product code.",
+    "empty"
+   ],
+   [
+    "w",
+    "Asserts that a stale (over 300 s) unsent sample is regenerated; its sibling asserts the opposite case (the same sample is retried).",
+    "assert"
+   ],
+   [
+    "w",
+    "A row of the secret-redaction table (security); already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "A crash between the fsynced intent and the API call stays uncertain without a second write: a different failure from the sibling's.",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "Unknown cost keeps the reservation and is never zero, against a reservation surviving a restart: different behaviours.",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "No commits since the base against a base rebased away: different histories and setup.",
+    "subset"
+   ],
+   [
+    "d",
+    "Still open against answered through MCP: could be one test parametrized by wait and expected prefix, but the sibling also checks the posted fields.",
+    "subset"
+   ],
+   [
+    "w",
+    "Overlapping ranges keep distinct identities against deferred evidence recovered by handle: different behaviours.",
+    "subset"
+   ],
+   [
+    "w",
+    "Invalid cost values against cache counting: different assertions.",
+    "subset"
+   ],
+   [
+    "d",
+    "Generated STATUS.md must equal the generator's output: a deliberate freshness gate.",
+    "intent"
+   ],
+   [
+    "d",
+    "An embedded copy must equal the file: a deliberate sync check (better generated).",
+    "intent"
+   ],
+   [
+    "c",
+    "Pins a constant's source line in the TypeScript Hub (DEFAULT_TOKEN_SECONDS).",
+    ""
+   ],
+   [
+    "w",
+    "TOML is parsed and versions compared: structured data, not a text pin.",
+    "detector"
+   ],
+   [
+    "d",
+    "Byte equality of copies of one reader: a deliberate sync check.",
+    "intent"
+   ],
+   [
+    "c",
+    "Pins identifiers and words in the review page's source; the self-containment checks are fine.",
+    ""
+   ],
+   [
+    "d",
+    "Hash pins of frozen benchmark inputs: deliberate provenance checks.",
+    "intent"
+   ],
+   [
+    "c",
+    "The tail pins a code fragment (**judge_vars}) in the driver's source.",
+    ""
+   ],
+   [
+    "d",
+    "Slow (5.2 s in this run, 2.7 s in the first; contended) for one unique line; where the time goes was not checked.",
+    "slow"
+   ],
+   [
+    "w",
+    "HTML and CSS are input data for the indexer; class= is not asserted.",
+    "detector"
+   ]
+  ],
+  "v1": [
+   [
+    "c",
+    "Same setup, one gate field changed, same ValueError check: one parametrized test.",
+    ""
+   ],
+   [
+    "d",
+    "Two files for the intent module with duplicated fixture records; merging is reasonable but they cover different phases.",
+    "files"
+   ],
+   [
+    "d",
+    "Similar guard setup but different scenarios (replays versus a hard cap).",
+    "shape"
+   ],
+   [
+    "c",
+    "Identical shape (insert an event, expect not comparable with an issue code): one table.",
+    ""
+   ],
+   [
+    "c",
+    "Invalid plan and cycle plan both refuse before the first step: one parametrized test.",
+    ""
+   ],
+   [
+    "c",
+    "The pair of item 0 (same suggestion from the other side).",
+    ""
+   ],
+   [
+    "c",
+    "Same shape as item 3's family: one table of event edits and issue codes.",
+    ""
+   ],
+   [
+    "d",
+    "Similar audit calls, but one test has a second, failing phase.",
+    "shape"
+   ],
+   [
+    "c",
+    "The pair of item 6.",
+    ""
+   ],
+   [
+    "c",
+    "Symlinked file and symlinked parent are both refused: one parametrized test (critical into critical).",
+    ""
+   ],
+   [
+    "c",
+    "Pins the absence of a code fragment in the driver's source. (Also judged in the first-run v0 sample.)",
+    ""
+   ],
+   [
+    "c",
+    "Six rows each start a fake evaluator process (0.6 s each) only to vary the report JSON; the classification could be tested directly, with one end-to-end row.",
+    ""
+   ],
+   [
+    "c",
+    "Six rows each build their own index (0.5 s each) for one unique line; a module-scoped fixture would cut it.",
+    ""
+   ]
+  ],
+  "v0-firstrun": [
+   [
+    "w",
+    "Tamper detection (a changed dependency refuses execution); heavier tests cover verify_files without this negative.",
+    "assert"
+   ],
+   [
+    "d",
+    "Docs link check (plans point to the current status page); belongs in a docs lint, but it is not worthless.",
+    "empty"
+   ],
+   [
+    "w",
+    "End-to-end approval flow of intent claims to the briefing; distinct assertions.",
+    "assert"
+   ],
+   [
+    "w",
+    "Index rows follow a file deletion (stale rows removed); distinct behaviour.",
+    "assert"
+   ],
+   [
+    "w",
+    "One row of a parametrized classify table (a command with no purpose).",
+    "row"
+   ],
+   [
+    "d",
+    "Checks the status page's links resolve; a docs integrity check, not code.",
+    "empty"
+   ],
+   [
+    "w",
+    "A row of a permission-conflict negative table (refuse before posting).",
+    "row"
+   ],
+   [
+    "w",
+    "Token handling: a failed refresh keeps the login. Auth by intent, not by path name.",
+    "tier"
+   ],
+   [
+    "w",
+    "Concurrent token reservations cannot share an allowance: a race and quota test that line coverage cannot see.",
+    "assert"
+   ],
+   [
+    "w",
+    "Security assertions on the launcher argv (no permission skip, no shell expansion).",
+    "tier"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "A row of a path-containment security table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "Unsettled traces against a complete trace: different outcomes.",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "d",
+    "A three-line check (branch bound to the patch hash) on the same setup; could be one more assertion in a happy-path sibling.",
+    "subset"
+   ],
+   [
+    "w",
+    "Vendored-library pins against an oracle calibration row: wrong sibling.",
+    "subset"
+   ],
+   [
+    "w",
+    "A row of a parametrized table; already table-driven.",
+    "row"
+   ],
+   [
+    "w",
+    "Candidate limit versus snapshot determinism: different behaviours.",
+    "subset"
+   ],
+   [
+    "d",
+    "Hash pins of frozen benchmark inputs: deliberate provenance checks.",
+    "intent"
+   ],
+   [
+    "w",
+    "TOML is parsed and versions compared: structured data, not a text pin.",
+    "detector"
+   ],
+   [
+    "d",
+    "Slow (2.7 s, contended) for one unique line; where the time goes was not checked, so 'move down a layer' may or may not be the fix.",
+    "slow"
+   ],
+   [
+    "c",
+    "The tail pins a code fragment (**judge_vars}) in the driver's source.",
+    ""
+   ],
+   [
+    "w",
+    "HTML and CSS are input data for the indexer; class= is not asserted.",
+    "detector"
+   ],
+   [
+    "c",
+    "Pins a constant's source line in the TypeScript Hub (DEFAULT_TOKEN_SECONDS).",
+    ""
+   ],
+   [
+    "d",
+    "An embedded copy must equal the file: a deliberate sync check (better generated).",
+    "intent"
+   ],
+   [
+    "d",
+    "Hash pins of frozen benchmark inputs: deliberate provenance checks.",
+    "intent"
+   ],
+   [
+    "d",
+    "Generated STATUS.md must equal the generator's output: a deliberate freshness gate.",
+    "intent"
+   ],
+   [
+    "c",
+    "Pins the absence of a code fragment in the driver's source.",
+    ""
+   ]
+  ],
+  "v1-firstrun": [
+   [
+    "c",
+    "Same setup, one gate field changed, same ValueError check: one parametrized test.",
+    ""
+   ],
+   [
+    "d",
+    "Two files for the intent module with duplicated fixture records; merging is reasonable but they cover different phases.",
+    "files"
+   ],
+   [
+    "d",
+    "Similar guard setup but different scenarios (replays versus a hard cap).",
+    "shape"
+   ],
+   [
+    "c",
+    "Identical shape (insert an event, expect not comparable with an issue code): one table.",
+    ""
+   ],
+   [
+    "c",
+    "Invalid plan and cycle plan both refuse before the first step: one parametrized test.",
+    ""
+   ],
+   [
+    "c",
+    "The pair of item 0 (same suggestion from the other side).",
+    ""
+   ],
+   [
+    "c",
+    "Same shape as item 3's family: one table of event edits and issue codes.",
+    ""
+   ],
+   [
+    "d",
+    "Similar audit calls, but one test has a second, failing phase.",
+    "shape"
+   ],
+   [
+    "c",
+    "The pair of item 6.",
+    ""
+   ],
+   [
+    "c",
+    "Symlinked file and symlinked parent are both refused: one parametrized test (critical into critical).",
+    ""
+   ],
+   [
+    "c",
+    "Pins identifiers and words in the review page's source; the self-containment checks are fine.",
+    ""
+   ],
+   [
+    "d",
+    "Byte equality of copies of one reader: a deliberate sync check.",
+    "intent"
+   ],
+   [
+    "c",
+    "Six rows each build their own index (0.5 s each) for one unique line; a module-scoped fixture would cut it.",
+    ""
+   ]
+  ]
+ }
+}

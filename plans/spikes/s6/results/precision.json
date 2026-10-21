@@ -1,0 +1,194 @@
+{
+ "assay": {
+  "v0:retire": {
+   "judged": 10,
+   "correct": 0,
+   "debatable": 0,
+   "wrong": 10,
+   "strict": 0,
+   "lenient": 0
+  },
+  "v0:consolidate": {
+   "judged": 10,
+   "correct": 0,
+   "debatable": 0,
+   "wrong": 10,
+   "strict": 0,
+   "lenient": 0
+  },
+  "v0:rewrite": {
+   "judged": 10,
+   "correct": 3,
+   "debatable": 1,
+   "wrong": 6,
+   "strict": 30,
+   "lenient": 40
+  },
+  "v0:causes": {
+   "assert": 6,
+   "row": 4,
+   "tier": 2,
+   "empty": 1,
+   "subset": 7,
+   "detector": 6,
+   "intent": 1
+  },
+  "v1:retire": {
+   "judged": 0,
+   "correct": 0,
+   "debatable": 0,
+   "wrong": 0,
+   "strict": null,
+   "lenient": null
+  },
+  "v1:consolidate": {
+   "judged": 10,
+   "correct": 2,
+   "debatable": 3,
+   "wrong": 5,
+   "strict": 20,
+   "lenient": 50
+  },
+  "v1:rewrite": {
+   "judged": 10,
+   "correct": 5,
+   "debatable": 0,
+   "wrong": 5,
+   "strict": 50,
+   "lenient": 50
+  },
+  "v1:causes": {
+   "files": 7,
+   "shape": 1,
+   "detector": 5
+  }
+ },
+ "cc": {
+  "v0:retire": {
+   "judged": 10,
+   "correct": 1,
+   "debatable": 1,
+   "wrong": 8,
+   "strict": 10,
+   "lenient": 20
+  },
+  "v0:consolidate": {
+   "judged": 10,
+   "correct": 0,
+   "debatable": 1,
+   "wrong": 9,
+   "strict": 0,
+   "lenient": 10
+  },
+  "v0:rewrite": {
+   "judged": 10,
+   "correct": 3,
+   "debatable": 5,
+   "wrong": 2,
+   "strict": 30,
+   "lenient": 80
+  },
+  "v0:causes": {
+   "empty": 3,
+   "assert": 2,
+   "tier": 2,
+   "notrun": 1,
+   "row": 5,
+   "subset": 6,
+   "intent": 4,
+   "detector": 2,
+   "slow": 1
+  },
+  "v1:retire": {
+   "judged": 0,
+   "correct": 0,
+   "debatable": 0,
+   "wrong": 0,
+   "strict": null,
+   "lenient": null
+  },
+  "v1:consolidate": {
+   "judged": 10,
+   "correct": 7,
+   "debatable": 3,
+   "wrong": 0,
+   "strict": 70,
+   "lenient": 100
+  },
+  "v1:rewrite": {
+   "judged": 3,
+   "correct": 3,
+   "debatable": 0,
+   "wrong": 0,
+   "strict": 100,
+   "lenient": 100
+  },
+  "v1:causes": {
+   "files": 1,
+   "shape": 2
+  },
+  "v0-firstrun:retire": {
+   "judged": 10,
+   "correct": 0,
+   "debatable": 2,
+   "wrong": 8,
+   "strict": 0,
+   "lenient": 20
+  },
+  "v0-firstrun:consolidate": {
+   "judged": 10,
+   "correct": 0,
+   "debatable": 1,
+   "wrong": 9,
+   "strict": 0,
+   "lenient": 10
+  },
+  "v0-firstrun:rewrite": {
+   "judged": 10,
+   "correct": 3,
+   "debatable": 5,
+   "wrong": 2,
+   "strict": 30,
+   "lenient": 80
+  },
+  "v0-firstrun:causes": {
+   "assert": 4,
+   "empty": 2,
+   "row": 8,
+   "tier": 2,
+   "subset": 4,
+   "intent": 4,
+   "detector": 2,
+   "slow": 1
+  },
+  "v1-firstrun:retire": {
+   "judged": 0,
+   "correct": 0,
+   "debatable": 0,
+   "wrong": 0,
+   "strict": null,
+   "lenient": null
+  },
+  "v1-firstrun:consolidate": {
+   "judged": 10,
+   "correct": 7,
+   "debatable": 3,
+   "wrong": 0,
+   "strict": 70,
+   "lenient": 100
+  },
+  "v1-firstrun:rewrite": {
+   "judged": 3,
+   "correct": 2,
+   "debatable": 1,
+   "wrong": 0,
+   "strict": 67,
+   "lenient": 100
+  },
+  "v1-firstrun:causes": {
+   "files": 1,
+   "shape": 2,
+   "intent": 1
+  }
+ }
+}
