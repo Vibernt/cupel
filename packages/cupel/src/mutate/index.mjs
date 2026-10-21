@@ -15,7 +15,7 @@ import { join, extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { effectiveConfig } from '../engine/config.mjs';
-import { buildModel } from '../engine/model.mjs';
+import { buildModel, median } from '../engine/model.mjs';
 import { anyGlobMatches } from '../engine/match.mjs';
 import { lines as parseLines } from '../engine/lines.mjs';
 import { cmp, sortedUnique } from '../engine/order.mjs';
@@ -30,7 +30,7 @@ export { generateMutants, applyMutant, sample, OPERATORS } from './operators.mjs
 const CONFIG_SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const JS_EXTENSIONS = new Set(['.mjs', '.js', '.cjs']);
 const TIMEOUT_FACTOR = 3; // a mutant run may take 3x the file's baseline time
-const RECHECK_FACTOR = 3; // a timed-out run is re-run once with 3x the limit, so load alone does not make a timeout
+const RECHECK_FACTOR = 3; // a timed-out run is re-run once with 3x the limit (or of a fresh unmutated time, if longer)
 const STOP_AFTER_FILES = 2; // spike S3: a unique kill needs exactly one killing file
 const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -192,9 +192,21 @@ class Session {
     return { tests, counts, needsFull };
   }
 
-  /** Orders a mutant's files: most covering tests first, then fastest baseline, then path. */
+  /**
+   * Orders a mutant's files: most covering tests first, then fastest by the input's durations, then path. Only
+   * inputs decide the order (never a measured time), so the files that stop a mutant are the same on every run.
+   */
   order(counts) {
-    return [...counts.keys()].sort((a, b) => (counts.get(b) - counts.get(a)) || (this.baselines.get(a).wallMs - this.baselines.get(b).wallMs) || cmp(a, b));
+    return [...counts.keys()].sort((a, b) => (counts.get(b) - counts.get(a)) || (this.fileMs(a) - this.fileMs(b)) || cmp(a, b));
+  }
+
+  /** A test file's duration by the input: the sum of its tests' median durations (S4). */
+  fileMs(file) {
+    if (!this.fileDurations) {
+      this.fileDurations = new Map();
+      for (const t of this.input.tests) this.fileDurations.set(t.file, (this.fileDurations.get(t.file) ?? 0) + median(t.durationsMs));
+    }
+    return this.fileDurations.get(file) ?? 0;
   }
 
   /** Runs each file once unmutated: its time sets the timeout, and a crash means the environment is broken. */
@@ -292,7 +304,17 @@ class Session {
     const go = (timeoutMs) => runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, mutantSpec: spec.path, timeoutMs });
     let out = this.classify(file, await go(limit), base, covering);
     if ((out.kind === 'timeout' || out.kind === 'crash') && performance.now() > deadline) return { kind: 'cut', killers: new Set() };
-    if (out.kind === 'timeout') out = this.classify(file, await go(limit * RECHECK_FACTOR), base, covering);
+    if (out.kind === 'timeout') {
+      // A timeout may be the machine, not the mutant: time the file unmutated now, under the current load, and give
+      // the mutant 3x the larger of the two limits before calling it a timeout.
+      const fresh = await runTestFile({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS });
+      if (this.baselineBroken(fresh, file)) {
+        await this.knownGood();
+        return { kind: 'error', killers: new Set() };
+      }
+      const recheck = RECHECK_FACTOR * Math.max(limit, TIMEOUT_FACTOR * fresh.wallMs);
+      out = this.classify(file, await go(recheck), base, covering);
+    }
     if (out.kind === 'crash') out = this.classify(file, await go(limit), base, covering);
     if (out.kind === 'crash') {
       await this.knownGood();
