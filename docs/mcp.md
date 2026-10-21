@@ -50,3 +50,7 @@ args = ["/path/to/packages/cupel/bin/cupel.mjs", "mcp", "--root", "/path/to/repo
 ```
 
 The package is private and is not published to npm. Use the local `node /path/to/packages/cupel/bin/cupel.mjs mcp` entry point in these configurations.
+
+### Codex in non-interactive mode
+
+`codex exec` cannot ask you to approve tool calls, so by default it refuses them ("MCP approval required"). Pass `--approve-for-me` to route each approval to Codex's automatic reviewer instead. This was verified with Codex CLI 0.163: an agent called `cupel_check` and `cupel_guard` and reported the same verdicts as the conformance cases.
