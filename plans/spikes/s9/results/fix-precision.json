@@ -1,0 +1,98 @@
+{
+ "regex": "\\b(?:fix(?:e[sd]|ing|up)?|bug(?:s|fix(?:es)?)?|regress(?:ion|ions|ed|es)?|revert(?:s|ed)?|hotfix(?:es)?|crash(?:es|ed)?|flak(?:e|es|ed|y|iness))\\b|\\[fault:|\\b(?:close[sd]?|resolve[sd]?)\\s+#\\d+|\\bGH-\\d+\\b",
+ "flags": "i",
+ "counts": {
+  "assay": {
+   "nonMerge": 672,
+   "matchSubjectOrBody": 112,
+   "matchSubject": 38
+  },
+  "cc": {
+   "nonMerge": 777,
+   "matchSubjectOrBody": 90,
+   "matchSubject": 45
+  }
+ },
+ "judged": {
+  "assay match": {
+   "n": 15,
+   "y": 6,
+   "p": 3,
+   "no": 6
+  },
+  "all match": {
+   "n": 30,
+   "y": 13,
+   "p": 7,
+   "no": 10
+  },
+  "all match-body-only": {
+   "n": 22,
+   "y": 6,
+   "p": 7,
+   "no": 9
+  },
+  "all match-subject": {
+   "n": 8,
+   "y": 7,
+   "p": 0,
+   "no": 1
+  },
+  "assay nomatch": {
+   "n": 15,
+   "y": 2,
+   "p": 2,
+   "no": 11
+  },
+  "all nomatch": {
+   "n": 30,
+   "y": 2,
+   "p": 3,
+   "no": 25
+  },
+  "cc match": {
+   "n": 15,
+   "y": 7,
+   "p": 4,
+   "no": 4
+  },
+  "cc nomatch": {
+   "n": 15,
+   "y": 0,
+   "p": 1,
+   "no": 14
+  },
+  "assay subject-2": {
+   "n": 10,
+   "y": 4,
+   "p": 4,
+   "no": 2
+  },
+  "all subject (both samples)": {
+   "n": 28,
+   "y": 18,
+   "p": 6,
+   "no": 4
+  },
+  "cc subject-2": {
+   "n": 10,
+   "y": 7,
+   "p": 2,
+   "no": 1
+  }
+ },
+ "estimates": {
+  "assay": {
+   "precisionLenient": 0.6,
+   "precisionStrict": 0.4,
+   "missRateLenient": 0.267,
+   "recallLenientEst": 0.31
+  },
+  "cc": {
+   "precisionLenient": 0.733,
+   "precisionStrict": 0.467,
+   "missRateLenient": 0.067,
+   "recallLenientEst": 0.59
+  }
+ }
+}

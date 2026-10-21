@@ -1,0 +1,542 @@
+{
+ "assay": {
+  "sameFilePairs": {
+   "pairs": 29152,
+   "sameCommit": 20425,
+   "rate": 0.701,
+   "sameCommitAgent": 20422
+  },
+  "byShape": [
+   {
+    "shape": "0–0.2",
+    "pairs": 25937,
+    "sameCommit": 17953,
+    "rate": 0.692
+   },
+   {
+    "shape": "0.2–0.4",
+    "pairs": 2961,
+    "sameCommit": 2268,
+    "rate": 0.766
+   },
+   {
+    "shape": "0.4–0.6",
+    "pairs": 220,
+    "sameCommit": 174,
+    "rate": 0.791
+   },
+   {
+    "shape": "0.6–0.8",
+    "pairs": 25,
+    "sameCommit": 21,
+    "rate": 0.84
+   },
+   {
+    "shape": "0.8–0.9",
+    "pairs": 2,
+    "sameCommit": 2,
+    "rate": 1
+   },
+   {
+    "shape": "0.9–1",
+    "pairs": 7,
+    "sameCommit": 7,
+    "rate": 1
+   }
+  ],
+  "shapeAtLeast08": {
+   "pairs": 9,
+   "sameCommit": 9,
+   "rate": 1,
+   "pVsOtherPairs": 0.0657
+  },
+  "v1Clusters": [
+   {
+    "ids": [
+     "tests/import-graph-python.test.mjs :: python (CodeCrystal package importers): an __init__ re-export is followed through the __init__",
+     "tests/import-graph-python.test.mjs :: python resolve: a relative import that points nowhere is unresolved, and so is one that climbs out of the repository"
+    ],
+    "judgement": "debatable",
+    "oneCommit": true,
+    "intros": [
+     "2170bb2e2d"
+    ],
+    "agent": [
+     "anthropic"
+    ],
+    "introSubject": "TIA: Python file-level imports (tia-05)",
+    "batch": 8,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/migrate-drone.test.mjs :: drone: narrower-behaviour cases report warnings with lines",
+     "tests/migrate-drone.test.mjs :: drone: negative cases report their code and line"
+    ],
+    "judgement": "correct",
+    "oneCommit": true,
+    "intros": [
+     "ae910221f2"
+    ],
+    "agent": [
+     "anthropic"
+    ],
+    "introSubject": "Add GitLab CI, CircleCI, Azure Pipelines, Bitbucket, Travis and Drone migrators",
+    "batch": 69,
+    "flags": [
+     [],
+     []
+    ]
+   }
+  ],
+  "correctClusters": {
+   "n": 1,
+   "oneCommit": 1,
+   "pVsSameFileRate": 0.701
+  },
+  "allV1Clusters": {
+   "n": 2,
+   "oneCommit": 2
+  },
+  "v0ConsolidatePairs": {
+   "n": 516,
+   "oneCommit": 443,
+   "rate": 0.859
+  },
+  "v0Judged": [
+   {
+    "id": "tests/ui-tia.test.mjs :: impact metrics view: tiles, reasons with labels, holdout without a made-up risk, savings per run",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/ui-tabs.test.mjs :: tabs: the tab named in the URL is honoured, also when the tabs are assigned after connecting",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/migrate-azure-pipelines.test.mjs :: azure negative: non-JUnit results -> REPORT_FORMAT",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/status-page.test.mjs :: incident segments follow the journal: impact changes, backdating, and a maintenance only inside its window",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/capture-lifecycle.test.mjs :: the segments still deduplicate across turns after the frame was added",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/code-review.test.mjs :: a rebase that changes no reviewed byte hits the content cache and costs nothing",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/connected-scans.test.mjs :: sonar and snyk compile to their own job holding the scan step and nothing else",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/sdk-capture.test.mjs :: conformance: sampling-call-openai-chat-full-0p5",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/ui-settings-v2.test.mjs :: old Usage anchors land on Limits and Metered costs",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/connected-scans.test.mjs :: pack python: every job it compiles to passes pipeline validation, advisory and blocking",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   }
+  ],
+  "batches": {
+   "introCommits": 427,
+   "medianBatchPerSite": 16,
+   "sitesInBatchesOf10Plus": 3258,
+   "sites": 4294
+  },
+  "agent": {
+   "nonMergeCommits": 672,
+   "agentCommits": 669,
+   "agentRate": 0.996,
+   "sitesFromAgentCommits": 4290,
+   "sitesRate": 0.999,
+   "byAgent": {
+    "anthropic": 669,
+    "none": 3
+   }
+  }
+ },
+ "cc": {
+  "sameFilePairs": {
+   "pairs": 7240,
+   "sameCommit": 4860,
+   "rate": 0.671,
+   "sameCommitAgent": 3497
+  },
+  "byShape": [
+   {
+    "shape": "0–0.2",
+    "pairs": 6309,
+    "sameCommit": 4073,
+    "rate": 0.646
+   },
+   {
+    "shape": "0.2–0.4",
+    "pairs": 760,
+    "sameCommit": 639,
+    "rate": 0.841
+   },
+   {
+    "shape": "0.4–0.6",
+    "pairs": 136,
+    "sameCommit": 116,
+    "rate": 0.853
+   },
+   {
+    "shape": "0.6–0.8",
+    "pairs": 24,
+    "sameCommit": 21,
+    "rate": 0.875
+   },
+   {
+    "shape": "0.8–0.9",
+    "pairs": 9,
+    "sameCommit": 9,
+    "rate": 1
+   },
+   {
+    "shape": "0.9–1",
+    "pairs": 2,
+    "sameCommit": 2,
+    "rate": 1
+   }
+  ],
+  "shapeAtLeast08": {
+   "pairs": 11,
+   "sameCommit": 11,
+   "rate": 1,
+   "pVsOtherPairs": 0.0204
+  },
+  "v1Clusters": [
+   {
+    "ids": [
+     "tests/test_authoring_claude_result.py::test_bad_json_is_invalid_and_retained",
+     "tests/test_authoring_claude_result.py::test_error_terminal_is_invalid_and_retains_no_selected_output"
+    ],
+    "judgement": "unjudged",
+    "oneCommit": true,
+    "intros": [
+     "3b103a08b1"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "Record fresh authoring outcomes and retain invalid read-screen cell",
+    "batch": 34,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_context_efficiency_ecc2_boundaries.py::test_regressing_cumulative_delta_is_not_comparable",
+     "tests/test_context_efficiency_ecc2_boundaries.py::test_stop_before_start_is_not_reordered_into_a_valid_call"
+    ],
+    "judgement": "correct",
+    "oneCommit": true,
+    "intros": [
+     "18812053a1"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "batch": 131,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_context_efficiency_ecc2_boundaries.py::test_repeated_stop_is_not_silently_accepted",
+     "tests/test_context_efficiency_ecc2_boundaries.py::test_replayed_start_on_one_channel_is_not_treated_as_new_usage"
+    ],
+    "judgement": "correct",
+    "oneCommit": true,
+    "intros": [
+     "18812053a1"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "batch": 131,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_context_efficiency_live_guard.py::test_duplicate_attempt_ids_and_unmatched_completion_are_rejected",
+     "tests/test_context_efficiency_live_guard.py::test_normal_admission_stops_at_checkpoint",
+     "tests/test_context_efficiency_live_guard.py::test_observed_hard_cap_refuses_every_kind_of_work"
+    ],
+    "judgement": "debatable",
+    "oneCommit": true,
+    "intros": [
+     "18812053a1"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "batch": 131,
+    "flags": [
+     [],
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_context_efficiency_trace_audit.py::test_relative_find_glob_is_not_an_absolute_file_access",
+     "tests/test_context_efficiency_trace_audit.py::test_standard_python_execution_and_discovery_are_not_other_workspace_reads"
+    ],
+    "judgement": "debatable",
+    "oneCommit": true,
+    "intros": [
+     "18812053a1"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "fix(bench): restore tracked context efficiency harness",
+    "batch": 131,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_file_read_screen_enforced_freeze.py::test_rejects_stale_oracle",
+     "tests/test_file_read_screen_enforced_freeze.py::test_rejects_wrong_image_in_any_gate"
+    ],
+    "judgement": "correct",
+    "oneCommit": true,
+    "intros": [
+     "1db3fc8e6a"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "Enforce contained file tools and record matched V7 screening results",
+    "batch": 22,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_git_candidate.py::test_symlink_patch_is_rejected",
+     "tests/test_git_candidate.py::test_unrelated_commit_change_is_rejected"
+    ],
+    "judgement": "unjudged",
+    "oneCommit": true,
+    "intros": [
+     "b3e7336438"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "Verify review package matches exact Git candidate tree",
+    "batch": 6,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_intelligence.py::test_invalid_plan_preflight_does_not_execute_first_step",
+     "tests/test_intelligence.py::test_plan_cycle_preflight"
+    ],
+    "judgement": "correct",
+    "oneCommit": true,
+    "intros": [
+     "b3c439baff"
+    ],
+    "agent": [
+     "anthropic"
+    ],
+    "introSubject": "Replace working tree with cri-coding-engine v3 (0.3.0)",
+    "batch": 71,
+    "flags": [
+     [
+      "possible-move"
+     ],
+     [
+      "possible-move"
+     ]
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_security.py::TestPathContainment::test_symlinked_file_is_refused",
+     "tests/test_security.py::TestPathContainment::test_symlinked_parent_directory_is_refused"
+    ],
+    "judgement": "correct",
+    "oneCommit": true,
+    "intros": [
+     "a23bf370b5"
+    ],
+    "agent": [
+     "anthropic"
+    ],
+    "introSubject": "Add docs, rule packs, test suite, CI and bench configs",
+    "batch": 17,
+    "flags": [
+     [],
+     []
+    ]
+   },
+   {
+    "ids": [
+     "tests/test_transient_acceptance.py::test_fabricated_quote_fails_even_on_a_real_line",
+     "tests/test_transient_acceptance.py::test_misclassifying_test_input_as_runtime_fails"
+    ],
+    "judgement": "unjudged",
+    "oneCommit": true,
+    "intros": [
+     "074ef03d6a"
+    ],
+    "agent": [
+     null
+    ],
+    "introSubject": "Record actual Context Mode and Headroom component screen with recovery audit",
+    "batch": 35,
+    "flags": [
+     [],
+     []
+    ]
+   }
+  ],
+  "correctClusters": {
+   "n": 5,
+   "oneCommit": 5,
+   "pVsSameFileRate": 0.136
+  },
+  "allV1Clusters": {
+   "n": 10,
+   "oneCommit": 10
+  },
+  "v0ConsolidatePairs": {
+   "n": 380,
+   "oneCommit": 331,
+   "rate": 0.871
+  },
+  "v0Judged": [
+   {
+    "id": "tests/test_companion_audit_hardening.py::test_the_guard_redacts_secrets_before_asking_the_hub[curl -H \"Authorization: Bearer fake0bearer1value2xyz\" -X POST https://api.example.com/v1/items-fake0bearer1value2xyz-curl -H]",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_github_delivery_journal.py::test_lost_branch_with_no_remote_ref_stays_uncertain_without_second_write",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_replay.py::test_attempt_schema_fails_closed[<lambda>7]",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_context_efficiency_budget.py::test_unknown_cost_keeps_the_reservation_and_is_never_zero",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_companion_design.py::test_push_conflict_lists_paths_and_changes_nothing_locally[details]",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_design_art_cli.py::test_request_validates_locally_before_calling[argv3-16..4096]",
+    "judgement": "wrong",
+    "sameSite": true,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_companion_provenance.py::test_no_commits_since_the_base_lists_none",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_companion_mcp.py::test_still_open_through_mcp_is_a_result_not_an_error",
+    "judgement": "debatable",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_context_efficiency_evidence.py::test_overlapping_ranges_keep_distinct_source_identities_and_are_not_silently_lost",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   },
+   {
+    "id": "tests/test_context_efficiency_accounting.py::test_negative_boolean_and_nonfinite_cost_are_invalid",
+    "judgement": "wrong",
+    "sameSite": false,
+    "oneCommit": true
+   }
+  ],
+  "batches": {
+   "introCommits": 148,
+   "medianBatchPerSite": 21,
+   "sitesInBatchesOf10Plus": 765,
+   "sites": 1191
+  },
+  "agent": {
+   "nonMergeCommits": 777,
+   "agentCommits": 664,
+   "agentRate": 0.855,
+   "sitesFromAgentCommits": 782,
+   "sitesRate": 0.657,
+   "byAgent": {
+    "anthropic": 664,
+    "none": 113
+   }
+  }
+ }
+}

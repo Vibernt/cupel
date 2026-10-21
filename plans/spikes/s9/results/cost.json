@@ -1,0 +1,114 @@
+{
+ "assay": {
+  "replay": {
+   "commits": 672,
+   "pathsAtHead": 2550,
+   "linesAtHead": 623087,
+   "importMs": 83464
+  },
+  "blamedFiles": 461,
+  "blamedLines": 113996,
+  "gitLogMs": 9950,
+  "gitLogBytes": 573107,
+  "blameSequentialMs": 17933,
+  "blameParallel8Ms": 3969,
+  "msPerFile": 39,
+  "mostChangedFiles": [
+   {
+    "f": "tests/drop-in.test.mjs",
+    "commits": 22,
+    "lines": 2122,
+    "ms": 50
+   },
+   {
+    "f": "tests/features.test.mjs",
+    "commits": 18,
+    "lines": 481,
+    "ms": 36
+   },
+   {
+    "f": "tests/ui-structure.test.mjs",
+    "commits": 14,
+    "lines": 332,
+    "ms": 38
+   },
+   {
+    "f": "tests/ui-features.test.mjs",
+    "commits": 13,
+    "lines": 202,
+    "ms": 39
+   },
+   {
+    "f": "tests/jev.test.mjs",
+    "commits": 12,
+    "lines": 666,
+    "ms": 43
+   }
+  ],
+  "machine": {
+   "cpus": 12,
+   "loadavg": [
+    183,
+    156.5,
+    103.6
+   ],
+   "git": "git version 2.55.0"
+  }
+ },
+ "cc": {
+  "replay": {
+   "commits": 777,
+   "pathsAtHead": 3093,
+   "linesAtHead": 570612,
+   "importMs": 19321
+  },
+  "blamedFiles": 176,
+  "blamedLines": 25702,
+  "gitLogMs": 2466,
+  "gitLogBytes": 982705,
+  "blameSequentialMs": 6013,
+  "blameParallel8Ms": 1132,
+  "msPerFile": 34,
+  "mostChangedFiles": [
+   {
+    "f": "tests/test_retrieval.py",
+    "commits": 16,
+    "lines": 801,
+    "ms": 56
+   },
+   {
+    "f": "tests/test_distribution_v3.py",
+    "commits": 11,
+    "lines": 136,
+    "ms": 39
+   },
+   {
+    "f": "tests/test_graph.py",
+    "commits": 11,
+    "lines": 521,
+    "ms": 46
+   },
+   {
+    "f": "tests/test_brain.py",
+    "commits": 10,
+    "lines": 794,
+    "ms": 41
+   },
+   {
+    "f": "tests/test_cri_hub_cf.py",
+    "commits": 8,
+    "lines": 430,
+    "ms": 34
+   }
+  ],
+  "machine": {
+   "cpus": 12,
+   "loadavg": [
+    140.6,
+    149,
+    103.2
+   ],
+   "git": "git version 2.55.0"
+  }
+ }
+}

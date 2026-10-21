@@ -1,0 +1,78 @@
+{
+ "assay": {
+  "commits": 982,
+  "merges": 310,
+  "firstParentChain": 345,
+  "nonMergeOnChain": 154,
+  "squashLook": {
+   "nonMerge": 672,
+   "prSuffix": 0,
+   "bulletList2plus": 1,
+   "squashed": 1,
+   "multiCoauthor": 0
+  },
+  "bigCommits": {
+   "files20plus": 225,
+   "introduces10plusTests": 170
+  },
+  "simulatedSquash": {
+   "sitesWhoseIntroIsFolded": 3674,
+   "sites": 4294,
+   "introCommitsBefore": 427,
+   "introCommitsAfter": 236,
+   "medianBatchBefore": 16,
+   "medianBatchAfter": 28,
+   "fixAnyBefore": 950,
+   "fixAnyAfterMergeMessageOnly": 746,
+   "fixSubjectBefore": 264,
+   "fixSubjectAfterMergeMessageOnly": 268
+  },
+  "shallowSitesOutsideDepth": {
+   "1": 4294,
+   "10": 4160,
+   "50": 3212,
+   "100": 2633,
+   "200": 796,
+   "500": 0
+  },
+  "maxDepth": 234
+ },
+ "cc": {
+  "commits": 917,
+  "merges": 140,
+  "firstParentChain": 595,
+  "nonMergeOnChain": 503,
+  "squashLook": {
+   "nonMerge": 777,
+   "prSuffix": 0,
+   "bulletList2plus": 9,
+   "squashed": 9,
+   "multiCoauthor": 0
+  },
+  "bigCommits": {
+   "files20plus": 115,
+   "introduces10plusTests": 26
+  },
+  "simulatedSquash": {
+   "sitesWhoseIntroIsFolded": 291,
+   "sites": 1191,
+   "introCommitsBefore": 148,
+   "introCommitsAfter": 138,
+   "medianBatchBefore": 21,
+   "medianBatchAfter": 22,
+   "fixAnyBefore": 434,
+   "fixAnyAfterMergeMessageOnly": 358,
+   "fixSubjectBefore": 344,
+   "fixSubjectAfterMergeMessageOnly": 286
+  },
+  "shallowSitesOutsideDepth": {
+   "1": 1191,
+   "10": 1183,
+   "50": 990,
+   "100": 874,
+   "200": 409,
+   "500": 0
+  },
+  "maxDepth": 366
+ }
+}

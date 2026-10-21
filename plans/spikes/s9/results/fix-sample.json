@@ -1,0 +1,542 @@
+[
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "cba70c0a53",
+  "subject": "workerd rate-limit test: deterministic over-limit check on the real binding (code-15)",
+  "body": "The test sent 121 MCP requests against the production MCP_ACTOR_LIMITER limit\nof 120 per 60 s. Miniflare's Workers Rate Limiting counts in fixed windows\naligned to the wall clock, so under load the window could roll over mid-burst\nand request 121 got a fresh budget (200 instead of 429).\n\nThe workerd harness gains a `ratelimits` option that overrides one binding's\n`simple` configuration for a single test platform (unknown names throw;\nwrangler.jsonc is unchanged). The test lowers MCP_ACTOR_LIMITER to 5, waits for\na fresh window when less than 15 s of the current one is left, sends 5 accepted\nand 2 refused requests and asserts the burst stayed in one window, still\nthrough the production code p",
+  "matched": "fixed",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "084fbdae57",
+  "subject": "Timed onboarding attempt for v045-a10 (0.4.7): blocked at the dropInRunners switch",
+  "body": "First live attempt at install-to-green through Get started, Run GitHub Actions on\nVibernt, on vidhatanand/vibernt-onboarding-047. Stopped 28 s in: the switch is off\nin the owner workspace, and the vidhatanand installation is linked to another\nworkspace. Report with timings and screenshots in docs/plans/onboarding-timed-047.md.\n\nSmall fixes: the flow says why a repository of an account linked to another\nworkspace is missing, highlights Overview instead of Runs, and DROP_IN.md's status\nsays what has run live.",
+  "matched": "fixes",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "be276bb523",
+  "subject": "Test intelligence for coding agents over MCP and REST (v048-mcp-test-intelligence)",
+  "body": "- tests.plan (POST /tests/plan, MCP core: thirteen tools): the tests to run locally first for a\n  change (changedFiles up to 2,000 repository-relative paths, or a commit/branch compared with the\n  default branch), per job scope CI's own decision, items in failure-first order with reason codes,\n  recorded durations, flaky and quarantined tests, command hints. It is prepareSelection in a dry\n  run (change from the request; no cached run analysis, no recorded decision, no coverage collection),\n  so it is CI's selection for the change as a pull request; when CI runs everything it says why and\n  still lists the engine's selection as advice.\n- MCP toolset `tests`: tests.triage-lookup (POST; flakin",
+  "matched": "flaky",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "a403b02dcf",
+  "subject": "Fan-out test execution (v045-b7)",
+  "body": "Switch fanOut (off by default). A job with fanout: { mode: auto, target, max,\nfailFast } runs as a preparation job and up to max (50) shard legs that pull\nunits from the run's work queue; mode: fixed is the v045-b4 timing split.\n\n- Planner (src/domain/fanout.mjs, pure): groups by services, container class\n  and serial (flaky, quarantined, `serial` globs); directory units split when\n  one alone exceeds the target; N = smallest with max(T/N, L) + o <= target,\n  else shards added while one more saves >= 2o; tiny groups merged; caps by\n  job max, workspace quota fanoutShards (default 16) and free capacity plus two,\n  shared in proportion to work; longest first; expected wall and cost against\n  o",
+  "matched": "fixed",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "a3af8a8c74",
+  "subject": "Rename phase 2: console and sign-in move to assay.vibernt.ai",
+  "body": "CONSOLE_ORIGIN (https://assay.vibernt.ai) is the console and sign-in host;\nAPP_ORIGIN (https://ci.vibernt.ai) stays the API, webhook, OIDC issuer and\ntoken host.\n\n- src/lib/origins.mjs names both; src/api/hosts.mjs decides per request.\n  The console host serves an allowlist (console, sign-in, session /v1,\n  /docs, /data-handling, /legal, /status, badges, robots, favicon, the\n  GitHub link callback) and refuses everything else with 421, including\n  any Authorization header. The API host redirects the console's browser\n  pages (/, /app, /console, /login) 302 to the console host and forwards\n  the GitHub callback (four parameters only) 303.\n- Sign-in, invitation, alert, quota, supply-chain and ",
+  "matched": "fix",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "77c3f98805",
+  "subject": "Rate a project A to E from what the findings model already records",
+  "body": "SonarQube grades reliability, security and maintainability. So do we now, as a\nprojection of the finding sets the quality foundation records plus two measures a\nbuild can report: complexity (lizard) and duplication (jscpd).\n\nSecurity and reliability use SonarQube's severity ladder over the vulnerability\nand bug classes; maintainability uses the technical-debt ratio, remediation\nminutes over 30 minutes per line. The invariant that shapes the whole module is\nthat a measure nobody took must never read as a good one: without a line count\nthere is no ratio, so the rating falls back to the severity ladder and says so in\n`basis`, and a project that has recorded nothing has no rating rather than an ",
+  "matched": "bug",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "1c147459a1",
+  "subject": "Console Volt: Settings and Agents in the new page patterns, simple and self-service",
+  "body": "Settings opens on a home that groups every section by what people come for\n(Workspace, Access, Integrations, Billing and usage, Data, Advanced) with\n\"Find a setting\"; General moves to /settings/general. The settings frame gains\nthe building blocks: titled sections outside cards, one card per setting with\nthe control on the title's line, a switch that applies at once and reverts on\nfailure or cancel, unit inputs, quota lines, the danger zone and \"On this page\".\n\nMembers (seat quota line, role filter, who can do what), API tokens (scope\nsummary, created and expiry; shown once), Secrets (Value encrypted, purpose,\nReplace value, chips), Features (switches that still confirm), Audit log (logs\npat",
+  "matched": "reverts",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "98cb39f002",
+  "subject": "Volt integration: phone layout and table fixes found in the full-console sweep",
+  "body": "A headless sweep of 140 page types at 375 and 1440 px (no script errors, no error\nstates) found these, now fixed:\n- usage asides stacked above the page header on phones: the header stays first;\n- toolbar icon buttons and menus stretched on phones;\n- long monospace paths widened the run page: .mono wraps when it must;\n- a long tab list widened the project page instead of scrolling in its row;\n- unwrapped tables on AI cost; the pipelines last-run cell stacks (prototype);\n- data tables that marked their name column `lead` (quality, checks, pull request).\nThe first-hour project test follows the shell's tab row.",
+  "matched": "fixes",
+  "inSubject": true
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "162c1375b9",
+  "subject": "Previews: run the gate in its own Worker so application code never holds the gate key (prev-09)",
+  "body": "The earlier fix only removed PREVIEW_GATE_KEY and the probe key from the env the\nruntime passes to the application; code in the bundle could still read them\nthrough `import { env } from 'cloudflare:workers'` or `process.env`\n(nodejs_compat), because they were bound to the script it ran in.\n\nCloudflare Workers previews are now two scripts. `<name>` is public\n(workers.dev or the custom domain) and runs only the generated gate\n(previewGateSource): it holds the gate key, key ID and probe key and forwards\nallowed requests over an APP service binding. `<name>-app` (previewAppName; a\ntruncated name with a 6-hex digest when it would pass 63 characters) is the\nbundle unchanged, with preview bindings,",
+  "matched": "fix",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "dfd1cb3651",
+  "subject": "Small hardening: invite race, allowlist suffixes, share pages, SDK token destinations, secret-scanner text, .gitignore (sec-14)",
+  "body": "- A workspace-granting invite could create several workspaces through\n  parallel requests. The grant count and the tenants insert are now one\n  D1 statement (insertWorkspace).\n- The sign-up allowlist refuses public and shared suffixes (co.uk,\n  com.au, github.io, ...), and *.x covers subdomains only instead of\n  being stored as x.\n- Shared web-report pages show URLs without query string, fragment or\n  credentials, count a view only after the switch check, and compare\n  the link digest in constant time.\n- All six capture SDKs send the ingest token only to an https origin\n  (http only to loopback), only to a price table on that origin, and\n  never along a redirect. New conformance rule 11 and ",
+  "matched": "fix",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "2551c6d4c3",
+  "subject": "0.4.5 UI audit items v045-r3 to r8: Settings, Caches; 30-day cost; viewer prompts; fake GitHub for ui:dev; push signals; recent runs columns",
+  "body": "- r3: Settings, Actions cache becomes Settings, Caches (/settings/caches, old path redirects) with every cache family:\n  Actions cache, remote build cache, Docker layer cache, lockfile dependency cache, the npm dependency store (switch,\n  bytes and requests served over 30 days; hit rate not metered, said so) and installed node_modules (entries per\n  project, bytes, restores over 7 days, retention). New read caches.summary (run.read, workspace-wide).\n- r4: the Why panel's cost row is the last 30 days, from the new usage.cost-summary (run.read, bounded); no runs is\n  said in words; three reads instead of four.\n- r5: members who cannot turn test selection or right-sizing on see one line (\"An ow",
+  "matched": "fixed",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "672eb7bd6f",
+  "subject": "Use real screenshots in the fixture, and fix two things it exposed",
+  "body": "The Lighthouse fixture's filmstrip frames were placeholder base64, which made\nevery page that draws them render broken images and hid the real storage cost.\nThey are now real 120px JPEGs of a page painting itself, as Lighthouse's own\nthumbnails are, so the measured cost is the true one: about 35 KB per URL and\nform factor with the filmstrip travelling inline and about 13 KB without it.\n\nTwo things that came out of running it for real:\n\n- a history row's \"Build\" column meant the moment the platform wrote the record,\n  which a retry moves. The record now carries the build's own start time and the\n  history reports that, which is what the column has always claimed to show.\n- `includeInactive` w",
+  "matched": "fix",
+  "inSubject": true
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "cabccd30a9",
+  "subject": "One clock in the metering test; no NUL bytes or symlinks in the source",
+  "body": "- tests/metering.test.mjs stamped ledger entries with the wall clock and pruned them\n  relative to a fixed 2026-09-20 + 400 days, so it would start failing in late October\n  2027. The test now passes one fixed clock to every call, and also checks that entries\n  inside the redelivery window are kept.\n- Literal NUL bytes in src/metering/{query,live,downsample}.mjs, src/domain/eval-surface.mjs,\n  src/migrate/drone.mjs and tests/pipeline-yaml.test.mjs are now \\0 escapes (same strings;\n  git no longer treats the files as binary).\n- npm run check fails on a literal NUL in JavaScript and on any tracked symlink (the index\n  in a checkout, the files on disk in a source archive).",
+  "matched": "fixed",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "431855e276",
+  "subject": "Add the web performance report page to the console",
+  "body": "/quality/projects/:id/performance: the grade with its formula printed under it,\nthe Core Web Vitals in their bands with their published thresholds beside them,\nthe filmstrip, the request waterfall, page weight and request counts by content\ntype and by party, the largest requests, Lighthouse's opportunities with the\nsaving it estimated, the history across builds marked against the baseline\nbranch, and the links shared outside the workspace.\n\nMobile and desktop are side by side, because the pack measures both in the same\nrun and a page that shows one of them hides the half that is usually the\nproblem. The project page's Web performance tab keeps the budget findings and\nlinks here.\n\nThe waterfa",
+  "matched": "regressed",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "match",
+  "sha": "b1d6bee46c",
+  "subject": "Container capacity refusals (v045-b21): diagnosis, quick retries, opt-in relocation; b20 design",
+  "body": "Diagnosis from the 2026-10-08 and 2026-10-09 benchmarks: every refused 4cpu burst stopped at 7 running\nstandard-4 instances (max_instances 30, at most 1 in the reuse gap, pool 12 of 20, no warm runners); bursts\nwithin 5 minutes of a larger one held up to 16. Cloudflare's prepared set, not our limits.\n\n- Quick retries: a \"no container instance\" refusal is retried in place up to DROPIN_QUICK_RETRIES (3) times,\n  DROPIN_QUICK_RETRY_MS (2 s, jittered) apart, with the same registration; never the slow refusal, never past\n  the start budget. Records count quickRetries.\n- Relocation to a new runner object of the same class, off by default (DROPIN_RELOCATE_AFTER): the successor\n  takes the lease ove",
+  "matched": "fix",
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "db9f9ca6fa",
+  "subject": "Open the Quality project page on its overview, one tab panel at a time",
+  "body": "The page rendered its panels beside <vi-tabs> and assigned the tabs after the\nelement connected, so vi-tabs stored the value \"undefined\", opened no panel\nand never hid one: the page arrived blank and clicked tabs piled up.\n\nThe panels now sit inside <vi-tabs> with .tabs bound in the template, and the\npage fills ?tab= or the overview. vi-tabs ignores an undefined or unknown\nvalue, reads ?tab= when its tabs arrive rather than only on connect, and\nlinks each tab to its tabpanel with aria-controls. A test runs vi-tabs\nagainst a small DOM stand-in and checks that no page leaves a data-tab panel\noutside its tabs.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "6c8e054b23",
+  "subject": "Polish evaluation charts and automerge candidate layout for narrow screens",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "b6361fa1ff",
+  "subject": "Merge policy proposals carry an optional reason",
+  "body": "- MergePolicyProposal.reason: string, 1 to 500 characters, trimmed; other types, longer or\n  blank text are refused with VALIDATION (contract and command).\n- Stored on the version as proposalReason (tenant store, outside the digest), copied to the\n  history entry on approve or reject, journaled in automerge.policy_proposed as data.\n- Policy page: the approver sees it next to Approve and Reject; the pending and active\n  versions and the history show it as text. Editor: a counted Why this change field under\n  the plain words, sent only when not blank, included in Show as API request.\n- Tests: stored and returned, too long, wrong type, blank, missing, approver view, another\n  workspace and a to",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "1c7a238c35",
+  "subject": "CHANGELOG: remove the Cloudflare account id and workers.dev subdomain from two operator notes",
+  "body": "The public changelog (owner decision 2026-10-14: publish it whole) should not name infrastructure identifiers; the\npublish-time redaction filter stays as a backstop.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "79007e5189",
+  "subject": "Console consistency: shared formatters, lookups and run names; API errors never shown as empty (ux-13, code-07)",
+  "body": "- lib/format.mjs currency() and percent() replace the local dollar and percent formatters; unknown cost is\n  \"Not priced\" everywhere, sub-dollar amounts keep four decimals and non-zero amounts never round to zero.\n- lib/ci.mjs runLabel() names a run the same way on every page; /quality/runs breadcrumbs name the project.\n- lib/styles.mjs replaces ten copies of ensureStyles; lib/lookups.mjs replaces four project/pipeline caches.\n- api.optional() for context records that may be gone (404/403 only); staleSlot() for background refreshes.\n- 104 places that turned a failed request into an empty result now show the error; scripts/console-rules.mjs\n  enforces it in npm run check.\n- tests/ui-pages.tes",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "12c116e7f0",
+  "subject": "Speed: daily P90/P99 durations, queue wait by hour of day, slowest jobs",
+  "body": "Computed from the speed_samples rows speed.dashboard already reads (no new\nstorage, no migration). Trend gains run and job duration P90/P99; each window\ngains queueByHour (in an optional IANA timeZone, 422 TIME_ZONE when unknown)\nand slowestJobs (top 10 by P90, at least 3 attempts) named through a new\ninsights.pipelines tenant command that re-authorizes like insights.access and\nnames pipelines only with pipeline.read. Console: P50/P90/P99 control on\nDuration by day, Queue wait by hour of day and Slowest jobs cards, still one\nrequest per load. ui:dev seed for insights (30 days of samples). Negative\ntests: another workspace's samples and pipelines never appear; scoped tokens.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "622b797062",
+  "subject": "Encrypt captured rows and segments, stop streaming text, erase honestly",
+  "body": "NDJSON rows carried the extracted input and output in the clear, Pipelines\npayload segments were only gzipped, and 8 KiB previews went to the Iceberg\ntable every workspace shares. Rows and segments are now sealed with AES-GCM\nunder the per-workspace key. Segments are named by an HMAC under a second\nper-workspace key, so deduplication is unchanged (it needs a deterministic\nname, not deterministic ciphertext) and a name no longer confirms a guessed\nprompt. The shared table gets no text and an attribute allowlist, and the\ncall index drops string request parameters that are not settings.\n\nErasure applied its selector to the newest 5,000 calls only and reported\ntruncated:false with matches left. ",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "0559433f58",
+  "subject": "Installable CLI and API clients, Marketplace-ready actions (v047-dx-cli-packages, v047-dx-marketplace)",
+  "body": "- npm run cli:pack builds @vibernt/cli (bin cri, Node 22+, zero dependencies, exactly the\n  import closure of cli/index.mjs on an allowed list), @vibernt/client and vibernt-client\n  (sdist and wheel, offline), renders Formula/cri.rb for the vibernt/tap tap with the CLI\n  tarball's SHA-256, and records SHA256SUMS. scripts/publish-cli.mjs is a dry run unless\n  given --live, CRI_CLI_PUBLISH, a matching digest and the token;\n  examples/pipelines/cli-release.yaml publishes only from a manual run on release.\n- cri defaults to https://ci.vibernt.ai (announced on stderr), gains --version, and the\n  audit hint reads \"cri migrate\".\n- Every actions/*/action.yml gets a listing name, a description of at ",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "e4c9487f4f",
+  "subject": "Selection prompt quotes 44% to 46% (precise selection replay), labelled a structural estimate",
+  "body": "Owner decision 2026-10-09.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "33177cf740",
+  "subject": "One Reviews list per pull request, with the engine and whether it gates automerge (ux-08)",
+  "body": "Agents > Code reviews (agent tasks, advisory) and Quality > AI reviews\n(OpenCodeReview) were two features with different names and no cross-links, and\nnothing said which could gate an automerge. scm.pull now returns reviews: every\nreview of the pull request from both engines, newest first, with whether it\nreviewed the current head and whether it can gate automerge and why not. An\nagent verdict counts only under an active, second-approved merge policy whose\nreview mode includes an agent (kill switch released); the AI review can only\nhold a merge, with the aiCodeReview switch (resolved by the Worker for scm.pull),\nthe policy on, automergeReviewer set and blocking mode. Agent reviews are left\no",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "dff671da3a",
+  "subject": "TIA: precision benchmark against SCIP indexes (tia-08)",
+  "body": "scripts/tia-precision.mjs decodes a SCIP index, derives file-level reference\nedges and reports the precision, direct recall and closure recall of our import\nedges. It never installs or runs an indexer. Tests read indexes recorded with\nscip-typescript 0.4.0 and scip-python 0.6.6. Measured: this repository's\nJavaScript 99.98% precision and 100% closure recall; semver 100%; packaging and\npluggy 92.9%; this repository's Python 56% (97.5% without sys.path tests).",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "c37c12b2c3",
+  "subject": "Optimization pull requests for native pipelines and drop-in workflows (v045-c5)",
+  "body": "The pipeline optimizer now also analyses drop-in GitHub workflows\n(.github/workflows/*.yml) from their recorded GitHub runs and step timings and\nopens a pull request from a new cri/optimize/<id> branch that changes only that\nfile: setup-* cache inputs, actions/cache keys, ordering-only needs, matrix\nmax-parallel, the vibernt shard and select actions, runs-on\nvibernt-ubuntu-24.04 (dropInRunners only) and repeated steps. Edits go through\na formatting-preserving YAML editor (comments, blank lines, quoting, indentation\nkept; every edit reads back exactly or is refused), which native pipeline pull\nrequests now use too. Native additions: repeated install commands and\nshard: { by: timing } when tes",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "ac3be287d6",
+  "subject": "Console: swap page-local copies for the shared foundation pieces",
+  "body": "Pipelines settings use the shared switch, input with a unit and Advanced\ndisclosure; the import, add-checks and new-suite wizards use the stage\ntracker (numbered); releases, plans and stacks use the shared stage tracker,\ntargets and quality the flow diagram, speed the column chart. Units move from\nlabels into .input-affix across tests, releases, targets, automerge,\nevaluations, observability and admin. personName/personLabel take\n{ sentence: true }; the policy panel asks vi-problems for a secondary action.\nFoundation: numbered and vertical stage trackers, 52px two-line table rows,\nvi-time absolute without seconds unless asked.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "d60039cfbf",
+  "subject": "Receipt page: a link opened before the release finished says Not issued yet (ux-14)",
+  "body": "/releases/:id/receipt answered 409 RECEIPT_NOT_READY with the generic error\nstate and a retry that could not succeed. Receipt links are shared, so the page\nnow catches only that refusal and shows a Not issued yet state linking to the\nrelease; every other failure still reaches the router's error state.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "assay",
+  "cls": "nomatch",
+  "sha": "5396b48ff2",
+  "subject": "Policy-as-code files: .vibernt/policy.yaml tightens automerge and release gates",
+  "body": "Teams keep policy in their own repository. The Worker reads\n.vibernt/policy.yaml from GitHub by repository ID at an exact commit and\nrecords an immutable per-commit snapshot in the tenant store; decisions\nuse the governing commit only (automerge: candidate base commit, pull\nrequests: base commit, releases: default branch head), so a change never\napproves itself. Precedence is platform limits > workspace records >\nfile, and the file can only tighten; looser values are ignored with a\nlocated NOT_TIGHTER warning. Invalid governing files fail closed.\n\n- Closed schema (src/contracts/policy.mjs), parser/diff with problems in\n  the problemReport shape (src/domain/policy-file.mjs), precedence engine",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "8e969b8cb2",
+  "subject": "Validate host-mode language skills against the newly installed tools",
+  "body": "Ran each skill's check ladder on seeded defects and correct controls with\nclang-tidy/cppcheck/clang-format, go 1.27, ruff/mypy, global tsc/eslint/\nprettier, OpenJDK 27 with Maven and Gradle, dotnet 10, php 8.5 and\nshellcheck/shfmt/bats. Record the evidence in verified_on and VALIDATION.md,\nrefresh the This Mac table, and fix skill text that would mislead an agent:\nclang-tidy needs SDKROOT and --warnings-as-errors on macOS, Go needs\nGOTOOLCHAIN=local, ruff and mypy are not python3 modules, pytest needs\nPYTHONNOUSERSITE=1 here, global node tools are usable when listed, Kotlin 2.4\ncannot target JDK 27, jdb cannot take piped commands, and bats prints TAP.",
+  "matched": "fix",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "7c8dd19187",
+  "subject": "Design pages: phone layout fixes found by eye; screenshots of project components and resume",
+  "body": "Captures show their check and snapshot on hover instead of in the caption; two capture columns fit a\nphone card; the draft's lifecycle pills no longer stack letter by letter on a phone; the Resume\nbutton keeps its own width. Screenshots from a local wrangler dev with the built app, seeded with a\nreal ladder capture (headless-Chrome screenshots of sample pages) and a passed, Hub-signed check:\ndesktop light and dark, phone light; the resume panel in dark at desktop and phone widths.",
+  "matched": "fixes",
+  "inSubject": true
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "a891a0cacf",
+  "subject": "Design-system workspace: gallery, component library, accessibility, changes, a structured editor, dark mode",
+  "body": "The detail view gains a facts strip and eight tabs: Preview (the generated page, light or\ndark, 390/768/1280 px, starting at the phone width on a phone), Gallery (drawn from the tokens:\ncolour groups with ratios, type specimens, spacing, radius, elevation, easing curves and\ndurations, interaction states, in either scheme), Tokens, Components (cards with variants,\nstates, usage guidance, component tokens and a warning when empty/loading/error/disabled are\nnot covered), Accessibility (the Hub's report with its criteria, over the contrast table),\nChanges (the Hub's diff against a selectable basis, regressions marked), the extraction report\nand Enforce (the commands and the generated files with ",
+  "matched": "regressions",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "6acfc6f41b",
+  "subject": "Phase 3: the wiki, the register and the diagram are queries over the graph (D78)",
+  "body": "`cri view component` shows what a file defines, what uses it, the tests CRI\nselects for it with their last outcome, the claims it implements, the drift the\ngraph reports and its recent commits. `cri view scope` counts claims with code\nand with a test, listing gaps only for what the project owes — a decision\nexplains what was built and is not a gap. `cri view architecture` aggregates the\nresolved graph into modules annotated with their claims, with a mermaid diagram\nthat can be diffed between snapshots.\n\nNone of it is written to disk and none of it involves a model, so there is no\nregeneration step to forget and no page that can be stale between refreshes. On\nthis repository the three views a",
+  "matched": "fixed",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "06929a8960",
+  "subject": "Benchmark acceptance: tasks declare benchmarks (improve or no-regress), and a benchmark_check runs base and candidate interleaved in the RunnerSandbox, records every sample with median and spread, passes only beyond the noise band, is not_assessed without both sides' numbers, and is signed and attested; tenant migration v9.",
+  "body": "",
+  "matched": "regress",
+  "inSubject": true
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "a321c0de0b",
+  "subject": "The board's four real findings, fixed: HUB.md names its modules by full path",
+  "body": "`cri tasks list` reported that three HUB.md sections named their module by bare\nfilename — two to four files in this repository end each of those ways, so the\nrecord named no one file and the graph could not link the claim to its code.\nWith full paths the four tasks stop being derived, which is what closing a\nderived task looks like.\n\nWriting the decision about it then produced four more: a record that quotes a\nname as an example reads exactly like one that refers to it. Nothing in the\nrule can tell those apart, so the names are in plain prose there and D79 says\nso; dismissing such a task is the intended answer when it happens.\n\nThe board is now one task on this repository, and 60 claims nob",
+  "matched": "fixed",
+  "inSubject": true
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "876a87adc4",
+  "subject": "fix(hub): bind process cleanup and transcript usage to owned executions",
+  "body": "",
+  "matched": "fix",
+  "inSubject": true
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "d202bcd3ba",
+  "subject": "hub-ts: agents and memory parity (P2-B7); recall reads `path` from the body as FastAPI does",
+  "body": "Parity scenarios for agents (registration, context deliveries and known-chunk citations,\nmessages, inbox, updates, run card) and memory (notes, recall with the head snapshot's\nfacts and declared commands, source validity across pushes, project recall), with the\nRemoteHub mixin tests/remote_hub_agents.py over the slice's /__test routes.\n\nFastAPI reads the recall routes' `path: list[str] | None` from the request body (a list\nwithout Query()), so the Python Hub ignores ?path=; the TypeScript routes do the same.\nTwo shared fixes found by the scenarios: snapshot.indexed is recorded by system/worker,\nthe identity Python jobs run as; and truncated JSON reports its end as the decode\nposition, as Pyt",
+  "matched": "fixes",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "388daab0fc",
+  "subject": "Memory survives a session that ends without its hooks; adopted claims are the agent's on the hub",
+  "body": "Found by the first sequence sample: a session that hit its budget ended without Stop or SessionEnd,\nso its checkpoint was never written and the chain had nothing to remember. Claude Code skips those\nhooks on a budget stop, a crash or a kill, so this is a product gap, not a harness one:\n\n- the companion records each session's transcript and checkout at start; a new session in the\n  same checkout writes the unfinished one's checkpoint ('recovered'), which the hub summarises\n  like a session end;\n- the sequence driver makes the same call after a session whose end hook did not run, since each\n  of its tasks has its own checkout.\n\nThe run card also said \"holding no task\": adoption only edited loc",
+  "matched": "crash",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "8a92f75a50",
+  "subject": "fix(api): freeze open code review policy routes",
+  "body": "",
+  "matched": "fix",
+  "inSubject": true
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "45b0b01631",
+  "subject": "Four times less memory per vector, and retrieval tasks mined from git history",
+  "body": "Two size problems, measured and fixed.\n\nVectors stayed int8 on disk but were dequantised to float32 in memory: 3,072\nbytes a unit, so 343 MB for Django and 3 GB for a million units, and every\nquery copied the whole matrix. A row's own scale cancels in a unit vector, so\nthe int8 codes plus one reciprocal norm carry the same direction: 772 bytes a\nunit (86 MB and 772 MB), scanned a block at a time, with the same cosines to\nfloat precision and the same query time.\n\n`cri bench retrieval-freeze-history` turns a repository's own commits into\nretrieval tasks: the message is the question, the files and lines the commit\nchanged are the answer, and the parent is the base revision. Model-free and\ndeter",
+  "matched": "fixed",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "615d6a1f89",
+  "subject": "Device client: refresh fails closed inside the Hub's grace; finish the audit fixes",
+  "body": "Finishes the eight device-client findings from the two audits (native/cri-client):\n- A turn past wall_seconds is stopped like a budget stop (group killed or container\n  removed) and completes with exit_code -1 and timed_out: true, no candidate, never a crash.\n- Host turns are denied the user's temp and cache folders, /tmp, /Users/Shared and /Volumes,\n  and get a private TMPDIR in their run folder; the canary plants in each.\n- Ignored files a turn creates are removed and refuse the candidate, naming them.\n- The context-guard hook never reads a file whose canonical path is outside the checkout.\n- Environment build steps are journaled (pid and start identity) and killed in reconcile.\n- The fold",
+  "matched": "fixes",
+  "inSubject": true
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "62c5877b85",
+  "subject": "Phases 1b and 1c: the code propagates itself, a document can only propose (D75)",
+  "body": "Two directions of change into the intent graph, with opposite rules.\n\nWhat git says happened is applied with no model: `cri intent propagate` reads\nrenames and deletions between the commit last read and HEAD, retargets the\nlinks that pointed at a moved file (including the abbreviated paths documents\nuse), and leaves a deletion broken with the claims it orphaned named. The\ndocument keeps its old wording; the drift is reported by `gaps.stale_names`\nrather than edited. Measured on this repository: 8 of 8 renamed files kept\nexactly the claims they had and 0 of 21 unrelated files changed, against 5 of 8\nlosing every claim without it.\n\nWhat a document says becomes proposals a person approves. `src",
+  "matched": "bugs",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "7943e011e9",
+  "subject": "Plan v4 and research notes",
+  "body": "- docs/RESEARCH_2026-09.md: context management, memory, code graphs and\n  harness/caching lessons (including DeepSeek Harness), with sources and\n  vendor-vs-independent marking, set against CRI's measurements\n- docs/PLAN_V4.md: resolved graph, candidates-then-rerank retrieval,\n  graphify feature parity, automatic semantic/episodic/procedural memory,\n  cache-friendly delivery, latency budgets and data structures, and the\n  measurement gates for each\n- scripts/graph_reachability.py: variable shadowing fix",
+  "matched": "fix",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "match",
+  "sha": "7d5ef928ae",
+  "subject": "Harness: capture the patch against the snapshot commit (agents commit their work)",
+  "body": "A diff against HEAD is empty once the agent runs git commit; 43 sessions in\ntoday's runs lost their patch and were scored unresolved. Regression test\nincluded. --disable-slash-commands becomes an explicit driver option so reruns\ncan match earlier runs.",
+  "matched": "Regression",
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "220d0ba6f4",
+  "subject": "Research: the Claude Design canvas as a model for CodeCrystal's design surface (format, editor, design systems, agent ergonomics, parity map)",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "bf15a0fc9e",
+  "subject": "Hub backend: PostgreSQL, single sign-on, roles, jobs, agents, Claude Code hooks, verification, memory, processes",
+  "body": "- Storage: one interface over SQLite and PostgreSQL, versioned migrations, and\n  row-level security for a non-owner runtime role as a second tenant layer.\n- Login: OIDC device flow and ID-token verification; 10-minute access and\n  rotating refresh tokens, with replay revoking the session; expiring api tokens.\n- Permissions: viewer/developer/reviewer/maintainer/admin as capabilities, and\n  per-member repository restrictions.\n- Indexing and verification run as leased, fenced background jobs.\n- Agents: context epochs with a delivery ledger, at-least-once messages with\n  acknowledgement, an acknowledged update cursor, and a run card.\n- Claude Code: setup and hooks for session start, compaction, ",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "9cc60c6fea",
+  "subject": "The approved design system governs implementation (V7-D61)",
+  "body": "- UI implementation turns get a compact, bounded, deterministic block of the\n  current approved revision (tokens by kind, pairings, inventory, voice),\n  resolved and pinned when the turn is queued; recorded per work item. A\n  configuration opts in (design_system_context: current_approved) or out;\n  otherwise the project default adds it to UI turns. Unused: exact bytes.\n- Model delivery runs the generated enforcer on the candidate in the pinned\n  verification runner, with a baseline from the base snapshot; project\n  setting off/advisory (default)/blocking; a blocking failure spends the\n  repair with the violations.\n- Accepted runs propose components the candidate added as a registry-sync\n  dr",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "816defca7d",
+  "subject": "tooltrim: skills and plugins audit; per-project plugin disabling; team policy in plan v5",
+  "body": "- tooltrim extensions: skills listed and used (Skill tool and slash\n  commands), MCP servers, and per-plugin cost from probes with enabledPlugins\n  overrides. Skills are audited, not trimmed (about 10 tokens each; disabling\n  them removes the Skill loader and adds ~3.3k tokens).\n- apply --plugins / allow --plugin: enabledPlugins false for this project,\n  recorded with review dates; hook notices and prompt keyword hints.\n- Harness: drop --disable-slash-commands for future runs (it added ~3.3k tokens\n  per request in every arm of the runs so far).\n- PLAN_V5 10.5: team allowlists, shared measurements, identical prefixes.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "4362eab6ab",
+  "subject": "Memory-chains results: correct the failed-test-run count (strict count: memory 116 vs cold 128, within noise)",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "1685d55aa0",
+  "subject": "hub-ts P2-B3: evidence parsers ported (src/cri_hub/evidence); a failed delivery check reads with its findings as in Python",
+  "body": "Cross-checked against the Python parsers on 488 recorded and hand-written outputs.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "1a9dfe4e7f",
+  "subject": "Status: test count",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "6f10069384",
+  "subject": "crystal design art: establish, reopen, status, choose (the browser link), request, list and pull accepted assets with provenance (P3-F75).",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "13d8b10ec8",
+  "subject": "P2-V6/P2-V3: Django index loaded into a repository object in 6.6 s; locate 13 ms, symbol 2 ms, impact 3 ms, explore 57 ms warm in local workerd",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "19b841f973",
+  "subject": "hub-ts: Pydantic-shaped validators and Python json.dumps for slice bodies",
+  "body": "src/pydantic.ts validates request bodies and query parameters with Pydantic's exact error\ntypes and messages (code-point string lengths, strict and lax numbers, literals, list and\ndictionary bounds, model validators, FastAPI's from_attributes message), as Zod schemas whose\nissues validation.ts reports unchanged. validation.ts also exposes jsonBody and validBody, so a\nroute can decode JSON before it authenticates and validate after, as FastAPI does.\nsrc/pyjson.ts writes JSON as Python's json.dumps does (ASCII, its separators, sorted keys)\nfor values the Python Hub stores that way, and compares JSON values with Python's ==.",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "45c2f035d7",
+  "subject": "Add scoped execution grants and atomic local admission accounting",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "ebf2adbff1",
+  "subject": "test(hub): prove usage receipt isolation across tenants",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "d5bef67c8f",
+  "subject": "D54: declaration-file demotion changes 1 of 57 tasks; stays off, dense stays default",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "3df376be2d",
+  "subject": "Plan for code views on the Hub (accepted-snapshot default, shared decisions) and the art director design role (P3-F68, P3-F71..F75).",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ },
+ {
+  "suite": "cc",
+  "cls": "nomatch",
+  "sha": "47feeea387",
+  "subject": "test(delivery): pin the delivered candidate for reproducible acceptance",
+  "body": "",
+  "matched": null,
+  "inSubject": false
+ }
+]

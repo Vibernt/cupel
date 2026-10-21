@@ -1,0 +1,162 @@
+[
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "06dbf8b3a0",
+  "subject": "Docs truth: generated configuration and retention text from fixed sources",
+  "body": "Configuration registry text names Operator console › System › Configuration and\nSettings › Outbound hosts. Retention rows say shortening drop-in jobs, warm-up\nsignals and failures is API only (PUT /retention, owner), and that the workspace\ncache storage limit also evicts cache entries.",
+  "matched": "fixed"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "146b1819f5",
+  "subject": "Change note heading level for the source-links fix",
+  "body": "",
+  "matched": "fix"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "6407fa1e47",
+  "subject": "Drop-in onboarding: finish \"Switch one line\" without leaving it (onboarding-timed-047 fixes)",
+  "body": "- P3: Turn on dropInRunners in place for a signed-in owner or admin (feature.set, versioned, journaled); others are told who can.\n- P6: failing preconditions first in a callout; steps 1 to 3 wait while one fails.\n- P2: first opening recorded separately; the clock starts only when the Worker finds every precondition holding; owner-only Restart timing (dropin.onboarding.restart, journaled, earlier measurement kept).\n- P1: dropin.onboarding.get/.repositories list installations linked to another wor",
+  "matched": "fixes"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "5d73a646ea",
+  "subject": "Repair agent and Assign fix (v045-c1, v045-c2)",
+  "body": "Assign fix (v045-c2, board v030-38), behind the new non-model switch\nassignFix (off by default):\n- POST /runs/{id}/assign-fix and the run page's \"Assign fix\" dialog hand a\n  failed run to an agent repair on the caller's own approved device, a\n  teammate or a GitHub issue. project.write on the run's project; the\n  switch refusal is disclosed only after authorization; replays re-check.\n- Teammate: active member of this workspace who can see the project\n  (ASSIGNEE / ASSIGNEE_SCOPE), assigned only ",
+  "matched": "fix"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "c8a744ae9d",
+  "subject": "Fix the fast-start and supervisor spike findings: copy download, extraction, hostname, Docker DNS, readiness, .pyc, egress CA",
+  "body": "- openStream keeps R2's 4 KiB pieces in a list and copies once per chunk (200 MiB on workerd: 1,584 -> 223 ms).\n- runner/untar.py: the source archive and the fan-out copy are validated header by header in Python as they\n  download and written by GNU tar running as the build user (Python writer as fallback); ownership walk only\n  when needed. Safety tests on both engines.\n- runner/server.py and docker/gha-runner/status.py bind without getfqdn (64-character host names).\n- runner/docker-dns: IPv4 r",
+  "matched": "Fix"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "27b1827970",
+  "subject": "Index the provider error code and the SDKs' reserved attempt metadata; widen a flaky timing budget",
+  "body": "Follow-ups the SDK work asked for: error.code and vibernt.attempts/retries/stream are\nnow indexed attributes, with the original metadata still kept verbatim. The 1 MiB YAML\ntiming assertion flaked under full parallelism; it now only catches a real blow-up.",
+  "matched": "flaky"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "1a20cbb7b4",
+  "subject": "Fan-out: fixes from the first live run (stuck prep, per-unit overhead, plans without history)",
+  "body": "1. A preparation job always concludes. Storing the workspace copy has one\n   deadline sized by the copy (abort the container read, give the copy up as\n   FANOUT_COPY_TIMEOUT); a copy an earlier step started but never finished is\n   given up as `interrupted`, never retried. The runner skips copies of setups\n   under 20 s (FANOUT_COPY_MIN_SETUP_MS), drops copies whose estimated restore\n   is not faster than the setup, and packs at most 512 MiB; the prep records\n   why (attempt.fanoutCopy, queue co",
+  "matched": "fixes"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "3dd06fca63",
+  "subject": "One regression model for the web gate and report; one home for statistics",
+  "body": "Duplicate implementations had drifted apart.\n\n- Web quality: the budget gate (src/domain/web-budgets.mjs, copied into the browser\n  image) and the report (src/lib/web-report.mjs) used different default margins\n  (0 vs 2 points / 10%), judged CLS in different units and named metrics differently,\n  so a build could pass the gate while its report said \"regressed\". WEB_METRICS,\n  judgeRegression and compareWebSeries in web-budgets.mjs now serve both; a value at\n  exactly the margin passes. The build",
+  "matched": "regression"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "4ce6729916",
+  "subject": "Console foundation refinement: sign-in copy and Turnstile layout, contrast-tested tokens, shell and component fixes, progress meter, chip labels",
+  "body": "Shared pieces for page groups: switchControl, .input-affix, advancedDisclosure,\nstageTracker, flowDiagram, columnChart. Contrast test computes WCAG ratios from\ntokens.css in both themes; --danger, --focus-color, --border-control and\n--progress-fill follow from it. Fixes: phone breadcrumb, header action\nalignment, pill-tab focus ring, phone sheet height, .text-right in tables,\nresource layout stretch, disabled button tooltips, quota date style.",
+  "matched": "fixes"
+ },
+ {
+  "suite": "assay",
+  "cls": "subject",
+  "sha": "4a7c49c8f8",
+  "subject": "Admin workspaces: fix metrics reading platform settings before they load",
+  "body": "The table's first load event called metrics() while the settled promises\nwere still in the temporal dead zone (ReferenceError on /admin).",
+  "matched": "fix"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "eeff6c5a1d",
+  "subject": "Track the V7 value study, the 21 September audit and the briefing-capture fix",
+  "body": "Until now the evidence V7 was planned on existed only in this checkout:\ndocs/v7/EVIDENCE.md pinned seven value-study and factory-experiment files by\nSHA-256 as \"local-only provenance\". All seven still match their pinned hashes\nand are now tracked, so a fresh clone can check them.\n\n- benchmarks/value-study/: the shared-state, dependent-state, repair-state,\n  fresh-help, matched-sentinel, external-click and startup-context studies, with\n  their frozen inputs, per-run artifacts and results.\n- scrip",
+  "matched": "fix"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "ed31c059c8",
+  "subject": "Device operator commands: work status and work reset-crashes",
+  "body": "",
+  "matched": "crashes"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "05ce28aa2f",
+  "subject": "fix(companion): reject overlong daemon sockets before spawn",
+  "body": "",
+  "matched": "fix"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "6560989d7d",
+  "subject": "Provider events checked on their own terms; crash backoff waits; crashes reset",
+  "body": "A Sonnet 5.5 turn on Django stopped when the Hub refused a whole-file tool result:\nprovider events went through grant JSON rules (64 KiB strings, 256 items). They\nnow allow strings and arrays up to the event bound, still refusing NUL, bad\nnumbers and deep nesting. On the device, an active crash backoff is waited out\ninstead of ending the loop, and a completed turn resets the crash count.",
+  "matched": "crash"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "2e4b24fe6a",
+  "subject": "WIP: device-client audit fixes (wall time, temp denial, ignored files, guard confinement)",
+  "body": "",
+  "matched": "fixes"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "df9e3217ce",
+  "subject": "fix(companion): reconcile verified browser installs safely",
+  "body": "",
+  "matched": "fix"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "590acd3ee5",
+  "subject": "fix(companion): bound daemon diagnostics and heartbeat work",
+  "body": "",
+  "matched": "fix"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "4dbd70fd34",
+  "subject": "Fix inventory-disagreement test in pure-Python mode",
+  "body": "The test replaced the kernel but left it disabled under CRI_NO_NATIVE, so\nthe fake was never consulted. Force the kernel path in the test.",
+  "matched": "Fix"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "e3d0e22677",
+  "subject": "S8 explorer sub-agent; tools_plus harness arm; smoke-test fixes",
+  "body": "- configure_harness writes a read-only cri-explorer agent on haiku.\n- Harness driver arm tools_plus: core tools, advisor hooks with compaction\n  rewrite, and an absolute cri wrapper (the harness shell ignored PATH).\n- Test map falls back to tests importing the file's package (requests:\n  import requests -> requests/sessions.py).\n- Compaction rewrite accepts CMD 2>&1 | head/tail -N.\n- Generated commands use python3 where python is absent.",
+  "matched": "fixes"
+ },
+ {
+  "suite": "cc",
+  "cls": "subject",
+  "sha": "ec13fe1376",
+  "subject": "Companion GitHub publication: fixes from the delivery-pipeline audit",
+  "body": "- git apply --whitespace=nowarn: CRLF files, trailing-space Markdown and blank\n  lines at EOF no longer fail after acceptance (tree equality still proved)\n- The base branch may move on: base_sha must be an ancestor of its tip (compare\n  API); diverged or force-pushed bases are refused; the commit stays on base_sha\n- Publication is bound to the Hub's patch_sha256 (exact diff.patch bytes) before\n  any build or GitHub call; an authority without it is an error\n- Every publication bound refusal names",
+  "matched": "fixes"
+ }
+]
