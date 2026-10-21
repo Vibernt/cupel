@@ -4,10 +4,11 @@
 
 | Part | What it is |
 |---|---|
-| **Spec** (`spec/`) | The single source of truth: tier labels and path rules, the value signals and how they combine, the keep/consolidate/rewrite/retire rules, guardrails, the report format (JSON Schema), the config format. Versioned (`cupel-spec/1`) |
+| **Spec** (`spec/`) | The single source of truth: tier labels and path rules, the value signals and how they combine, the keep/consolidate/rewrite/retire rules, guardrails, the **input format** (what collectors and importers hand the engine), the report format and the config format, each as a JSON Schema. Versioned (`cupel-spec/1`) |
 | **Conformance cases** (`spec/conformance/`) | Input fixtures (results, coverage, mutation outcomes, config) with the exact expected report. Every implementation must pass all of them |
 | **Engine** | Pure, deterministic functions: inputs in, report out. No I/O beyond what is passed in, no clock, no randomness without a seed, no runtime APIs (`node:*`, `process`). So the same engine runs in the CLI, the MCP server and, later, server-side in Vibernt Assay (Cloudflare Workers): local scores and Assay scores always match |
 | **Collectors** | Run the user's tests and produce the engine's inputs: per-test results, per-test coverage, changed-line mutation outcomes. One per runner: node:test, Vitest, Jest, pytest first |
+| **Importers** | Convert what existing tools already produce (JUnit XML, coverage.py contexts, JaCoCo, PIT, Stryker, cargo-mutants and others) into the input format, so Cupel scores suites it has no native collector for |
 | **CLI** (`cupel`) | Commands below; human output by default, `--json` for machines and agents |
 | **MCP server** (`cupel mcp`) | Local stdio server exposing the same commands as tools |
 | **GitHub Action** | Runs `cupel guard` (and optionally `report`) in CI, posts a job summary, fails on guardrail breaches |
@@ -23,6 +24,7 @@ The first implementation is JavaScript (Node 22+, ESM). A Python implementation 
 | `cupel guard --base <ref>` | Compares the suite at a base ref with the working tree | Pass or fail: coverage (line, branch) never falls; critical mutation score never falls; no critical test removed or downgraded without an approval marker; removed tests listed with evidence |
 | `cupel plan [--changed <files>]` | Priority order for a run | Critical first, then tests affected by the change (coverage map, naming, imports), then the rest; with expected time |
 | `cupel label` | Shows and checks tiers | Tier per test from path rules and tags; refuses unknown tags |
+| `cupel import <files> [--format <f>]` | Reads engine inputs from files instead of running a collector: Cupel's own input format, or a supported tool format | Validated inputs, then the same `report`, `check`, `guard` and `plan` as a native run |
 | `cupel mcp` | Starts the MCP server | stdio |
 
 Exit codes are stable and documented: 0 ok, 1 guardrail or check failed, 2 usage error, 3 environment error (a collector could not run).
@@ -30,6 +32,24 @@ Exit codes are stable and documented: 0 ok, 1 guardrail or check failed, 2 usage
 ## MCP tools (local, stdio)
 
 `cupel_check`, `cupel_report` (whole suite or a file), `cupel_guard`, `cupel_plan`, `cupel_label`. Each returns compact JSON plus a one-line summary; long reports are paged. The tool descriptions tell the agent when to call them (before committing new tests: `cupel_check`; before removing tests: `cupel_guard`).
+
+## Languages and runners
+
+The engine is language-neutral: it sees only test ids, the lines each test covers, results, durations and which mutants each test killed. Everything language-specific lives in a collector, an importer or a mutator, and all of them produce the same input format. Anyone can add a runner or a language by emitting that format, without touching the engine.
+
+| Language | Per-test coverage | Mutation | Milestone |
+|---|---|---|---|
+| JavaScript, TypeScript | node:test (S2 hook), Vitest, Jest | Cupel's own textual mutator (D6); import Stryker | M3, M6 |
+| Python | pytest with a standard-library `sys.monitoring` plugin; import coverage.py contexts | Cupel's own mutator on `ast`; import mutmut | M6 |
+| Java, Kotlin | JaCoCo with per-test sessions (JUnit 5 listener) | Import PIT | M6b |
+| Go | `go test -run` per test with `-coverprofile`, or `go test -json` with per-test profiles | Import an existing Go mutator, or Cupel's own | M6b |
+| .NET | coverlet, per test | Import Stryker.NET | M6b |
+| Rust | `cargo llvm-cov` per test | Import cargo-mutants | M6b |
+| Ruby | standard-library `Coverage` with RSpec or Minitest hooks | Import mutant | M6b |
+
+Results and durations come from JUnit XML wherever a runner emits it.
+
+**Where advice is weaker.** End-to-end and browser tests (for example Playwright), and any test that drives several services or processes, cannot have their coverage attributed reliably to one test. Cupel still labels, guards and orders them, but it marks their keep and retire advice "low evidence" and never advises retiring them on coverage alone. Flakiness and real catches need run history (Vibernt Assay).
 
 ## Value signals (per test)
 
