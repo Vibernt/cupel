@@ -2,7 +2,7 @@
 
 | Milestone | Contents | Done when |
 |---|---|---|
-| **M0 Kickoff** | Private repo `Vibernt/cupel`, licence file (Apache-2.0 unless D2 changes), README stub, AGENTS.md and CLAUDE.md, CI on GitHub Actions for the repo itself, plans moved in | Repo exists, CI green, plans committed |
+| **M0 Kickoff** | Private repo `Vibernt/cupel`, licence file (Apache-2.0 unless D2 changes), README stub, AGENTS.md and CLAUDE.md, local checks run by a pre-push hook (no hosted CI for the repo itself; owner, 2026-10-21), plans moved in | Repo exists, `npm run verify` green, plans committed |
 | **M1 Spikes** | S1, S2, S3 (collector and mutation design), then S4, S6 | Results in `plans/spikes/`; D6 and D7 decided |
 | **M2 Spec v1** | `spec/` with tiers, signals, rules, guardrails, report and config schemas; 30+ conformance cases | Cases cover every rule and guardrail, including negative cases |
 | **M3 Node build** | Engine, node:test collector (per-file then per-test coverage), mutation (critical + changed lines), CLI `report`, `check`, `guard`, `plan`, `label` with `--json` | Passes all conformance cases; runs on Assay's suite end to end within a set time budget |

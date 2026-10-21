@@ -3,10 +3,13 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "check": "node scripts/check.mjs",
     "test": "node --test --test-reporter=dot \"packages/cupel/test/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
-    "test:py": "cd packages/cupel-py && python3 -m unittest discover -s tests -t . -q"
+    "test:py": "cd packages/cupel-py && python3 -m unittest discover -s tests -t . -q",
+    "verify": "npm run -s check && npm test && npm run -s test:py"
   }
 }

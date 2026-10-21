@@ -16,4 +16,7 @@
 npm run check      # repository rule checks
 npm test           # Node tests, quiet
 npm run test:py    # Python tests
+npm run verify     # all of the above; runs before every push via .githooks/pre-push
 ```
+
+There is no hosted CI for this repo. Enable the pre-push hook once per clone with `git config core.hooksPath .githooks`.

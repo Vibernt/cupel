@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs the repository checks and all tests before every push (no hosted CI).
+# Enable once per clone: git config core.hooksPath .githooks
+exec npm run -s verify
