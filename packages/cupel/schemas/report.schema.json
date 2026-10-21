@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cupel.dev/schemas/cupel-spec-1/report.schema.json",
+  "title": "Cupel report (cupel-spec/1)",
+  "description": "The engine's output for every command. Keys appear in the order listed here (R1). After exit 2 or 3 only spec, kind, command and diagnostics are present.",
+  "type": "object",
+  "required": ["spec", "kind", "command", "diagnostics"],
+  "additionalProperties": false,
+  "properties": {
+    "spec": { "type": "string", "pattern": "^cupel-spec/1(\\.[0-9]+)?$" },
+    "kind": { "const": "report" },
+    "command": { "enum": ["report", "plan", "check", "guard", "label", "validate"] },
+    "generatedAt": { "type": "string" },
+    "runtime": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": { "name": { "type": "string" }, "version": { "type": "string" } }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity"],
+        "additionalProperties": false,
+        "properties": {
+          "code": { "type": "string" },
+          "severity": { "enum": ["error", "warning"] },
+          "path": { "type": "string" },
+          "test": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "suite": {
+      "type": "object",
+      "required": ["tests", "units", "passed", "failed", "skipped", "durationMs", "coverage", "criticalCoverage", "mutation", "criticalMutation", "advice"],
+      "additionalProperties": false,
+      "properties": {
+        "tests": { "type": "integer", "minimum": 0 },
+        "units": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "coverage": { "$ref": "#/$defs/coverageRatio" },
+        "criticalCoverage": { "$ref": "#/$defs/coverageRatio" },
+        "mutation": { "anyOf": [{ "$ref": "#/$defs/mutationScore" }, { "type": "null" }] },
+        "criticalMutation": { "anyOf": [{ "$ref": "#/$defs/mutationScore" }, { "type": "null" }] },
+        "advice": {
+          "type": "object",
+          "required": ["keep", "consolidate", "rewrite", "move-to-check", "retire", "none"],
+          "additionalProperties": false,
+          "properties": {
+            "keep": { "type": "integer", "minimum": 0 },
+            "consolidate": { "type": "integer", "minimum": 0 },
+            "rewrite": { "type": "integer", "minimum": 0 },
+            "move-to-check": { "type": "integer", "minimum": 0 },
+            "retire": { "type": "integer", "minimum": 0 },
+            "none": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "file", "rows", "tier", "tierReason", "protected", "status", "signals", "advice", "reasons", "hints"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "file": { "type": "string" },
+          "rows": { "type": "array", "items": { "type": "string" } },
+          "tier": { "$ref": "#/$defs/tier" },
+          "tierReason": { "enum": ["tag", "path-rule", "critical-word", "unique-critical-lines", "default"] },
+          "protected": { "type": "boolean" },
+          "status": { "enum": ["passed", "failed", "skipped"] },
+          "signals": {
+            "type": "object",
+            "required": ["ownLines", "uniqueLines", "kills", "uniqueKills", "durationMs", "runs", "brittle"],
+            "additionalProperties": false,
+            "properties": {
+              "ownLines": { "type": "integer", "minimum": 0 },
+              "uniqueLines": { "type": ["integer", "null"], "minimum": 0 },
+              "kills": { "type": "integer", "minimum": 0 },
+              "uniqueKills": { "type": ["integer", "null"], "minimum": 0 },
+              "durationMs": { "type": "integer", "minimum": 0 },
+              "runs": { "type": "integer", "minimum": 0 },
+              "brittle": { "type": "array", "items": { "$ref": "#/$defs/brittleKind" } }
+            }
+          },
+          "advice": { "$ref": "#/$defs/advice" },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "hints": { "type": "array", "items": { "type": "string" } },
+          "group": { "type": "string" },
+          "duplicateOf": { "type": "string" }
+        }
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "file", "units"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^g[1-9][0-9]*$" },
+          "kind": { "const": "same-shape" },
+          "file": { "type": "string" },
+          "units": { "type": "array", "minItems": 2, "items": { "type": "string" } }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "uniqueLines", "hints"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string" },
+          "uniqueLines": { "type": "integer", "minimum": 0 },
+          "hints": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": ["mode", "order", "skipped", "expectedMs"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["full", "changed"] },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "bucket", "durationMs"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "bucket": { "enum": ["critical", "affected", "standard", "rest", "minor"] },
+              "durationMs": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "skipped": { "type": "array", "items": { "type": "string" } },
+        "expectedMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["verdicts"],
+      "additionalProperties": false,
+      "properties": {
+        "verdicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "verdict", "brittle"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "verdict": { "enum": ["adds-value", "adds-nothing", "weakens", "fails", "not-run"] },
+              "extend": { "type": ["string", "null"] },
+              "brittle": { "type": "array", "items": { "$ref": "#/$defs/brittleKind" } },
+              "lost": { "$ref": "#/$defs/lost" }
+            }
+          }
+        }
+      }
+    },
+    "guard": {
+      "type": "object",
+      "required": ["pass", "checks", "removed"],
+      "additionalProperties": false,
+      "properties": {
+        "pass": { "type": "boolean" },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "pass"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "enum": ["head-passes", "coverage-lines", "coverage-ratio", "critical-coverage", "critical-mutation", "critical-removed", "critical-downgraded"] },
+              "pass": { "type": "boolean" },
+              "lost": { "$ref": "#/$defs/lost" },
+              "missing": { "type": "boolean" },
+              "units": { "type": "array", "items": { "type": "string" } },
+              "sources": { "type": "array", "items": { "type": "string" } },
+              "base": { "$ref": "#/$defs/coverageRatio" },
+              "head": { "$ref": "#/$defs/coverageRatio" }
+            }
+          }
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "tier", "uniqueLines", "uniqueKills"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "tier": { "$ref": "#/$defs/tier" },
+              "uniqueLines": { "type": ["integer", "null"], "minimum": 0 },
+              "uniqueKills": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "tier": { "enum": ["critical", "standard", "minor"] },
+    "advice": { "enum": ["keep", "consolidate", "rewrite", "move-to-check", "retire", "none"] },
+    "brittleKind": { "enum": ["source-text", "css-class", "doc-wording", "file-snapshot"] },
+    "lineSet": { "type": "string", "pattern": "^([1-9][0-9]*(-[1-9][0-9]*)?(,[1-9][0-9]*(-[1-9][0-9]*)?)*)?$" },
+    "coverageRatio": {
+      "type": "object",
+      "required": ["covered", "coverable", "pct"],
+      "additionalProperties": false,
+      "properties": {
+        "covered": { "type": "integer", "minimum": 0 },
+        "coverable": { "type": "integer", "minimum": 0 },
+        "pct": { "type": ["number", "null"] }
+      }
+    },
+    "mutationScore": {
+      "type": "object",
+      "required": ["detected", "undetected", "score"],
+      "additionalProperties": false,
+      "properties": {
+        "detected": { "type": "integer", "minimum": 0 },
+        "undetected": { "type": "integer", "minimum": 0 },
+        "score": { "type": ["number", "null"] }
+      }
+    },
+    "lost": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lines": { "type": "object", "additionalProperties": { "$ref": "#/$defs/lineSet" } },
+        "mutants": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

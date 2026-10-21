@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- nested suites, as Jest, Vitest and surefire write them -->
+<testsuites name="all" tests="6" failures="1" errors="1" skipped="1" time="1.5">
+  <testsuite name="math" file="tests/math.test.mjs" time="0.8">
+    <testcase name="add sums two numbers [critical]" classname="math" file="tests/math.test.mjs" time="0.012"/>
+    <testcase name="clamp &gt; low bound &amp; &#x41;&#66;" classname="math" file="tests/math.test.mjs" time="0.0049"/>
+    <testsuite name="inner">
+      <testcase name="divides" classname="calc.Divide" time="1,000.5">
+        <failure message="expected 2" type="AssertionError"><![CDATA[expected 2 <got> 3]]></failure>
+      </testcase>
+      <testcase name='throws on zero' classname="calc.Divide" time="0.3">
+        <error message="boom">TypeError: boom</error>
+      </testcase>
+    </testsuite>
+  </testsuite>
+  <testsuite name="suite-only" time="0">
+    <testcase name="pending">
+      <skipped/>
+    </testcase>
+    <testcase name="flaky then passed" classname="Retry" time="0.25">
+      <flakyFailure message="once"/>
+      <system-out>retry</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>

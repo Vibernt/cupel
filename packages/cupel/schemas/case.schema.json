@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cupel.dev/schemas/cupel-spec-1/case.schema.json",
+  "title": "Cupel conformance case (cupel-spec/1)",
+  "type": "object",
+  "required": ["description", "command", "rules", "expectExit"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "minLength": 1 },
+    "command": { "enum": ["report", "plan", "check", "guard", "label"] },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "polarity"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[ITSACGPLRE][0-9]+$" },
+          "polarity": { "enum": ["positive", "negative"] }
+        }
+      }
+    },
+    "args": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "changed": { "type": "object", "additionalProperties": { "type": "string" } },
+        "tests": { "type": "array", "items": { "type": "string" } },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["action", "id", "by"],
+            "additionalProperties": false,
+            "properties": {
+              "action": { "enum": ["remove", "downgrade"] },
+              "id": { "type": "string" },
+              "by": { "type": "string" }
+            }
+          }
+        },
+        "generatedAt": { "type": "string" }
+      }
+    },
+    "expectExit": { "enum": [0, 1, 2, 3] }
+  }
+}

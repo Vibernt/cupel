@@ -1,0 +1,4 @@
+<testsuite name="suite-only" tests="2">
+  <testcase name="add sums two numbers [critical]" classname="math" file="tests/math.test.mjs" time="0.010"/>
+  <testcase name="pending" time="0.002"/>
+</testsuite>
