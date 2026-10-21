@@ -1,0 +1,103 @@
+{
+ "files": 421,
+ "processes": 421,
+ "testsSeen": 4723,
+ "leafTests": 4723,
+ "topLevelTests": 4723,
+ "nestedTests": 2,
+ "coveredLines": 154049,
+ "setupLines": 29324,
+ "takes": 10709,
+ "takeMsTotal": 55059.30544678867,
+ "processMsTotal": 71197.13752707839,
+ "outputMB": 45.70063,
+ "sharedSegments": 0,
+ "filesWithSharedSegments": 0,
+ "betweenSegmentsWithLines": 3,
+ "testsThatSpawn": 184,
+ "filesThatSpawn": 45,
+ "spawnKinds": {
+  "spawnSync:python3": 171,
+  "spawnSync:git": 160,
+  "spawn:git": 108,
+  "spawnSync:node": 95,
+  "spawnSync:tar": 80,
+  "spawn:node": 76,
+  "spawnSync:sh": 33,
+  "spawnSync:bash": 13,
+  "spawnSync:cri": 9,
+  "execFile:node": 2,
+  "spawnSync:npm": 1,
+  "spawnSync:grep": 1
+ },
+ "perLeafTest": {
+  "uniqueLines": 21430,
+  "zeroUniqueLeaves": 2761
+ },
+ "perTopLevelTest": {
+  "uniqueLines": 21430,
+  "zeroUniqueTests": 2761
+ },
+ "perFile": {
+  "uniqueLines": 43533,
+  "zeroUniqueFiles": 46
+ },
+ "runs": [
+  {
+   "variant": "plain",
+   "reps": 3,
+   "wallMs": [
+    41233.1955,
+    53376.949375,
+    51938.656458
+   ],
+   "cpuMs": [
+    343230,
+    352400,
+    395280
+   ],
+   "medianWallMs": 51938.656458,
+   "medianCpuMs": 352400,
+   "pass": [
+    4724,
+    4724,
+    4723
+   ],
+   "fail": [
+    0,
+    0,
+    1
+   ],
+   "failed": [
+    "demo-workspace.test.mjs :: the bundle is deterministic: generating it twice gives identical bytes (an idempotent reseed)"
+   ]
+  },
+  {
+   "variant": "coverage",
+   "reps": 3,
+   "wallMs": [
+    61103.25425,
+    83157.873917,
+    72075.922
+   ],
+   "cpuMs": [
+    506390,
+    523750,
+    590500
+   ],
+   "medianWallMs": 72075.922,
+   "medianCpuMs": 523750,
+   "pass": [
+    4724,
+    4724,
+    4724
+   ],
+   "fail": [
+    0,
+    0,
+    0
+   ],
+   "failed": []
+  }
+ ]
+}

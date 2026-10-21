@@ -1,0 +1,123 @@
+file,test,linesA,linesB,linesBAlone,jaccardRaw,jaccardTest,uniqueA,uniqueB,uniqueJaccard,bNotA,aNotB,spawned,aProcesses,nested
+"drop-in.test.mjs","per-second billing (v045-d11): 61 s is 61 s, 1 s is 1 s, many short jobs sum exactly, older records keep their rounded minutes",20933,22,20933,1,1,0,0,1,0,0,0,1,0
+"drop-in.test.mjs","labels: exactly one served label, alone or with the generic self-hosted labels, selects a size; everything else is ignored",20930,20,20930,1,1,2,2,1,0,0,0,1,0
+"drop-in.test.mjs","labels map onto container classes, capacity pools and instance types that wrangler.jsonc declares",20953,43,20953,1,1,0,0,1,0,0,0,1,0
+"drop-in.test.mjs","job facts come from the signed payload, bounded; a link that is not github.com is dropped",20959,52,20959,1,1,0,0,1,0,0,0,1,0
+"drop-in.test.mjs","the runner route follows the installation's permissions; without them the refusal is explicit, never a pretend success",20939,28,20939,1,1,0,0,1,0,0,0,1,0
+"drop-in.test.mjs","queued -> admitted -> JIT registration -> one container -> in_progress -> exit: billed per minute, deregistered, nothing kept",23590,2963,23590,1,1,0,25,0,0,0,0,1,0
+"drop-in.test.mjs","AI agents' keys (v045-h1): never in the container start, and a probe that reports them is not recorded anywhere",23596,2943,23571,0.999,0.991,0,0,1,0,25,0,1,0
+"drop-in.test.mjs","the 4-vCPU label runs on the standard-4 class; a class refuses a label it does not serve",23142,2453,23117,0.999,0.989,1,1,1,0,25,0,1,0
+"drop-in.test.mjs","capacity errors on start are retried with backoff: the failed registration is removed and a new JIT config is used",23270,2592,23245,0.999,0.989,1,1,1,0,25,0,1,0
+"drop-in.test.mjs","a start that never finds capacity fails the job after the start budget; the slot is released",23336,2661,23311,0.999,0.990,1,1,1,0,25,0,1,0
+"drop-in.test.mjs","an App without the runner permissions gets a clear refusal on the job, and no container starts",23166,2475,23136,0.999,0.987,6,6,1,0,30,0,1,0
+"drop-in.test.mjs","organization installations without Administration use the organization route and the workspace runner group",23310,2629,23280,0.999,0.987,28,28,1,0,30,0,1,0
+"drop-in.test.mjs","container egress: the runner starts without internet under allowlist, its cache token goes to the outbound handler and never into the container; the JIT config still does",24058,3439,24028,0.999,0.990,43,58,0.741,0,30,0,1,0
+"drop-in.test.mjs","the Actions cache: a job at its branch head gets a write token, anything else a read-only one; the token is never kept",23708,3042,23663,0.998,0.984,2,2,1,0,45,0,1,0
+"drop-in.test.mjs","three caches at once: the Actions cache, the remote build cache and the dependency store all reach one runner; under egress all three tokens move to the handler",24062,3424,24008,0.998,0.983,41,41,1,0,54,0,1,0
+"drop-in.test.mjs","negative: a forged or unsigned workflow_job delivery is refused before anything is recorded or called",22100,1321,22061,0.998,0.967,0,0,1,0,39,0,1,0
+"drop-in.test.mjs","negative: an installation linked to no workspace, a switch that is off and labels we do not serve start nothing",22134,1358,22095,0.998,0.968,6,6,1,0,39,0,1,0
+"drop-in.test.mjs","negative: a job of one installation never reaches another workspace's runner, and two workspaces never share a container",23201,2502,23162,0.998,0.983,3,3,1,0,39,0,1,0
+"drop-in.test.mjs","negative: a workspace over its build-minute quota gets a refused job, no runner, and only a cri-ci/drop-in error status on GitHub",22730,2023,22691,0.998,0.979,192,192,1,0,39,0,1,0
+"drop-in.test.mjs","drop-in cache writes, the incident replayed (Better Auth run 38232857870): three jobs GitHub rotated onto each other's runners now save, each under the job GitHub runs there",23672,3002,23618,0.998,0.980,18,18,1,0,54,0,1,0
+"drop-in.test.mjs","negative (H1 stays closed): a fork pull request job swapped onto a runner started for main never writes main's scope; main's job on the fork's runner writes main",23632,2948,23571,0.997,0.978,0,0,1,0,61,0,1,0
+"drop-in.test.mjs","negative (H1): a job of an unprotected branch swapped onto main's runner writes only its own branch, never the default branch",23654,2972,23593,0.997,0.978,2,2,1,0,61,0,1,0
+"drop-in.test.mjs","negative (H1): a job of another repository of the installation, swapped onto the runner, never writes; neither does a runner GitHub named for two jobs",23581,2889,23516,0.997,0.976,4,4,1,0,65,0,1,0
+"drop-in.test.mjs","negative (H1): no in_progress yet, a stale runner, a forged or altered runner name: no write; a delivery that arrives within the bounded wait is used",23640,2950,23573,0.997,0.975,30,30,1,0,67,0,1,0
+"drop-in.test.mjs","negative (H1): the Docker layer cache follows the same rule for a drop-in token: a swapped fork job writes no layer, a swapped trusted job writes its own scope",23553,2857,23486,0.997,0.975,14,14,1,0,67,0,1,0
+"drop-in.test.mjs","a job taken by a sibling runner is billed there, and the runner started for it serves the sibling job",23653,2964,23598,0.998,0.980,0,0,1,0,55,0,1,0
+"drop-in.test.mjs","completed reconciliation: a job that ends before its runner starts cancels the runner and frees its place in the queue",23120,2384,23065,0.998,0.975,0,0,1,0,55,0,1,0
+"drop-in.test.mjs","an online runner that never gets a job is stopped after the idle limit and its registration removed",23602,2889,23532,0.997,0.974,0,0,1,0,70,0,1,0
+"drop-in.test.mjs","a runner object restarted by a deploy keeps driving its running container to the end",23526,2814,23456,0.997,0.973,1,1,1,0,70,0,1,0
+"drop-in.test.mjs","a runner past its deadline is destroyed; a failed deregistration is retried later, then the object closes",23552,2851,23495,0.998,0.978,5,5,1,0,57,0,1,0
+"drop-in.test.mjs","the switch turned off while a job waits cancels it before any registration",23064,2323,23007,0.998,0.973,1,1,1,0,57,0,1,0
+"drop-in.test.mjs","a 12-job run cancelled on GitHub frees every slot and waiter at once: queued jobs, running jobs and swapped runners",23790,3105,23733,0.998,0.980,0,0,1,0,57,0,1,0
+"drop-in.test.mjs","metering (v045-d13): every tick keeps the latest usage report, so a burn of 1,500 vCPU-seconds is billed within 10%, not the first seconds",23590,2893,23533,0.998,0.979,1,1,1,0,57,0,1,0
+"drop-in.test.mjs","metering (v045-d13): a report from the first seconds never covers the session; the seconds after the last report are billed as provisioned",23561,2863,23504,0.998,0.978,0,0,1,0,57,0,1,0
+"drop-in.test.mjs","metering (v045-d13): a report above the provisioned vCPU is capped, and a container that never reports is billed as provisioned",23632,2939,23575,0.998,0.979,0,0,1,0,57,0,1,0
+"drop-in.test.mjs","metering (benchmark 2026-10-12, finding 6): a prepared VM's CPU before the container is not billed, and unanswered probes are on the job record",23571,2860,23502,0.997,0.974,6,6,1,0,69,0,1,0
+"drop-in.test.mjs","metering (v045-d13): the last probe before a stop is retried a bounded number of times; a new container start drops the old report",23685,2980,23616,0.997,0.975,3,3,1,0,69,0,1,0
+"drop-in.test.mjs","job handoff (v045-d13): a job whose own runner ran a sibling reads running until the runner that runs it concludes, then is billed there",23640,2932,23571,0.997,0.975,0,0,1,0,69,0,1,0
+"drop-in.test.mjs","job handoff (v045-d13): an in_progress that arrives after the job's own runner concluded turns the record back to running",23671,2961,23597,0.997,0.973,0,0,1,0,74,0,1,0
+"drop-in.test.mjs","an online runner whose job was cancelled retires once GitHub accepts the removal of its registration; one GitHub reports busy keeps its job",23751,3037,23677,0.997,0.974,3,3,1,0,74,0,1,0
+"drop-in.test.mjs","reconciliation: a runner whose job ended without a delivery reaching it retires on its own tick, waiting or online",23681,2958,23603,0.997,0.972,17,17,1,0,78,0,1,0
+"drop-in.test.mjs","a job whose runner went away without a job while it still waits gets a new runner, at most three times",23572,2847,23494,0.997,0.971,3,3,1,0,78,0,1,0
+"drop-in.test.mjs","runner balance: least progressed first, only in a repository with a surplus, never across installations or labels",20941,28,20941,1,1,1,1,1,0,0,0,1,0
+"drop-in.test.mjs","slot reuse: a released slot wakes the next waiting runner at once; GitHub's completed never delays the exit check",23609,2888,23531,0.997,0.971,0,0,1,0,78,0,1,0
+"drop-in.test.mjs","start latency: each moment from GitHub queued to started is recorded on the job, and the phases add up to the queue time",23311,2540,23216,0.996,0.960,2,36,0.056,0,95,0,1,0
+"drop-in.test.mjs","negative: a retirement names the runner's own workspace; a wake changes nothing else; the balance never crosses installations",23243,2466,23143,0.996,0.957,0,0,1,0,100,0,1,0
+"drop-in.test.mjs","capacity sweep: a lease or waiter whose runner object is gone or concluded is dropped and the next runner woken; a runner that does not answer keeps its lease",23219,2437,23119,0.996,0.957,42,42,1,0,100,0,1,0
+"drop-in.test.mjs","the live probe job: a start that reported a capacity error while its runner came up and took the job is not stopped, not deregistered and not started again",23586,2840,23486,0.996,0.963,17,17,1,0,100,0,1,0
+"drop-in.test.mjs","a runner whose job GitHub gave to an earlier start attempt, now gone, is not started again: the job records the lost runner",23373,2614,23273,0.996,0.959,3,3,1,0,100,0,1,0
+"drop-in.test.mjs","retirement race: a runner GitHub gave a job before the in_progress arrived is kept whatever check sees the job first",23764,3013,23657,0.995,0.962,13,13,1,0,107,0,1,0
+"drop-in.test.mjs","an idle runner left after its job ran elsewhere is retired within a minute, unless GitHub has assigned it a job",23750,2998,23643,0.995,0.962,0,0,1,0,107,0,1,0
+"drop-in.test.mjs","GitHub's completed for another job never ends a runner, and a runner process still finishing its job gets more time",23552,2795,23445,0.995,0.959,11,11,1,0,107,0,1,0
+"drop-in.test.mjs","a container this object cannot stop is stopped later, and an object that only has its tombstone stops an orphan container",23597,2837,23490,0.995,0.960,15,15,1,0,107,0,1,0
+"drop-in.test.mjs","capacity at start: a burst is spaced per pool, retries back off briefly with jitter, and the start breakdown separates capacity retries from registration",23380,2565,23239,0.994,0.943,8,8,1,0,141,0,1,0
+"drop-in.test.mjs","a burst refused for capacity retries spaced: each retry takes a start slot, and refusals widen the pool's spacing; only a lease holder may ask",23157,2374,23050,0.995,0.952,1,1,1,0,107,0,1,0
+"drop-in.test.mjs","evidence on the job: a swapped job gets the start moments of the runner that ran it, and a cancelled job says who ended it",23705,2917,23564,0.994,0.949,4,4,1,0,141,0,1,0
+"drop-in.test.mjs","API: drop-in usage is per second, and a month that spans the change says which jobs keep rounded minutes (v045-d11)",22865,2070,22764,0.996,0.948,1,1,1,0,101,0,1,0
+"drop-in.test.mjs","API: the job list and usage are workspace-wide (run.read); cancel needs run.cancel; project-scoped tokens are refused",23497,2734,23386,0.995,0.957,202,202,1,0,111,0,1,0
+"drop-in.test.mjs","the runner image pins every download it verifies to docker/pins.json, and its base to the pinned digest",20915,0,20915,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","both adapters export a preview object with exactly the core contract, also reachable from the registered plugin",13666,101,13666,1,1,52,52,1,0,0,0,1,0
+"previews.test.mjs","gate test vectors: the embedded verifier and an independent HMAC agree",13577,0,13577,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","gate: link exchange, cookie, 401 page, noindex, POST and open-redirect safety, store binding and public mode",13577,0,13577,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","workers preview: up uploads the application script, then the gate script; only the gate holds gate bindings and state holds no secret",14179,713,14179,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","workers preview: the gate enforces access and forwards over the service binding; the application script has no public route",14179,713,14179,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","workers preview: up again updates both scripts in place; status follows the gate and application revisions",14217,759,14217,1,1,3,3,1,0,0,0,1,0
+"previews.test.mjs","workers preview: foreign scripts under either name, the production script name and missing gates are refused before any mutation",14107,629,14107,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","workers preview: public mode publishes without the gate key but still through the gate script, with noindex",14179,713,14179,1,1,1,1,1,0,0,0,1,0
+"previews.test.mjs","workers preview: an accepted-but-timed-out upload is adopted by its nonce; an unapplied one fails",14221,764,14221,1,1,7,7,1,0,0,0,1,0
+"previews.test.mjs","workers preview: custom-domain down removes the public entry first and reports what remains after a partial failure",14222,764,14222,1,1,2,2,1,0,0,0,1,0
+"previews.test.mjs","workers preview: down keeps the application while the gate stands, reports both, and deletes an application left alone",14218,758,14218,1,1,2,2,1,0,0,0,1,0
+"previews.test.mjs","workers preview: list pairs each gate with its application script and keeps either one left alone",13976,476,13976,1,1,2,2,1,0,0,0,1,0
+"previews.test.mjs","workers preview: application script names stay within 63 characters, deterministic and distinct",14248,789,14248,1,1,2,2,1,0,0,0,1,0
+"previews.test.mjs","workers preview: validate reports configuration problems and up refuses to run with them",13984,476,13984,1,1,7,7,1,0,0,0,1,0
+"previews.test.mjs","workers preview: every handler, class and named export of the application runs in a script without gate bindings",14181,716,14181,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","workers preview: a class default export runs as the application script behind the gate",14209,751,14209,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","probe tokens: only the adapter can mint them, they are short-lived and bound to one preview",13593,26,13593,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","containers preview: up builds one pool (script, namespace, application, hostname) with preview-only secrets",14352,898,14352,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","containers preview: up again updates in place; a new image replaces the application, the same image does not",14358,907,14358,1,1,6,6,1,0,0,0,1,0
+"previews.test.mjs","containers preview: status never reports ready without warm instances, reported health and the served revision",14353,899,14353,1,1,1,1,1,0,0,0,1,0
+"previews.test.mjs","containers preview: names never collide with release pools in either direction",14352,896,14352,1,1,8,8,1,0,0,0,1,0
+"previews.test.mjs","containers preview: down deletes application, domain, then script; a failed application delete keeps the script and reports everything remaining",14346,891,14346,1,1,12,12,1,0,0,0,1,0
+"previews.test.mjs","containers preview: list reports owned pools with their resources and skips foreign or release scripts",14335,876,14335,1,1,1,1,1,0,0,0,1,0
+"previews.test.mjs","containers preview: provenance, registry, conflicts and credentials are checked before any mutation",14171,690,14171,1,1,9,9,1,0,0,0,1,0
+"previews.test.mjs","generated preview pool Worker: gated traffic, probe-or-cookie warm, side-effect-free anonymous health, string secrets",13683,107,13683,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","containers preview: the container started by the uploaded pool Worker never receives the gate key or the probe key",14302,840,14302,1,1,0,0,1,0,0,0,1,0
+"previews.test.mjs","containers preview: status probes with the adapter token; anonymous warm is refused and anonymous health wakes nothing",14355,901,14355,1,1,3,3,1,0,0,0,1,0
+"fanout.test.mjs","config: durations, defaults and refusals; leg keys parse back",12731,72,12731,1,1,12,12,1,0,0,0,1,0
+"fanout.test.mjs","count: the smallest N meeting the target, else the fewest shards that reach the shortest wall; tiny groups run in one",12684,20,12684,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","count (benchmark 2026-10-12, finding 4): Mastra's UNIT plan no longer drops from 12 to 4 legs when its longest file stops fitting the target",12969,365,12969,1,1,1,1,1,0,0,0,1,0
+"fanout.test.mjs","plan: longest first, expected wall and cost, single-container comparison, deterministic digest",12941,336,12941,1,1,6,6,1,0,0,0,1,0
+"fanout.test.mjs","plan: affinity units stay together unless one alone exceeds the target; unknown files take their directory's median",12914,307,12914,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","plan: groups by services and serial; tiny groups merge into a compatible one; serial files run alone",12947,343,12947,1,1,11,11,1,0,0,0,1,0
+"fanout.test.mjs","acceptance 3: a request above the workspace cap is clamped, and so is one above free capacity (plus a short wait)",12933,326,12933,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","acceptance 1 (property): every selected file is in exactly one unit; caps, groups and serial units hold",12975,371,12975,1,1,35,35,1,0,0,0,1,0
+"fanout.test.mjs","fallback: no listing, no units or a planning error is one shard running the whole suite, never fewer tests",12679,59,12679,1,1,9,9,1,0,0,0,1,0
+"fanout.test.mjs","learning: overhead p90 needs three samples; copy decision follows the measured restore against setup; straggler ratio",12720,59,12720,1,1,40,40,1,0,0,0,1,0
+"fanout.test.mjs","queue: every unit runs exactly once across shards; the logical run has every test once",13180,578,13180,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","queue: a dead shard's lease is revoked after the lease time and its unit re-queued; a third loss is SHARD_LOST with evidence",13152,549,13152,1,1,6,6,1,0,0,0,1,0
+"fanout.test.mjs","queue: a presumed-dead shard that finishes after all still wins its unit if nobody else did",13107,503,13107,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","queue: a straggler gets a speculative copy on an idle shard; the first result wins, the other is stopped, a disagreement is flaky",13217,616,13217,1,1,16,16,1,0,0,0,1,0
+"fanout.test.mjs","queue: the tail splits a multi-file unit so the claim takes one file; every file still runs once",13202,590,13194,0.999,0.985,10,10,1,0,8,0,1,0
+"fanout.test.mjs","queue: fencing and forged leases; a leg beyond the plan is refused",13149,536,13141,0.999,0.983,10,10,1,0,8,0,1,0
+"fanout.test.mjs","queue: fail-fast stops the group on a blocking failure; later legs fail FAIL_FAST; a non-blocking failure does not stop it",13207,597,13199,0.999,0.985,16,16,1,0,8,0,1,0
+"fanout.test.mjs","queue: a retry of a leg re-runs the units its earlier attempt failed; a unit timeout is COMMAND_TIMEOUT",13161,550,13155,1.000,0.988,6,6,1,0,6,0,1,0
+"fanout.test.mjs","queue: a drained shard stops at once; one standby waits while a unit it could take over runs; the last unit lets it drain",13238,632,13232,1.000,0.989,0,0,1,0,6,0,1,0
+"fanout.test.mjs","batched claims: sized by a quarter of a shard's share, one unit at the tail, none for serial units; every unit once",13165,554,13159,1.000,0.988,2,2,1,0,6,0,1,0
+"fanout.test.mjs","per-file durations and the prior: what a run measured per file, the job's duration per file without it",13253,639,13242,0.999,0.981,1,1,1,0,11,0,1,0
+"fanout.test.mjs","learning from wall time: a unit costs its share of its claim's wall time, not only what its tests reported (workerd: 0.9 s of tests in 17.6 s a file)",13257,646,13246,0.999,0.981,0,0,1,0,11,0,1,0
+"fanout.test.mjs","a single-directory suite longer than the target splits into its files when its durations are known; one unit while they are not",12925,318,12925,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","per-file records across the project: a file this job never recorded takes its newest record from another scope; the job's own record wins",12747,82,12747,1,1,10,10,1,0,0,0,1,0
+"fanout.test.mjs","the plan says what it was made from: per-file sources (fan-out wall time before the tests' own durations) and why it estimated",12961,356,12961,1,1,27,27,1,0,0,0,1,0
+"fanout.test.mjs","queue object: calls naming another run, tenant or group are refused; one plan per run and group",13111,500,13105,1.000,0.986,61,61,1,0,6,0,1,0
+"fanout.test.mjs","compatibility of groups: same class, and the shard starts every service the unit needs",12675,12,12675,1,1,6,6,1,0,0,0,1,0
+"fanout.test.mjs","compiled legs: a preparation job and max shard legs; dependents need them all; refusals",13104,467,13104,1,1,31,31,1,0,0,0,1,0
+"fanout.test.mjs","the run tick: legs past the recorded plan are skipped as unused, legs run outside maxParallel, dependents run; a resumed run re-runs the group",14722,2255,14722,1,1,1216,1216,1,0,0,0,1,0
+"fanout.test.mjs","the pipeline save is refused while the fanOut switch is off for the project",13458,885,13458,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","capacity sizing: every class at max_instances within the 1,500 vCPU account limit; the build pool covers the reuse gap",13220,616,13213,0.999,0.987,2,2,1,0,7,0,1,0
+"fanout.test.mjs","acceptance 3: with capacity exhausted, shards start elastically as slots free and the run still finishes every unit",13315,700,13301,0.999,0.978,0,0,1,0,14,0,1,0
+"fanout.test.mjs","the workspace copy: sealed in authenticated chunks of a known length; tampering, truncation and another workspace's key fail",12824,168,12824,1,1,2,2,1,0,0,0,1,0
+"fanout.test.mjs","the workspace copy opens from small, uneven and empty pieces (R2 gives a Worker 4 KiB pieces); a cut or extra piece still fails",12822,166,12822,1,1,0,0,1,0,0,0,1,0
+"fanout.test.mjs","a stored copy opens with parallel ranged reads of whole chunks, in order, from one object version",12799,143,12799,1,1,4,4,1,0,0,0,1,0
+"fanout.test.mjs","a stored copy that is tampered, truncated, extended, re-keyed or replaced while read fails, never short",12814,159,12814,1,1,12,11,0.917,0,0,0,1,0
