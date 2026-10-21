@@ -1,0 +1,31 @@
+{
+  "description": "A non-deliberate pin means rewrite; only deliberate pins means move-to-check; a mix is still rewrite.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "S5",
+      "polarity": "positive"
+    },
+    {
+      "id": "S5",
+      "polarity": "negative"
+    },
+    {
+      "id": "A3",
+      "polarity": "positive"
+    },
+    {
+      "id": "A3",
+      "polarity": "negative"
+    },
+    {
+      "id": "A4",
+      "polarity": "positive"
+    },
+    {
+      "id": "A4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

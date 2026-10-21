@@ -1,0 +1,11 @@
+{
+  "diagnostics": [
+    {
+      "code": "invalid-input",
+      "severity": "error",
+      "path": "/spec"
+    }
+  ],
+  "suite": "$absent",
+  "units": "$absent"
+}

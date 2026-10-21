@@ -1,0 +1,11 @@
+{
+  "description": "At file granularity unit uniqueness is null, units are kept with a hint, and files report their unique lines.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A12",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

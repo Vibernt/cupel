@@ -1,0 +1,39 @@
+{
+  "suite": {
+    "tests": 3,
+    "units": 2,
+    "passed": 3,
+    "durationMs": 27
+  },
+  "units": [
+    {
+      "id": "t3",
+      "rows": [
+        "t3"
+      ],
+      "signals": {
+        "ownLines": 1,
+        "uniqueLines": 1,
+        "kills": 0,
+        "uniqueKills": 0,
+        "durationMs": 0,
+        "runs": 0
+      }
+    },
+    {
+      "id": "table",
+      "rows": [
+        "r1",
+        "r2"
+      ],
+      "signals": {
+        "ownLines": 3,
+        "uniqueLines": 3,
+        "kills": 1,
+        "uniqueKills": 1,
+        "durationMs": 27,
+        "runs": 2
+      }
+    }
+  ]
+}

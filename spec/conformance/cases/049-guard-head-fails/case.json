@@ -1,0 +1,11 @@
+{
+  "description": "A failing unit at head fails the head-passes check even when coverage holds.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

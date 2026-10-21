@@ -1,0 +1,11 @@
+{
+  "description": "Rechecked, targeted, no unique line and no unique kill: retire, and the suite stays whole.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

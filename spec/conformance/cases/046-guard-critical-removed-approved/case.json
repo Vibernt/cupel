@@ -1,0 +1,20 @@
+{
+  "description": "The same removal passes with a person's approval.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G7",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "approvals": [
+      {
+        "action": "remove",
+        "id": "k",
+        "by": "owner"
+      }
+    ]
+  },
+  "expectExit": 0
+}

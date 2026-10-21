@@ -1,0 +1,35 @@
+{
+  "command": "plan",
+  "plan": {
+    "mode": "full",
+    "order": [
+      {
+        "id": "c2",
+        "bucket": "critical",
+        "durationMs": 10
+      },
+      {
+        "id": "c1",
+        "bucket": "critical",
+        "durationMs": 30
+      },
+      {
+        "id": "s1",
+        "bucket": "standard",
+        "durationMs": 5
+      },
+      {
+        "id": "s2",
+        "bucket": "standard",
+        "durationMs": 5
+      },
+      {
+        "id": "m1",
+        "bucket": "minor",
+        "durationMs": 1
+      }
+    ],
+    "skipped": [],
+    "expectedMs": 51
+  }
+}

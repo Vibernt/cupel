@@ -1,0 +1,31 @@
+{
+  "description": "Critical and minor globs decide tiers; protected follows critical.",
+  "command": "label",
+  "rules": [
+    {
+      "id": "L1",
+      "polarity": "positive"
+    },
+    {
+      "id": "T2",
+      "polarity": "negative"
+    },
+    {
+      "id": "T3",
+      "polarity": "positive"
+    },
+    {
+      "id": "T6",
+      "polarity": "positive"
+    },
+    {
+      "id": "T8",
+      "polarity": "positive"
+    },
+    {
+      "id": "T7",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

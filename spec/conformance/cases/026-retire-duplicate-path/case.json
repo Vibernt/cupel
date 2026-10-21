@@ -1,0 +1,11 @@
+{
+  "description": "A rechecked unit whose body duplicates another unit that covers all its lines is retired as a duplicate.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

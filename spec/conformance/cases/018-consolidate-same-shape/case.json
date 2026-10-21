@@ -1,0 +1,31 @@
+{
+  "description": "Same-file units with similar shapes and overlapping lines form a group; similar shape without shared lines, or another file, does not.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A9",
+      "polarity": "positive"
+    },
+    {
+      "id": "A9",
+      "polarity": "negative"
+    },
+    {
+      "id": "A5",
+      "polarity": "positive"
+    },
+    {
+      "id": "S6",
+      "polarity": "positive"
+    },
+    {
+      "id": "A7",
+      "polarity": "negative"
+    },
+    {
+      "id": "A11",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

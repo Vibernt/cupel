@@ -1,0 +1,86 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [
+    {
+      "id": "c1",
+      "file": "tests/c.test.mjs",
+      "name": "c1",
+      "status": "passed",
+      "tags": [
+        "critical"
+      ],
+      "durationsMs": [
+        30
+      ]
+    },
+    {
+      "id": "c2",
+      "file": "tests/c.test.mjs",
+      "name": "c2",
+      "status": "passed",
+      "tags": [
+        "critical"
+      ],
+      "durationsMs": [
+        10
+      ]
+    },
+    {
+      "id": "m1",
+      "file": "tests/m.test.mjs",
+      "name": "m1",
+      "status": "passed",
+      "durationsMs": [
+        1
+      ]
+    },
+    {
+      "id": "s1",
+      "file": "tests/s.test.mjs",
+      "name": "s1",
+      "status": "passed",
+      "durationsMs": [
+        5
+      ]
+    },
+    {
+      "id": "s2",
+      "file": "tests/s.test.mjs",
+      "name": "s2",
+      "status": "passed",
+      "durationsMs": [
+        5
+      ]
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "c1": {
+        "src/a.mjs": "1"
+      },
+      "c2": {
+        "src/a.mjs": "2"
+      },
+      "m1": {
+        "src/a.mjs": "3"
+      },
+      "s1": {
+        "src/a.mjs": "4"
+      },
+      "s2": {
+        "src/a.mjs": "5"
+      }
+    }
+  }
+}

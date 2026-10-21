@@ -1,0 +1,15 @@
+{
+  "description": "Path words match whole tokens (multi-token and camelCase); title words match test names; \"design\" is not \"sign-in\".",
+  "command": "label",
+  "rules": [
+    {
+      "id": "T4",
+      "polarity": "positive"
+    },
+    {
+      "id": "T4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

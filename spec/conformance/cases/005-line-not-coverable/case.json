@@ -1,0 +1,11 @@
+{
+  "description": "Covered lines outside the source's coverable lines are refused.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

@@ -1,0 +1,77 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node"
+  },
+  "sources": {
+    "src/math.mjs": {
+      "coverable": "2,4-6,8-12,14-16"
+    }
+  },
+  "tests": [
+    {
+      "id": "tests/math.test.mjs::add sums two numbers [critical]",
+      "file": "tests/math.test.mjs",
+      "name": "add sums two numbers [critical]",
+      "unit": "$absent",
+      "tags": [
+        "critical"
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "tests/math.test.mjs::clamp > low bound",
+      "file": "tests/math.test.mjs",
+      "name": "clamp > low bound",
+      "unit": "$absent",
+      "status": "passed"
+    },
+    {
+      "id": "tests/math.test.mjs::clamp keeps -1 in range",
+      "file": "tests/math.test.mjs",
+      "name": "clamp keeps -1 in range",
+      "unit": "tests/math.test.mjs::@15",
+      "status": "passed"
+    },
+    {
+      "id": "tests/math.test.mjs::clamp keeps 11 in range",
+      "file": "tests/math.test.mjs",
+      "name": "clamp keeps 11 in range",
+      "unit": "tests/math.test.mjs::@15",
+      "status": "passed"
+    },
+    {
+      "id": "tests/math.test.mjs::clamp keeps 5 in range",
+      "file": "tests/math.test.mjs",
+      "name": "clamp keeps 5 in range",
+      "unit": "tests/math.test.mjs::@15",
+      "status": "passed"
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "tests/math.test.mjs::add sums two numbers [critical]": {
+        "src/math.mjs": "4-6"
+      },
+      "tests/math.test.mjs::clamp > low bound": {
+        "src/math.mjs": "8-9,12"
+      },
+      "tests/math.test.mjs::clamp keeps -1 in range": {
+        "src/math.mjs": "8-9,12"
+      },
+      "tests/math.test.mjs::clamp keeps 11 in range": {
+        "src/math.mjs": "8-10,12"
+      },
+      "tests/math.test.mjs::clamp keeps 5 in range": {
+        "src/math.mjs": "8-12"
+      }
+    },
+    "setup": {
+      "tests/math.test.mjs": {
+        "src/math.mjs": "2,4,8,14"
+      }
+    }
+  }
+}

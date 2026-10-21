@@ -1,0 +1,17 @@
+{
+  "description": "Failed and skipped tests get fails and not-run, and check exits 1.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C4",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "tests": [
+      "f",
+      "s"
+    ]
+  },
+  "expectExit": 1
+}

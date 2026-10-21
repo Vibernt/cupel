@@ -1,0 +1,94 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [
+    {
+      "id": "t1",
+      "file": "tests/a.test.mjs",
+      "name": "t1",
+      "status": "passed"
+    },
+    {
+      "id": "t2",
+      "file": "tests/a.test.mjs",
+      "name": "t2",
+      "status": "passed"
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "t1": {
+        "src/a.mjs": "1-5"
+      },
+      "t2": {
+        "src/a.mjs": "1-5"
+      }
+    }
+  },
+  "mutation": {
+    "mutants": [
+      {
+        "id": "m1",
+        "source": "src/a.mjs",
+        "line": 1,
+        "operator": "flip",
+        "status": "killed",
+        "killedBy": [
+          "t1",
+          "t2"
+        ]
+      },
+      {
+        "id": "m2",
+        "source": "src/a.mjs",
+        "line": 2,
+        "operator": "flip",
+        "status": "killed",
+        "killedBy": [
+          "t1"
+        ]
+      },
+      {
+        "id": "m3",
+        "source": "src/a.mjs",
+        "line": 3,
+        "operator": "flip",
+        "status": "timeout",
+        "killedBy": [
+          "t2"
+        ]
+      },
+      {
+        "id": "m4",
+        "source": "src/a.mjs",
+        "line": 4,
+        "operator": "flip",
+        "status": "survived"
+      },
+      {
+        "id": "m5",
+        "source": "src/a.mjs",
+        "line": 6,
+        "operator": "flip",
+        "status": "no-coverage"
+      },
+      {
+        "id": "m6",
+        "source": "src/a.mjs",
+        "line": 5,
+        "operator": "flip",
+        "status": "error"
+      }
+    ]
+  }
+}

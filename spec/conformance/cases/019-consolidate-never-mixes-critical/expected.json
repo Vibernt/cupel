@@ -1,0 +1,20 @@
+{
+  "units": [
+    {
+      "id": "e",
+      "advice": "keep",
+      "reasons": [
+        "critical"
+      ]
+    },
+    {
+      "id": "f",
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    }
+  ],
+  "groups": []
+}

@@ -1,0 +1,24 @@
+{
+  "units": [
+    {
+      "id": "d",
+      "tier": "standard",
+      "tierReason": "default"
+    },
+    {
+      "id": "f",
+      "tier": "critical",
+      "tierReason": "critical-word"
+    },
+    {
+      "id": "l",
+      "tier": "critical",
+      "tierReason": "critical-word"
+    },
+    {
+      "id": "s",
+      "tier": "critical",
+      "tierReason": "critical-word"
+    }
+  ]
+}

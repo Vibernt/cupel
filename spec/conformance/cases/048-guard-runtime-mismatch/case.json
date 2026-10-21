@@ -1,0 +1,15 @@
+{
+  "description": "Base and head from different runtime versions are never compared: exit 3.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G1",
+      "polarity": "negative"
+    },
+    {
+      "id": "E1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 3
+}

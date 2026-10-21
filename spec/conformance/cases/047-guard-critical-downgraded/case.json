@@ -1,0 +1,11 @@
+{
+  "description": "A unit critical at base and standard at head needs a downgrade approval.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G8",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

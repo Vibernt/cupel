@@ -1,0 +1,11 @@
+{
+  "description": "Removing a critical unit without an approval fails, even when another unit covers the same lines.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G7",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

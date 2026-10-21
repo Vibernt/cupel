@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "unknown-test",
+      "severity": "error",
+      "test": "ghost"
+    }
+  ],
+  "units": "$absent"
+}

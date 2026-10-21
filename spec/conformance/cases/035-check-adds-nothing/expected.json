@@ -1,0 +1,19 @@
+{
+  "command": "check",
+  "check": {
+    "verdicts": [
+      {
+        "id": "new1",
+        "verdict": "adds-value",
+        "brittle": [],
+        "extend": "$absent"
+      },
+      {
+        "id": "new2",
+        "verdict": "adds-nothing",
+        "extend": "old",
+        "brittle": []
+      }
+    ]
+  }
+}

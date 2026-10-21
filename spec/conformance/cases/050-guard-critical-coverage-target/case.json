@@ -1,0 +1,11 @@
+{
+  "description": "With a numeric critical coverage target, a critical source below it fails even when nothing changed.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G5",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

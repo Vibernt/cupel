@@ -1,0 +1,11 @@
+{
+  "description": "A mutant on a critical source detected at base and surviving at head fails the guard.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G6",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

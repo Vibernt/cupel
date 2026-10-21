@@ -1,0 +1,15 @@
+{
+  "description": "Two mutual duplicates: the slower is retired, the other is kept with a retire-conflict hint so no line is lost.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "positive"
+    },
+    {
+      "id": "A10",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

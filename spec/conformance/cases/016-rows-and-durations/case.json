@@ -1,0 +1,23 @@
+{
+  "description": "Rows form one unit: durations are summed row medians (even counts round down), runs is the minimum; a mutant killed by two rows of one unit is unique to it.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "S4",
+      "polarity": "positive"
+    },
+    {
+      "id": "S4",
+      "polarity": "negative"
+    },
+    {
+      "id": "S3",
+      "polarity": "positive"
+    },
+    {
+      "id": "R3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

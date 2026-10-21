@@ -1,0 +1,14 @@
+{
+  "check": {
+    "verdicts": [
+      {
+        "id": "f",
+        "verdict": "fails"
+      },
+      {
+        "id": "s",
+        "verdict": "not-run"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "tiers": {
+    "minor": [
+      "tests/m.test.mjs"
+    ]
+  }
+}

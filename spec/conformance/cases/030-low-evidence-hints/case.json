@@ -1,0 +1,11 @@
+{
+  "description": "End-to-end tests and tests that spawn an interpreter are flagged and never retired.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

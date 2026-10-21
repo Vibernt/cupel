@@ -1,0 +1,43 @@
+{
+  "description": "Removing a standard unit whose lines and kills another unit keeps passes every check and lists the removed unit with its evidence.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G1",
+      "polarity": "positive"
+    },
+    {
+      "id": "G3",
+      "polarity": "positive"
+    },
+    {
+      "id": "G4",
+      "polarity": "positive"
+    },
+    {
+      "id": "G5",
+      "polarity": "positive"
+    },
+    {
+      "id": "G6",
+      "polarity": "positive"
+    },
+    {
+      "id": "G7",
+      "polarity": "positive"
+    },
+    {
+      "id": "G8",
+      "polarity": "positive"
+    },
+    {
+      "id": "G9",
+      "polarity": "positive"
+    },
+    {
+      "id": "E1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

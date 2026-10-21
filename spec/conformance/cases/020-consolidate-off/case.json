@@ -1,0 +1,15 @@
+{
+  "description": "With advice.consolidate false no group forms.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A9",
+      "polarity": "negative"
+    },
+    {
+      "id": "A5",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

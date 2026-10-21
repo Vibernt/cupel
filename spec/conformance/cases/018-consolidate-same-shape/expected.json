@@ -1,0 +1,60 @@
+{
+  "suite": {
+    "advice": {
+      "keep": 2,
+      "consolidate": 2,
+      "rewrite": 0,
+      "move-to-check": 0,
+      "retire": 0,
+      "none": 0
+    }
+  },
+  "units": [
+    {
+      "id": "a",
+      "advice": "consolidate",
+      "reasons": [
+        "same-shape"
+      ],
+      "group": "g1"
+    },
+    {
+      "id": "b",
+      "advice": "consolidate",
+      "reasons": [
+        "same-shape"
+      ],
+      "group": "g1"
+    },
+    {
+      "id": "c",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ],
+      "group": "$absent"
+    },
+    {
+      "id": "d",
+      "signals": {
+        "uniqueLines": 0
+      },
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "g1",
+      "kind": "same-shape",
+      "file": "tests/c.test.mjs",
+      "units": [
+        "a",
+        "b"
+      ]
+    }
+  ]
+}

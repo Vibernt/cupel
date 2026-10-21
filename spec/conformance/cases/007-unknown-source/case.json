@@ -1,0 +1,11 @@
+{
+  "description": "Coverage of a source that is not in sources is refused.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

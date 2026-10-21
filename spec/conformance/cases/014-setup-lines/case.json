@@ -1,0 +1,23 @@
+{
+  "description": "Own lines drop only the own file's setup; unique lines drop every file's setup.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "S1",
+      "polarity": "positive"
+    },
+    {
+      "id": "S1",
+      "polarity": "negative"
+    },
+    {
+      "id": "S2",
+      "polarity": "positive"
+    },
+    {
+      "id": "S2",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

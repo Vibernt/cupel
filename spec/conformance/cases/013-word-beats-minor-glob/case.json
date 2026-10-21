@@ -1,0 +1,19 @@
+{
+  "description": "A critical word in the file path outranks a minor glob.",
+  "command": "label",
+  "rules": [
+    {
+      "id": "T6",
+      "polarity": "negative"
+    },
+    {
+      "id": "T6",
+      "polarity": "positive"
+    },
+    {
+      "id": "T4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -1,0 +1,92 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "report",
+  "command": "report",
+  "generatedAt": "$absent",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "diagnostics": [],
+  "suite": {
+    "tests": 2,
+    "units": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 0,
+    "coverage": {
+      "covered": 6,
+      "coverable": 10,
+      "pct": 60
+    },
+    "criticalCoverage": {
+      "covered": 0,
+      "coverable": 0,
+      "pct": null
+    },
+    "mutation": null,
+    "criticalMutation": null,
+    "advice": {
+      "keep": 2,
+      "consolidate": 0,
+      "rewrite": 0,
+      "move-to-check": 0,
+      "retire": 0,
+      "none": 0
+    }
+  },
+  "units": [
+    {
+      "id": "t1",
+      "file": "tests/a.test.mjs",
+      "rows": [
+        "t1"
+      ],
+      "tier": "standard",
+      "tierReason": "default",
+      "protected": false,
+      "status": "passed",
+      "signals": {
+        "ownLines": 3,
+        "uniqueLines": 1,
+        "kills": 0,
+        "uniqueKills": 0,
+        "durationMs": 0,
+        "runs": 0,
+        "brittle": []
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ],
+      "hints": []
+    },
+    {
+      "id": "t2",
+      "file": "tests/a.test.mjs",
+      "rows": [
+        "t2"
+      ],
+      "tier": "standard",
+      "tierReason": "default",
+      "protected": false,
+      "status": "passed",
+      "signals": {
+        "ownLines": 4,
+        "uniqueLines": 2,
+        "kills": 0,
+        "uniqueKills": 0,
+        "durationMs": 0,
+        "runs": 0,
+        "brittle": []
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ],
+      "hints": []
+    }
+  ],
+  "groups": []
+}

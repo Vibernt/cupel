@@ -1,0 +1,57 @@
+{
+  "suite": {
+    "coverage": {
+      "covered": 5,
+      "coverable": 10,
+      "pct": 50
+    }
+  },
+  "units": [
+    {
+      "id": "a1",
+      "signals": {
+        "uniqueLines": null,
+        "uniqueKills": null
+      },
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "file-granularity"
+      ]
+    },
+    {
+      "id": "b1",
+      "signals": {
+        "uniqueLines": null,
+        "uniqueKills": null
+      },
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "file-granularity"
+      ]
+    },
+    {
+      "id": "b2",
+      "advice": "keep",
+      "reasons": [
+        "critical"
+      ],
+      "hints": []
+    }
+  ],
+  "files": [
+    {
+      "file": "tests/a.test.mjs",
+      "uniqueLines": 2,
+      "hints": []
+    },
+    {
+      "file": "tests/b.test.mjs",
+      "uniqueLines": 0,
+      "hints": [
+        "file-no-unique-coverage"
+      ]
+    }
+  ]
+}

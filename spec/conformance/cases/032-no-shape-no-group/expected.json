@@ -1,0 +1,19 @@
+{
+  "units": [
+    {
+      "id": "a",
+      "advice": "keep",
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    },
+    {
+      "id": "b",
+      "advice": "keep",
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    }
+  ],
+  "groups": []
+}

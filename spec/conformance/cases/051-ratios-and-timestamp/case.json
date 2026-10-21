@@ -1,0 +1,22 @@
+{
+  "description": "Ratios round down to two decimals; the timestamp appears only when passed as an argument.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "R1",
+      "polarity": "positive"
+    },
+    {
+      "id": "R2",
+      "polarity": "positive"
+    },
+    {
+      "id": "R2",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "generatedAt": "2026-10-21T00:00:00Z"
+  },
+  "expectExit": 0
+}

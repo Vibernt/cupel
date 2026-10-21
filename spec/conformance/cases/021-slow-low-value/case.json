@@ -1,0 +1,15 @@
+{
+  "description": "Slow (median >= 2000 ms over >= 2 runs) with fewer than 5 unique lines means rewrite; one run, enough unique lines, or critical does not.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A6",
+      "polarity": "positive"
+    },
+    {
+      "id": "A6",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

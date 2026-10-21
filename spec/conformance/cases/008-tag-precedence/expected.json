@@ -1,0 +1,20 @@
+{
+  "units": [
+    {
+      "id": "t3",
+      "tier": "standard",
+      "tierReason": "default",
+      "protected": false
+    },
+    {
+      "id": "table",
+      "rows": [
+        "r1",
+        "r2"
+      ],
+      "tier": "critical",
+      "tierReason": "tag",
+      "protected": true
+    }
+  ]
+}

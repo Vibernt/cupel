@@ -1,0 +1,21 @@
+{
+  "description": "Critical tests add value even without unique lines; check exits 0 when every verdict is adds-value.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C1",
+      "polarity": "positive"
+    },
+    {
+      "id": "C2",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "tests": [
+      "crit",
+      "new1"
+    ]
+  },
+  "expectExit": 0
+}

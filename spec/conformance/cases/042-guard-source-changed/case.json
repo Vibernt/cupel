@@ -1,0 +1,15 @@
+{
+  "description": "A source whose hash changed is not compared line by line; the overall ratio is compared as an exact fraction (5/10 = 4/8 passes).",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "positive"
+    },
+    {
+      "id": "G9",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

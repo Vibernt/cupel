@@ -1,0 +1,16 @@
+{
+  "description": "Against a base, a test that lost own lines or a kill weakens the suite, even though it still has unique lines.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C3",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "tests": [
+      "w"
+    ]
+  },
+  "expectExit": 1
+}

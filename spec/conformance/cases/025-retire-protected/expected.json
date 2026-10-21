@@ -1,0 +1,24 @@
+{
+  "units": [
+    {
+      "id": "k",
+      "tier": "critical",
+      "tierReason": "unique-critical-lines",
+      "advice": "keep",
+      "reasons": [
+        "critical",
+        "unique-lines"
+      ]
+    },
+    {
+      "id": "r",
+      "tier": "standard",
+      "protected": true,
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    }
+  ]
+}

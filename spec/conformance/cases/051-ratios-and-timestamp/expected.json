@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-10-21T00:00:00Z",
+  "suite": {
+    "coverage": {
+      "covered": 2,
+      "coverable": 3,
+      "pct": 66.66
+    },
+    "criticalCoverage": {
+      "covered": 0,
+      "coverable": 0,
+      "pct": null
+    }
+  }
+}

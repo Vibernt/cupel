@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "runtime-mismatch",
+      "severity": "error"
+    }
+  ],
+  "guard": "$absent"
+}

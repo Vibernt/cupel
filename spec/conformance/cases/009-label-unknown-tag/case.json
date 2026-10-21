@@ -1,0 +1,15 @@
+{
+  "description": "An unknown tag is an error diagnostic; label exits 1 and the tier is unaffected.",
+  "command": "label",
+  "rules": [
+    {
+      "id": "T2",
+      "polarity": "positive"
+    },
+    {
+      "id": "L1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

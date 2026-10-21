@@ -1,0 +1,28 @@
+{
+  "units": [
+    {
+      "id": "e",
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "low-evidence",
+        "no-unique-coverage-unverified"
+      ]
+    },
+    {
+      "id": "k",
+      "advice": "keep",
+      "hints": []
+    },
+    {
+      "id": "s",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ],
+      "hints": [
+        "spawns-interpreter"
+      ]
+    }
+  ]
+}

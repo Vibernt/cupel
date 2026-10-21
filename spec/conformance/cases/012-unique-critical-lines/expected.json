@@ -1,0 +1,37 @@
+{
+  "suite": {
+    "coverage": {
+      "covered": 9,
+      "coverable": 20,
+      "pct": 45
+    },
+    "criticalCoverage": {
+      "covered": 5,
+      "coverable": 10,
+      "pct": 50
+    }
+  },
+  "units": [
+    {
+      "id": "p",
+      "tier": "critical",
+      "tierReason": "unique-critical-lines",
+      "protected": true,
+      "advice": "keep",
+      "reasons": [
+        "critical",
+        "unique-lines"
+      ]
+    },
+    {
+      "id": "q",
+      "tier": "standard",
+      "tierReason": "default",
+      "protected": true,
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Unique lines in a critical source make a unit critical; shared critical lines only protect it.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "T5",
+      "polarity": "positive"
+    },
+    {
+      "id": "T5",
+      "polarity": "negative"
+    },
+    {
+      "id": "T8",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

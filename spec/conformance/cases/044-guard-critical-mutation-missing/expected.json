@@ -1,0 +1,36 @@
+{
+  "guard": {
+    "pass": false,
+    "checks": [
+      {
+        "id": "head-passes",
+        "pass": true
+      },
+      {
+        "id": "coverage-lines",
+        "pass": true
+      },
+      {
+        "id": "coverage-ratio",
+        "pass": true
+      },
+      {
+        "id": "critical-coverage",
+        "pass": true
+      },
+      {
+        "id": "critical-mutation",
+        "pass": false,
+        "missing": true
+      },
+      {
+        "id": "critical-removed",
+        "pass": true
+      },
+      {
+        "id": "critical-downgraded",
+        "pass": true
+      }
+    ]
+  }
+}

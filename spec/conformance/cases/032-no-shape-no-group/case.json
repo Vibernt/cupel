@@ -1,0 +1,15 @@
+{
+  "description": "Units without shapes have similarity 0 and never group, even with identical lines.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "S6",
+      "polarity": "negative"
+    },
+    {
+      "id": "A9",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

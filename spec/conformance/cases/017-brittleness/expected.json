@@ -1,0 +1,64 @@
+{
+  "suite": {
+    "advice": {
+      "keep": 1,
+      "consolidate": 0,
+      "rewrite": 2,
+      "move-to-check": 1,
+      "retire": 0,
+      "none": 0
+    }
+  },
+  "units": [
+    {
+      "id": "t1",
+      "signals": {
+        "brittle": [
+          "css-class",
+          "source-text"
+        ]
+      },
+      "advice": "rewrite",
+      "reasons": [
+        "brittle:css-class",
+        "brittle:source-text"
+      ]
+    },
+    {
+      "id": "t2",
+      "signals": {
+        "brittle": [
+          "file-snapshot"
+        ]
+      },
+      "advice": "move-to-check",
+      "reasons": [
+        "deliberate-pin"
+      ]
+    },
+    {
+      "id": "t3",
+      "signals": {
+        "brittle": [
+          "css-class",
+          "doc-wording"
+        ]
+      },
+      "advice": "rewrite",
+      "reasons": [
+        "brittle:css-class",
+        "brittle:doc-wording"
+      ]
+    },
+    {
+      "id": "t4",
+      "signals": {
+        "brittle": []
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    }
+  ]
+}

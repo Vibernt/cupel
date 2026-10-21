@@ -1,0 +1,10 @@
+{
+  "tiers": {
+    "critical": [
+      "tests/core/**"
+    ],
+    "minor": [
+      "tests/docs-*.test.mjs"
+    ]
+  }
+}

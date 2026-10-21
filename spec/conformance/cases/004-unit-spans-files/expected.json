@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "unit-spans-files",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

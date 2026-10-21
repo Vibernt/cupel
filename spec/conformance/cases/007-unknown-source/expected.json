@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "unknown-source",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

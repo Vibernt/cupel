@@ -1,0 +1,44 @@
+{
+  "units": [
+    {
+      "id": "s1",
+      "signals": {
+        "durationMs": 2550,
+        "runs": 2,
+        "uniqueLines": 3
+      },
+      "advice": "rewrite",
+      "reasons": [
+        "slow-low-value"
+      ]
+    },
+    {
+      "id": "s2",
+      "signals": {
+        "runs": 1
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    },
+    {
+      "id": "s3",
+      "signals": {
+        "uniqueLines": 6
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    },
+    {
+      "id": "s4",
+      "advice": "keep",
+      "reasons": [
+        "critical",
+        "unique-lines"
+      ]
+    }
+  ]
+}

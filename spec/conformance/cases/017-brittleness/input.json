@@ -1,0 +1,80 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [
+    {
+      "id": "t1",
+      "file": "tests/a.test.mjs",
+      "name": "t1",
+      "status": "passed"
+    },
+    {
+      "id": "t2",
+      "file": "tests/a.test.mjs",
+      "name": "t2",
+      "status": "passed"
+    },
+    {
+      "id": "t3",
+      "file": "tests/a.test.mjs",
+      "name": "t3",
+      "status": "passed"
+    },
+    {
+      "id": "t4",
+      "file": "tests/a.test.mjs",
+      "name": "t4",
+      "status": "passed"
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "t1": {
+        "src/a.mjs": "1"
+      },
+      "t2": {
+        "src/a.mjs": "2"
+      },
+      "t3": {
+        "src/a.mjs": "3"
+      },
+      "t4": {
+        "src/a.mjs": "4"
+      }
+    }
+  },
+  "brittleness": [
+    {
+      "test": "t1",
+      "kind": "source-text"
+    },
+    {
+      "test": "t1",
+      "kind": "css-class"
+    },
+    {
+      "test": "t2",
+      "kind": "file-snapshot",
+      "deliberate": true
+    },
+    {
+      "test": "t3",
+      "kind": "doc-wording",
+      "deliberate": true
+    },
+    {
+      "test": "t3",
+      "kind": "css-class"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Rows of one unit carry minor and critical tags: the most protective wins, over a minor path rule.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "T1",
+      "polarity": "positive"
+    },
+    {
+      "id": "T6",
+      "polarity": "negative"
+    },
+    {
+      "id": "T7",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

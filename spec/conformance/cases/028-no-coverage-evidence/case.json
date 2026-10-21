@@ -1,0 +1,15 @@
+{
+  "description": "A unit with no own lines (only setup, or no coverage) gets no advice and a no-evidence hint.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A8",
+      "polarity": "positive"
+    },
+    {
+      "id": "A8",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

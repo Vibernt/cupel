@@ -1,0 +1,16 @@
+{
+  "description": "A test that gained lines against its base does not weaken the suite.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C3",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "tests": [
+      "w"
+    ]
+  },
+  "expectExit": 0
+}

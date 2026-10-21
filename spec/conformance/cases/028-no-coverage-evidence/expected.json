@@ -1,0 +1,44 @@
+{
+  "suite": {
+    "advice": {
+      "keep": 1,
+      "consolidate": 0,
+      "rewrite": 0,
+      "move-to-check": 0,
+      "retire": 0,
+      "none": 2
+    }
+  },
+  "units": [
+    {
+      "id": "c1",
+      "signals": {
+        "ownLines": 0
+      },
+      "advice": "none",
+      "reasons": [],
+      "hints": [
+        "no-coverage-evidence"
+      ]
+    },
+    {
+      "id": "c2",
+      "signals": {
+        "ownLines": 0
+      },
+      "advice": "none",
+      "reasons": [],
+      "hints": [
+        "no-coverage-evidence"
+      ]
+    },
+    {
+      "id": "c3",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ],
+      "hints": []
+    }
+  ]
+}

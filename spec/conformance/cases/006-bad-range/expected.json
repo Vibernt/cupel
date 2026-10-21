@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "bad-range",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

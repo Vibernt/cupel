@@ -1,0 +1,15 @@
+{
+  "description": "Without both the per-process recheck and targeted mutation (or a duplicate), no retire: keep with an unverified hint.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "negative"
+    },
+    {
+      "id": "A11",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -1,0 +1,14 @@
+{
+  "check": {
+    "verdicts": [
+      {
+        "id": "crit",
+        "verdict": "adds-value"
+      },
+      {
+        "id": "new1",
+        "verdict": "adds-value"
+      }
+    ]
+  }
+}

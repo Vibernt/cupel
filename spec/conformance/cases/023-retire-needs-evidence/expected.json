@@ -1,0 +1,38 @@
+{
+  "suite": {
+    "advice": {
+      "keep": 3,
+      "consolidate": 0,
+      "rewrite": 0,
+      "move-to-check": 0,
+      "retire": 0,
+      "none": 0
+    }
+  },
+  "units": [
+    {
+      "id": "k",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines",
+        "unique-kills"
+      ]
+    },
+    {
+      "id": "r1",
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    },
+    {
+      "id": "r2",
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-coverage-unverified"
+      ]
+    }
+  ]
+}

@@ -1,8 +1,15 @@
-# Conformance cases
+# Conformance
 
-Each case is a directory holding:
+Every Cupel implementation must pass everything here. The rules are in [../SPEC.md](../SPEC.md).
 
-- inputs: results, coverage, mutation outcomes and config
-- `expected.json`: the exact report the engine must produce
+## Engine cases (`cases/`)
 
-Every rule and guardrail has at least one positive case and one negative case. The cases are written in milestone M2.
+Each directory is one case: `case.json`, the input or inputs, an optional `config.json` and `expected.json`. Section 16 of the spec gives the matching rules.
+
+- Every engine rule (I, T, S, A, P, C, G, L, R, E) has at least one positive and one negative case. A test in `packages/cupel/test/conformance-cases.test.mjs` enforces this.
+- The cases are generated from [`build.mjs`](build.mjs). Edit the definitions there, then run `node spec/conformance/build.mjs`. `--check` fails when the files on disk differ from the definitions.
+- Every expected value was worked out by hand from the spec, never produced by an engine.
+
+## Adapter fixtures (`adapters/`)
+
+There is one tiny project per test framework, with the input an adapter must produce. These prove the collector rules (K) and the adapter contract (spec section 15). `node-test/` is the first.

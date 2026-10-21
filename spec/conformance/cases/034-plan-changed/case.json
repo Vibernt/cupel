@@ -1,0 +1,25 @@
+{
+  "description": "With changes: critical, then units affected by changed lines or a changed test file, then other standard units; unaffected minor units are skipped.",
+  "command": "plan",
+  "rules": [
+    {
+      "id": "P2",
+      "polarity": "positive"
+    },
+    {
+      "id": "P1",
+      "polarity": "negative"
+    },
+    {
+      "id": "P3",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "changed": {
+      "src/a.mjs": "4",
+      "tests/m.test.mjs": ""
+    }
+  },
+  "expectExit": 0
+}

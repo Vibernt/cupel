@@ -1,0 +1,24 @@
+{
+  "command": "label",
+  "diagnostics": [],
+  "units": [
+    {
+      "id": "a",
+      "tier": "critical",
+      "tierReason": "path-rule",
+      "protected": true
+    },
+    {
+      "id": "b",
+      "tier": "minor",
+      "tierReason": "path-rule",
+      "protected": false
+    },
+    {
+      "id": "c",
+      "tier": "standard",
+      "tierReason": "default",
+      "protected": false
+    }
+  ]
+}

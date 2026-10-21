@@ -1,0 +1,18 @@
+{
+  "units": [
+    {
+      "id": "k"
+    },
+    {
+      "id": "r",
+      "signals": {
+        "uniqueLines": 0,
+        "uniqueKills": 1
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-kills"
+      ]
+    }
+  ]
+}

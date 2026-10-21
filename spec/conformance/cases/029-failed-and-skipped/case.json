@@ -1,0 +1,19 @@
+{
+  "description": "Failed units get no advice; fully skipped units get no advice; a unit with a passed and a skipped row is passed.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A1",
+      "polarity": "positive"
+    },
+    {
+      "id": "A2",
+      "polarity": "positive"
+    },
+    {
+      "id": "A2",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

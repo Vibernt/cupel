@@ -1,0 +1,31 @@
+{
+  "plan": {
+    "mode": "changed",
+    "order": [
+      {
+        "id": "c",
+        "bucket": "critical",
+        "durationMs": 10
+      },
+      {
+        "id": "m",
+        "bucket": "affected",
+        "durationMs": 1
+      },
+      {
+        "id": "a",
+        "bucket": "affected",
+        "durationMs": 20
+      },
+      {
+        "id": "r",
+        "bucket": "rest",
+        "durationMs": 5
+      }
+    ],
+    "skipped": [
+      "n"
+    ],
+    "expectedMs": 36
+  }
+}

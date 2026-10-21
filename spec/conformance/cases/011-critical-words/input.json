@@ -1,0 +1,56 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [
+    {
+      "id": "d",
+      "file": "tests/design.test.mjs",
+      "name": "renders the list",
+      "status": "passed"
+    },
+    {
+      "id": "f",
+      "file": "tests/cookies.test.mjs",
+      "name": "refuses a forged cookie",
+      "status": "passed"
+    },
+    {
+      "id": "l",
+      "file": "tests/loginForm.test.mjs",
+      "name": "renders",
+      "status": "passed"
+    },
+    {
+      "id": "s",
+      "file": "tests/sign-in-flow.test.mjs",
+      "name": "renders",
+      "status": "passed"
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "d": {
+        "src/a.mjs": "1"
+      },
+      "f": {
+        "src/a.mjs": "2"
+      },
+      "l": {
+        "src/a.mjs": "3"
+      },
+      "s": {
+        "src/a.mjs": "4"
+      }
+    }
+  }
+}

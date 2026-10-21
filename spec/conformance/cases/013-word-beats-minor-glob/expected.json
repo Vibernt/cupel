@@ -1,0 +1,14 @@
+{
+  "units": [
+    {
+      "id": "v",
+      "tier": "minor",
+      "tierReason": "path-rule"
+    },
+    {
+      "id": "w",
+      "tier": "critical",
+      "tierReason": "critical-word"
+    }
+  ]
+}

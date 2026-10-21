@@ -1,0 +1,15 @@
+{
+  "description": "A unit with no unique line but a unique kill is kept for the kill.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "negative"
+    },
+    {
+      "id": "A7",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -1,0 +1,15 @@
+{
+  "description": "Coverage for a test id that is not in tests is refused.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I2",
+      "polarity": "negative"
+    },
+    {
+      "id": "E1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 2
+}

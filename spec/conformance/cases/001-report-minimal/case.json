@@ -1,0 +1,83 @@
+{
+  "description": "Two tests in one file share lines; setup lines are not own lines; both keep for their unique lines.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I1",
+      "polarity": "positive"
+    },
+    {
+      "id": "I2",
+      "polarity": "positive"
+    },
+    {
+      "id": "I3",
+      "polarity": "positive"
+    },
+    {
+      "id": "S1",
+      "polarity": "positive"
+    },
+    {
+      "id": "S2",
+      "polarity": "positive"
+    },
+    {
+      "id": "S2",
+      "polarity": "negative"
+    },
+    {
+      "id": "A7",
+      "polarity": "positive"
+    },
+    {
+      "id": "A11",
+      "polarity": "negative"
+    },
+    {
+      "id": "R3",
+      "polarity": "positive"
+    },
+    {
+      "id": "R1",
+      "polarity": "negative"
+    },
+    {
+      "id": "R2",
+      "polarity": "negative"
+    },
+    {
+      "id": "T7",
+      "polarity": "positive"
+    },
+    {
+      "id": "T1",
+      "polarity": "negative"
+    },
+    {
+      "id": "T3",
+      "polarity": "negative"
+    },
+    {
+      "id": "T8",
+      "polarity": "negative"
+    },
+    {
+      "id": "A1",
+      "polarity": "negative"
+    },
+    {
+      "id": "A8",
+      "polarity": "negative"
+    },
+    {
+      "id": "A12",
+      "polarity": "negative"
+    },
+    {
+      "id": "E1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

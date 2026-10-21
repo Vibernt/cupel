@@ -1,0 +1,25 @@
+{
+  "suite": {
+    "coverage": {
+      "covered": 5,
+      "coverable": 10,
+      "pct": 50
+    }
+  },
+  "units": [
+    {
+      "id": "t1",
+      "signals": {
+        "ownLines": 3,
+        "uniqueLines": 2
+      }
+    },
+    {
+      "id": "t2",
+      "signals": {
+        "ownLines": 1,
+        "uniqueLines": 1
+      }
+    }
+  ]
+}

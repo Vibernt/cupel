@@ -1,0 +1,11 @@
+{
+  "description": "Base has critical mutants and head has no mutation data: missing data is never a pass.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G6",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

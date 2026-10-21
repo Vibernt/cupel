@@ -1,0 +1,15 @@
+{
+  "description": "An input for another spec major is refused with exit 2.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I1",
+      "polarity": "negative"
+    },
+    {
+      "id": "E1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 2
+}

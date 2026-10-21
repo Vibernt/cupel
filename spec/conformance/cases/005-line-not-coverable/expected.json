@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "line-not-coverable",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

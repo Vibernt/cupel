@@ -1,0 +1,15 @@
+{
+  "description": "Removing the only unit that covered a line fails the line check and the ratio check.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "negative"
+    },
+    {
+      "id": "G9",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 1
+}

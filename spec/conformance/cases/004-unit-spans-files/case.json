@@ -1,0 +1,11 @@
+{
+  "description": "Rows of one unit must share a file.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I2",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

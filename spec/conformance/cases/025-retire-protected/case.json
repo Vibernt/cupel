@@ -1,0 +1,15 @@
+{
+  "description": "A unit covering a critical source is protected and never retired, even with full evidence.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "negative"
+    },
+    {
+      "id": "T8",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

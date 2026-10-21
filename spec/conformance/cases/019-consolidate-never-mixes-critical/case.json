@@ -1,0 +1,11 @@
+{
+  "description": "A critical unit never links with a non-critical one, however similar.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A9",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

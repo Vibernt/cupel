@@ -1,0 +1,19 @@
+{
+  "description": "Without changes: critical, then standard, then minor; each by duration, then id.",
+  "command": "plan",
+  "rules": [
+    {
+      "id": "P1",
+      "polarity": "positive"
+    },
+    {
+      "id": "P2",
+      "polarity": "negative"
+    },
+    {
+      "id": "P3",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

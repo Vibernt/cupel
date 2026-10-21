@@ -1,0 +1,20 @@
+{
+  "units": [
+    {
+      "id": "r",
+      "advice": "retire",
+      "reasons": [
+        "no-unique-lines",
+        "duplicate-of"
+      ],
+      "duplicateOf": "v"
+    },
+    {
+      "id": "v",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    }
+  ]
+}

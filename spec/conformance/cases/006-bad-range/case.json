@@ -1,0 +1,11 @@
+{
+  "description": "A range whose start is after its end is refused.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

@@ -210,7 +210,7 @@ Units that reach A7 or later get `keep` with hint `file-granularity`, unless the
 - **C3** `weakens` when a `base` input is given, the unit exists in both, and its own lines at head do not include its own lines at base, or a mutant it detected at base (present at head by id) is not detected by it at head. `lost` lists the lost lines (line sets per source) and mutant ids.
 - **C4** `fails` when the unit is failed, and `not-run` when it is skipped. These take precedence over C1 to C3, which take precedence in the order C3, C1, C2.
 
-Each verdict entry also lists `brittle` kinds. `check` exits 0 when every verdict is `adds-value`, and 1 otherwise.
+Verdicts are listed once per unit, in ascending unit id order. Each entry lists `brittle` kinds; `extend` appears only with `adds-nothing`, and `lost` only with `weakens`. `check` exits 0 when every verdict is `adds-value`, and 1 otherwise.
 
 ## 10. Guard
 
@@ -220,18 +220,19 @@ Each verdict entry also lists `brittle` kinds. `check` exits 0 when every verdic
 - **G3** **Head passes.** The check `head-passes` fails when any unit at head is failed.
 - **G4** **Coverage never falls.** Covered lines are every line in any row's coverage plus every setup line.
   - Check `coverage-lines`: for each source present in both inputs with equal, present `hash`, the head's covered lines must include the base's. `lost` lists the missing lines.
-  - Check `coverage-ratio`: covered over coverable, summed over all sources, must not be lower at head than at base. It is compared as exact fractions.
+  - Check `coverage-ratio`: covered over coverable, summed over all sources, must not be lower at head than at base. It is compared as exact fractions, and the check reports both ratios as `base` and `head`.
 - **G5** **Critical coverage.** The check `critical-coverage` covers every critical source present in both inputs:
   - With `guard.criticalCoverage` `"ratchet"` (default), its covered-over-coverable at head must not be lower than at base.
   - With a number N, it must also be at least N percent at head.
+  - `sources` lists the critical sources that fail, sorted.
 - **G6** **Critical mutation never falls.** Check `critical-mutation`:
   - Every mutant on a critical source that is detected at base and present at head (same id) must be detected at head. `lost` lists the mutant ids.
   - If base has any mutant on a critical source and head has no `mutation` data, the check fails with `missing: true`. Absent data is never a pass.
-- **G7** **No critical unit removed without approval.** Check `critical-removed`: each unit critical at base and absent at head needs an approval `{ action: "remove", id }`.
-- **G8** **No critical unit downgraded without approval.** Check `critical-downgraded`: each unit critical at base and present but not critical at head needs an approval `{ action: "downgrade", id }`.
+- **G7** **No critical unit removed without approval.** Check `critical-removed`: each unit critical at base and absent at head needs an approval `{ action: "remove", id }`. `units` lists the unapproved ones, sorted.
+- **G8** **No critical unit downgraded without approval.** Check `critical-downgraded`: each unit critical at base and present but not critical at head needs an approval `{ action: "downgrade", id }`. `units` lists the unapproved ones, sorted.
 - **G9** **Evidence.** `removed` lists every unit present at base and absent at head as `{ id, tier, uniqueLines, uniqueKills }`, with values from base, sorted by id.
 
-`guard.pass` is true when every check passes. Guard exits 0 when it passes, and 1 when it does not.
+`guard.checks` lists each of the seven checks exactly once, in the order G3, G4 (`coverage-lines`, then `coverage-ratio`), G5, G6, G7, G8. `guard.pass` is true when every check passes. Guard exits 0 when it passes, and 1 when it does not.
 
 ## 11. Label
 
@@ -283,7 +284,7 @@ Each verdict entry also lists `brittle` kinds. `check` exits 0 when every verdic
 - **K7** **Flakes.** A mutant detected at base that survives at head is re-run at least twice more before it is reported as survived (S4).
 - **K8** **Durations.** Durations are recorded from at least `advice.minRuns` runs where that is affordable.
 - **K9** **Runtime.** `runtime` names the interpreter and its exact version.
-- **K10** **Test ids.** Ids are stable across runs: the file path, `::`, then the full test name, with `>` between suite levels. Rows of a parametrized test have distinct ids and share `unit`.
+- **K10** **Test ids.** Ids are stable across runs: the file path, `::`, then the full test name as written (tier tags included), with ` > ` between suite levels. Tests that come from one definition (a parametrized or looped test) are rows: they have distinct ids and share `unit`, which is the file path, `::@`, and the line of the definition (for example `tests/math.test.mjs::@15`). A test that is the only one from its definition has no `unit`. Adapters list `tests` sorted by id.
 - **K11** **Interpreters.** `spawnsInterpreter` is set when a test starts another interpreter of the same language.
 - **K12** **Shapes.**
   - The unit's body is tokenised. Strings, numbers and regular expressions are replaced by the placeholders `S`, `N` and `R`.
@@ -314,6 +315,7 @@ Each case is a directory in `conformance/cases/` holding:
 - its report matches `expected.json` as follows:
   - objects match on the keys `expected.json` lists;
   - arrays match element by element and must have the same length;
-  - other values must be equal.
+  - other values must be equal;
+  - the string `"$absent"` as an expected value means the key must not be present.
 
 Cases therefore state exactly the parts of the report they prove. A missing config means the defaults in `config.schema.json`.

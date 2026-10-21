@@ -1,0 +1,35 @@
+{
+  "suite": {
+    "mutation": {
+      "detected": 3,
+      "undetected": 2,
+      "score": 60
+    }
+  },
+  "units": [
+    {
+      "id": "t1",
+      "signals": {
+        "uniqueLines": 0,
+        "kills": 2,
+        "uniqueKills": 1
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-kills"
+      ]
+    },
+    {
+      "id": "t2",
+      "signals": {
+        "uniqueLines": 0,
+        "kills": 2,
+        "uniqueKills": 1
+      },
+      "advice": "keep",
+      "reasons": [
+        "unique-kills"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "units": [
+    {
+      "id": "a",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    },
+    {
+      "id": "b",
+      "advice": "keep",
+      "reasons": [
+        "unique-lines"
+      ]
+    }
+  ],
+  "groups": []
+}
