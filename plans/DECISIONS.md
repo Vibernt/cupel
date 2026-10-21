@@ -33,7 +33,7 @@ There are none yet. Each dependency must be pinned to an exact version and justi
 | Id | Question | Recommendation |
 |---|---|---|
 | D3 | Coverage target wording | 100% line and branch on critical modules, a ratchet elsewhere |
-| D4 | Default critical paths | auth, permissions, tenancy, tokens, secrets, egress, billing, quotas, migrations, backups, deletion, public API |
-| D5 | Retirement threshold | No unique coverage and no unique kill (history-based "no real catch in 90 days" arrives with Assay) |
+| D4 | Default critical paths | auth, permissions, tenancy, tokens, secrets, egress, billing, quotas, migrations, backups, deletion, public API; **after S6, also** credential, crypto, leak, unsafe, sign-in, login, security, isolation, sandbox, privacy, integrity, redact, inject, traversal, hardening, admission, budget; plus title tags such as negative, tamper, forged, refuse, permission, token, secret. "Covers any critical line" guards against retirement; name, tag or unique critical lines decide run order ([S6](spikes/S6.md)) |
+| D5 | Retirement threshold | **Revised after S6: never retire on coverage alone.** Retire only when the test is not critical, ran and passed, has no unique line after the per-process re-check, **and** has no unique kill under targeted mutation of its own covered lines (missing mutation data is not "no kill"), or has a near-duplicate body in a test that covers all its lines. Otherwise report "no unique coverage (unverified)" as a review hint, never as advice. In S6, coverage-only retire advice was right 1 time in 20 ([S6](spikes/S6.md)). History ("no real catch in 90 days") arrives with Assay |
 | D8 | First runners | node:test first; then Vitest, Jest, pytest |
 | D9 | Report schema versioning | `cupel-spec/1`, semver-style, breaking changes bump the major |
