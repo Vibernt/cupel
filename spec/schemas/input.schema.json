@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cupel.dev/schemas/cupel-spec-1/input.schema.json",
+  "title": "Cupel engine input (cupel-spec/1)",
+  "description": "What collectors and importers hand the engine. See spec/SPEC.md section 3.",
+  "type": "object",
+  "required": ["spec", "kind", "runtime", "sources", "tests", "coverage"],
+  "additionalProperties": false,
+  "properties": {
+    "spec": { "$ref": "#/$defs/specVersion" },
+    "kind": { "const": "input" },
+    "runtime": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["coverable"],
+        "additionalProperties": false,
+        "properties": {
+          "coverable": { "$ref": "#/$defs/lineSet" },
+          "hash": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "file", "name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "file": { "type": "string", "minLength": 1 },
+          "name": { "type": "string" },
+          "unit": { "type": "string", "minLength": 1 },
+          "tags": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "status": { "enum": ["passed", "failed", "skipped"] },
+          "durationsMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+          "kind": { "enum": ["unit", "e2e"] },
+          "spawnsInterpreter": { "type": "boolean" }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["granularity"],
+      "additionalProperties": false,
+      "properties": {
+        "granularity": { "enum": ["test", "file"] },
+        "byTest": { "type": "object", "additionalProperties": { "$ref": "#/$defs/linesBySource" } },
+        "byFile": { "type": "object", "additionalProperties": { "$ref": "#/$defs/linesBySource" } },
+        "setup": { "type": "object", "additionalProperties": { "$ref": "#/$defs/linesBySource" } },
+        "rechecked": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "mutation": {
+      "type": "object",
+      "required": ["mutants"],
+      "additionalProperties": false,
+      "properties": {
+        "mutants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "source", "line", "operator", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "source": { "type": "string", "minLength": 1 },
+              "line": { "type": "integer", "minimum": 1 },
+              "operator": { "type": "string", "minLength": 1 },
+              "status": { "enum": ["killed", "survived", "timeout", "no-coverage", "error"] },
+              "killedBy": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+            }
+          }
+        },
+        "targeted": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "seed": { "type": "integer" },
+        "sampled": { "type": "boolean" }
+      }
+    },
+    "brittleness": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "test": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["source-text", "css-class", "doc-wording", "file-snapshot"] },
+          "line": { "type": "integer", "minimum": 1 },
+          "deliberate": { "type": "boolean" }
+        }
+      }
+    },
+    "shapes": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }
+    }
+  },
+  "$defs": {
+    "specVersion": { "type": "string", "pattern": "^cupel-spec/1(\\.[0-9]+)?$" },
+    "lineSet": { "type": "string", "pattern": "^([1-9][0-9]*(-[1-9][0-9]*)?(,[1-9][0-9]*(-[1-9][0-9]*)?)*)?$" },
+    "linesBySource": { "type": "object", "additionalProperties": { "$ref": "#/$defs/lineSet" } }
+  }
+}
