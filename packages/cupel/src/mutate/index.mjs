@@ -278,6 +278,10 @@ class Session {
   classify(file, r, base, covering) {
     const fails = r.results.filter((x) => x.s === 'fail' && !base.failing.has(x.suite ? `suite:${x.t}` : x.t));
     const killers = new Set(fails.flatMap((x) => this.killersOf(file, x, base)));
+    // A kill is a failure of a test the input knows (K5). A failure that no input test accounts for (a test that
+    // did not exist when the input was collected, or a renamed one) cannot be credited, so it is not a kill.
+    const credited = killers.size > 0;
+    if (fails.length && !credited) this.log(`mutate: ${file}: failures no input test accounts for: ${fails.map((x) => x.t).join(', ')}`);
     if (r.timedOut) {
       const open = [...r.started];
       for (const e of r.ended) {
@@ -289,9 +293,10 @@ class Session {
       if (hung.length === 0) hung = (this.passedByFile.get(file) ?? []).map((t) => t.id);
       for (const id of hung) killers.add(id);
       // A test that reported a failure before the time ran out is a kill in its own right (K5).
-      return { kind: fails.length ? 'killed' : 'timeout', killers };
+      return { kind: credited && fails.length ? 'killed' : 'timeout', killers };
     }
-    if (fails.length) return { kind: 'killed', killers };
+    if (credited) return { kind: 'killed', killers };
+    if (fails.length) return { kind: 'crash', killers };
     const tested = r.results.filter((x) => !x.suite).length;
     if (r.signal || r.code !== base.code || tested < base.count) return { kind: 'crash', killers };
     return { kind: 'survived', killers };
