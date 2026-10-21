@@ -17,6 +17,7 @@
 | Id | Decision | Date |
 |---|---|---|
 | D2 | Licence: **Apache-2.0**, chosen for its explicit patent grant between contributors and users (it does not cover third-party patents). `LICENSE` is the canonical text; `NOTICE` names the copyright holder, Vibernt | 2026-10-21 (owner) |
+| D7 | Coverage granularity: **per-test is the v1 default for node:test.** One ordinary `node --test` run with an `--import` preload takes in-process V8 precise coverage (`node:inspector` `Session.connect()`, no port) between tests: about 1.4× a plain run on Assay ([S2](spikes/S2.md)). Per-file is the fallback, when the hook cannot attach, and the report's summary level. Per-test processes (`--test-name-pattern`, 4–11×) only re-check retire candidates and tests that spawn node, which removes the in-process method's first-touch bias and child-process blind spot. The data model keys coverage by test id with `granularity: "file" \| "test"`. The default scope is the whole repository minus `tests/`, `node_modules` and dot-directories ([S1](spikes/S1.md)). Must still be verified on Node 22 | 2026-10-21, from S1 and S2 |
 
 ## Dependencies
 
@@ -30,6 +31,5 @@ There are none yet. Each dependency must be pinned to an exact version and justi
 | D4 | Default critical paths | auth, permissions, tenancy, tokens, secrets, egress, billing, quotas, migrations, backups, deletion, public API |
 | D5 | Retirement threshold | No unique coverage and no unique kill (history-based "no real catch in 90 days" arrives with Assay) |
 | D6 | JS parsing for mutation | Decide after S3: a small vetted parser (acorn) vs TypeScript compiler API vs textual mutation. Zero dependencies preferred; any dependency must be pinned and justified |
-| D7 | Per-test vs per-file coverage in v1 | Decide after S1 and S2 |
 | D8 | First runners | node:test first; then Vitest, Jest, pytest |
 | D9 | Report schema versioning | `cupel-spec/1`, semver-style, breaking changes bump the major |
