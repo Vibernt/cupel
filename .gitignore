@@ -33,3 +33,6 @@ credentials*.json
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Cupel local cache (collected inputs)
+.cupel/
