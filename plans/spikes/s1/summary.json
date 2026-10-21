@@ -1,0 +1,299 @@
+{
+ "testFiles": 421,
+ "tests": 4724,
+ "pass": 4723,
+ "failed": 0,
+ "skipped": 1,
+ "nonZeroExit": [],
+ "srcPublic": {
+  "scope": "src-public",
+  "sourceFiles": 1032,
+  "coverableLines": 177715,
+  "coverablePunctOnly": 23604,
+  "coveredLines": 154576,
+  "coveredShare": 0.8698,
+  "uniqueLines": 38365,
+  "uniqueShareOfCovered": 0.2482,
+  "uniquePunctOnly": 5384,
+  "loadOnlyLines": 31133,
+  "loadOnlyCoveredBySuite": 31104,
+  "uniqueLoadOnly": 194,
+  "coveredNonLoad": 123472,
+  "uniqueNonLoad": 38171,
+  "zeroUnique": {
+   "files": 47,
+   "tests": 356,
+   "wallMs": 82437,
+   "cpuS": 49.2,
+   "cpuShare": 0.136
+  },
+  "zeroUniqueCoversNothing": {
+   "files": 12,
+   "tests": 139,
+   "wallMs": 39604,
+   "cpuS": 21.3,
+   "cpuShare": 0.059
+  },
+  "zeroUniqueFullyShared": {
+   "files": 35,
+   "tests": 217,
+   "wallMs": 42833,
+   "cpuS": 27.9,
+   "cpuShare": 0.077
+  },
+  "zeroUniqueNoLoad": {
+   "files": 47,
+   "tests": 356,
+   "wallMs": 82437,
+   "cpuS": 49.2,
+   "cpuShare": 0.136
+  },
+  "coversOnlyLoadLines": {
+   "files": 5,
+   "tests": 22,
+   "wallMs": 3119,
+   "cpuS": 3.3,
+   "cpuShare": 0.009
+  },
+  "linesLostIfAllZeroUniqueRemoved": 0,
+  "subsetOfAnother": {
+   "files": 14,
+   "tests": 69,
+   "wallMs": 9876,
+   "cpuS": 10,
+   "cpuShare": 0.028
+  },
+  "equalToAnother": 2,
+  "subsetOfAnotherNoLoad": {
+   "files": 10,
+   "tests": 52,
+   "wallMs": 7075,
+   "cpuS": 7,
+   "cpuShare": 0.019
+  },
+  "greedyCover": {
+   "files": 374,
+   "wallMs": 320237,
+   "cpuS": 311.6
+  },
+  "histUnique": {
+   "0": 47,
+   "1-9": 62,
+   "10-49": 106,
+   "50-99": 85,
+   "100-499": 112,
+   "500-999": 8,
+   "1000+": 1
+  },
+  "histUniqueNoLoad": {
+   "0": 47,
+   "1-9": 64,
+   "10-49": 105,
+   "50-99": 84,
+   "100-499": 112,
+   "500-999": 8,
+   "1000+": 1
+  },
+  "uniquePercentiles": {
+   "p25": 9,
+   "p50": 46,
+   "p75": 110,
+   "p90": 246,
+   "p99": 557
+  },
+  "uniqueNoLoadPercentiles": {
+   "p25": 8,
+   "p50": 46,
+   "p75": 110,
+   "p90": 246,
+   "p99": 557
+  },
+  "loadSharePercentiles": {
+   "p10": 0.51,
+   "p25": 0.783,
+   "p50": 0.864,
+   "p75": 0.913,
+   "p90": 0.959
+  },
+  "uniqueOnlyPunctuationLines": []
+ },
+ "repo": {
+  "scope": "repo",
+  "sourceFiles": 1237,
+  "coverableLines": 234644,
+  "coverablePunctOnly": 33718,
+  "coveredLines": 198268,
+  "coveredShare": 0.845,
+  "uniqueLines": 49450,
+  "uniqueShareOfCovered": 0.2494,
+  "uniquePunctOnly": 6958,
+  "loadOnlyLines": 31133,
+  "loadOnlyCoveredBySuite": 31104,
+  "uniqueLoadOnly": 194,
+  "coveredNonLoad": 167164,
+  "uniqueNonLoad": 49256,
+  "zeroUnique": {
+   "files": 24,
+   "tests": 150,
+   "wallMs": 11987,
+   "cpuS": 12.7,
+   "cpuShare": 0.035
+  },
+  "zeroUniqueCoversNothing": {
+   "files": 3,
+   "tests": 14,
+   "wallMs": 417,
+   "cpuS": 0.4,
+   "cpuShare": 0.001
+  },
+  "zeroUniqueFullyShared": {
+   "files": 21,
+   "tests": 136,
+   "wallMs": 11570,
+   "cpuS": 12.3,
+   "cpuShare": 0.034
+  },
+  "zeroUniqueNoLoad": {
+   "files": 24,
+   "tests": 150,
+   "wallMs": 11987,
+   "cpuS": 12.7,
+   "cpuShare": 0.035
+  },
+  "coversOnlyLoadLines": {
+   "files": 3,
+   "tests": 8,
+   "wallMs": 2209,
+   "cpuS": 2.3,
+   "cpuShare": 0.006
+  },
+  "linesLostIfAllZeroUniqueRemoved": 0,
+  "subsetOfAnother": {
+   "files": 6,
+   "tests": 26,
+   "wallMs": 2924,
+   "cpuS": 3.1,
+   "cpuShare": 0.009
+  },
+  "equalToAnother": 2,
+  "subsetOfAnotherNoLoad": {
+   "files": 3,
+   "tests": 18,
+   "wallMs": 715,
+   "cpuS": 0.8,
+   "cpuShare": 0.002
+  },
+  "greedyCover": {
+   "files": 397,
+   "wallMs": 390687,
+   "cpuS": 348.2
+  },
+  "histUnique": {
+   "0": 24,
+   "1-9": 58,
+   "10-49": 106,
+   "50-99": 95,
+   "100-499": 125,
+   "500-999": 10,
+   "1000+": 3
+  },
+  "histUniqueNoLoad": {
+   "0": 24,
+   "1-9": 59,
+   "10-49": 105,
+   "50-99": 95,
+   "100-499": 125,
+   "500-999": 10,
+   "1000+": 3
+  },
+  "uniquePercentiles": {
+   "p25": 17,
+   "p50": 59,
+   "p75": 125,
+   "p90": 275,
+   "p99": 824
+  },
+  "uniqueNoLoadPercentiles": {
+   "p25": 17,
+   "p50": 59,
+   "p75": 125,
+   "p90": 275,
+   "p99": 824
+  },
+  "loadSharePercentiles": {
+   "p10": 0.389,
+   "p25": 0.729,
+   "p50": 0.86,
+   "p75": 0.908,
+   "p90": 0.955
+  },
+  "uniqueOnlyPunctuationLines": []
+ },
+ "perFileWallMs": {
+  "p50": 484,
+  "p90": 1581,
+  "max": 21910,
+  "sum": 402674
+ },
+ "perFileCpuS": {
+  "p50": 0.53,
+  "p90": 1.4500000000000002,
+  "max": 27.41,
+  "sum": 360.8
+ },
+ "collect": {
+  "coverage": true,
+  "jobs": 5,
+  "files": 421,
+  "wallMs": 81890,
+  "userS": 320.48,
+  "sysS": 40.36,
+  "tests": 4724,
+  "pass": 4723,
+  "fail": 0,
+  "skipped": 1,
+  "nonZeroExit": [],
+  "node": "v26.7.0",
+  "startedAt": "2026-10-21T07:56:07.005Z"
+ },
+ "collectNocov": {
+  "coverage": false,
+  "jobs": 5,
+  "files": 421,
+  "wallMs": 84560,
+  "userS": 303.32,
+  "sysS": 46.05,
+  "tests": 4724,
+  "pass": 4723,
+  "fail": 0,
+  "skipped": 1,
+  "nonZeroExit": [],
+  "node": "v26.7.0",
+  "startedAt": "2026-10-21T07:57:54.310Z"
+ },
+ "coverageData": {
+  "rawBytes": 625292809,
+  "rawFiles": 648,
+  "reduceMs": 8771,
+  "lineSetBytes": 25666566
+ },
+ "loadonly": {
+  "modules": 1032,
+  "ok": 1022,
+  "failed": 10,
+  "jobs": 5,
+  "wallMs": 26626,
+  "failedModules": [
+   "public/app/main.mjs: ERR TypeError: Cannot read properties of null (reading 'classList')",
+   "public/assets/docs.mjs: ERR TypeError: Failed to parse URL from /generated/operations.json",
+   "public/assets/login.mjs: ERR ERR_MODULE_NOT_FOUND: Cannot find module '/app/components/index.mjs' imported from public/assets/login.mjs",
+   "src/migrate/azure-pipelines.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization",
+   "src/migrate/bitbucket.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization",
+   "src/migrate/ci-common.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization",
+   "src/migrate/circleci.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization",
+   "src/migrate/drone.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization",
+   "src/migrate/gitlab.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization",
+   "src/migrate/travis.mjs: ERR ReferenceError: Cannot access 'SCANNER_ACTIONS' before initialization"
+  ]
+ }
+}
