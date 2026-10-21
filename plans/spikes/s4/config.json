@@ -1,0 +1,14 @@
+{
+  "seed": 20261021,
+  "capPerModule": 150,
+  "minutesPerModule": 30,
+  "timeoutFactor": 3,
+  "timeoutFloorMs": 2000,
+  "recheckTimeoutFactor": 10,
+  "tests": "tests",
+  "modules": {
+    "editor": ["public/app/pages/pipelines/editor.mjs"],
+    "settings": ["public/app/pages/pipelines/settings.mjs"],
+    "model": ["public/app/pages/pipelines/model.mjs"]
+  }
+}

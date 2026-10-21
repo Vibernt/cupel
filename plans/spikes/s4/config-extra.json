@@ -1,0 +1,17 @@
+{
+  "seed": 20261021,
+  "capPerModule": 150,
+  "minutesPerModule": 30,
+  "timeoutFactor": 3,
+  "timeoutFloorMs": 2000,
+  "recheckTimeoutFactor": 10,
+  "tests": "tests",
+  "modules": {
+    "settings-model": ["public/app/pages/pipelines/settings-model.mjs"],
+    "detail": ["public/app/pages/pipelines/detail.mjs"],
+    "list": ["public/app/pages/pipelines/list.mjs"],
+    "new": ["public/app/pages/pipelines/new.mjs"],
+    "audit": ["public/app/pages/pipelines/audit.mjs", "public/app/pages/pipelines/audit-model.mjs"],
+    "small-models": ["public/app/pages/pipelines/record-model.mjs", "public/app/pages/pipelines/templates.mjs"]
+  }
+}

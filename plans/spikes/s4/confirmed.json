@@ -1,0 +1,16 @@
+{
+  "why": "In the whole-suite runs these mutants were killed only by tests/demo-workspace.test.mjs › 'the bundle is deterministic', on one side only. That test failed 1 of 3 runs unmutated under load (S2 saw the same). Re-run 3 times each with plans/spikes/s4/rerun.mjs, none of these mutants made it fail, so they are survivors on both sides. Two other mutants killed by the same test (detail.mjs:157 and :158) failed it 3 of 3 times and keep their kills.",
+  "mutants": {
+    "public/app/pages/pipelines/detail.mjs:319:26:logical:||": { "status": "survived", "side": "before", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:106:118:bool-literal:true": { "status": "survived", "side": "before", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:112:169:cmp-flip:!==": { "status": "survived", "side": "before", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:118:57:remove-not:": { "status": "survived", "side": "before", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:313:101:arith:/": { "status": "survived", "side": "before", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/detail.mjs:99:46:bool-literal:false": { "status": "survived", "side": "after", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/detail.mjs:145:5:remove-call:remove ctx.onCleanup…": { "status": "survived", "side": "after", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:313:109:arith:/": { "status": "survived", "side": "after", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:345:5:negate-cond:if (!(…))": { "status": "survived", "side": "after", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/list.mjs:348:5:return-value:return undefined": { "status": "survived", "side": "after", "reruns": "0 of 3 failed" },
+    "public/app/pages/pipelines/model.mjs:161:99:logical:||": { "status": "survived", "side": "after", "reruns": "0 of 3 failed" }
+  }
+}

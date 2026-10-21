@@ -7,6 +7,7 @@
 //   CUPEL_S2_MODE=start-only  profiler on, but coverage is taken once at exit (cost of precise coverage itself)
 //   CUPEL_S2_MODE=coverage    the default: take coverage at every test boundary
 //   CUPEL_S2_FORMAT=lines     write covered lines per segment (lines.mjs rule) instead of raw V8 ranges
+//   CUPEL_S2_SCOPE=repo       keep scripts from the whole repo (minus tests/, node_modules, dot-dirs); raw format only
 //
 // How it works:
 //  - Connects an inspector Session to this same process (Session.connect()). That opens no port and no socket;
@@ -39,7 +40,17 @@ const OUT = process.env.CUPEL_S2_OUT;
 const ROOT = realpathSync(process.env.CUPEL_S2_ROOT || process.cwd()); // module URLs use real paths
 const MODE = process.env.CUPEL_S2_MODE || 'coverage';
 const FORMAT = process.env.CUPEL_S2_FORMAT || 'raw';
-const KEEP = [`${pathToFileURL(ROOT).href}/src/`, `${pathToFileURL(ROOT).href}/public/`];
+// CUPEL_S2_SCOPE=repo (added for S4): keep every script under the root except tests/, node_modules and
+// dot-directories, as S1's 'repo' scope does. The default stays src/ and public/.
+const SCOPE = process.env.CUPEL_S2_SCOPE || 'src-public';
+const ROOT_HREF = `${pathToFileURL(ROOT).href}/`;
+const KEEP = SCOPE === 'repo' ? [ROOT_HREF] : [`${ROOT_HREF}src/`, `${ROOT_HREF}public/`];
+const keepUrl = (url) => {
+  if (!KEEP.some((k) => url.startsWith(k))) return false;
+  if (SCOPE !== 'repo') return true;
+  const rel = url.slice(ROOT_HREF.length).replace(/[?#].*$/, '');
+  return !rel.startsWith('tests/') && !rel.includes('node_modules/') && !rel.startsWith('.') && !rel.includes('/.');
+};
 const now = () => Number(process.hrtime.bigint()) / 1e6;
 
 const session = MODE === 'hooks' ? null : new inspector.Session();
@@ -81,7 +92,7 @@ function checkpoint(label) {
   if (session && MODE === 'coverage') {
     const { result } = post('Profiler.takePreciseCoverage');
     allScripts = result.length;
-    scripts = result.filter((s) => KEEP.some((k) => s.url.startsWith(k))).map((s) => ({ url: s.url, functions: s.functions }));
+    scripts = result.filter((s) => keepUrl(s.url)).map((s) => ({ url: s.url, functions: s.functions }));
     takes++;
   }
   const t1 = now();
