@@ -296,6 +296,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - A line is coverable when it holds a code character.
   - Coverage counts are painted widest range first, so a character takes the count of the innermost range containing it.
   - A coverable line is covered when any of its code characters has a count above 0.
+  - Characters inside strings and templates count as code, except whitespace. A hashbang line counts as a comment. Lines split at `\n` only, so line numbers agree with `git diff`.
   - Entries for the same file are united.
 - **K2** **Scope.** The default scope is the whole repository minus test directories, dependency and virtual-environment directories, and dot-directories, narrowed by config `scope`.
 - **K3** **Boundaries.**
@@ -309,9 +310,12 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
 - **K8** **Durations.** Durations are recorded from at least `advice.minRuns` runs where that is affordable.
 - **K9** **Runtime.** `runtime` names the interpreter and its exact version.
 - **K10** **Test ids.** Ids are stable across runs: the file path, `::`, then the full test name as written (tier tags included), with ` > ` between suite levels. Tests that come from one definition (a parametrized or looped test) are rows: they have distinct ids and share `unit`, which is the file path, `::@`, and the line of the definition (for example `tests/math.test.mjs::@15`). A test that is the only one from its definition has no `unit`. Adapters list `tests` sorted by id.
+  - When two tests in one file have the same full name, the second and later get ` #2`, ` #3` and so on appended to the id.
+  - When the definition sits in another module (a helper that registers tests), `unit` is `<file>::@<helper path>:<line>`, with `:<column>` added if two definitions share a line.
+  - Only leaf tests appear in `tests`. A parent's own coverage goes to each of its leaves, and a failed parent marks its leaves failed, so advice about a parent never silently covers its children.
 - **K11** **Interpreters.** `spawnsInterpreter` is set when a test starts another interpreter of the same language.
 - **K12** **Shapes.**
-  - The unit's body is tokenised. Strings, numbers and regular expressions are replaced by the placeholders `S`, `N` and `R`.
+  - The unit's body is every token of the test call after its first argument (the options and the callback). It is tokenised. Strings, numbers and regular expressions are replaced by the placeholders `S`, `N` and `R`.
   - Consecutive 4-token shingles are joined by single spaces.
   - Each shingle is hashed with 32-bit FNV-1a over its UTF-8 bytes, and the shape is the sorted set of distinct hashes.
 
