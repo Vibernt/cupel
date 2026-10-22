@@ -25,7 +25,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import { availableParallelism, tmpdir } from 'node:os';
+import { availableParallelism } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { globMatches } from '../../engine/match.mjs';
@@ -34,6 +34,7 @@ import { analyse, coveredLines, formatLines, unionLines } from './lines.mjs';
 import { positiveIntervals, unionIntervals } from './intervals.mjs';
 import { analyseTestFile, patternFindings } from './testfile.mjs';
 import { collectorError } from '../error-detail.mjs';
+import { skipFile } from '../skipped.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = pathToFileURL(join(HERE, 'hook.mjs')).href;
@@ -60,11 +61,16 @@ const posix = (p) => p.split(sep).join('/');
 const sortedObject = (entries) => Object.fromEntries([...entries].sort((a, b) => cmp(a[0], b[0])));
 
 /** Files under `root` (relative, `/`-separated), skipping dot-directories, dependency directories and symlinks. */
-function walk(root, skipDir = () => false) {
+function walk(root, skipDir = () => false, log = () => {}, diagnostics = []) {
   const out = [];
   const visit = (dir, rel) => {
     let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    try { entries = readdirSync(dir, { withFileTypes: true }); }
+    catch (error) {
+      if (!rel) throw error;
+      skipFile(diagnostics, log, 'Node directory', rel, error);
+      return;
+    }
     for (const e of entries) {
       if (e.name.startsWith('.') || e.isSymbolicLink()) continue;
       const r = rel ? `${rel}/${e.name}` : e.name;
@@ -77,27 +83,34 @@ function walk(root, skipDir = () => false) {
   return out.sort(cmp);
 }
 
-function resolveTestFiles(root, files, glob) {
+function resolveTestFiles(root, files, glob, log, diagnostics) {
   if (files && files.length) {
-    return [...new Set(files.map((f) => {
-      const abs = isAbsolute(f) ? f : join(root, f);
-      if (!existsSync(abs)) throw new CollectorError(`test file not found: ${f}`);
-      return posix(relative(root, realpathSync(abs)));
+    return [...new Set(files.flatMap((f) => {
+      try {
+        const abs = isAbsolute(f) ? f : join(root, f);
+        if (!existsSync(abs)) throw new Error('test file not found');
+        return [posix(relative(root, realpathSync(abs)))];
+      } catch (error) {
+        skipFile(diagnostics, log, 'Node test', f, error);
+        return [];
+      }
     }))].sort(cmp);
   }
-  return walk(root).filter((f) => globMatches(glob, f));
+  return walk(root, () => false, log, diagnostics).filter((f) => globMatches(glob, f));
 }
 
 /** Sources in scope (K2): Map rel -> { an, hash }. */
-function scanSources(root, scope, testFiles) {
+function scanSources(root, scope, testFiles, log, diagnostics) {
   const include = scope?.include ?? ['**'];
   const exclude = scope?.exclude ?? [];
   const out = new Map();
-  for (const rel of walk(root, (name) => TEST_DIRS.has(name))) {
+  for (const rel of walk(root, (name) => TEST_DIRS.has(name), log, diagnostics)) {
     if (!SOURCE_EXT.test(rel) || TEST_FILE.test(rel) || testFiles.has(rel)) continue;
     if (!include.some((g) => globMatches(g, rel)) || exclude.some((g) => globMatches(g, rel))) continue;
-    const buf = readFileSync(join(root, rel));
-    out.set(rel, { an: analyse(buf.toString('utf8')), hash: `sha256:${createHash('sha256').update(buf).digest('hex')}` });
+    try {
+      const buf = readFileSync(join(root, rel));
+      out.set(rel, { an: analyse(buf.toString('utf8'), { strict: true }), hash: `sha256:${createHash('sha256').update(buf).digest('hex')}` });
+    } catch (error) { skipFile(diagnostics, log, 'Node', rel, error); }
   }
   return out;
 }
@@ -128,12 +141,12 @@ function readResults(file) {
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-export async function collectNode({ root, config = {}, files, runs = 2, recheck = [], log = () => {} } = {}) {
+export async function collectNode({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [] } = {}) {
   if (!root) throw new CollectorError('collectNode: root is required');
   root = realpathSync(resolve(root));
   runs = Math.max(1, Math.trunc(runs ?? 1));
   const runner = config?.runners?.node ?? {};
-  const testFiles = resolveTestFiles(root, files, runner.tests ?? DEFAULT_TESTS);
+  const testFiles = resolveTestFiles(root, files, runner.tests ?? DEFAULT_TESTS, log, diagnostics);
   if (!testFiles.length) throw new CollectorError(`no test files match ${runner.tests ?? DEFAULT_TESTS} in ${root}`);
 
   const env = { ...process.env, ...(runner.env ?? {}) };
@@ -143,15 +156,15 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     log(`prepare: ${runner.prepare}`);
     const p = spawnSync(runner.prepare, { cwd: root, env, shell: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     if (p.status !== 0) {
-      const detailDir = mkdtempSync(join(tmpdir(), 'cupel-node-prepare-'));
+      mkdirSync(join(root, '.scratch'), { recursive: true });
+      const detailDir = mkdtempSync(join(root, '.scratch/cupel-node-prepare-'));
       const detail = p.stderr || p.stdout || p.error?.stack || '';
       throw new CollectorError(collectorError(`prepare failed (${p.error?.message ?? `exit ${p.status}`}): ${detail.trim().split('\n')[0]}`, detail, detailDir));
     }
   }
 
-  const sources = scanSources(root, config?.scope, new Set(testFiles));
-  const fallback = [...sources.values()].filter((s) => s.an.lexer === 'fallback').length;
-  log(`${testFiles.length} test files, ${sources.size} sources${fallback ? ` (${fallback} read with the fallback scanner)` : ''}`);
+  const sources = scanSources(root, config?.scope, new Set(testFiles), log, diagnostics);
+  log(`${testFiles.length} test files, ${sources.size} sources`);
 
   const sourceList = [...sources.keys()];
   const realTestFiles = testFiles.map((f) => realpathSync(join(root, f)));
@@ -171,15 +184,18 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     for (const [rel, iv] of Object.entries(cov)) {
       const s = sources.get(rel);
       if (!s) continue;
-      const ls = coveredLines(s.an, iv);
-      if (ls.length) m.set(rel, ls);
+      try {
+        const ls = coveredLines(s.an, iv);
+        if (ls.length) m.set(rel, ls);
+      } catch (error) { skipFile(diagnostics, log, 'Node coverage', rel, error); }
     }
     return m;
   };
   const addLines = (into, from) => { for (const [rel, ls] of from) into.set(rel, unionLines(into.get(rel) ?? [], ls)); };
   const lineObject = (m) => sortedObject([...m].map(([rel, ls]) => [rel, formatLines(ls)]));
 
-  const tmp = mkdtempSync(join(tmpdir(), 'cupel-node-'));
+  mkdirSync(join(root, '.scratch'), { recursive: true });
+  const tmp = mkdtempSync(join(root, '.scratch/cupel-node-'));
   let preserveTmp = false;
   try {
     /** One `node --test` run with the hook; returns { results, hook: [per-process output], ms }. */
@@ -434,7 +450,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         try {
           const src = readFileSync(t.callFileAbs, 'utf8');
           entry = { src, defs: new Map(analyseTestFile(src).map((d) => [`${d.line}:${d.column}`, d])) };
-        } catch (e) { log(`static analysis skipped for ${t.callFile}: ${e.message}`); }
+        } catch (e) { skipFile(diagnostics, log, 'Node test analysis', t.callFile, e); }
         definitions.set(t.callFileAbs, entry);
       }
       const entry = definitions.get(t.callFileAbs);

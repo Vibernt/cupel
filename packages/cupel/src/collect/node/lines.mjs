@@ -113,11 +113,14 @@ export function fallbackMask(src) {
  * Returns { lexer: 'shared' | 'fallback', n, mask, lineStarts, lineEnds, hasCode, coverable: number[] }.
  * It keeps one byte per character, so a whole repository's sources stay small.
  */
-export function analyse(text) {
+export function analyse(text, { strict = false } = {}) {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   let mask;
   let lexer = 'shared';
-  try { mask = lexerMask(src); } catch { mask = fallbackMask(src); lexer = 'fallback'; }
+  try { mask = lexerMask(src); } catch (error) {
+    if (strict) throw error;
+    mask = fallbackMask(src); lexer = 'fallback';
+  }
   return analyseMask(src, mask, lexer);
 }
 

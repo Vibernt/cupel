@@ -1,12 +1,14 @@
 import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire, stripTypeScriptTypes } from 'node:module';
+import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { globMatches } from '../../engine/match.mjs';
 import { formatLines, unionLines } from '../node/lines.mjs';
 import { analyseTestFile, patternFindings } from '../node/testfile.mjs';
 import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
+import { classifyTypeScript } from '../../lang/js/classify-typescript.mjs';
+import { skipFile } from '../skipped.mjs';
 import { VitestCollectorError } from './errors.mjs';
 import { collectorError } from '../error-detail.mjs';
 import { findVitestWorkspace } from './projects.mjs';
@@ -62,23 +64,30 @@ export function splitCommand(value) {
   return words;
 }
 
-export async function collectVitest({ root, config = {}, files, runs = 2, recheck = [], log = () => {} } = {}) {
+export async function collectVitest({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [] } = {}) {
   if (!root) throw new VitestCollectorError('collectVitest: root is required');
   root = realpathSync(resolve(root));
   const vitest = resolveVitest(root);
   const runner = config.runners?.vitest ?? {};
   const command = runner.command ? splitCommand(runner.command) : [process.execPath, vitest.entry];
   if (!command[0]) throw new VitestCollectorError('runners.vitest.command is empty');
-  const fileNames = files?.length ? files.map((f) => posix(relative(root, resolve(root, f)))) :
-    walk(root, true).filter((f) => runner.tests ? globMatches(runner.tests, f) : TEST.test(f));
-  if (!fileNames.length) throw new VitestCollectorError('no Vitest test files found');
-  for (const file of fileNames) {
+  const selectedFiles = files?.length ? files.map((f) => posix(relative(root, resolve(root, f)))) :
+    walk(root, true, log, diagnostics).filter((f) => runner.tests ? globMatches(runner.tests, f) : TEST.test(f));
+  const fileNames = [];
+  for (const file of selectedFiles) {
     if (file === '..' || file.startsWith('../')) throw new VitestCollectorError(`test file is outside project root: ${file}`);
-    if (!existsSync(join(root, file))) throw new VitestCollectorError(`test file not found: ${file}`);
-    const real = posix(relative(root, realpathSync(join(root, file))));
-    if (real === '..' || real.startsWith('../')) throw new VitestCollectorError(`test file resolves outside project root: ${file}`);
+    try {
+      if (!existsSync(join(root, file))) throw new Error('test file not found');
+      const real = posix(relative(root, realpathSync(join(root, file))));
+      if (real === '..' || real.startsWith('../')) throw new VitestCollectorError(`test file resolves outside project root: ${file}`);
+      fileNames.push(file);
+    } catch (error) {
+      if (error instanceof VitestCollectorError) throw error;
+      skipFile(diagnostics, log, 'Vitest test', file, error);
+    }
   }
-  const sources = scanSources(root, config.scope, log);
+  if (!fileNames.length) throw new VitestCollectorError('no Vitest test files found');
+  const sources = scanSources(root, config.scope, log, diagnostics);
   mkdirSync(join(root, '.scratch'), { recursive: true });
   const work = mkdtempSync(join(root, '.scratch/cupel-vitest-'));
   const cache = join(work, 'cache');
@@ -110,15 +119,18 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
         throw new VitestCollectorError(collectorError(`vitest ${vitest.version} did not report (${r.signal ?? r.code}): ${r.tail.trim().split('\n')[0]}`, readFileSync(detailFile, 'utf8'), work));
       }
       const results = JSON.parse(readFileSync(resultFile, 'utf8'));
-      if (results.errors?.length) {
+      if (!results.tests.length) {
+        preserveWork = true;
+        throw new VitestCollectorError(collectorError(`vitest ${vitest.version} could not collect ${results.modulesWithErrors?.[0]?.file ?? 'any tests'}`, JSON.stringify(results.modulesWithErrors ?? results.errors, null, 2), work));
+      }
+      const moduleErrors = results.modulesWithErrors ?? [];
+      const explained = new Set(moduleErrors.map(({ error }) => error?.message));
+      if (results.errors?.some((error) => !explained.has(error?.message))) {
         preserveWork = true;
         throw new VitestCollectorError(collectorError(`vitest ${vitest.version} had an unhandled error: ${results.errors[0]?.message ?? 'see detail'}`, JSON.stringify(results.errors, null, 2), work));
       }
-      if (results.modulesWithErrors?.length) {
-        preserveWork = true;
-        throw new VitestCollectorError(collectorError(`vitest ${vitest.version} could not collect ${results.modulesWithErrors[0].file}`, JSON.stringify(results.modulesWithErrors, null, 2), work));
-      }
-      if (r.code !== 0 && !results.tests.some((t) => t.status === 'failed')) {
+      for (const { file, error } of moduleErrors) skipFile(diagnostics, log, 'Vitest test module', posix(relative(root, file)), error?.message ?? error);
+      if (r.code !== 0 && !moduleErrors.length && !results.tests.some((t) => t.status === 'failed')) {
         preserveWork = true;
         throw new VitestCollectorError(collectorError(`vitest ${vitest.version} exited ${r.code} without a failing test`, readFileSync(detailFile, 'utf8'), work));
       }
@@ -135,7 +147,12 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
         for (const [id, intervals] of Object.entries(data)) {
           const script = scriptMap[id];
           if (!script) continue;
-          const got = sourceMapLines(root, script, intervals, sources, log);
+          let got;
+          try { got = sourceMapLines(root, script, intervals, sources, log, diagnostics); }
+          catch (error) {
+            skipFile(diagnostics, log, 'Vitest coverage', script.url ?? `script ${id}`, error);
+            continue;
+          }
           if (got?.[1] === null) { mappingFailed.add(got[0]); continue; }
           if (!got?.[1].length) continue;
           const [file, lines] = got;
@@ -208,26 +225,27 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     const shapes = new Map(), brittleness = [];
     const patterns = (config.brittleness?.patterns ?? []).filter((p) => !p.language || /^(?:ts|typescript|js|javascript)$/i.test(p.language)).map((p) => ({ kind: p.kind, re: new RegExp(p.pattern, 'm'), deliberate: p.deliberate }));
     for (const file of new Set([...tests.values()].map((t) => t.file))) {
-      const text = readFileSync(join(root, file), 'utf8');
-      let stripped;
-      try { stripped = /\.[cm]?ts$/.test(file) ? stripTypeScriptTypes(text) : text; }
-      catch (e) { throw new VitestCollectorError(`cannot strip test file ${file}: ${e.message}`); }
-      let definitions;
       try {
+        const text = readFileSync(join(root, file), 'utf8');
+        let analysisText = text;
+        let definitions;
         if (/\.[jt]sx$/.test(file)) {
           const ts = projectTypeScript(root);
-          if (!ts) { log(`Vitest: skipped JSX test analysis for ${file}: typescript is not resolvable from the project root`); continue; }
+          if (!ts) throw new Error('typescript is not resolvable from the project root');
           definitions = analyseTestFile(text, scanJsx(ts, file, text).tokens);
-        } else definitions = analyseTestFile(stripped);
-      }
-      catch (e) { throw new VitestCollectorError(`shared lexer cannot analyse test file ${file}: ${e.message}`); }
-      for (const t of tests.values()) {
-        if (t.file !== file) continue;
-        const def = definitions.filter((d) => d.line === t.line && d.column <= (t.column ?? Infinity)).at(-1);
-        if (!def) continue;
-        shapes.set(t.unit ?? t.id, def.shape);
-        for (const finding of [...def.flags, ...patternFindings(stripped, def, patterns)]) brittleness.push({ test: t.id, kind: finding.kind, line: finding.line, ...(finding.deliberate ? { deliberate: true } : {}) });
-      }
+        } else if (/\.[cm]?ts$/.test(file)) {
+          const classified = classifyTypeScript(root, file, text);
+          analysisText = classified.text;
+          definitions = analyseTestFile(analysisText, classified.tokens);
+        } else definitions = analyseTestFile(text);
+        for (const t of tests.values()) {
+          if (t.file !== file) continue;
+          const def = definitions.filter((d) => d.line === t.line && d.column <= (t.column ?? Infinity)).at(-1);
+          if (!def) continue;
+          shapes.set(t.unit ?? t.id, def.shape);
+          for (const finding of [...def.flags, ...patternFindings(analysisText, def, patterns)]) brittleness.push({ test: t.id, kind: finding.kind, line: finding.line, ...(finding.deliberate ? { deliberate: true } : {}) });
+        }
+      } catch (error) { skipFile(diagnostics, log, 'Vitest test analysis', file, error); }
     }
     const ordered = [...tests.values()].sort((a, b) => sort(a.id, b.id));
     return {

@@ -117,7 +117,10 @@ test('a resolved TypeScript package without createScanner reports the incompatib
     mkdirSync(join(root, 'src'));
     symlinkSync('/Users/vid/codecrystal/web/node_modules/typescript', join(root, 'node_modules/typescript'));
     writeFileSync(join(root, 'src/a.tsx'), 'export const a = <b>one</b>;');
-    assert.throws(() => scanSources(root, {}), /does not expose createScanner and createSourceFile/);
+    const logs = [], diagnostics = [];
+    assert.equal(scanSources(root, {}, (line) => logs.push(line), diagnostics).size, 0);
+    assert.match(logs[0], /does not expose createScanner and createSourceFile/);
+    assert.equal(diagnostics[0].file, 'src/a.tsx');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
