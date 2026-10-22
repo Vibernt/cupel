@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { environment } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
+import { collectorError } from '../collect/error-detail.mjs';
 
 const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
@@ -66,23 +67,40 @@ function isVitestProject(root, cfg) {
 
 function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
   const dir = mkdtempSync(join(tmpdir(), 'cupel-external-'));
+  let preserveDir = false;
   const output = join(dir, 'input.json');
   try {
     const env = { ...process.env, ...(runner.env ?? {}) };
     if (runner.name === 'pytest') env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);
     if (runner.prepare) {
       const ready = spawnSync(runner.prepare, { cwd: root, env, shell: true, encoding: 'utf8' });
-      if (ready.error || ready.status !== 0) throw environment(`prepare failed: ${(ready.stderr || ready.error?.message || '').trim()}`);
+      if (ready.error || ready.status !== 0) {
+        preserveDir = true;
+        const detail = `stderr:\n${ready.stderr ?? ''}\nstdout:\n${ready.stdout ?? ''}\n${ready.error?.stack ?? ''}`;
+        const cause = (ready.stderr || ready.stdout || ready.error?.message || '').trim().split('\n')[0];
+        throw environment(collectorError(`external collector prepare failed (${ready.error?.message ?? `exit ${ready.status}`}): ${cause}`, detail, dir));
+      }
     }
     const command = `${runner.collector} --root ${quote(root)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(u)}`).join(' ')} --out ${quote(output)}`;
     log(`external collector: ${runner.name}`);
     const child = spawnSync(command, { cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 28 });
-    if (child.error || child.status !== 0) throw environment(`external collector failed (${child.error?.message ?? `exit ${child.status}`}): ${(child.stderr || child.stdout || '').trim().slice(-500)}`);
-    if (!existsSync(output)) throw environment('external collector did not write --out file');
+    if (child.error || child.status !== 0) {
+      preserveDir = true;
+      const detail = `stderr:\n${child.stderr ?? ''}\nstdout:\n${child.stdout ?? ''}\n${child.error?.stack ?? ''}`;
+      const cause = (child.stderr || child.stdout || child.error?.message || '').trim().split('\n')[0];
+      throw environment(collectorError(`external collector failed (${child.error?.message ?? `exit ${child.status}`}): ${cause}`, detail, dir));
+    }
+    if (!existsSync(output)) {
+      preserveDir = true;
+      throw environment(collectorError('external collector did not write --out file', `stderr:\n${child.stderr ?? ''}\nstdout:\n${child.stdout ?? ''}`, dir));
+    }
     try { return JSON.parse(readFileSync(output, 'utf8')); }
-    catch (error) { throw environment(`external collector output is not JSON: ${error.message}`); }
+    catch (error) {
+      preserveDir = true;
+      throw environment(collectorError(`external collector output is not JSON: ${error.message}`, readFileSync(output, 'utf8'), dir));
+    }
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    if (!preserveDir) rmSync(dir, { recursive: true, force: true });
   }
 }
 

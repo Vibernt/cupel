@@ -21,6 +21,7 @@ This document is generated from `bench/results/`. Missing results are shown as p
 
 - **Size, language, runner, agent share:** 1072.3 MiB, TypeScript, vitest, 63.0% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -42,6 +43,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 0.5 MiB, TypeScript, vitest, 40.6% (138 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -63,6 +65,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 9.5 MiB, TypeScript, vitest, 31.5% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -84,6 +87,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 57.2 MiB, TypeScript, vitest, 92.0% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -105,6 +109,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 14.0 MiB, Python, pytest, 79.0% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** tests/test_webdav.py:102 (reported from first run; test name unavailable).
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -126,6 +131,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 25.9 MiB, Python, pytest, 70.5% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -147,6 +153,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 56.4 MiB, Go, go, 70.5% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -168,6 +175,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 132.5 MiB, Rust, cargo, 70.0% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -189,6 +197,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 50.7 MiB, C#, dotnet, 35.0% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.
@@ -210,6 +219,7 @@ Not run.
 
 - **Size, language, runner, agent share:** 43.3 MiB, Ruby, minitest, 65.5% (200 sampled commits).
 - **Baseline:** — median of 0 runs; counts not recorded.
+- **Environment failures:** not measured.
 - **Cupel:** collection —; two run test-duration sums —; full report —; collection overhead —; peak RSS unavailable.
 - **Evidence:** line coverage —, critical line coverage —, critical mutation score —.
 - **Advice:** 0 rewrite pins listed; 0 consolidation groups listed; 0 no-unique-evidence hints.

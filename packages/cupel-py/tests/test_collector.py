@@ -1,21 +1,26 @@
 """Standard-library tests; pytest is needed only for the adapter fixture."""
 import ast
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import tokenize
 import unittest
 from unittest.mock import patch
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from vibernt_cupel.lines import coverable, line_set, source_record
 from vibernt_cupel.sources import scan
 from vibernt_cupel.static import shape, findings
+from vibernt_cupel.static import inspect as inspect_static
 from vibernt_cupel.__main__ import collect
 from vibernt_cupel.plugin import _name_parts
+import vibernt_cupel.plugin as cupel_plugin
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = ROOT / 'spec/conformance/adapters/pytest'
@@ -95,6 +100,39 @@ class StaticTests(unittest.TestCase):
         result = subprocess.run([sys.executable, '-c', script], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_missing_definition_records_test_without_analysis(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            file = root / 'test_case.py'
+            file.write_text('pass\n')
+            scope = {}
+            exec(compile('def test_case(): pass\n', str(file), 'exec'), scope)
+            item = SimpleNamespace(path=file, nodeid='test_case.py::test_case', function=scope['test_case'], iter_markers=lambda: [])
+            warnings = io.StringIO()
+            with patch.object(cupel_plugin, '_ROOT', root), patch.dict(cupel_plugin._AST_CACHE, clear=True), patch.object(cupel_plugin.sys, '__stderr__', warnings):
+                row = cupel_plugin._record(item)
+            self.assertEqual(row['id'], 'test_case.py::test_case')
+            self.assertNotIn('line', row)
+            self.assertNotIn('unit', row)
+            self.assertEqual(len(warnings.getvalue().splitlines()), 1)
+            self.assertIn('definition at test_case.py:1 not found', warnings.getvalue())
+
+    def test_tokenize_failure_omits_shape_and_brittleness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'test_case.py').write_text('def test_case(): pass\n')
+            row = {'id': 'test_case.py::test_case', 'file': 'test_case.py', 'line': 1}
+            warnings = io.StringIO()
+            with patch('vibernt_cupel.static.shape', side_effect=tokenize.TokenError('bad token', (1, 1))), patch('vibernt_cupel.static.sys.stderr', warnings):
+                shapes, brittle = inspect_static(root, [row], [])
+            self.assertEqual(shapes, {})
+            self.assertEqual(brittle, [])
+            self.assertEqual(len(warnings.getvalue().splitlines()), 1)
+
+    def test_invalid_brittleness_pattern_still_fails_configuration(self):
+        with self.assertRaisesRegex(ValueError, 'invalid brittleness pattern'):
+            inspect_static(Path('.'), [], [{'kind': 'doc-wording', 'pattern': '['}])
+
 
 @unittest.skipUnless(pytest_ready(), 'pytest unavailable in read-only CodeCrystal Python 3.14 environment')
 class FixtureTests(unittest.TestCase):
@@ -112,6 +150,74 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(len(actual['tests']), 5)
         self.assertTrue(all(len(row['durationsMs']) == 1 for row in actual['tests']))
         self.assertEqual(set(actual['shapes']), {r.get('unit', r['id']) for r in actual['tests']})
+
+    def test_inherited_method_uses_defining_module_for_unit_and_static_signals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'tests').mkdir()
+            (root / 'tests/__init__.py').write_text('')
+            (root / 'tests/shared.py').write_text('class Shared:\n    def test_pin(self):\n        assert "class=x" == "class=x"\n')
+            (root / 'tests/test_child.py').write_text('from tests.shared import Shared\nclass TestChild(Shared):\n    pass\n')
+            output = self.run_adapter('collect', '--root', str(root), '--runs', '1', '--', '-q')
+            test = output['tests'][0]
+            self.assertEqual(test['unit'], 'tests/test_child.py::@tests/shared.py:2')
+            self.assertIn(test['unit'], output['shapes'])
+            self.assertIn({'test': test['id'], 'kind': 'css-class', 'line': 3}, output['brittleness'])
+
+    def test_class_decorator_generated_test_is_collected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'tests').mkdir()
+            (root / 'tests/test_generated.py').write_text(
+                'def generate(cls):\n'
+                '    def test_generated(self): assert True\n'
+                '    cls.test_generated = test_generated\n'
+                '    return cls\n'
+                '@generate\n'
+                'class TestGenerated: pass\n')
+            output = self.run_adapter('collect', '--root', str(root), '--runs', '1', '--', '-q')
+            self.assertEqual(len(output['tests']), 1)
+            self.assertIn(output['tests'][0]['id'], output['shapes'])
+
+    def test_unreadable_source_keeps_test_result_and_pytest_exit_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'tests').mkdir()
+            source = root / 'tests/test_missing.py'
+            source.write_text('def test_failure(): assert False\n')
+            (root / 'tests/conftest.py').write_text(
+                'from pathlib import Path\n'
+                'def pytest_collection_modifyitems(items):\n'
+                '    Path(__file__).parent.joinpath("test_missing.py").unlink()\n')
+            env = {**os.environ, 'PYTHONPATH': str(ROOT / 'packages/cupel-py/src'), 'PYTHONDONTWRITEBYTECODE': '1',
+                   'CUPEL_ROOT': str(root), 'CUPEL_MODE': 'run', 'CUPEL_RESULT': str(root / 'result.json')}
+            ordinary = subprocess.run([str(PYTHON), '-m', 'pytest', '-q', str(root / 'tests')], env=env, text=True, capture_output=True)
+            source.write_text('def test_failure(): assert False\n')
+            completed = subprocess.run([str(PYTHON), '-m', 'pytest', '-p', 'vibernt_cupel.plugin', '-q', str(root / 'tests')],
+                                       env=env, text=True, capture_output=True)
+            self.assertFalse(source.exists())
+            self.assertEqual(completed.returncode, ordinary.returncode, completed.stderr)
+            self.assertIn('1 failed', completed.stdout)
+            self.assertIn('cupel: warning: cannot analyse', completed.stderr + completed.stdout, completed.stdout)
+            rows = json.loads((root / 'result.json').read_text())['tests']
+            self.assertEqual(len(rows), 1)
+            self.assertNotIn('line', rows[0])
+            self.assertNotIn('unit', rows[0])
+
+    def test_unreadable_source_omits_static_signals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'tests').mkdir()
+            (root / 'tests/test_missing.py').write_text('def test_ok(): assert True\n')
+            (root / 'tests/conftest.py').write_text(
+                'from pathlib import Path\n'
+                'def pytest_collection_modifyitems(items):\n'
+                '    Path(__file__).parent.joinpath("test_missing.py").unlink()\n')
+            output = self.run_adapter('collect', '--root', str(root), '--runs', '1', '--', '-q')
+            self.assertEqual(len(output['tests']), 1)
+            self.assertNotIn('unit', output['tests'][0])
+            self.assertEqual(output['shapes'], {})
+            self.assertEqual(output['brittleness'], [])
 
     def test_module_import_setup_is_per_test_file(self):
         with tempfile.TemporaryDirectory() as tmp:

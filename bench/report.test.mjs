@@ -30,6 +30,15 @@ test('unrun repositories stay visibly unrun', () => {
   assert.match(markdown, /all stages not run/);
 });
 
+test('environment failures are listed without changing a completed baseline to failed', () => {
+  const markdown = renderBenchmark([repo], [candidate], { sample: {
+    baseline: { status: 'ok', medianMs: 1000, runs: [{ counts: { passed: 9, failed: 1, skipped: 0 } }],
+      failingTests: ['tests/webdav.py::test_connection'], flakyCheck: { repeatedFailures: ['tests/webdav.py::test_connection'] } },
+  } });
+  assert.match(markdown, /baseline only/);
+  assert.match(markdown, /Environment failures:.*tests\/webdav\.py::test_connection.*repeated on check/);
+});
+
 test('Docker command only mounts candidate, read-only Cupel and cache', () => {
   const args = dockerArgs(repo, 'none', 'npm test');
   const mounts = args.flatMap((arg, i) => args[i - 1] === '-v' ? [arg] : []);

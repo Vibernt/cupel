@@ -29,6 +29,7 @@
   },
   {
     "name": "zotero-mcp", "dir": "/Users/vid/cupel/.scratch/bench/repos/zotero-mcp", "language": "Python", "runner": "pytest", "image": "python:3.13-bookworm",
+    "firstRunEnvironmentFailure": "tests/test_webdav.py:102",
     "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@22.19.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -e '.[dev]'",
     "test": "/cache/venv/bin/python -m pytest tests --ignore=tests/test_lifespan.py -q",
     "cupelConfig": {"runners": {"pytest": {"tests": "tests/test_*.py", "collector": "/cache/venv/bin/python -m vibernt_cupel collect", "env": {"PYTEST_ADDOPTS": "--ignore=tests/test_lifespan.py"}}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
