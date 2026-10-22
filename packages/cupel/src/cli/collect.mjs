@@ -24,6 +24,7 @@ const REAL = {
 
 
 const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url));
+const CUPEL_BIN = fileURLToPath(new URL('../../bin/cupel.mjs', import.meta.url));
 const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 
 function hasNodeTests(root) {
@@ -39,9 +40,25 @@ function hasNodeTests(root) {
   return visit(root);
 }
 
+function hasPytestTests(root) {
+  const visit = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || ['node_modules', 'vendor', 'testdata', 'venv', 'env', 'site-packages'].includes(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory() && visit(path)) return true;
+      if (entry.isFile() && /^(test_.*|.*_test)\.py$/.test(entry.name)) return true;
+    }
+    return false;
+  };
+  return visit(root);
+}
+
 function externalRunner(root, cfg) {
   for (const [name, runner] of Object.entries(cfg.runners ?? {})) {
     if (runner.collector) return { name, ...runner };
+  }
+  if (existsSync(join(root, 'go.mod')) && !hasNodeTests(root) && !hasPytestTests(root)) {
+    return { name: 'go', collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-go` };
   }
   const setupCfg = join(root, 'setup.cfg');
   const pythonProject = existsSync(join(root, 'pyproject.toml')) || existsSync(join(root, 'pytest.ini')) ||
@@ -90,6 +107,7 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
       const cause = (child.stderr || child.stdout || child.error?.message || '').trim().split('\n')[0];
       throw environment(collectorError(`external collector failed (${child.error?.message ?? `exit ${child.status}`}): ${cause}`, detail, dir));
     }
+    if (runner.name === 'go' && child.stderr.trim()) log(child.stderr.trim());
     if (!existsSync(output)) {
       preserveDir = true;
       throw environment(collectorError('external collector did not write --out file', `stderr:\n${child.stderr ?? ''}\nstdout:\n${child.stdout ?? ''}`, dir));

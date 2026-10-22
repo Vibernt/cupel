@@ -5,7 +5,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { CliError, EXIT_ENV, EXIT_USAGE } from './errors.mjs';
 import { cmp } from '../engine/order.mjs';
 
@@ -19,7 +19,10 @@ function git(args, cwd, opts = {}) {
 export function gitRoot(cwd) {
   const r = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' });
   if (r.error || r.status !== 0) return null;
-  return r.stdout.trim() || null;
+  const root = r.stdout.trim() || null;
+  // Scratch projects are independent even when TMPDIR sits inside this repository.
+  if (root && relative(root, cwd).split(sep)[0] === '.scratch') return null;
+  return root;
 }
 
 /** Refuses refs that git would read as options. */
@@ -151,7 +154,7 @@ export function parseUnifiedDiff(text) {
  * Untracked files that git does not ignore count as new, changed in full.
  */
 export function changedLines(root, ref) {
-  if (!root) throw new CliError(EXIT_ENV, 'git: not inside a git repository');
+  if (!root || gitRoot(root) !== resolve(root)) throw new CliError(EXIT_ENV, 'git: not inside a git repository');
   const commit = resolveCommit(root, ref);
   const d = git(['-c', 'core.quotePath=false', 'diff', '--unified=0', '--no-color', '--no-ext-diff', '--no-renames',
     '--src-prefix=a/', '--dst-prefix=b/', commit, '--'], root);
