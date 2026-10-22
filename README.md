@@ -1,6 +1,6 @@
 # Cupel
 
-**Keep only the tests worth running.**
+**Know which tests protect you.**
 
 > Status: **pre-release, private.** Nothing here is published yet. Interfaces will change.
 

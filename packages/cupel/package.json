@@ -2,7 +2,7 @@
   "name": "@vibernt/cupel",
   "version": "0.0.0",
   "private": true,
-  "description": "Keep only the tests worth running. CLI and MCP for people and coding agents.",
+  "description": "Know which tests protect you. CLI and MCP for people and coding agents.",
   "license": "Apache-2.0",
   "type": "module",
   "engines": { "node": ">=22" },
