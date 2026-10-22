@@ -1,0 +1,28 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "python" },
+  "sources": {
+    "src/math.py": { "coverable": "2,4-5,7-10,12-13" }
+  },
+  "tests": [
+    { "id": "tests/test_math.py::TestGrouped > test_add", "file": "tests/test_math.py", "name": "TestGrouped > test_add", "unit": "$absent", "status": "passed" },
+    { "id": "tests/test_math.py::test_add", "file": "tests/test_math.py", "name": "test_add", "unit": "$absent", "tags": ["critical"], "status": "passed" },
+    { "id": "tests/test_math.py::test_classify[-1-low]", "file": "tests/test_math.py", "name": "test_classify[-1-low]", "unit": "tests/test_math.py::@18", "status": "passed" },
+    { "id": "tests/test_math.py::test_classify[0-ok]", "file": "tests/test_math.py", "name": "test_classify[0-ok]", "unit": "tests/test_math.py::@18", "status": "passed" },
+    { "id": "tests/test_math.py::test_classify[1-ok]", "file": "tests/test_math.py", "name": "test_classify[1-ok]", "unit": "tests/test_math.py::@18", "status": "passed" }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "tests/test_math.py::TestGrouped > test_add": { "src/math.py": "5" },
+      "tests/test_math.py::test_add": { "src/math.py": "5" },
+      "tests/test_math.py::test_classify[-1-low]": { "src/math.py": "8-9" },
+      "tests/test_math.py::test_classify[0-ok]": { "src/math.py": "8,10" },
+      "tests/test_math.py::test_classify[1-ok]": { "src/math.py": "8,10" }
+    },
+    "setup": { "tests/test_math.py": { "src/math.py": "2,4-5,7,12" } },
+    "rechecked": []
+  },
+  "brittleness": []
+}

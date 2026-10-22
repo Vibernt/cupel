@@ -211,7 +211,7 @@ class Context {
 /** Collects the working tree with mutation per config. */
 async function collectHead(ctx, { collector, mutator, cfg, changed }) {
   let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log });
-  if (mutator) {
+  if (mutator && input.runtime.name === 'node') {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
     const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log });
     if (m) input = { ...input, mutation: m };
@@ -222,7 +222,7 @@ async function collectHead(ctx, { collector, mutator, cfg, changed }) {
 /** Collects a git ref in a temporary directory, with critical mutation per config. */
 function collectBase(ctx, { collector, mutator, cfg, ref }) {
   return collectRef(collector, { root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log }, async (dir, input) => {
-    if (!mutator) return input;
+    if (!mutator || input.runtime.name !== 'node') return input;
     const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log });
     return m ? { ...input, mutation: m } : input;
   });
@@ -236,7 +236,7 @@ async function baseAndHead(ctx, headOption) {
   const headFile = o[headOption] ?? o['head-input'];
   const needCollector = headFile === undefined || o.base !== undefined;
   const cfg = ctx.effective();
-  const collector = needCollector ? await requireCollector(ctx.env) : null;
+  const collector = needCollector ? await requireCollector(ctx.env, ctx.root, cfg) : null;
   const mutator = needCollector ? await ctx.mutator() : null;
   let base = o['base-input'] !== undefined ? ctx.readInput(o['base-input']) : undefined;
   if (o.base !== undefined) base = await collectBase(ctx, { collector, mutator, cfg, ref: o.base });
@@ -259,7 +259,7 @@ async function baseAndHead(ctx, headOption) {
 async function singleInput(ctx, { mutation }) {
   if (ctx.o.input !== undefined) return { input: ctx.readInput(ctx.o.input), collected: false };
   const cfg = ctx.effective();
-  const collector = await requireCollector(ctx.env);
+  const collector = await requireCollector(ctx.env, ctx.root, cfg);
   const mutator = mutation ? await ctx.mutator() : null;
   const input = await collectHead(ctx, { collector, mutator, cfg, changed: null });
   return { input, collected: true, collector, mutator, cfg };
@@ -288,7 +288,7 @@ const commands = {
     let { input } = got;
     let result = ctx.engine('report', { input });
     const { collector, mutator, cfg } = got;
-    if (got.collected && ctx.o.evidence && mutator && result.exit === EXIT_OK) {
+    if (got.collected && ctx.o.evidence && mutator && input.runtime.name === 'node' && result.exit === EXIT_OK) {
       // Optional evidence pass: re-check units whose unique coverage is unverified.
       const candidates = result.report.units
         .filter((u) => u.hints.includes('no-unique-coverage-unverified'))
