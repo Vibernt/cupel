@@ -209,9 +209,9 @@ async function collect(collector, opts) {
 }
 
 /** Collects the working tree at `root`. The collector runs `prepare` itself. */
-export function collectTree(collector, { root, cfg, runs, recheck, log }) {
+export function collectTree(collector, { root, cfg, runs, recheck, log, diagnostics }) {
   log(`collecting ${root}`);
-  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log });
+  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics });
 }
 
 /**
@@ -232,13 +232,13 @@ export async function collectRef(collector, { root, ref, cfg, runs, log }, after
 }
 
 /** Runs mutateNode for a scope; returns the mutation object, or null when the scope is empty. */
-export async function mutate(mutator, { root, cfg, input, scope, log, collectorKind }) {
+export async function mutate(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
   const empty = !scope.critical && !(scope.changed && Object.keys(scope.changed).length) && !(scope.targeted ?? []).length;
   if (empty) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
-    return await mutator.mutateNode({ root, config: cfg, input, scope: { critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind });
+    return await mutator.mutateNode({ root, config: cfg, input, scope: { critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }

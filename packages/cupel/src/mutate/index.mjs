@@ -11,6 +11,7 @@
 // `metrics` (a caller-owned counter object used by smoke tests, never part of the mutation result).
 
 import { readFileSync, realpathSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { skipFile } from '../collect/skipped.mjs';
 import { cpus, availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -390,14 +391,14 @@ export function wholeUnits(sites, own, cap) {
  * Mutation testing of the scope's lines. Returns `input.mutation`: { mutants, targeted, seed, sampled }.
  * Throws EnvironmentError when the unmutated tests do not run cleanly.
  */
-export async function mutateNode({ root, config = {}, input, scope = {}, log = noop, jobs, timeoutFloorMs, metrics, collectorKind }) {
+export async function mutateNode({ root, config = {}, input, scope = {}, log = noop, jobs, timeoutFloorMs, metrics, collectorKind, diagnostics = [] }) {
   const started = performance.now();
   const cfg = effectiveConfig(config ?? {}, CONFIG_SCHEMA);
   const { maxMutants, maxSeconds, seed } = cfg.mutation;
   const deadline = started + maxSeconds * 1000;
   const model = mutationModel(input, cfg, scope?.targeted ?? []);
   const { lines, own } = scopeLines({ input, cfg, model, scope });
-  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log });
+  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log, diagnostics });
   if (metrics) Object.assign(metrics, { generated: stats.generated, sites: candidates.length, textBuilds: 0, valid: 0, invalid: 0, run: 0 });
 
   // Sampling: mutants on targeted units' own lines first, so those units can be complete; the rest fill the cap.
@@ -428,7 +429,16 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     while (cursor < ordered.length && byId.size < maxMutants && performance.now() < deadline) {
       const batch = ordered.slice(cursor, cursor + Math.min(session.jobs, maxMutants - byId.size));
       cursor += batch.length;
-      const built = batch.map((m) => ({ m, text: applyMutant(readFileSync(join(root, m.source), 'utf8'), m) }));
+      const built = batch.flatMap((m) => {
+        if (skipped.has(m.source)) return [];
+        try { return [{ m, text: applyMutant(readFileSync(join(root, m.source), 'utf8'), m) }]; }
+        catch (error) {
+          skipped.add(m.source);
+          skipFile(diagnostics, log, 'mutate', m.source, error);
+          return [];
+        }
+      });
+      if (!built.length) continue;
       if (metrics) metrics.textBuilds += built.length;
       const validity = await candidateValidity(root, built);
       const valid = built.filter(({ m }, k) => {

@@ -1,4 +1,4 @@
-// JSX/TSX scanning uses only the TypeScript installed in the project being inspected.
+// Scanner-based classification uses only the TypeScript installed in the inspected project.
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { analyseMask } from '../../collect/node/lines.mjs';
@@ -23,7 +23,8 @@ const codeChar = (c) => !/\s/u.test(c);
 /** Token and line classification share one scanner pass and one parsed syntax tree. */
 export function scanJsx(ts, source, text) {
   const jsx = /\.tsx$/.test(source);
-  const tree = ts.createSourceFile(source, text, ts.ScriptTarget.Latest, true, jsx ? ts.ScriptKind.TSX : ts.ScriptKind.JSX);
+  const kind = jsx ? ts.ScriptKind.TSX : /\.jsx$/.test(source) ? ts.ScriptKind.JSX : ts.ScriptKind.TS;
+  const tree = ts.createSourceFile(source, text, ts.ScriptTarget.Latest, true, kind);
   if (tree.parseDiagnostics.length) throw new Error(ts.flattenDiagnosticMessageText(tree.parseDiagnostics[0].messageText, '\n'));
   const excluded = [];
   const typeOnly = [];
@@ -40,7 +41,7 @@ export function scanJsx(ts, source, text) {
     ts.forEachChild(node, visit);
   };
   visit(tree);
-  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.JSX, text);
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, jsx || kind === ts.ScriptKind.JSX ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard, text);
   const mask = new Uint8Array(text.length);
   const tokens = [];
   const lineStarts = [0];

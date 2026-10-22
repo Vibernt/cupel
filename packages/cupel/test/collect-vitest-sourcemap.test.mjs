@@ -27,8 +27,11 @@ test('a mismatched TypeScript map logs the file for omission; unchanged JavaScri
   const source = new Map([['src/value.ts', { text: ts, an: analyse('export const n         = 1') }]]);
   const script = { url: '/project/src/value.ts', source: `export const n = 1\n//# sourceMappingURL=data:application/json;base64,${map}` };
   assert.deepEqual(sourceMapLines(root, script, [0, 18], source, (text) => logs.push(text)), ['src/value.ts', null]);
-  assert.match(logs[0], /mapping skipped for src\/value\.ts/);
+  assert.match(logs[0], /mapping: skipped src\/value\.ts/);
   const js = 'export const n = 1';
   assert.deepEqual(sourceMapLines(root, { url: '/project/src/value.js', source: js }, [0, js.length],
     new Map([['src/value.js', { text: js, an: analyse(js) }]]), () => {}), ['src/value.js', [1]]);
+  const badMap = `${js}\n//# sourceMappingURL=data:application/json;base64,not-a-map`;
+  assert.deepEqual(sourceMapLines(root, { url: '/project/src/value.js', source: badMap }, [0, js.length],
+    new Map([['src/value.js', { text: js, an: analyse(js) }]]), () => {}), ['src/value.js', null]);
 });

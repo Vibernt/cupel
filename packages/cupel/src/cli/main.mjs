@@ -4,7 +4,7 @@
 import { parseArgs } from 'node:util';
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { resolve, relative, sep, join } from 'node:path';
+import { resolve, relative, sep, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run, SPEC_VERSION } from '../engine/index.mjs';
 import { effectiveConfig } from '../engine/config.mjs';
@@ -131,6 +131,7 @@ class Context {
     this.schemas = loadSchemas();
     this.log = this.o.quiet ? () => {} : (msg) => io.err(`cupel: ${msg}\n`);
     this.args = {};
+    this.skipped = [];
     this.runs(); // validates --runs up front, whatever the command reads
     if (this.o['generated-at'] !== undefined) this.args.generatedAt = this.o['generated-at'];
   }
@@ -205,15 +206,18 @@ class Context {
     if (!target) return;
     writeJson(target, input);
     this.log(`wrote ${relative(this.cwd, target) || target}`);
+    const sidecar = join(dirname(target), 'skipped.json');
+    writeJson(sidecar, { skipped: this.skipped });
+    if (this.skipped.length) this.log(`${this.skipped.length} files skipped: see ${relative(this.cwd, sidecar) || sidecar}`);
   }
 }
 
 /** Collects the working tree with mutation per config. */
 async function collectHead(ctx, { collector, mutator, cfg, changed }) {
-  let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log });
+  let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped });
   if (mutator && ['node', 'python'].includes(input.runtime.name)) {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
-    const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind });
+    const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
     if (m) input = { ...input, mutation: m };
   }
   return input;
@@ -296,7 +300,7 @@ const commands = {
         .slice(0, cfg.mutation.maxMutants);
       if (candidates.length) {
         ctx.log(`re-checking ${candidates.length} unit(s) without unique coverage`);
-        const again = await collectTree(collector, { root: ctx.root, cfg, runs: 1, recheck: candidates, log: ctx.log });
+        const again = await collectTree(collector, { root: ctx.root, cfg, runs: 1, recheck: candidates, log: ctx.log, diagnostics: ctx.skipped });
         input = mergeRecheck(input, again);
         if (cfg.mutation.targeted) {
           let m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: false, targeted: candidates }, log: ctx.log, collectorKind: collector.kind });
