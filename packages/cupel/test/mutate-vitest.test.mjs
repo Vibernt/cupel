@@ -152,6 +152,32 @@ test('Vitest CLI report and --evidence run mutation', { skip: !existsSync('/User
 
 for (const [version, modules] of versions) {
   const available = existsSync(join(modules, 'vitest/package.json')) && existsSync(join(modules, 'typescript/package.json'));
+  for (const form of ['inline', 'files']) {
+    test(`Vitest ${version}: ${form} project mutation kills a mutant`,
+      { skip: !available && `Vitest ${version} or TypeScript unavailable`, timeout: 60000 }, async (t) => {
+        const p = project(modules);
+        t.after(p.cleanup);
+        if (form === 'inline') {
+          writeFileSync(join(p.root, 'vitest.config.mjs'), `export default { test: { projects: [
+            { test: { name: 'unit', include: ['tests/math.test.ts'] } },
+            { test: { name: 'integration', include: ['tests/widget.test.ts'] } },
+          ] } };\n`);
+        } else {
+          writeFileSync(join(p.root, 'vitest.config.mjs'), "export default { test: { projects: ['./vitest.unit.config.mjs', './vitest.integration.config.mjs'] } };\n");
+          writeFileSync(join(p.root, 'vitest.unit.config.mjs'), "export default { test: { name: 'unit', include: ['tests/math.test.ts'] } };\n");
+          writeFileSync(join(p.root, 'vitest.integration.config.mjs'), "export default { test: { name: 'integration', include: ['tests/widget.test.ts'] } };\n");
+        }
+        const config = { runners: { vitest: { project: 'unit', tests: 'tests/**/*.test.ts' } },
+          mutation: { maxMutants: 10, seed: 17, maxSeconds: 30 } };
+        const input = await collectVitest({ root: p.root, config, runs: 1 });
+        assert.ok(input.tests.length);
+        assert.ok(input.tests.every((row) => row.file === 'tests/math.test.ts'));
+        const result = await mutateVitest({ root: p.root, input, config, jobs: 1,
+          timeoutFloorMs: 600, collectorKind: 'vitest', scope: { changed: { 'src/math.ts': '2' } } });
+        assert.deepEqual(result.mutants.find((row) => row.operator === 'cmp-flip')?.killedBy,
+          ['tests/math.test.ts::clamp caps big values']);
+      });
+  }
   test(`Vitest ${version}: TypeScript, TSX and in-memory mutation`, { skip: !available && `Vitest ${version} or TypeScript unavailable`, timeout: 120000 }, async (t) => {
     const p = project(modules);
     t.after(p.cleanup);

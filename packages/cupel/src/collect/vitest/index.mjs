@@ -9,6 +9,7 @@ import { analyseTestFile, patternFindings } from '../node/testfile.mjs';
 import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
 import { VitestCollectorError } from './errors.mjs';
 import { collectorError } from '../error-detail.mjs';
+import { findVitestWorkspace } from './projects.mjs';
 import { posix, scanSources, sourceMapLines, TEST, walk } from './sources.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -89,14 +90,17 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     const configFile = join(work, 'config.mjs');
     const importOriginal = original ? `import original from ${JSON.stringify(pathToFileURL(join(root, original)).href)};` : 'const original = {};';
     const include = files?.length ? fileNames : runner.tests ? [runner.tests] : null;
-    writeFileSync(configFile, `${importOriginal}\nexport default async (env) => { const base = typeof original === 'function' ? await original(env) : original; const { cache: ignoredCache, ...test } = base.test ?? {}; const setup = test.setupFiles; return { ...base, cacheDir: ${JSON.stringify(join(work, 'vite-cache'))}, test: { ...test, ${include ? `include: ${JSON.stringify(include)},` : ''} pool: 'forks', includeTaskLocation: true, setupFiles: [...(Array.isArray(setup) ? setup : setup ? [setup] : []), ${JSON.stringify(join(here, 'setup.mjs'))}], coverage: { ...(test.coverage ?? {}), enabled: false } } }; };\n`);
+    const workspaceFile = vitest.version.startsWith('3.') ? findVitestWorkspace(root) : undefined;
+    writeFileSync(configFile, `${importOriginal}\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(join(here, 'projects.mjs')).href)};\nexport default async (env) => { const base = typeof original === 'function' ? await original(env) : original; return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(work)}, setupFile: ${JSON.stringify(join(here, 'setup.mjs'))}, include: ${JSON.stringify(include)}, workspaceFile: ${JSON.stringify(workspaceFile)} }), cacheDir: ${JSON.stringify(join(work, 'vite-cache'))} }; };\n`);
     const execute = async (label, selected = fileNames, pattern = null) => {
       const out = join(work, label);
       mkdirSync(out);
       const resultFile = join(out, 'results.json');
       const detailFile = join(out, 'process-output.txt');
       const hook = JSON.stringify({ root, out });
-      const args = ['run', '--root', root, '--config', configFile, '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'reporter.mjs'), '--includeTaskLocation', ...selected];
+      const projects = runner.project === undefined ? [] : Array.isArray(runner.project) ? runner.project : [runner.project];
+      if (projects.some((project) => typeof project !== 'string' || !project)) throw new VitestCollectorError('runners.vitest.project must be a name or list of names');
+      const args = ['run', '--root', root, '--config', configFile, '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'reporter.mjs'), '--includeTaskLocation', ...projects.flatMap((project) => ['--project', project]), ...selected];
       if (pattern) args.push('-t', pattern);
       const r = await run(command, args, { cwd: root, detailFile, env: { ...process.env, ...(runner.env ?? {}),
         TMPDIR: cache, XDG_CACHE_HOME: cache, CUPEL_VITEST_HOOK: hook,
@@ -120,9 +124,11 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       }
       const hookFiles = readdirSync(out).filter((f) => /\.json$/.test(f) && f !== 'results.json');
       const hookData = hookFiles.map((f) => JSON.parse(readFileSync(join(out, f), 'utf8')));
-      if (results.tests.some((t) => t.status !== 'skipped') && !hookData.length) {
+      const coveredIds = new Set(hookData.flatMap((h) => Object.keys(h.tests ?? {})));
+      const missing = results.tests.filter((t) => t.status !== 'skipped' && !coveredIds.has(t.taskId));
+      if (missing.length) {
         preserveWork = true;
-        throw new VitestCollectorError(collectorError(`Vitest hook did not write coverage (exit ${r.code})`, JSON.stringify({ hookFiles, tests: results.tests, output: r.tail }, null, 2), work));
+        throw new VitestCollectorError(collectorError(`Vitest hook did not write coverage for ${missing[0].file} (${missing.length} tests; exit ${r.code})`, JSON.stringify({ hookFiles, missing, output: r.tail }, null, 2), work));
       }
       const coverage = new Map(), setup = new Map(), spawns = new Set();
       const convert = (data, into, scriptMap) => {

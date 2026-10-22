@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { resolveVitest, splitCommand } from '../collect/vitest/index.mjs';
+import { findVitestWorkspace } from '../collect/vitest/projects.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 let counter = 0;
@@ -15,6 +16,8 @@ export class VitestMutantRunner {
     this.tmp = tmp;
     const vitest = resolveVitest(root);
     const runner = cfg.runners?.vitest ?? {};
+    this.projects = runner.project === undefined ? [] : Array.isArray(runner.project) ? runner.project : [runner.project];
+    if (this.projects.some((project) => typeof project !== 'string' || !project)) throw new Error('runners.vitest.project must be a name or list of names');
     this.command = runner.command ? splitCommand(runner.command) : [process.execPath, vitest.entry];
     if (!this.command[0]) throw new Error('runners.vitest.command is empty');
     this.importUrl = vitest.importUrl;
@@ -27,21 +30,12 @@ export class VitestMutantRunner {
       'vite.config.mts', 'vite.config.ts', 'vite.config.mjs', 'vite.config.js'].find((f) => existsSync(join(root, f)));
     const base = original ? `import original from ${JSON.stringify(pathToFileURL(join(root, original)).href)};` : 'const original = {};';
     this.config = join(tmp, 'vitest.config.mjs');
-    writeFileSync(this.config, `${base}\nimport { realpathSync, readFileSync, appendFileSync } from 'node:fs';\n` +
-      `import { fileURLToPath } from 'node:url';\n` +
-      `const plugin = { name: 'cupel-mutant', enforce: 'pre', load(id) {\n` +
-      `  const path = process.env.CUPEL_MUTANT; if (!path) return null;\n` +
-      `  const spec = JSON.parse(readFileSync(path, 'utf8'));\n` +
-      `  let target = id.split('?')[0].split('#')[0];\n` +
-      `  if (target.startsWith('file:')) target = fileURLToPath(target);\n` +
-      `  try { if (realpathSync(target) !== spec.realPath) return null; } catch { return null; }\n` +
-      `  appendFileSync(spec.seen, 'loaded\\n'); return readFileSync(spec.sourcePath, 'utf8');\n` +
-      `} };\n` +
+    const pluginModule = pathToFileURL(join(here, 'vitest-plugin.mjs')).href;
+    const workspaceFile = vitest.version.startsWith('3.') ? findVitestWorkspace(root) : undefined;
+    writeFileSync(this.config, `${base}\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(join(dirname(here), 'collect/vitest/projects.mjs')).href)};\n` +
+      `import { createMutantPlugin } from ${JSON.stringify(pluginModule)};\n` +
       `export default async (env) => { const base = typeof original === 'function' ? await original(env) : original;\n` +
-      `  const test = base.test ?? {}; const setup = test.setupFiles;\n` +
-      `  return { ...base, plugins: [...(base.plugins ?? []), plugin], cacheDir: ${JSON.stringify(join(cache, 'vite'))},\n` +
-      `    test: { ...test, pool: 'forks', coverage: { ...(test.coverage ?? {}), enabled: false },\n` +
-      `      setupFiles: [...(Array.isArray(setup) ? setup : setup ? [setup] : []), ${JSON.stringify(join(here, 'vitest-setup.mjs'))}] } }; };\n`);
+      `  return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(tmp)}, setupFile: ${JSON.stringify(join(here, 'vitest-setup.mjs'))}, plugin: createMutantPlugin(), pluginModule: ${JSON.stringify(pluginModule)}, workspaceFile: ${JSON.stringify(workspaceFile)} }), cacheDir: ${JSON.stringify(join(cache, 'vite'))} }; };\n`);
   }
 
   spec(spec) {
@@ -58,7 +52,8 @@ export class VitestMutantRunner {
     return new Promise((resolve) => {
       const started = performance.now();
       const args = [...this.command.slice(1), 'run', '--root', this.root, '--config', this.config,
-        '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'vitest-reporter.mjs'), file];
+        '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'vitest-reporter.mjs'),
+        ...this.projects.flatMap((project) => ['--project', project]), file];
       const child = spawn(this.command[0], args, { cwd: this.root, env, detached: true, stdio: ['ignore', 'ignore', 'pipe'] });
       let stderr = '', timedOut = false, cut = false, finished = false;
       child.stderr.setEncoding('utf8').on('data', (d) => { stderr = (stderr + d).slice(-4000); });

@@ -25,7 +25,8 @@
           "tests": { "type": "string" },
           "collector": { "type": "string", "description": "An external collector command that writes the input format (D13)." },
           "prepare": { "type": "string", "description": "A command run once before collecting, for example a build step." },
-          "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Extra environment variables for the test run." }
+          "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Extra environment variables for the test run." },
+          "project": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1 } }], "description": "Vitest: the project name or names to run (passed as --project)." }
         }
       }
     },
