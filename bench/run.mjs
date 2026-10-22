@@ -55,8 +55,10 @@ function inputAt(path = join(repo.dir, '.cupel', 'input.json')) {
   if (!existsSync(path)) throw new Error(`Cupel input is missing: ${path}`);
   const input = JSON.parse(readFileSync(path, 'utf8'));
   if (!input.tests?.length) throw new Error('Cupel collected zero tests; collector selection must be fixed');
-  if (repo.runner === 'vitest' && !/vitest/i.test(input.runtime?.name ?? '')) throw new Error(`expected Vitest collector, got ${input.runtime?.name ?? 'unknown'}`);
-  if (repo.runner === 'pytest' && !/pytest/i.test(input.runtime?.name ?? '')) throw new Error(`expected pytest collector, got ${input.runtime?.name ?? 'unknown'}`);
+  // The input names the runtime, not the runner: Vitest and node:test report node, pytest reports python.
+  const runtimeFor = { vitest: 'node', 'node-test': 'node', pytest: 'python' };
+  const want = runtimeFor[repo.runner];
+  if (want && input.runtime?.name !== want) throw new Error(`expected a ${want} runtime from the ${repo.runner} collector, got ${input.runtime?.name ?? 'unknown'}`);
   return input;
 }
 const reportOptions = (out = '/work/.cupel/input.json', mutation = true) =>
