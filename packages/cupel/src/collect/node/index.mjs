@@ -24,7 +24,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -33,6 +33,7 @@ import { cmp } from '../../engine/order.mjs';
 import { analyse, coveredLines, formatLines, unionLines } from './lines.mjs';
 import { positiveIntervals, unionIntervals } from './intervals.mjs';
 import { analyseTestFile, patternFindings } from './testfile.mjs';
+import { collectorError } from '../error-detail.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = pathToFileURL(join(HERE, 'hook.mjs')).href;
@@ -106,8 +107,13 @@ function run(cmd, args, opts) {
   return new Promise((done, fail) => {
     const t0 = Date.now();
     let tail = '';
-    const keep = (chunk) => { tail = (tail + chunk).slice(-4096); };
-    const child = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
+    if (opts.detailFile) writeFileSync(opts.detailFile, '');
+    const { detailFile, ...spawnOptions } = opts;
+    const keep = (chunk) => {
+      tail = (tail + chunk).slice(-4096);
+      if (detailFile) appendFileSync(detailFile, chunk);
+    };
+    const child = spawn(cmd, args, { ...spawnOptions, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.setEncoding('utf8').on('data', keep);
     child.stderr.setEncoding('utf8').on('data', keep);
     child.on('error', fail);
@@ -136,7 +142,11 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
   if (runner.prepare) {
     log(`prepare: ${runner.prepare}`);
     const p = spawnSync(runner.prepare, { cwd: root, env, shell: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    if (p.status !== 0) throw new CollectorError(`prepare failed (${p.error?.message ?? `exit ${p.status}`}): ${(p.stderr || p.stdout || '').trim().slice(-500)}`);
+    if (p.status !== 0) {
+      const detailDir = mkdtempSync(join(tmpdir(), 'cupel-node-prepare-'));
+      const detail = p.stderr || p.stdout || p.error?.stack || '';
+      throw new CollectorError(collectorError(`prepare failed (${p.error?.message ?? `exit ${p.status}`}): ${detail.trim().split('\n')[0]}`, detail, detailDir));
+    }
   }
 
   const sources = scanSources(root, config?.scope, new Set(testFiles));
@@ -170,6 +180,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
   const lineObject = (m) => sortedObject([...m].map(([rel, ls]) => [rel, formatLines(ls)]));
 
   const tmp = mkdtempSync(join(tmpdir(), 'cupel-node-'));
+  let preserveTmp = false;
   try {
     /** One `node --test` run with the hook; returns { results, hook: [per-process output], ms }. */
     const suiteRun = async (name, { mode, files: only = testFiles, pattern = null, childCoverage = false }) => {
@@ -179,11 +190,15 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       const hookConfig = join(tmp, `${name}.json`);
       writeFileSync(hookConfig, JSON.stringify({ root, sources: sourceList, testFiles: realTestFiles, out, mode, childCoverage: children }));
       const dest = join(tmp, `${name}.ndjson`);
+      const detailFile = join(tmp, `${name}-output.txt`);
       const args = ['--test', '--import', HOOK, `--test-reporter=${REPORTER}`, `--test-reporter-destination=${dest}`];
       if (pattern) args.push(`--test-name-pattern=${pattern}`);
-      const r = await run(process.execPath, [...args, ...only], { cwd: root, env: { ...env, CUPEL_NODE_HOOK: hookConfig } });
+      const r = await run(process.execPath, [...args, ...only], { cwd: root, detailFile, env: { ...env, CUPEL_NODE_HOOK: hookConfig } });
       const results = readResults(dest);
-      if (!results) throw new CollectorError(`node --test did not run (${r.signal ?? `exit ${r.code}`}): ${r.tail.trim().slice(-500)}`);
+      if (!results) {
+        preserveTmp = true;
+        throw new CollectorError(collectorError(`node --test did not run (${r.signal ?? `exit ${r.code}`}): ${r.tail.trim().split('\n')[0]}`, readFileSync(detailFile, 'utf8'), tmp));
+      }
       const hook = [];
       for (const f of readdirSync(out).sort(cmp)) {
         const p = join(out, f);
@@ -475,6 +490,6 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       shapes: sortedObject(shapes),
     };
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    if (!preserveTmp) rmSync(tmp, { recursive: true, force: true });
   }
 }

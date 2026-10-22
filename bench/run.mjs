@@ -3,7 +3,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, mkdtempSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
 import { dockerRun, cupelCommand, shellQuote } from './docker.mjs';
-import { median, testCounts, peakKb, reportMetrics, guardMetrics, planMetrics } from './parse.mjs';
+import { median, peakKb, reportMetrics, guardMetrics, planMetrics } from './parse.mjs';
+import { baselineRun, capturedError, reportCommandCompleted } from './baseline.mjs';
 import { recentCommits, commitChangedLines, testFile } from './git.mjs';
 
 const benchDir = import.meta.dirname;
@@ -36,9 +37,9 @@ function load(stage) {
   if (value.status !== 'ok' && value.status !== 'pending: collector') throw new Error(`${stage} did not complete: ${value.reason ?? value.status}`);
   return value;
 }
-function tail(result) { return (result.stderr || result.stdout).trim().slice(-1200); }
+function tail(result) { return capturedError(result); }
 function checked(result, label) {
-  if (result.exitCode !== 0) throw new Error(`${label} exited ${result.exitCode}: ${tail(result)}`);
+  if (result.exitCode !== 0 || result.signal) throw new Error(`${label} exited ${result.signal ?? result.exitCode}: ${tail(result)}`);
   return result;
 }
 function config() {
@@ -73,22 +74,33 @@ async function baseline() {
   const runs = [];
   for (let i = 0; i < 3; i++) {
     const result = await dockerRun(repo, 'none', repo.test);
-    runs.push({ wallMs: result.wallMs, exitCode: result.exitCode, counts: testCounts(repo.runner, result.stdout + '\n' + result.stderr),
-      reason: result.exitCode ? tail(result) : null });
+    runs.push(baselineRun(repo.runner, result));
+    if (!runs.at(-1).complete) break;
   }
-  return save('baseline', { status: runs.length === 3 && runs.every((r) => r.exitCode === 0) ? 'ok' : 'failed', runs,
-    medianMs: median(runs.map((r) => r.wallMs)), reason: runs.find((r) => r.exitCode !== 0)?.reason ?? null });
+  const failed = [...new Set(runs.flatMap((r) => r.failingTests))].slice(0, 50);
+  let flakyCheck = null;
+  if (runs.length === 3 && runs.some((r) => r.counts.failed > 0)) {
+    const repeat = await dockerRun(repo, 'none', repo.test);
+    const rerun = baselineRun(repo.runner, repeat);
+    flakyCheck = { run: rerun, repeatedFailures: failed.filter((name) => rerun.failingTests.includes(name)) };
+  }
+  const complete = runs.length === 3 && runs.every((r) => r.complete);
+  return save('baseline', { status: complete ? 'ok' : 'failed', runs, flakyCheck,
+    failedCounts: runs.map((r) => r.counts.failed), failingTests: failed,
+    medianMs: median(runs.map((r) => r.wallMs)), reason: complete ? null : `test command did not report counts or timed out: ${runs.find((r) => !r.complete)?.reason ?? ''}` });
 }
 async function report() {
   load('baseline');
   if (pendingRunners.has(repo.runner)) return save('report', { status: 'pending: collector', reason: `${repo.runner} collector is not available` });
   config();
   const collectionCommand = cupelCommand(repo, 'report', reportOptions('/work/.cupel/collection-input.json', false));
-  const collection = checked(await dockerRun(repo, 'none', collectionCommand), 'collection-only report');
+  const collection = await dockerRun(repo, 'none', collectionCommand);
+  if (!reportCommandCompleted(collection)) checked(collection, 'collection-only report');
   parseJson(collection, 'collection-only report');
   const collectionInput = inputAt(join(repo.dir, '.cupel', 'collection-input.json'));
   const collectionRunDurationSumsMs = [0, 1].map((index) => collectionInput.tests.reduce((total, test) => total + (test.durationsMs?.[index] ?? 0), 0));
-  const full = checked(await dockerRun(repo, 'none', cupelCommand(repo, 'report', reportOptions(), true)), 'Cupel report');
+  const full = await dockerRun(repo, 'none', cupelCommand(repo, 'report', reportOptions(), true));
+  if (!reportCommandCompleted(full)) checked(full, 'Cupel report');
   const parsed = parseJson(full, 'Cupel report');
   const input = inputAt();
   const metrics = reportMetrics(parsed, input);

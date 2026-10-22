@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire, stripTypeScriptTypes } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,6 +8,7 @@ import { formatLines, unionLines } from '../node/lines.mjs';
 import { analyseTestFile, patternFindings } from '../node/testfile.mjs';
 import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
 import { VitestCollectorError } from './errors.mjs';
+import { collectorError } from '../error-detail.mjs';
 import { posix, scanSources, sourceMapLines, TEST, walk } from './sources.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -30,8 +31,13 @@ function run(command, args, options) {
   return new Promise((done, fail) => {
     const start = performance.now();
     let tail = '';
-    const child = spawn(command[0], [...command.slice(1), ...args], { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
-    for (const stream of [child.stdout, child.stderr]) stream.on('data', (data) => { tail = (tail + data).slice(-5000); });
+    if (options.detailFile) writeFileSync(options.detailFile, '');
+    const { detailFile, ...spawnOptions } = options;
+    const child = spawn(command[0], [...command.slice(1), ...args], { ...spawnOptions, stdio: ['ignore', 'pipe', 'pipe'] });
+    for (const stream of [child.stdout, child.stderr]) stream.on('data', (data) => {
+      tail = (tail + data).slice(-5000);
+      if (detailFile) appendFileSync(detailFile, data);
+    });
     child.on('error', fail);
     child.on('close', (code, signal) => done({ code, signal, ms: performance.now() - start, tail }));
   });
@@ -76,6 +82,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
   const work = mkdtempSync(join(root, '.scratch/cupel-vitest-'));
   const cache = join(work, 'cache');
   mkdirSync(cache);
+  let preserveWork = false;
   const mappingFailed = new Set();
   try {
     const original = ['vitest.config.mts', 'vitest.config.ts', 'vitest.config.mjs', 'vitest.config.js', 'vite.config.mts', 'vite.config.ts', 'vite.config.mjs', 'vite.config.js'].find((f) => existsSync(join(root, f)));
@@ -87,22 +94,36 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       const out = join(work, label);
       mkdirSync(out);
       const resultFile = join(out, 'results.json');
+      const detailFile = join(out, 'process-output.txt');
       const hook = JSON.stringify({ root, out });
       const args = ['run', '--root', root, '--config', configFile, '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'reporter.mjs'), '--includeTaskLocation', ...selected];
       if (pattern) args.push('-t', pattern);
-      const r = await run(command, args, { cwd: root, env: { ...process.env, ...(runner.env ?? {}),
+      const r = await run(command, args, { cwd: root, detailFile, env: { ...process.env, ...(runner.env ?? {}),
         TMPDIR: cache, XDG_CACHE_HOME: cache, CUPEL_VITEST_HOOK: hook,
         CUPEL_VITEST_IMPORT: vitest.importUrl, CUPEL_VITEST_RESULTS: resultFile } });
-      if (!existsSync(resultFile)) throw new VitestCollectorError(`vitest ${vitest.version} did not report (${r.signal ?? r.code}): ${r.tail.trim()}`);
+      if (!existsSync(resultFile)) {
+        preserveWork = true;
+        throw new VitestCollectorError(collectorError(`vitest ${vitest.version} did not report (${r.signal ?? r.code}): ${r.tail.trim().split('\n')[0]}`, readFileSync(detailFile, 'utf8'), work));
+      }
       const results = JSON.parse(readFileSync(resultFile, 'utf8'));
-      if (results.errors?.length) throw new VitestCollectorError(`vitest ${vitest.version} had an unhandled error: ${JSON.stringify(results.errors[0])}`);
-      if (results.modulesWithErrors?.length) throw new VitestCollectorError(`vitest ${vitest.version} could not collect ${results.modulesWithErrors[0].file}: ${JSON.stringify(results.modulesWithErrors[0].error)}`);
+      if (results.errors?.length) {
+        preserveWork = true;
+        throw new VitestCollectorError(collectorError(`vitest ${vitest.version} had an unhandled error: ${results.errors[0]?.message ?? 'see detail'}`, JSON.stringify(results.errors, null, 2), work));
+      }
+      if (results.modulesWithErrors?.length) {
+        preserveWork = true;
+        throw new VitestCollectorError(collectorError(`vitest ${vitest.version} could not collect ${results.modulesWithErrors[0].file}`, JSON.stringify(results.modulesWithErrors, null, 2), work));
+      }
       if (r.code !== 0 && !results.tests.some((t) => t.status === 'failed')) {
-        throw new VitestCollectorError(`vitest ${vitest.version} exited ${r.code} without a failing test: ${r.tail.trim()}`);
+        preserveWork = true;
+        throw new VitestCollectorError(collectorError(`vitest ${vitest.version} exited ${r.code} without a failing test`, readFileSync(detailFile, 'utf8'), work));
       }
       const hookFiles = readdirSync(out).filter((f) => /\.json$/.test(f) && f !== 'results.json');
       const hookData = hookFiles.map((f) => JSON.parse(readFileSync(join(out, f), 'utf8')));
-      if (results.tests.some((t) => t.status !== 'skipped') && !hookData.length) throw new VitestCollectorError(`Vitest hook did not write coverage (exit ${r.code}, files ${hookFiles.join(',')}, tests ${JSON.stringify(results.tests)}): ${r.tail.trim()}`);
+      if (results.tests.some((t) => t.status !== 'skipped') && !hookData.length) {
+        preserveWork = true;
+        throw new VitestCollectorError(collectorError(`Vitest hook did not write coverage (exit ${r.code})`, JSON.stringify({ hookFiles, tests: results.tests, output: r.tail }, null, 2), work));
+      }
       const coverage = new Map(), setup = new Map(), spawns = new Set();
       const convert = (data, into, scriptMap) => {
         for (const [id, intervals] of Object.entries(data)) {
@@ -214,5 +235,5 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       brittleness: brittleness.sort((a, b) => sort(a.test, b.test) || sort(a.kind, b.kind) || a.line - b.line),
       shapes: object(shapes),
     };
-  } finally { rmSync(work, { recursive: true, force: true }); }
+  } finally { if (!preserveWork) rmSync(work, { recursive: true, force: true }); }
 }

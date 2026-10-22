@@ -3,6 +3,7 @@ import ast
 import io
 import re
 import tokenize
+import sys
 from pathlib import Path
 from .brittleness import flags_for
 
@@ -50,18 +51,33 @@ def findings(source, fn, patterns):
 def inspect(root, tests, patterns):
     shapes, brittle = {}, []
     cache = {}
+    for pattern in patterns:
+        if pattern.get('language', 'python').lower() == 'python':
+            try:
+                re.compile(pattern['pattern'])
+            except re.error as error:
+                raise ValueError(f'invalid brittleness pattern {pattern["pattern"]!r}: {error}') from error
     for test in tests:
-        path = test['file']
-        if path not in cache:
-            cache[path] = Path(root, path).read_text(encoding='utf-8')
-        source = cache[path]
-        fn = _fn(source, test['line'])
-        if fn is None:
-            raise ValueError(f'cannot locate test definition {test["id"]} at line {test["line"]}')
-        shapes[test.get('unit', test['id'])] = shape(source, fn)
-        for kind, line, deliberate in findings(source, fn, patterns):
-            finding = {'test': test['id'], 'kind': kind, 'line': line}
-            if deliberate:
-                finding['deliberate'] = True
-            brittle.append(finding)
+        if 'line' not in test:
+            continue
+        try:
+            path = test.get('definitionFile', test['file'])
+            if path not in cache:
+                cache[path] = Path(root, path).read_text(encoding='utf-8')
+            source = cache[path]
+            fn = _fn(source, test['line'])
+            if fn is None:
+                raise ValueError(f'definition at {path}:{test["line"]} not found')
+            unit = test.get('unit', test['id'])
+            value = shape(source, fn)
+            found = findings(source, fn, patterns)
+            shapes[unit] = value
+            for kind, line, deliberate in found:
+                finding = {'test': test['id'], 'kind': kind, 'line': line}
+                if deliberate:
+                    finding['deliberate'] = True
+                brittle.append(finding)
+        except Exception as error:
+            detail = str(error).splitlines()
+            print(f'cupel: warning: cannot analyse {test["id"]}: {type(error).__name__}: {detail[0] if detail else "unknown error"}', file=sys.stderr)
     return shapes, sorted(brittle, key=lambda x: (x['test'], x['kind'], x['line']))

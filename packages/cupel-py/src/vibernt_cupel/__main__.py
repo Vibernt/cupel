@@ -49,7 +49,8 @@ def _rows(raw):
     rows = raw['tests']
     groups = {}
     for row in rows:
-        groups.setdefault((row['file'], row['line']), []).append(row)
+        if 'line' in row and 'unit' not in row:
+            groups.setdefault((row['file'], row['line']), []).append(row)
     for group in groups.values():
         if len(group) > 1:
             for row in group:
