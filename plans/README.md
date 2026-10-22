@@ -2,7 +2,7 @@
 
 **Cupel** keeps only the tests worth running. A cupel is the dish assayers use in cupellation: the base metal is drawn off and the precious metal stays. Cupel draws off the tests that add nothing and keeps the ones that matter.
 
-An open-source, local-first tool for people and coding agents. It measures each test's worth, labels tests critical, standard or minor, advises keep, consolidate, rewrite or retire under hard guardrails, and runs tests by priority. A CLI, a local MCP server and a GitHub Action: no UI, no hosted service, no analytics, no telemetry.
+An open-source, local-first tool for people and coding agents. It measures each test's worth, labels tests critical, standard or minor, finds the faults no test catches, advises keep, consolidate or rewrite (never remove: D5), guards every change to the suite, and runs tests by priority. A CLI, a local MCP server and a GitHub Action: no UI, no hosted service, no analytics, no telemetry.
 
 Built fully independent first. Vibernt Assay (history, gates, dashboards) and CodeCrystal (the agent authoring loop) integrate with it later.
 

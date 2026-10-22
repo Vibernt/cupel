@@ -4,13 +4,14 @@
 
 > Status: **pre-release, private.** Nothing here is published yet. Interfaces will change.
 
-A cupel is the dish assayers use in cupellation: the base metal is drawn off and the precious metal stays. Cupel draws off the tests that add nothing and keeps the ones that matter.
+A cupel is the dish assayers use in cupellation: it shows what a sample is really made of. Cupel assays a test suite: which tests actually catch faults, where the gaps are, and whether a change has weakened it.
 
 Coding agents now write most new tests, and suites grow faster than anyone reviews them. Cupel is an open-source, local-first tool for people and coding agents that:
 
 - **Measures** each test's worth: unique coverage, unique mutation kills, redundancy, cost and brittleness.
 - **Labels** tests `critical`, `standard` or `minor`, using path rules and in-test tags.
-- **Advises** keep, consolidate, rewrite or retire, with the evidence for each.
+- **Finds the gaps**: mutation testing on critical code shows which faults no test catches.
+- **Advises** keep, consolidate near-identical tests, or rewrite brittle pins, with the evidence for each. It never advises removing a test; people decide that, and the guard checks it.
 - **Guards** every change that removes or rewrites tests: coverage never falls, the mutation score on critical code never falls, and no critical test is removed without a person's approval.
 - **Prioritises** runs: critical tests first, then tests affected by the change, then the rest.
 
@@ -23,7 +24,7 @@ It has no UI, no hosted service, no analytics, no telemetry and no model calls. 
 | Command | Does |
 |---|---|
 | `cupel report` | Scores every test and gives advice |
-| `cupel check <tests>` | Says whether a new or changed test adds anything |
+| `cupel check <tests>` | Says whether a new or changed test adds unique evidence, or weakens the suite |
 | `cupel guard --base <ref>` | Fails if coverage or the critical mutation score falls, or a critical test is removed |
 | `cupel plan` | Gives the order to run tests in |
 | `cupel label` | Shows and checks tiers |

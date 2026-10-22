@@ -4,7 +4,7 @@
 
 | Part | What it is |
 |---|---|
-| **Spec** (`spec/`) | The single source of truth: tier labels and path rules, the value signals and how they combine, the keep/consolidate/rewrite/retire rules, guardrails, the **input format** (what collectors and importers hand the engine), the report format and the config format, each as a JSON Schema. Versioned (`cupel-spec/1`) |
+| **Spec** (`spec/`) | The single source of truth: tier labels and path rules, the value signals and how they combine, the keep/consolidate/rewrite rules and review hints, guardrails, the **input format** (what collectors and importers hand the engine), the report format and the config format, each as a JSON Schema. Versioned (`cupel-spec/1`) |
 | **Conformance cases** (`spec/conformance/`) | Input fixtures (results, coverage, mutation outcomes, config) with the exact expected report. Every implementation must pass all of them |
 | **Engine** | Pure, deterministic functions: inputs in, report out. No I/O beyond what is passed in, no clock, no randomness without a seed, no runtime APIs (`node:*`, `process`). So the same engine runs in the CLI, the MCP server and, later, server-side in Vibernt Assay (Cloudflare Workers): local scores and Assay scores always match |
 | **Collectors** | Run the user's tests and produce the engine's inputs: per-test results, per-test coverage, changed-line mutation outcomes. One per runner: node:test, Vitest, Jest, pytest first |
@@ -20,7 +20,7 @@ The first implementation is JavaScript (Node 22+, ESM). A Python implementation 
 | Command | Does | Output |
 |---|---|---|
 | `cupel report [paths]` | Runs collectors, scores every test, gives advice | Per test: tier, unique coverage (lines, branches), unique kills, redundancy group, cost, brittleness flags, advice with reasons. Suite totals |
-| `cupel check <test files or names>` | Does a new or changed test add anything? | Unique coverage and unique kills on the changed code; "adds value", "adds nothing (extend X instead)", or "weakens the suite" |
+| `cupel check <test files or names>` | Does a new or changed test add unique evidence, and does it weaken the suite? | Unique coverage and unique kills; "adds value", "no unique evidence (closest: X)" (informational, D14), "weakens the suite" (against a base), or "fails" |
 | `cupel guard --base <ref>` | Compares the suite at a base ref with the working tree | Pass or fail: coverage (line, branch) never falls; critical mutation score never falls; no critical test removed or downgraded without an approval marker; removed tests listed with evidence |
 | `cupel plan [--changed <files>]` | Priority order for a run | Critical first, then tests affected by the change (coverage map, naming, imports), then the rest; with expected time |
 | `cupel label` | Shows and checks tiers | Tier per test from path rules and tags; refuses unknown tags |
@@ -128,8 +128,8 @@ Cupel is built to be extended by people who never read its source. Extensions ru
 - **Keep**: any unique coverage, any unique kill, or critical tier.
 - **Consolidate**: same target and setup with different data → one table-driven test; several files for one module → one file.
 - **Rewrite**: brittle pins → behaviour assertions; slow and low-value → move down a layer.
-- **Retire**: not critical, no unique coverage, no unique kill.
-- Every removal passes `guard`. Critical tests are never removed by advice, only consolidated into another critical test.
+- **No retire** (D5): tests without unique evidence get the review hint `no-unique-evidence`, never advice to remove. S6, S8 and S6b showed that coverage and mutation cannot see unique assertions.
+- People still remove tests. Every removal passes `guard`, and removing a critical test needs an approval.
 
 ## Mutation
 
