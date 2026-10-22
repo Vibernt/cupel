@@ -1,0 +1,110 @@
+# frozen_string_literal: true
+
+require 'ripper'
+
+module Cupel
+  module Static
+    IGNORED = %i[on_sp on_ignored_nl on_nl on_comment].freeze
+
+    def self.fnv(text)
+      text.b.each_byte.reduce(0x811c9dc5) { |hash, byte| ((hash ^ byte) * 0x01000193) & 0xffff_ffff }
+    end
+
+    def self.method_tokens(file, line)
+      tokens = Ripper.lex(File.read(file)).drop_while { |token| token[0][0] < line }
+      depth = 0
+      body = []
+      started = false
+      tokens.each do |token|
+        position, kind, value, = token
+        if kind == :on_kw && %w[def do class module begin case if unless while until for].include?(value)
+          # A postfix condition has no matching `end`.
+          postfix = %w[if unless while until].include?(value) &&
+                    body.any? { |earlier| earlier[0][0] == position[0] && !IGNORED.include?(earlier[1]) }
+          unless postfix
+            depth += 1
+            started = true
+          end
+        elsif kind == :on_kw && value == 'end'
+          depth -= 1 if started
+          body << token
+          break if started && depth.zero?
+        end
+        body << token unless body.last.equal?(token)
+      end
+      body
+    end
+
+    def self.body_tokens(file, line)
+      tokens = method_tokens(file, line)
+      opener = tokens.index { |token| token[1] == :on_kw && %w[def do].include?(token[2]) }
+      if opener && tokens[opener][2] == 'do'
+        tokens = tokens.drop(opener + 1)
+      elsif opener
+        boundary = tokens.each_index.find do |index|
+          index > opener && %i[on_nl on_semicolon].include?(tokens[index][1])
+        end
+        tokens = boundary ? tokens.drop(boundary + 1) : []
+      end
+      tokens = tokens.take(tokens.length - 1) if tokens.last&.[](1) == :on_kw && tokens.last[2] == 'end'
+      result = []
+      tokens.each do |(_position, kind, value, _state)|
+        next if IGNORED.include?(kind)
+
+        masked = if %i[on_tstring_content on_tstring_beg on_tstring_end].include?(kind)
+                  'S'
+        elsif %i[on_int on_float on_rational on_imaginary].include?(kind)
+                  'N'
+        elsif %i[on_regexp_beg on_regexp_end on_regexp_content].include?(kind)
+                  'R'
+        else
+                  value
+        end
+        result << masked unless %w[S R].include?(masked) && result.last == masked
+      end
+      result
+    end
+
+    def self.shape(file, line)
+      tokens = body_tokens(file, line)
+      tokens.each_cons(4).map { |part| fnv(part.join(' ')) }.uniq.sort
+    end
+
+    def self.flags(file, line, test_id)
+      lines = File.readlines(file)
+      previous = line > 1 ? lines[line - 2] : ''
+      tags = previous.include?('# cupel:critical') ? ['critical'] : []
+      body = method_tokens(file, line).map { |token| token[2] }.join
+      reads = body.to_enum(:scan, /\b(?:File\.(?:read|readlines)|IO\.read|read_file)\s*\(?\s*['"]([^'"]+)['"]/).map do
+        match = Regexp.last_match
+        [match[1], match.begin(0)]
+      end
+      kind = nil
+      reads.each do |path, offset|
+        candidate = if path.match?(/(?:README|CHANGELOG|docs\/|\.(?:md|txt)\b)/i)
+                      'doc-wording'
+                    elsif path.match?(/\.(?:rb|rake|gemspec)\b/)
+                      'source-text'
+                    end
+        next unless candidate
+
+        line_start = (body.rindex("\n", offset) || -1) + 1
+        line_end = body.index("\n", offset) || body.length
+        same_line = body[line_start...line_end]
+        assignment = body[0...offset].match(/\b([a-z_]\w*)\s*=\s*\z/)
+        asserted = same_line.match?(/\b(?:assert(?:_\w+)?|must_equal|expect)\b/) ||
+                   (assignment && body[offset..].match?(/\b(?:assert(?:_\w+)?|must_equal|expect)\b[^\n]*\b#{Regexp.escape(assignment[1])}\b/))
+        if asserted
+          kind = candidate
+          break
+        end
+      end
+      [tags, kind ? [{ 'test' => test_id, 'kind' => kind, 'line' => line }] : []]
+    end
+
+    def self.spawns_interpreter?(file, line)
+      text = method_tokens(file, line).map { |token| token[2] }.join
+      text.match?(/(?:system|spawn|exec|capture\d?|popen\d?|`)\s*\(?\s*['"]?(?:ruby\b|bin\/rails\b)/)
+    end
+  end
+end

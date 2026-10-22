@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'json'
+require 'optparse'
+require_relative '../lib/cupel/runner'
+
+command = ARGV.shift
+abort 'usage: cupel-ruby collect --root DIR [--runs N] [--recheck UNIT] [--out FILE] [-- test files or rake args]' unless command == 'collect'
+options = { root: '.', runs: 2, recheck: [] }
+parser = OptionParser.new do |opts|
+  opts.on('--root DIR') { |value| options[:root] = value }
+  opts.on('--runs N', Integer) { |value| options[:runs] = value }
+  opts.on('--recheck UNIT') { |value| options[:recheck] << value }
+  opts.on('--out FILE') { |value| options[:out] = value }
+end
+begin
+  parser.order!(ARGV)
+  abort '--runs must be positive' if options[:runs] < 1
+  ARGV.shift if ARGV.first == '--'
+  result = Cupel::Runner.collect(options[:root], options[:runs], options[:recheck], ARGV)
+  json = JSON.pretty_generate(result) + "\n"
+  options[:out] ? File.write(options[:out], json) : puts(json)
+rescue StandardError => e
+  warn "cupel-ruby: #{e.message}"
+  exit 3
+end

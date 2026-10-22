@@ -25,6 +25,7 @@ const REAL = {
 
 const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url));
 const CUPEL_BIN = fileURLToPath(new URL('../../bin/cupel.mjs', import.meta.url));
+const RUBY_BIN = fileURLToPath(new URL('../../../cupel-ruby/bin/cupel-ruby', import.meta.url));
 const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 
 function hasNodeTests(root) {
@@ -33,7 +34,7 @@ function hasNodeTests(root) {
       if (entry.name.startsWith('.') || ['node_modules', 'venv', '.venv', 'env', 'site-packages'].includes(entry.name)) continue;
       const path = join(dir, entry.name);
       if (entry.isDirectory() && visit(path)) return true;
-      if (entry.isFile() && /\.(test|spec)\.[cm]?js$/.test(entry.name)) return true;
+      if (entry.isFile() && /\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) return true;
     }
     return false;
   };
@@ -63,10 +64,24 @@ function externalRunner(root, cfg) {
   const setupCfg = join(root, 'setup.cfg');
   const pythonProject = existsSync(join(root, 'pyproject.toml')) || existsSync(join(root, 'pytest.ini')) ||
     (existsSync(setupCfg) && /\[tool:pytest\]|\[pytest\]/.test(readFileSync(setupCfg, 'utf8')));
+  if (root && !hasNodeTests(root) && existsSync(join(root, 'Gemfile')) &&
+      existsSync(join(root, 'test')) && hasRubyTests(join(root, 'test')) && !hasPytestTests(root)) {
+    return { name: 'minitest', collector: `ruby ${quote(RUBY_BIN)} collect`, env: {} };
+  }
   if (root && !hasNodeTests(root) && pythonProject) {
     return { name: 'pytest', collector: 'python3 -m vibernt_cupel collect', env: {} };
   }
   return null;
+}
+
+function hasRubyTests(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory() && hasRubyTests(path)) return true;
+    if (entry.isFile() && /_test\.rb$/.test(entry.name)) return true;
+  }
+  return false;
 }
 
 function isVitestProject(root, cfg) {

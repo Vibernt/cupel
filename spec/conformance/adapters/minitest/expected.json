@@ -1,0 +1,24 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "ruby" },
+  "sources": {
+    "lib/math.rb": { "coverable": "2-3,5-6,9-11,13,17-18" }
+  },
+  "tests": [
+    { "id": "test/math_test.rb::MathTest > test_add", "file": "test/math_test.rb", "name": "MathTest > test_add", "unit": "$absent", "tags": ["critical"], "status": "passed" },
+    { "id": "test/math_test.rb::MathTest > test_classify_-1", "file": "test/math_test.rb", "name": "MathTest > test_classify_-1", "unit": "test/math_test.rb::@11", "status": "passed" },
+    { "id": "test/math_test.rb::MathTest > test_classify_0", "file": "test/math_test.rb", "name": "MathTest > test_classify_0", "unit": "test/math_test.rb::@11", "status": "passed" }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "test/math_test.rb::MathTest > test_add": { "lib/math.rb": "6" },
+      "test/math_test.rb::MathTest > test_classify_-1": { "lib/math.rb": "10-11" },
+      "test/math_test.rb::MathTest > test_classify_0": { "lib/math.rb": "10,13" }
+    },
+    "setup": { "test/math_test.rb": { "lib/math.rb": "2-3,5,9,17" } },
+    "rechecked": []
+  },
+  "brittleness": []
+}
