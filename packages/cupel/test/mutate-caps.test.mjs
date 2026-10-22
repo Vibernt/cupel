@@ -130,3 +130,16 @@ test('maxSeconds stops the run, drops what did not finish and sets sampled', asy
   assert.equal(r.mutants.some((m) => m.line === 8 && m.operator === 'arith'), false);
   for (const m of r.mutants) assert.notEqual(m.status, 'error');
 });
+
+test('over the cap, targeted sites are taken as whole units, smallest first', async () => {
+  const { wholeUnits } = await import('../src/mutate/index.mjs');
+  const site = (line) => ({ id: `a:${line}`, source: 'src/a.mjs', line });
+  const sites = [1, 2, 3, 4, 5, 6].map(site);
+  const own = new Map([
+    ['big', new Map([['src/a.mjs', [[1, 4]]]])], // 4 sites
+    ['small', new Map([['src/a.mjs', [[5, 5]]]])], // 1 site
+    ['mid', new Map([['src/a.mjs', [[5, 6]]]])], // 2 sites, one shared with small
+  ]);
+  // cap 3: small (1) then mid (adds 1 more) fit; big (4) does not.
+  assert.deepEqual(wholeUnits(sites, own, 3).map((m) => m.line), [5, 6]);
+});

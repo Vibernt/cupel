@@ -359,6 +359,24 @@ function seededOrder(items, seed) {
 }
 
 /**
+ * When targeted sites exceed the cap, take whole units, smallest first (then by unit id), so as many units as
+ * possible have every own-line mutant run (D5 needs complete evidence per unit). Sites shared by units count once.
+ */
+export function wholeUnits(sites, own, cap) {
+  const perUnit = [...own.entries()]
+    .map(([uid, lines]) => ({ uid, sites: sites.filter((m) => lines.has(m.source) && hasLine(lines.get(m.source), m.line)) }))
+    .filter((u) => u.sites.length > 0)
+    .sort((a, b) => a.sites.length - b.sites.length || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
+  const chosen = new Set();
+  for (const u of perUnit) {
+    const extra = u.sites.filter((m) => !chosen.has(m));
+    if (chosen.size + extra.length > cap) continue;
+    for (const m of extra) chosen.add(m);
+  }
+  return sites.filter((m) => chosen.has(m));
+}
+
+/**
  * Mutation testing of the scope's lines. Returns `input.mutation`: { mutants, targeted, seed, sampled }.
  * Throws EnvironmentError when the unmutated tests do not run cleanly.
  */
@@ -381,7 +399,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     // Keep the old seeded subset and source order when every drawn mutant is valid. Invalid draws use the
     // remaining targeted sites first, then the remaining sites, in deterministic seeded order.
     const preferred = first.length >= maxMutants
-      ? sample(first, maxMutants, seed)
+      ? wholeUnits(first, own, maxMutants)
       : [...first, ...sample(rest, maxMutants - first.length, seed)];
     const chosen = new Set(preferred);
     ordered = [
