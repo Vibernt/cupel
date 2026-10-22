@@ -6,7 +6,7 @@
 // Mutants come from the S3 operators over the shared lexer, are filtered for validity, capped and sampled with
 // `config.mutation.seed`, and served in memory by a module load hook (never written to the project). Tests are
 // selected by the input's coverage. A kill needs a reported failing test (K5); a crash is re-run once, then `error`.
-// Optional extras on the argument object: `jobs` (parallel processes, default at most two) and
+// Optional extras on the argument object: `jobs` (parallel processes, default half the cores) and
 // `timeoutFloorMs` (the least a file run may take before it counts as a timeout, default 1000), and
 // `metrics` (a caller-owned counter object used by smoke tests, never part of the mutation result).
 
@@ -37,7 +37,8 @@ const STOP_AFTER_FILES = 2; // spike S3: a unique kill needs exactly one killing
 const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
-const defaultJobs = () => Math.max(1, Math.min(2, (typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) - 1));
+// Half the cores: each mutant runs a whole test file, and real suites have test processes that peak at several GB.
+const defaultJobs = () => Math.max(1, Math.floor((typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) / 2));
 
 /** Whether a sorted interval list holds line n. */
 function hasLine(intervals, n) {
