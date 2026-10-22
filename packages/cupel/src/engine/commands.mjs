@@ -5,7 +5,7 @@ import { parse, mapDiff, mapIntersect, mapIsEmpty, mapSize, mapToObject, mapFilt
 import { coverageCounts } from './model.mjs';
 import { coverageRatio, mutationScore, fracAtLeast, decimal } from './rational.mjs';
 
-const ADVICE = ['keep', 'consolidate', 'rewrite', 'move-to-check', 'retire', 'none'];
+const ADVICE = ['keep', 'consolidate', 'rewrite', 'move-to-check', 'none'];
 
 function scoreOf(mutants) {
   let detected = 0;
@@ -132,14 +132,14 @@ export function checkSection(head, base, names) {
       } else if (u.critical || u.uniqueLines >= 1 || u.uniqueKills >= 1) {
         entry.verdict = 'adds-value';
       } else {
-        entry.verdict = 'adds-nothing';
+        entry.verdict = 'no-unique-evidence';
         entry.extend = largestOverlap(u, head);
       }
     }
     entry.brittle = u.brittle;
     verdicts.push(entry);
   }
-  return { section: { verdicts }, exit: verdicts.every((v) => v.verdict === 'adds-value') ? 0 : 1 };
+  return { section: { verdicts }, exit: verdicts.some((v) => ['weakens', 'fails', 'not-run'].includes(v.verdict)) ? 1 : 0 };
 }
 
 function weakenedBy(u, b, head, base) {

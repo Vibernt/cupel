@@ -6,7 +6,7 @@ The rule when choosing: take the most conservative reading, meaning the one that
 
 Two later additions from the reviewer are treated as normative, and the engine follows them:
 - Guard: the seven checks appear once each, in the order G3, G4 (`coverage-lines`, then `coverage-ratio`), G5, G6, G7, G8. `coverage-ratio` carries `base` and `head`. `critical-coverage` carries the sorted failing `sources`. `critical-removed` and `critical-downgraded` carry the sorted unapproved `units`.
-- Check: one verdict per unit, in ascending id order. Each verdict carries `brittle`. `extend` appears only with `adds-nothing`, and `lost` only with `weakens`.
+- Check: one verdict per unit, in ascending id order. Each verdict carries `brittle`. `extend` appears only with `no-unique-evidence`, and `lost` only with `weakens`.
 
 ## Module layout
 
@@ -16,7 +16,7 @@ Two later additions from the reviewer are treated as normative, and the engine f
 | `integrity.mjs` | I1 (schemas), I2 (references), I3 (lines) and argument checks |
 | `config.mjs` | Defaults read from `config.schema.json`, and the effective word lists (D4) |
 | `model.mjs` | Units (3.3), S1 to S6, T1 to T8, coverage counts |
-| `advice.mjs` | A1 to A12, A9 groups, the A10 retire pass, and the `files` list (A12) |
+| `advice.mjs` | A1 to A12, A9 groups, A10 review candidates, and the `files` list (A12) |
 | `commands.mjs` | Suite (R3), unit entries, plan (P1 to P3), check (C1 to C4), guard (G3 to G9) |
 | `lines.mjs` | Line sets as interval lists (3.1), set algebra, per-source line maps, and the exclusive-lines sweep (S2) |
 | `match.mjs` | Tokens, words and globs (section 5) |
@@ -99,14 +99,11 @@ Each entry gives the section or rule, the problem, and **the reading the engine 
 
 ### Advice (A1 to A12)
 
-30. **A1 contradicts S2, S3 and A10.** A1 says a failing test's coverage and kills are not trusted. S2 subtracts the own lines of "every other unit", including failed ones, and A10's joint safety speaks of "remaining units". Read literally, a unit could be retired because a *failing* unit still covers its lines. *The reported signals (`uniqueLines`, `uniqueKills`) follow S2 and S3 literally. The retire pass trusts only passed units:*
-    - condition 1 checks that the removed units' own lines are still covered by remaining passed units, or by setup;
-    - condition 2 checks that every detected mutant that had a passed killer still has a remaining passed killer (this is how "still" is read);
-    - a duplicate-path partner `v` must itself be passed.
-31. **A10 condition 1, setup lines.** "Plus all setup lines" is ambiguous once every unit of a test file is retired, because the file and its setup then disappear. *Setup lines count only for test files that keep at least one unit.*
-32. **A10 condition 3, joint safety.** Condition 3 is stated only for the candidate. A later acceptance can retire the last `v` that an earlier duplicate-path unit relied on. *Every accepted duplicate-path unit must still have a qualifying `v` after each acceptance. `duplicateOf` is the smallest qualifying `v` that remains after the pass.*
-33. **A10, both paths qualify.** *The reasons are `no-unique-lines`, `no-unique-kills` and `duplicate-of`, in that order, and condition 3 is also required.*
-34. **A10 and the earlier rules.** The candidate definition overlaps A3 to A8: a candidate may be pinned, in a group, slow-low-value, or have unique kills through the duplicate path. "Accepted candidates get retire" would then contradict those rules, which come first. *Only units that reach A10 enter the retire pass. Others are never treated as removed, and never get `retire-conflict`.*
+30. **A1, S2, S3 and A10.** The reported `uniqueLines` and `uniqueKills` signals follow S2 and S3, which include failed units. A10 separately requires every own line to be covered by another passed unit or setup lines; a failed unit alone cannot support the review hint.
+31. **A10 setup lines.** All setup lines count for the review condition, as specified. This hint is not advice to remove a test.
+32. **A10 independent candidates.** Each candidate is evaluated independently. Two units may both get the review hint even when they cover each other's lines.
+33. **A10, both paths qualify.** The unit gets `keep` with hint `no-unique-evidence`. If the duplicate path qualifies, `duplicateOf` is the smallest qualifying passed unit id, whether or not the mutation path also qualifies.
+34. **A10 and earlier rules.** Only units that reach A10 after A1 to A8 are evaluated as review candidates. Earlier advice takes precedence.
 35. **A3 reasons.** "For each kind" doesn't say which kinds. *There is one reason per kind in `brittle`, which includes kinds found only on deliberate findings of a pinned unit.*
 36. **A4.** "All its findings are deliberate" is vacuously true with no findings. *At least one finding is required.*
 37. **A9 eligibility.** *"No brittleness finding" includes deliberate findings.*
@@ -124,7 +121,7 @@ Each entry gives the section or rule, the problem, and **the reading the engine 
 43. **3.7 lists `changed` as an argument of check**, but no C rule uses it. *It is checked for shape and otherwise ignored.*
 44. **C3 with no mutation data at head.** "Present at head by id" can't hold when the head has no mutation data. *By analogy with G6 (absent data is never a pass), every mutant the unit detected at base counts as lost. A mutant missing by id when data exists is not compared.*
 45. **C3, "detected by it".** *The head mutant is detected, and its `killedBy` names a head row of the unit.*
-46. **C1 and C2 at file granularity.** `uniqueLines` is `null`. *Only critical units add value; others are `adds-nothing`, with exit 1.*
+46. **C1 and C2 at file granularity.** `uniqueLines` is `null`. *Only critical units add value; others get informational `no-unique-evidence`, with exit 0 unless another verdict fails.*
 47. **C2, `extend` candidates.** *Every other unit, including failed and skipped ones.*
 
 ### Guard (G1 to G9)

@@ -1,4 +1,4 @@
-// A1-A12: advice, hints, consolidation groups (A9) and the retire pass (A10).
+// A1-A12: advice, hints, consolidation groups (A9) and review candidates (A10).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { input, t, report, unit, mutant } from './engine-helpers.mjs';
@@ -112,7 +112,7 @@ test('A11 otherwise: keep with hint no-unique-coverage-unverified', () => {
 });
 
 // A unit `cand` whose lines are all covered by `big`, which also kills every mutant.
-const retireCase = (over = {}) => input({
+const reviewCase = (over = {}) => input({
   tests: [t('big', { durationsMs: [1, 1] }), t('cand', { durationsMs: [50, 50] })],
   cov: { big: { 'src/a.mjs': '1-10' }, cand: { 'src/a.mjs': '2-3' } },
   rechecked: ['cand'],
@@ -121,37 +121,37 @@ const retireCase = (over = {}) => input({
   ...over,
 });
 
-test('A10 mutation path: retire with no-unique-lines, no-unique-kills', () => {
-  const r = report(retireCase());
-  assert.deepEqual(advice(r, 'cand'), { advice: 'retire', reasons: ['no-unique-lines', 'no-unique-kills'], hints: [] });
-  assert.equal(r.report.suite.advice.retire, 1);
+test('A10 mutation path: keep with no-unique-evidence', () => {
+  const r = report(reviewCase());
+  assert.deepEqual(advice(r, 'cand'), { advice: 'keep', reasons: [], hints: ['no-unique-evidence'] });
+  assert.equal(Object.hasOwn(r.report.suite.advice, 'retire'), false);
 });
 
 test('A10 negatives: not rechecked, not targeted, missing mutation data, unique kills', () => {
   const keep = { advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified'] };
-  assert.deepEqual(advice(report(retireCase({ rechecked: [] })), 'cand'), keep);
-  assert.deepEqual(advice(report(retireCase({ targeted: [] })), 'cand'), keep);
-  assert.deepEqual(advice(report(retireCase({ mutants: undefined, targeted: undefined })), 'cand'), keep);
-  const killer = report(retireCase({ mutants: [mutant('m1', 2, ['cand'])] }));
+  assert.deepEqual(advice(report(reviewCase({ rechecked: [] })), 'cand'), keep);
+  assert.deepEqual(advice(report(reviewCase({ targeted: [] })), 'cand'), keep);
+  assert.deepEqual(advice(report(reviewCase({ mutants: undefined, targeted: undefined })), 'cand'), keep);
+  const killer = report(reviewCase({ mutants: [mutant('m1', 2, ['cand'])] }));
   assert.deepEqual(advice(killer, 'cand'), { advice: 'keep', reasons: ['unique-kills'], hints: [] });
 });
 
-test('A10 never retires protected, e2e or interpreter-spawning units', () => {
-  const crit = retireCase({ sources: { 'src/a.mjs': { coverable: '1-100' }, 'src/token.mjs': { coverable: '1-5' } } });
+test('A10 excludes protected, e2e or interpreter-spawning units', () => {
+  const crit = reviewCase({ sources: { 'src/a.mjs': { coverable: '1-100' }, 'src/token.mjs': { coverable: '1-5' } } });
   crit.coverage.byTest.cand['src/token.mjs'] = '1';
   crit.coverage.byTest.big['src/token.mjs'] = '1';
   assert.equal(unit(report(crit), 'cand').protected, true);
   assert.equal(unit(report(crit), 'cand').advice, 'keep');
 
-  const e2e = retireCase();
+  const e2e = reviewCase();
   e2e.tests[1].kind = 'e2e';
   assert.deepEqual(advice(report(e2e), 'cand'), { advice: 'keep', reasons: [], hints: ['low-evidence', 'no-unique-coverage-unverified'] });
-  const sp = retireCase();
+  const sp = reviewCase();
   sp.tests[1].spawnsInterpreter = true;
   assert.deepEqual(advice(report(sp), 'cand').hints, ['no-unique-coverage-unverified', 'spawns-interpreter']);
 });
 
-test('A10 duplicate path: retire with duplicate-of and the smallest qualifying duplicateOf', () => {
+test('A10 duplicate path: keep with the smallest qualifying duplicateOf', () => {
   const shape = range(20);
   const doc = input({
     tests: [t('cand', { durationsMs: [9, 9] }), t('v2'), t('v1')],
@@ -160,7 +160,7 @@ test('A10 duplicate path: retire with duplicate-of and the smallest qualifying d
     shapes: { cand: shape, v1: [...shape, 99], v2: shape },
   });
   const r = report(doc, { advice: { consolidate: false } });
-  assert.deepEqual(advice(r, 'cand'), { advice: 'retire', reasons: ['no-unique-lines', 'duplicate-of'], hints: [], duplicateOf: 'v1' });
+  assert.deepEqual(advice(r, 'cand'), { advice: 'keep', reasons: [], hints: ['no-unique-evidence'], duplicateOf: 'v1' });
   // v1's shape (20/21) is below a duplicateShape of 1, so only v2 qualifies.
   const strict = report(doc, { advice: { consolidate: false, duplicateShape: 1 } });
   assert.equal(unit(strict, 'cand').duplicateOf, 'v2');
@@ -171,7 +171,7 @@ test('A10 duplicate path: retire with duplicate-of and the smallest qualifying d
   assert.equal(unit(report(notSuperset, { advice: { consolidate: false } }), 'cand').advice, 'keep');
 });
 
-test('A10 joint safety: of two identical duplicates only the slower one retires', () => {
+test('A10 independent review: two identical duplicates both qualify', () => {
   const shape = range(20);
   const doc = input({
     tests: [t('fast', { durationsMs: [1, 1] }), t('slow', { durationsMs: [80, 80] })],
@@ -180,11 +180,11 @@ test('A10 joint safety: of two identical duplicates only the slower one retires'
     shapes: { fast: shape, slow: shape },
   });
   const r = report(doc, { advice: { consolidate: false } });
-  assert.deepEqual(advice(r, 'slow'), { advice: 'retire', reasons: ['no-unique-lines', 'duplicate-of'], hints: [], duplicateOf: 'fast' });
-  assert.deepEqual(advice(r, 'fast'), { advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified', 'retire-conflict'] });
+  assert.deepEqual(advice(r, 'slow'), { advice: 'keep', reasons: [], hints: ['no-unique-evidence'], duplicateOf: 'fast' });
+  assert.deepEqual(advice(r, 'fast'), { advice: 'keep', reasons: [], hints: ['no-unique-evidence'], duplicateOf: 'slow' });
 });
 
-test('A10 joint safety: the last killer of a mutant is not retired', () => {
+test('A10 mutation path: shared killers independently qualify for review', () => {
   const doc = input({
     tests: [t('x'), t('u', { durationsMs: [5, 5] }), t('w', { durationsMs: [7, 7] })],
     cov: { x: { 'src/a.mjs': '1-10' }, u: { 'src/a.mjs': '1' }, w: { 'src/a.mjs': '2' } },
@@ -193,15 +193,15 @@ test('A10 joint safety: the last killer of a mutant is not retired', () => {
     targeted: ['u', 'w'],
   });
   const r = report(doc);
-  assert.equal(unit(r, 'w').advice, 'retire'); // slower, considered first
-  assert.deepEqual(advice(r, 'u'), { advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified', 'retire-conflict'] });
+  assert.deepEqual(advice(r, 'w'), { advice: 'keep', reasons: [], hints: ['no-unique-evidence'] });
+  assert.deepEqual(advice(r, 'u'), { advice: 'keep', reasons: [], hints: ['no-unique-evidence'] });
 });
 
-test('A10 joint safety: a failed unit\'s coverage never stands in for a retired one', () => {
-  const doc = retireCase();
+test('A10: a failed unit alone cannot support the review hint', () => {
+  const doc = reviewCase();
   doc.tests[0].status = 'failed';
   const r = report(doc);
-  assert.deepEqual(advice(r, 'cand'), { advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified', 'retire-conflict'] });
+  assert.deepEqual(advice(r, 'cand'), { advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified'] });
 });
 
 test('A12 file granularity: null unique signals, keep with file-granularity, critical keeps reason', () => {
@@ -225,5 +225,5 @@ test('A12 file granularity: null unique signals, keep with file-granularity, cri
   ]);
   const one = input({ granularity: 'file', tests: [t('a')], byFile: { 'tests/a.test.mjs': { 'src/a.mjs': '1-5' } } });
   assert.deepEqual(report(one).report.files, [{ file: 'tests/a.test.mjs', uniqueLines: 5, hints: [] }]);
-  assert.equal(report(retireCase()).report.files, undefined); // only at file granularity
+  assert.equal(report(reviewCase()).report.files, undefined); // only at file granularity
 });

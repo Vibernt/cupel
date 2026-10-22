@@ -2,7 +2,7 @@
 
 import { cmp } from '../engine/order.mjs';
 
-const ADVICE_ORDER = ['retire', 'consolidate', 'rewrite', 'move-to-check', 'none'];
+const ADVICE_ORDER = ['consolidate', 'rewrite', 'move-to-check', 'none'];
 
 export function painter(enabled) {
   const wrap = (code) => (s) => (enabled ? `\x1b[${code}m${s}\x1b[0m` : String(s));
@@ -75,9 +75,9 @@ function plan(r, c) {
 
 function check(r, c) {
   return r.check.verdicts.map((v) => {
-    const colour = v.verdict === 'adds-value' ? c.green : c.red;
+    const colour = ['adds-value', 'no-unique-evidence'].includes(v.verdict) ? c.green : c.red;
     const extra = [];
-    if (v.verdict === 'adds-nothing') extra.push(v.extend ? `extend ${v.extend}` : 'overlaps nothing');
+    if (v.verdict === 'no-unique-evidence') extra.push(v.extend ? `extend ${v.extend}` : 'overlaps nothing');
     if (v.lost) extra.push(`lost ${lostText(v.lost)}`);
     if (v.brittle.length) extra.push(`brittle ${v.brittle.join(', ')}`);
     return `${colour(v.verdict)}  ${v.id}${extra.length ? c.dim(`  ${extra.join('; ')}`) : ''}`;

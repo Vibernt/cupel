@@ -78,13 +78,13 @@ test('C1 adds-value: critical, unique lines or unique kills; exit 0 when all add
   ]);
 });
 
-test('C2 adds-nothing: extend names the largest overlap, or null; exit 1', () => {
+test('C2 no-unique-evidence: extend names the largest overlap, or null; exit 0', () => {
   const r = check(['dup', 'lonely', 'r#1']);
-  assert.equal(r.exit, 1);
+  assert.equal(r.exit, 0);
   assert.deepEqual(r.report.check.verdicts, [
-    { id: 'dup', verdict: 'adds-nothing', extend: 'big', brittle: ['css-class'] },
-    { id: 'lonely', verdict: 'adds-nothing', extend: null, brittle: [] },
-    { id: 'r', verdict: 'adds-nothing', extend: 'killer', brittle: [] }, // a test id names its unit
+    { id: 'dup', verdict: 'no-unique-evidence', extend: 'big', brittle: ['css-class'] },
+    { id: 'lonely', verdict: 'no-unique-evidence', extend: null, brittle: [] },
+    { id: 'r', verdict: 'no-unique-evidence', extend: 'killer', brittle: [] }, // a test id names its unit
   ]);
 });
 
@@ -118,7 +118,7 @@ test('C3 negatives: no base, unit new at head, or a mutant gone at head', () => 
   const gone = checkDoc();
   gone.mutation.mutants = [];
   // m1 is not present at head, so it is not compared (C3); killer has no unique evidence left.
-  assert.equal(check(['killer'], { base: checkDoc(), head: gone }).report.check.verdicts[0].verdict, 'adds-nothing');
+  assert.equal(check(['killer'], { base: checkDoc(), head: gone }).report.check.verdicts[0].verdict, 'no-unique-evidence');
   // With no mutation data at head at all, the mutants detected at base count as lost (ENGINE-NOTES).
   const noData = checkDoc();
   delete noData.mutation;

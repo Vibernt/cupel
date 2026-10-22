@@ -10,8 +10,8 @@ Cupel never uses the network and never modifies your working tree. Every command
 
 | Command | Does |
 |---|---|
-| `cupel report [--input <file>] [--no-mutation] [--runs N] [--out <file>]` | Scores every test and gives advice. Without `--input` it collects the suite, runs mutation per config, re-checks and targets retire candidates (below), and writes the final input to `.cupel/input.json` (or `--out`) |
-| `cupel check <test ids or files…> [--base <ref> \| --base-input <file>] [--input <file>]` | Does a new or changed test add anything? A file argument expands to the units of the tests in that file. With a base, also reports tests that got weaker |
+| `cupel report [--input <file>] [--evidence] [--no-mutation] [--runs N] [--out <file>]` | Scores every test and gives advice. Without `--input` it collects the suite, runs mutation per config, and writes the input to `.cupel/input.json` (or `--out`). `--evidence` also re-checks and targets units needing more evidence |
+| `cupel check <test ids or files…> [--base <ref> \| --base-input <file>] [--input <file>]` | Reviews evidence for a new or changed test. A file argument expands to the units of the tests in that file. With a base, also reports tests that got weaker |
 | `cupel guard --base <ref> [--approvals <file>]` | Fails if coverage or critical mutation fell between the base and the working tree. `--base-input <file>` and `--head-input <file>` replace either side with a saved input |
 | `cupel plan [--changed <ref> \| --changed-lines <file>] [--input <file>]` | Priority order for a run: critical first, then tests affected by the change, then the rest |
 | `cupel label [--input <file>]` | Shows each unit's tier and why. Exits 1 on an unknown tag |
@@ -39,7 +39,8 @@ Per command:
 | `--input <file>` | report, check, plan, label | Read the input instead of collecting. `report --input` replays a saved input as is: no collection, no mutation, no second pass |
 | `--out <file>` | report, check, plan, label, import | Where to write the collected (or imported) input. `report` writes `.cupel/input.json` by default; the others write it only when asked |
 | `--runs N` | report, check, guard, plan, label | Collection repeats, for durations. Default 2 |
-| `--no-mutation` | report, check, guard | Skip mutation and the retire-evidence pass |
+| `--no-mutation` | report, check, guard | Skip mutation and the optional evidence pass |
+| `--evidence` | report | Re-check units with `no-unique-coverage-unverified` and run targeted mutation; needs collection and mutation |
 | `--base <ref>` | check, guard | Collect the base from a git ref |
 | `--base-input <file>`, `--head-input <file>` | check, guard | Saved inputs for either side (`check` also takes the head as `--input`) |
 | `--approvals <file>` | guard | A JSON list of `{ "action": "remove" \| "downgrade", "id", "by" }`, or an object with that list as `approvals` |
@@ -64,12 +65,12 @@ Per command:
 - **Collection** uses the node:test collector. When it is not installed, any command that must collect exits 3 with `collector not available`; everything that takes `--input`, `--base-input` or `--head-input` still works.
 - **Mutation** follows config `mutation`: critical sources, and for `check` and `guard` with `--base`, changed lines. When the mutation module is missing, Cupel says so and continues without mutation data (missing data is never "no kill").
 - **`--base <ref>`** runs `git archive <ref>` and unpacks it into a fresh directory under the system temp directory, runs `runners.node.prepare` there, collects, and removes the directory. It never checks out, stashes or writes anything in your repository. Mutants detected at base that survive at head are re-run (K7).
-- **Retire evidence.** `report` runs the engine once, takes the units that end with hint `no-unique-coverage-unverified` and no `retire-conflict` (at most `mutation.maxMutants` of them, by id), re-checks each in its own process, runs targeted mutation on their own lines, and runs the engine again. This needs both the collector and the mutation module, and is skipped with `--no-mutation`.
+- **Optional review evidence.** With `--evidence`, `report` runs the engine once, takes the units that end with hint `no-unique-coverage-unverified` (at most `mutation.maxMutants` of them, by id), re-checks each in its own process, runs targeted mutation on their own lines, and runs the engine again. This needs both the collector and the mutation module. It is skipped with `--no-mutation`. Without `--evidence`, report collects and runs mutation per config once.
 - **Changed lines** (`--changed`): added or modified lines count by their line numbers in the new file. A hunk that only deletes lines marks the line before it. New, untracked (not ignored) and binary files count as changed in full. Deleted files are left out. Renames count as a new file.
 
 ## Importing JUnit XML
 
-`cupel import --format junit results.xml [more.xml…]` turns JUnit XML into an input with tests, statuses and `durationsMs`, empty `sources`, and `file` granularity coverage with no `byFile`. The engine can then plan, label and report, but never advises retiring a test from results alone.
+`cupel import --format junit results.xml [more.xml…]` turns JUnit XML into an input with tests, statuses and `durationsMs`, empty `sources`, and `file` granularity coverage with no `byFile`. The engine can then plan, label and report. Cupel never advises removing a test.
 
 - **Ids** are `<file or classname>::<name>`. The first part is the testcase's `file` attribute, else its `classname`, else the nearest enclosing testsuite's `file`, else its `name`.
 - **Status**: a `<failure>` or `<error>` child means failed, `<skipped>` means skipped, anything else passed (including surefire's `<flakyFailure>`).

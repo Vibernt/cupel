@@ -32,9 +32,9 @@ const B = { type: 'boolean' };
 
 const COMMANDS = {
   report: {
-    usage: 'cupel report [--input <file>] [--no-mutation] [--runs N] [--out <file>] [--generated-at <text>]',
+    usage: 'cupel report [--input <file>] [--evidence] [--no-mutation] [--runs N] [--out <file>] [--generated-at <text>]',
     about: 'score every test and give advice',
-    options: { input: S, out: S, 'no-mutation': B, runs: S, 'generated-at': S },
+    options: { input: S, out: S, evidence: B, 'no-mutation': B, runs: S, 'generated-at': S },
   },
   check: {
     usage: 'cupel check <test ids or files...> [--base <ref> | --base-input <file>] [--input <file>] [--no-mutation] [--runs N]',
@@ -288,10 +288,10 @@ const commands = {
     let { input } = got;
     let result = ctx.engine('report', { input });
     const { collector, mutator, cfg } = got;
-    if (got.collected && mutator && result.exit === EXIT_OK) {
-      // Retire evidence (D5): re-check and target units that could retire with more evidence.
+    if (got.collected && ctx.o.evidence && mutator && result.exit === EXIT_OK) {
+      // Optional evidence pass: re-check units whose unique coverage is unverified.
       const candidates = result.report.units
-        .filter((u) => u.hints.includes('no-unique-coverage-unverified') && !u.hints.includes('retire-conflict'))
+        .filter((u) => u.hints.includes('no-unique-coverage-unverified'))
         .map((u) => u.id)
         .slice(0, cfg.mutation.maxMutants);
       if (candidates.length) {

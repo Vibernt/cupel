@@ -36,6 +36,13 @@ test('the package ships schemas identical to spec/schemas (copy them over after 
   }
 });
 
+test('check prints informational no-unique-evidence and exits 0', () => {
+  const r = cli('check', 'new2', '--input', `${CASES}035-check-no-unique-evidence/input.json`);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^no-unique-evidence {2}new2 {2}extend old$/m);
+  assert.doesNotMatch(r.stdout, /adds-nothing|retire/);
+});
+
 test('validate: a good input, report and config exit 0', () => {
   const input = `${CASES}001-report-minimal/input.json`;
   const report = tmp('report.json', run('report', { input: read(input) }, {}, {}, schemas).report);
@@ -105,7 +112,7 @@ test('import --format junit: nested suites, failure, error, skipped, reruns and 
   assert.equal(written.tests.find((t) => t.name === 'pending').status, 'skipped');
   assert.deepEqual(written.runtime, { name: 'unknown', version: 'unknown' });
 
-  // The imported input drives the engine: file granularity, no advice to retire.
+  // The imported input drives the engine at file granularity.
   const rep = cli('report', '--input', join(CWD, 'junit-input.json'), '--json');
   assert.equal(rep.status, 0, rep.stderr);
   assert.equal(JSON.parse(rep.stdout).suite.failed, 2);
@@ -163,8 +170,8 @@ test('usage errors exit 2', () => {
     ['guard', '--head-input', `${CASES}040-guard-pass/head.json`],
     ['guard', '--base', '--upload-pack=x', '--head-input', `${CASES}040-guard-pass/head.json`],
     ['guard', '--base', 'main', '--base-input', `${CASES}040-guard-pass/base.json`],
-    ['check', '--input', `${CASES}035-check-adds-nothing/input.json`],
-    ['check', '--input', `${CASES}035-check-adds-nothing/input.json`, '--head-input', `${CASES}035-check-adds-nothing/input.json`, 'x'],
+    ['check', '--input', `${CASES}035-check-no-unique-evidence/input.json`],
+    ['check', '--input', `${CASES}035-check-no-unique-evidence/input.json`, '--head-input', `${CASES}035-check-no-unique-evidence/input.json`, 'x'],
     ['plan', '--changed', 'HEAD', '--changed-lines', 'x.json'],
     ['plan', '--input', join(CWD, 'missing.json')],
     ['report', '--input', `${CASES}001-report-minimal/input.json`, '--config', join(CWD, 'missing.json')],
