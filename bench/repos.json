@@ -78,16 +78,14 @@
     "test": "npm test",
     "cupelConfig": {
       "runners": {
-        "vitest": {
-          "tests": "{src,dev-server}/**/__tests__/**/*.test.{ts,tsx}"
-        }
+        "vitest": {}
       },
       "mutation": {
         "maxMutants": 300,
         "maxSeconds": 1200
       }
     },
-    "notes": "vitest.config.ts includes only src and dev-server tests. Excludes Playwright e2e, Tauri/Rust, voice sidecar and GPU or desktop workloads."
+    "notes": "vitest.config.ts includes only src and dev-server tests. Excludes Playwright e2e, Tauri/Rust, voice sidecar and GPU or desktop workloads. Cupel uses the repo vitest.config.ts include list (its own globs have no brace expansion)."
   },
   {
     "name": "zotero-mcp",
