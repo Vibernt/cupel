@@ -1,0 +1,1018 @@
+[
+  {
+    "unit": "tests/configuration.test.mjs::every registered name is still read somewhere in src/ (no stale entries)",
+    "file": "tests/configuration.test.mjs",
+    "ownLines": 22,
+    "ownLineMutants": 11,
+    "ownLineMutantsDetected": 8,
+    "ownLineMutantsSurvived": 3,
+    "topOverlap": [
+      {
+        "unit": "tests/configuration.test.mjs::every Worker variable, secret and binding read in src/ is registered",
+        "sharedLines": 22
+      },
+      {
+        "unit": "tests/configuration.test.mjs::the scanner finds every form of read and skips files whose env is not the Worker's",
+        "sharedLines": 22
+      }
+    ]
+  },
+  {
+    "unit": "tests/connected-scans.test.mjs::the metrics pack runs its ready-made step in the plain quality job",
+    "file": "tests/connected-scans.test.mjs",
+    "ownLines": 27,
+    "ownLineMutants": 19,
+    "ownLineMutantsDetected": 18,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/check-packs.test.mjs::a compiled pack job is a valid pipeline job",
+        "sharedLines": 27
+      },
+      {
+        "unit": "tests/check-packs.test.mjs::a pack compiles to one ordinary job; advisory packs never make their report required",
+        "sharedLines": 27
+      },
+      {
+        "unit": "tests/check-packs.test.mjs::adopting is a human decision, always advisory, and a framework pack needs its base pack",
+        "sharedLines": 27
+      }
+    ]
+  },
+  {
+    "unit": "tests/design-components.test.mjs::timeRangeBounds: presets end now and start one span earlier, with their labels",
+    "file": "tests/design-components.test.mjs",
+    "ownLines": 18,
+    "ownLineMutants": 13,
+    "ownLineMutantsDetected": 12,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/design-components.test.mjs::timeRangeBounds: invalid input falls back to the default range",
+        "sharedLines": 18
+      },
+      {
+        "unit": "tests/design-components.test.mjs::vi-time-range: shows the label, a preset applies at once, a custom range is checked, the URL keeps it",
+        "sharedLines": 18
+      },
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+        "sharedLines": 18
+      }
+    ]
+  },
+  {
+    "unit": "tests/eval-annotations.test.mjs::deterministic sampling is stable and close to the requested share",
+    "file": "tests/eval-annotations.test.mjs",
+    "ownLines": 7,
+    "ownLineMutants": 4,
+    "ownLineMutantsDetected": 4,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/capture-running-totals.test.mjs::an online-rule abstention or a preview-graded score is recorded but is no failure in the tally or the trend",
+        "sharedLines": 7
+      },
+      {
+        "unit": "tests/capture-running-totals.test.mjs::online scores keep a daily tally: the score rows are counted once, not on every score",
+        "sharedLines": 7
+      },
+      {
+        "unit": "tests/capture-running-totals.test.mjs::task scores keep a daily tally, and a human verdict on an abstention is counted in it",
+        "sharedLines": 7
+      }
+    ]
+  },
+  {
+    "unit": "tests/eval-checks.test.mjs::conversation data: the turns before the final request, system turns left out, null for one turn",
+    "file": "tests/eval-checks.test.mjs",
+    "ownLines": 4,
+    "ownLineMutants": 10,
+    "ownLineMutantsDetected": 10,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/eval-annotations.test.mjs::assigned reviewers only; agent tokens can never decide",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/eval-annotations.test.mjs::sampled review: separation of duties, assigned reviewers, labels, second reviewer on disagreement, kappa",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/eval-github.test.mjs::AI surface from the repository: unrelated code skips, a prompt change runs with a diff, [eval:force] runs",
+        "sharedLines": 4
+      }
+    ]
+  },
+  {
+    "unit": "tests/eval-checks.test.mjs::grader-directed text is recognised without flagging ordinary uses of the same words",
+    "file": "tests/eval-checks.test.mjs",
+    "ownLines": 3,
+    "ownLineMutants": 1,
+    "ownLineMutantsDetected": 1,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/jev-calibration.test.mjs::eval judge: every verdict records its question-set version; confident verdicts can be audited without changing the case",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/jev.test.mjs::LLM judge request: a system message, the request and every piece of case text tagged as data, reason first, temperature 0",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/jev.test.mjs::a byte-identical output inherits the baseline verdict for the same check without a Jev call; any change is judged",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/feature-guide.test.mjs::every entry is complete and uses the closed vocabularies",
+    "file": "tests/feature-guide.test.mjs",
+    "ownLines": 2,
+    "ownLineMutants": 2,
+    "ownLineMutantsDetected": 2,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/feature-guide.test.mjs::the texts follow the price list: change the list and the guide changes with it",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/pricing.test.mjs::docs/PRICING.md: the price list block is generated from the list and is current",
+        "sharedLines": 2
+      }
+    ]
+  },
+  {
+    "unit": "tests/feature-guide.test.mjs::the texts follow the price list: change the list and the guide changes with it",
+    "file": "tests/feature-guide.test.mjs",
+    "ownLines": 17,
+    "ownLineMutants": 12,
+    "ownLineMutantsDetected": 12,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/pricing.test.mjs::docs/PRICING.md: the price list block is generated from the list and is current",
+        "sharedLines": 17
+      },
+      {
+        "unit": "tests/feature-guide.test.mjs::every entry is complete and uses the closed vocabularies",
+        "sharedLines": 2
+      }
+    ]
+  },
+  {
+    "unit": "tests/legal-pages.test.mjs::legal pages: each page renders with its title, effective date, company details, nav and canonical link",
+    "file": "tests/legal-pages.test.mjs",
+    "ownLines": 5,
+    "ownLineMutants": 3,
+    "ownLineMutantsDetected": 3,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/legal-pages.test.mjs::legal pages: no script, inline style or third-party resource, and the bundled module is current",
+        "sharedLines": 5
+      }
+    ]
+  },
+  {
+    "unit": "tests/legal-pages.test.mjs::legal texts: the five published texts are the only source, with no draft notes or placeholders left",
+    "file": "tests/legal-pages.test.mjs",
+    "ownLines": 7,
+    "ownLineMutants": 5,
+    "ownLineMutantsDetected": 5,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/legal-pages.test.mjs::legal pages: no script, inline style or third-party resource, and the bundled module is current",
+        "sharedLines": 7
+      },
+      {
+        "unit": "tests/legal-pages.test.mjs::legal texts: the placeholder check catches brackets that are not links (negative)",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/merge-guards.test.mjs::test counts: the manifest is one file per line, sorted, with no total to conflict on",
+    "file": "tests/merge-guards.test.mjs",
+    "ownLines": 3,
+    "ownLineMutants": 1,
+    "ownLineMutantsDetected": 1,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/merge-guards.test.mjs::test counts: a file that loses tests fails the check and names the file and the fix",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/merge-guards.test.mjs::test counts: added tests also fail until recorded, with the plain update command",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/merge-guards.test.mjs::test counts: the update script records additions, and refuses a loss unless told to",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/model-call-switches.test.mjs::the new model-call switches are AI switches, off everywhere by default, and documented",
+    "file": "tests/model-call-switches.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 13,
+    "ownLineMutantsDetected": 11,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/jev.test.mjs::rubric and preset checks graded by Jev are judge verdicts too, and reach the calibration",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/eval-suites.test.mjs::a judge-call cap per suite run: the upper-bound estimate is shown before a run and a run over the cap is refused",
+        "sharedLines": 5
+      },
+      {
+        "unit": "tests/model-call-switches.test.mjs::online rules that call a judge need evalProductionScoring and sample at most 25%; deterministic rules are unchanged",
+        "sharedLines": 5
+      }
+    ]
+  },
+  {
+    "unit": "tests/pricing.test.mjs::the published sheets: every size is its vCPU times the vCPU-minute price, and published versions are frozen",
+    "file": "tests/pricing.test.mjs",
+    "ownLines": 4,
+    "ownLineMutants": 5,
+    "ownLineMutantsDetected": 5,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/billing-admission.test.mjs::admitted work continues within the soft margin and stops past it (continue phase)",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/billing-admission.test.mjs::an exempt workspace is admitted whatever it used; the operator can bill it, with a reason",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/billing-admission.test.mjs::credits bought raise what is available; a known-negative workspace stays refused even when the mirror is stale",
+        "sharedLines": 4
+      }
+    ]
+  },
+  {
+    "unit": "tests/registries.test.mjs::registries: route order is the index's order and still decides the match",
+    "file": "tests/registries.test.mjs",
+    "ownLines": 13,
+    "ownLineMutants": 7,
+    "ownLineMutantsDetected": 7,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/access.test.mjs::a workspace-granting invite creates one workspace, however many requests race for it (negative)",
+        "sharedLines": 13
+      },
+      {
+        "unit": "tests/access.test.mjs::an invite revoked between the link request and the sign-in refuses the sign-in",
+        "sharedLines": 13
+      },
+      {
+        "unit": "tests/access.test.mjs::closed mode ignores the allowlist and new invites; people already admitted still sign in",
+        "sharedLines": 13
+      }
+    ]
+  },
+  {
+    "unit": "tests/registries.test.mjs::registries: the global table keeps the families that answered by prefix",
+    "file": "tests/registries.test.mjs",
+    "ownLines": 3,
+    "ownLineMutants": 3,
+    "ownLineMutantsDetected": 3,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/access.test.mjs::a workspace-granting invite creates one workspace, however many requests race for it (negative)",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/access.test.mjs::an invite revoked between the link request and the sign-in refuses the sign-in",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/access.test.mjs::closed mode ignores the allowlist and new invites; people already admitted still sign in",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/rename-assay.test.mjs::the OpenAPI title is Vibernt Assay API; the paths stay",
+    "file": "tests/rename-assay.test.mjs",
+    "ownLines": 102,
+    "ownLineMutants": 17,
+    "ownLineMutantsDetected": 7,
+    "ownLineMutantsSurvived": 10,
+    "topOverlap": [
+      {
+        "unit": "tests/api-retry-safe.test.mjs::every retry-safe create advertises an optional Idempotency-Key in OpenAPI",
+        "sharedLines": 102
+      },
+      {
+        "unit": "tests/api.test.mjs::OpenAPI is generated from the route registry and has every operation",
+        "sharedLines": 102
+      },
+      {
+        "unit": "tests/console-host.test.mjs::host routing: ci.vibernt.ai redirects the console pages to assay.vibernt.ai and keeps everything else",
+        "sharedLines": 102
+      }
+    ]
+  },
+  {
+    "unit": "tests/source-hygiene.test.mjs::this repository tracks no symlinks, and its JavaScript and Python sources have no literal NUL bytes",
+    "file": "tests/source-hygiene.test.mjs",
+    "ownLines": 4,
+    "ownLineMutants": 7,
+    "ownLineMutantsDetected": 5,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/source-hygiene.test.mjs::symlinks: a committed symlink is found in a git checkout, an ignored local one is not",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/source-hygiene.test.mjs::symlinks: an extracted source archive (no .git) is walked on disk, skipping installed tooling",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/test-intelligence.test.mjs::glob matching for workspace members and always-run patterns",
+    "file": "tests/test-intelligence.test.mjs",
+    "ownLines": 16,
+    "ownLineMutants": 20,
+    "ownLineMutantsDetected": 18,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/fanout.test.mjs::plan: groups by services and serial; tiny groups merge into a compatible one; serial files run alone",
+        "sharedLines": 16
+      },
+      {
+        "unit": "tests/import-graph-ruby.test.mjs::ruby graph: deterministic, and the Ruby extractor version is part of every graph and cache key",
+        "sharedLines": 16
+      },
+      {
+        "unit": "tests/import-graph-ruby.test.mjs::ruby resolve (Rails): boot chain, Bundler.require of path gems, helper globs, Zeitwerk constants, associations and STI",
+        "sharedLines": 16
+      }
+    ]
+  },
+  {
+    "unit": "tests/tia-precise-monorepo.test.mjs::graph: a dist-only exports entry is traced to its source; an untraceable entry is a whole-package reference with its reason",
+    "file": "tests/tia-precise-monorepo.test.mjs",
+    "ownLines": 10,
+    "ownLineMutants": 7,
+    "ownLineMutantsDetected": 6,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/import-graph-csharp.test.mjs::csharp resolve: <Using> items of .props files apply everywhere; computed compile items keep the package rule",
+        "sharedLines": 10
+      },
+      {
+        "unit": "tests/import-graph-csharp.test.mjs::csharp resolve: usings by project, global usings from files and project items, parent namespaces by name, partial classes, F# projects",
+        "sharedLines": 10
+      },
+      {
+        "unit": "tests/import-graph-java.test.mjs::jvm resolve (Maven, Spring): imports, the same package, qualified names, Kotlin top-level functions and the fallbacks",
+        "sharedLines": 10
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-connect-agent.test.mjs::model: the user code as the CLI prints it, in any case and spacing; anything else is no code",
+    "file": "tests/ui-connect-agent.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 5,
+    "ownLineMutantsDetected": 5,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/agent-connect-code.test.mjs::user code: the API and the console code field use the one definition, not a copy of its letters",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-agent-connect.test.mjs::a viewer cannot approve or deny; an unknown code says so; the code is normalized",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-contexts.test.mjs::redirect helpers: keep the other query parameters, send only the old values, and move whole pages",
+    "file": "tests/ui-contexts.test.mjs",
+    "ownLines": 14,
+    "ownLineMutants": 20,
+    "ownLineMutantsDetected": 20,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-first-hour-volt.test.mjs::Project sections: every old ?tab= of the project page lands on its route with the other query parameters kept",
+        "sharedLines": 14
+      },
+      {
+        "unit": "tests/ui-project-quality.test.mjs::sections: one table of the project context, every path a route, every old tab mapped",
+        "sharedLines": 14
+      },
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit helpers (negative): loops, dead targets, catch-alls and dropped parameters are caught; the rules flag broken markup",
+        "sharedLines": 14
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-contexts.test.mjs::sidebar preference: the rail beside a context unless pinned, collapsed everywhere when chosen",
+    "file": "tests/ui-contexts.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 8,
+    "ownLineMutantsDetected": 8,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-contexts.test.mjs::shell: a context turns the menu into the rail with tooltips; pointing at it opens the overlay; pinning keeps it open",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-shell-volt.test.mjs::shell: the collapse toggle turns the sidebar into a rail with tooltips and remembers the choice",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-billing.test.mjs::Operator console, Billing: configuration status without values, workspaces, grants and attention lists",
+        "sharedLines": 2
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-fanout.test.mjs::a finished group: wall time, straggler ratio, stragglers handled, containers stopped, the copy's fate",
+    "file": "tests/ui-fanout.test.mjs",
+    "ownLines": 9,
+    "ownLineMutants": 13,
+    "ownLineMutantsDetected": 12,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/fail-fast.test.mjs::time to verdict in the speed report: run samples carry it; pull requests and red runs on their own",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: every workspace write for the demo is refused with DEMO_READ_ONLY and never sent",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: the live event stream is never opened for the demo",
+        "sharedLines": 9
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-fanout.test.mjs::a planned group: shards, expected wall and cost against one container, the copy, a cap",
+    "file": "tests/ui-fanout.test.mjs",
+    "ownLines": 11,
+    "ownLineMutants": 18,
+    "ownLineMutantsDetected": 16,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-agents.test.mjs::agent task detail: breadcrumb names the task, key facts, tabs, cancel for those who may; never the prompt",
+        "sharedLines": 11
+      },
+      {
+        "unit": "tests/ui-contexts.test.mjs::shell: the Settings context sidebar: search, accordion, aria-current, counts kept across pages; area bars gone",
+        "sharedLines": 11
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: demo reads come from the snapshot only, and a real workspace is never answered from it",
+        "sharedLines": 11
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-fanout.test.mjs::cost-aware fan-out on the card: the cost cap, the actual cost and where the rest of the time went",
+    "file": "tests/ui-fanout.test.mjs",
+    "ownLines": 12,
+    "ownLineMutants": 19,
+    "ownLineMutantsDetected": 17,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: every workspace write for the demo is refused with DEMO_READ_ONLY and never sent",
+        "sharedLines": 12
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: the live event stream is never opened for the demo",
+        "sharedLines": 12
+      },
+      {
+        "unit": "tests/ui-drop-in.test.mjs::drop-in page renders the jobs, the month and the switch state",
+        "sharedLines": 12
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-get-started-agent.test.mjs::the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART",
+    "file": "tests/ui-get-started-agent.test.mjs",
+    "ownLines": 22,
+    "ownLineMutants": 1,
+    "ownLineMutantsDetected": 1,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::dialog (negative): a viewer gets the prompt and who to ask, never a code field or a token link",
+        "sharedLines": 22
+      },
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one",
+        "sharedLines": 22
+      },
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::dialog: the shared panel with this workspace's origin, a sheet-ready native dialog, the code field and its links",
+        "sharedLines": 22
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-job-labels.test.mjs::view models keep the label next to the key",
+    "file": "tests/ui-job-labels.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 7,
+    "ownLineMutantsDetected": 6,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-agents.test.mjs::agent task detail: breadcrumb names the task, key facts, tabs, cancel for those who may; never the prompt",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-audit-r3-r8.test.mjs::r5: the prompts are information only for people who cannot act; owners keep the button",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-audit-r3-r8.test.mjs::r8: recent runs keep Started in view: priorities drop Trigger, then Duration, in a narrow card; phones keep every column",
+        "sharedLines": 6
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-merge-policy-editor.test.mjs::the API request is the real endpoint with the real body, quoted for a shell",
+    "file": "tests/ui-merge-policy-editor.test.mjs",
+    "ownLines": 3,
+    "ownLineMutants": 1,
+    "ownLineMutantsDetected": 1,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-merge-policy-editor.test.mjs::editor page: \"Why this change\" is counted, trimmed, sent with the proposal and shown in the API request",
+        "sharedLines": 3
+      },
+      {
+        "unit": "tests/ui-merge-policy-editor.test.mjs::editor page: When/Then rows, changes from the active version, Text view and Propose change with the kept keys",
+        "sharedLines": 3
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-pr-selection.test.mjs::offer: shown until pull requests are selected, with the estimate labelled and the action for people who can",
+    "file": "tests/ui-pr-selection.test.mjs",
+    "ownLines": 9,
+    "ownLineMutants": 19,
+    "ownLineMutantsDetected": 15,
+    "ownLineMutantsSurvived": 4,
+    "topOverlap": [
+      {
+        "unit": "tests/drop-in-predict.test.mjs::the console's view: started warm (predicted by), the settings form body, rows and the beacon debounce",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/push-signals.test.mjs::System, Signals and test history: the push signals card for the operator; a workspace owner reads nothing operator-only",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/push-signals.test.mjs::pushWindow: counters, the timeout share and overhead per running minute from the metered rows",
+        "sharedLines": 9
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-quality.test.mjs::web performance: a direction is named for a screen reader, not only drawn as an arrow",
+    "file": "tests/ui-quality.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 5,
+    "ownLineMutantsDetected": 5,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-quality.test.mjs::web performance: every arrow the page draws for a real comparison matches the sign of the change",
+        "sharedLines": 5
+      },
+      {
+        "unit": "tests/ui-quality.test.mjs::web performance: the arrow is the way the number moved, so a score that dropped points down",
+        "sharedLines": 5
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-quality.test.mjs::web performance: the arrow is the way the number moved, so a score that dropped points down",
+    "file": "tests/ui-quality.test.mjs",
+    "ownLines": 5,
+    "ownLineMutants": 5,
+    "ownLineMutantsDetected": 5,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-quality.test.mjs::web performance: a direction is named for a screen reader, not only drawn as an arrow",
+        "sharedLines": 5
+      },
+      {
+        "unit": "tests/ui-quality.test.mjs::web performance: every arrow the page draws for a real comparison matches the sign of the change",
+        "sharedLines": 5
+      },
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+        "sharedLines": 5
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-quarantine.test.mjs::quarantine rows: the closed loop's progress, cost and escalation in words",
+    "file": "tests/ui-quarantine.test.mjs",
+    "ownLines": 2,
+    "ownLineMutants": 2,
+    "ownLineMutantsDetected": 2,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/design-components.test.mjs::vi-meter: tone thresholds at 80% and 100%, aria values on the ring",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/drop-in-predict.test.mjs::the console's view: started warm (predicted by), the settings form body, rows and the beacon debounce",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/fail-fast.test.mjs::time to verdict in the speed report: run samples carry it; pull requests and red runs on their own",
+        "sharedLines": 2
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-quarantine.test.mjs::shard plans: basis, balance and legs; no estimate by file count",
+    "file": "tests/ui-quarantine.test.mjs",
+    "ownLines": 10,
+    "ownLineMutants": 17,
+    "ownLineMutantsDetected": 15,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-agents.test.mjs::agent tasks list: a viewer sees the tasks but no create action and no device approvals",
+        "sharedLines": 10
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: every workspace write for the demo is refused with DEMO_READ_ONLY and never sent",
+        "sharedLines": 10
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: the live event stream is never opened for the demo",
+        "sharedLines": 10
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-quarantine.test.mjs::the run page quarantine summary",
+    "file": "tests/ui-quarantine.test.mjs",
+    "ownLines": 2,
+    "ownLineMutants": 2,
+    "ownLineMutantsDetected": 2,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/design-components.test.mjs::vi-meter: tone thresholds at 80% and 100%, aria values on the ring",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/drop-in-predict.test.mjs::the console's view: started warm (predicted by), the settings form body, rows and the beacon debounce",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/fail-fast.test.mjs::time to verdict in the speed report: run samples carry it; pull requests and red runs on their own",
+        "sharedLines": 2
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-review-settings.test.mjs::review settings model: budget inputs carry the API bounds, and \"Block at\" never offers critical",
+    "file": "tests/ui-review-settings.test.mjs",
+    "ownLines": 8,
+    "ownLineMutants": 3,
+    "ownLineMutantsDetected": 3,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-review-settings.test.mjs::review settings: a developer edits the policy but never sees the model controls, and its save carries no model field",
+        "sharedLines": 8
+      },
+      {
+        "unit": "tests/ui-review-settings.test.mjs::review settings: a preset fills the mapping in one click; editing a category makes it Custom",
+        "sharedLines": 8
+      },
+      {
+        "unit": "tests/ui-review-settings.test.mjs::review settings: a version conflict changes nothing and offers a reload",
+        "sharedLines": 8
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context",
+    "file": "tests/ui-route-audit.test.mjs",
+    "ownLines": 21,
+    "ownLineMutants": 16,
+    "ownLineMutantsDetected": 15,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+        "sharedLines": 21
+      },
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes",
+        "sharedLines": 21
+      },
+      {
+        "unit": "tests/ui-structure.test.mjs::evaluations: the old URLs of moved pages redirect, keeping their query",
+        "sharedLines": 15
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-settings.test.mjs::settings: a target connection test reads as a sentence in the audit log, under Releases",
+    "file": "tests/ui-settings.test.mjs",
+    "ownLines": 9,
+    "ownLineMutants": 11,
+    "ownLineMutantsDetected": 11,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-settings.test.mjs::settings: audit events get categories, sentences and tones",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+        "sharedLines": 7
+      },
+      {
+        "unit": "tests/ui-settings.test.mjs::Settings, Audit log: a target connection test is listed with its sentence, not its event type",
+        "sharedLines": 7
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-shell-volt.test.mjs::nav: only off areas with a data check are checked, once",
+    "file": "tests/ui-shell-volt.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 15,
+    "ownLineMutantsDetected": 15,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::Create API token: the Coding agent preset labels the token for a coding agent; another preset or an edit does not",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::dialog (negative): a viewer gets the prompt and who to ask, never a code field or a token link",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one",
+        "sharedLines": 6
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-slower-tests.test.mjs::every empty state says why: no project, no history, too few commits, over the budget, nothing slower, switch off",
+    "file": "tests/ui-slower-tests.test.mjs",
+    "ownLines": 2,
+    "ownLineMutants": 2,
+    "ownLineMutantsDetected": 2,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/design-components.test.mjs::vi-meter: tone thresholds at 80% and 100%, aria values on the ring",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/drop-in-predict.test.mjs::the console's view: started warm (predicted by), the settings form body, rows and the beacon debounce",
+        "sharedLines": 2
+      },
+      {
+        "unit": "tests/fail-fast.test.mjs::time to verdict in the speed report: run samples carry it; pull requests and red runs on their own",
+        "sharedLines": 2
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-slower-tests.test.mjs::the test page verdict: slower with its run, steady, not current, or not enough runs",
+    "file": "tests/ui-slower-tests.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 7,
+    "ownLineMutantsDetected": 6,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-agents.test.mjs::agent task detail: breadcrumb names the task, key facts, tabs, cancel for those who may; never the prompt",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-audit-r3-r8.test.mjs::r5: the prompts are information only for people who cannot act; owners keep the button",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-audit-r3-r8.test.mjs::r8: recent runs keep Started in view: priorities drop Trigger, then Duration, in a narrow card; phones keep every column",
+        "sharedLines": 6
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-slower-tests.test.mjs::view models: the sentence, the row, durations to a tenth of a second",
+    "file": "tests/ui-slower-tests.test.mjs",
+    "ownLines": 6,
+    "ownLineMutants": 7,
+    "ownLineMutantsDetected": 6,
+    "ownLineMutantsSurvived": 1,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-agents.test.mjs::agent task detail: breadcrumb names the task, key facts, tabs, cancel for those who may; never the prompt",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-audit-r3-r8.test.mjs::r5: the prompts are information only for people who cannot act; owners keep the button",
+        "sharedLines": 6
+      },
+      {
+        "unit": "tests/ui-audit-r3-r8.test.mjs::r8: recent runs keep Started in view: priorities drop Trigger, then Duration, in a narrow card; phones keep every column",
+        "sharedLines": 6
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-tests-routes.test.mjs::old ?tab= links redirect to their route and keep every other parameter",
+    "file": "tests/ui-tests-routes.test.mjs",
+    "ownLines": 14,
+    "ownLineMutants": 20,
+    "ownLineMutantsDetected": 20,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-contexts.test.mjs::redirect helpers: keep the other query parameters, send only the old values, and move whole pages",
+        "sharedLines": 14
+      },
+      {
+        "unit": "tests/ui-first-hour-volt.test.mjs::Project sections: every old ?tab= of the project page lands on its route with the other query parameters kept",
+        "sharedLines": 14
+      },
+      {
+        "unit": "tests/ui-project-quality.test.mjs::sections: one table of the project context, every path a route, every old tab mapped",
+        "sharedLines": 14
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-tests-routes.test.mjs::palette: every Tests section is a page entry on its route",
+    "file": "tests/ui-tests-routes.test.mjs",
+    "ownLines": 4,
+    "ownLineMutants": 1,
+    "ownLineMutantsDetected": 1,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-tests.test.mjs::settings form body and routes",
+        "sharedLines": 4
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-tests.test.mjs::skip risk shows no number until calibrated",
+    "file": "tests/ui-tests.test.mjs",
+    "ownLines": 4,
+    "ownLineMutants": 9,
+    "ownLineMutantsDetected": 6,
+    "ownLineMutantsSurvived": 3,
+    "topOverlap": [
+      {
+        "unit": "tests/design-components.test.mjs::vi-meter: no limit shows the used value, an empty ring and \"No limit\"; formats apply",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/design-components.test.mjs::vi-meter: tone thresholds at 80% and 100%, aria values on the ring",
+        "sharedLines": 4
+      },
+      {
+        "unit": "tests/drop-in-predict.test.mjs::the console's view: started warm (predicted by), the settings form body, rows and the beacon debounce",
+        "sharedLines": 4
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-tests.test.mjs::why no bisection: every reason code has a label, and only the settings-dependent ones link to settings",
+    "file": "tests/ui-tests.test.mjs",
+    "ownLines": 9,
+    "ownLineMutants": 13,
+    "ownLineMutantsDetected": 11,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/test-history.test.mjs::a failed default-branch full run that starts no bisection records exactly one reason (negative cases)",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/test-history.test.mjs::run test impact: a failed default-branch run says why it started no bisection, to readers of its project only",
+        "sharedLines": 9
+      },
+      {
+        "unit": "tests/test-history-packs.test.mjs::a populated history with rows from before schema version 2 moves to four shards and back without loss",
+        "sharedLines": 8
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui-web-metric-labels.test.mjs::labels: one map for every budget metric, with units; an unknown metric keeps its key",
+    "file": "tests/ui-web-metric-labels.test.mjs",
+    "ownLines": 8,
+    "ownLineMutants": 6,
+    "ownLineMutantsDetected": 6,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-web-metric-labels.test.mjs::values: scores in points, milliseconds and counts as numbers, bytes with bytes(), nothing measured is a dash",
+        "sharedLines": 8
+      },
+      {
+        "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+        "sharedLines": 7
+      },
+      {
+        "unit": "tests/ui-web-metric-labels.test.mjs::the Web performance budgets show labels with units, the key in a tooltip, and formatted values",
+        "sharedLines": 7
+      }
+    ]
+  },
+  {
+    "unit": "tests/ui.test.mjs::web app: every backend status maps to a known tone",
+    "file": "tests/ui.test.mjs",
+    "ownLines": 12,
+    "ownLineMutants": 9,
+    "ownLineMutantsDetected": 7,
+    "ownLineMutantsSurvived": 2,
+    "topOverlap": [
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: demo reads come from the snapshot only, and a real workspace is never answered from it",
+        "sharedLines": 12
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: every workspace write for the demo is refused with DEMO_READ_ONLY and never sent",
+        "sharedLines": 12
+      },
+      {
+        "unit": "tests/ui-demo-workspace.test.mjs::negative: the live event stream is never opened for the demo",
+        "sharedLines": 12
+      }
+    ]
+  },
+  {
+    "unit": "tests/version.test.mjs::the doc path check skips the generated test impact matrix, which quotes other repositories' layouts",
+    "file": "tests/version.test.mjs",
+    "ownLines": 20,
+    "ownLineMutants": 17,
+    "ownLineMutantsDetected": 17,
+    "ownLineMutantsSurvived": 0,
+    "topOverlap": [
+      {
+        "unit": "tests/version.test.mjs::local paths named in the docs exist",
+        "sharedLines": 20
+      },
+      {
+        "unit": "tests/version.test.mjs::the doc path check finds a missing link and a missing repository path, and skips globs, tags and code blocks",
+        "sharedLines": 17
+      },
+      {
+        "unit": "tests/version.test.mjs::negative: a doc path that exists only because git ignores it fails the check; generated build outputs pass",
+        "sharedLines": 16
+      }
+    ]
+  }
+]

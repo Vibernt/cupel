@@ -1,0 +1,290 @@
+[
+  {
+    "unit": "tests/configuration.test.mjs::every registered name is still read somewhere in src/ (no stale entries)",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This checks the reverse registry invariant: every CONFIGURATION_NAMES entry must occur in scanEnvReads() over the actual source tree. In configuration.test.mjs, 'every Worker variable, secret and binding read in src/ is registered' checks missing registrations, while the scanner fixture checks extraction syntax; neither rejects an obsolete registered name."
+  },
+  {
+    "unit": "tests/connected-scans.test.mjs::the metrics pack runs its ready-made step in the plain quality job",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This uniquely compares packJob(['metrics']).actions and reports with the exact metrics builtin, reports/metrics.sarif, SARIF format and required:false, and rejects an imported-workflow dialect. The check-packs.test.mjs compilation and adoption tests check other packs and general job validity, not this metrics-pack wiring."
+  },
+  {
+    "unit": "tests/design-components.test.mjs::timeRangeBounds: presets end now and start one span earlier, with their labels",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "This checks every preset's full bounds object, the literal 24-hour and 30-minute labels, and presetKeys() preserving registry order while trimming and discarding unknown keys. The invalid-input test compares against the same 24h implementation, and the picker test checks the 1h span and displayed presets, but neither asserts the reordered '24h, 1h,bogus' result or every preset's complete bounds."
+  },
+  {
+    "unit": "tests/eval-annotations.test.mjs::deterministic sampling is stable and close to the requested share",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This pins fnv1a('abc') to 440920331 and checks a 10% sample over 2,000 keys plus the 0% and 100% endpoints. The capture-running-totals overlaps assert tallies, and eval-production.test.mjs checks a different 25% distribution using sampled() itself as its selection oracle; neither independently pins this hash output or the 10% distribution."
+  },
+  {
+    "unit": "tests/eval-checks.test.mjs::conversation data: the turns before the final request, system turns left out, null for one turn",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "This checks conversationData() retaining all valid earlier turns when the last turn is an assistant, stripping extra properties and malformed turns, and returning null for a single user turn or undefined. The annotation/GitHub overlaps assert review and trigger outcomes; jev.test.mjs's exact judge-request assertion covers ordinary multi-turn serialization and omitted context, but not the assistant-final and malformed-turn cases."
+  },
+  {
+    "unit": "tests/eval-checks.test.mjs::grader-directed text is recognised without flagging ordinary uses of the same words",
+    "judgement": "wrong",
+    "cause": "critical-missed",
+    "evidence": "This independently checks twelve grader-directed strings and twelve benign counterexamples, including ordinary judicial/rubric language, at the boundary that routes suspect output to a human. The listed Jev overlaps do not assert that corpus, and the dedicated grader-directed integration tests in jev.test.mjs cover only a subset of attack phrases, leaving these detection and false-positive regressions unprotected."
+  },
+  {
+    "unit": "tests/feature-guide.test.mjs::every entry is complete and uses the closed vocabularies",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This enforces every feature-guide entry's closed vocabularies, driver labels, required copy, configuration path, registry-derived defaults and prohibition on invented percentage savings. The price-change test and pricing.test.mjs's generated-document freshness check do not validate those invariants; synchronized invalid guide data and documentation could pass both."
+  },
+  {
+    "unit": "tests/feature-guide.test.mjs::the texts follow the price list: change the list and the guide changes with it",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This changes compute/storage prices and the storage allowance, then checks the resulting feature-specific dollar amounts and removal of 'not billed yet' when billing is live. The pricing.test.mjs overlap changes the general price-list block, and the entry-completeness test checks shape, so neither establishes that these feature-guide texts respond correctly to those inputs."
+  },
+  {
+    "unit": "tests/legal-pages.test.mjs::legal pages: each page renders with its title, effective date, company details, nav and canonical link",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks literal titles, effective-date markup, the company footer, current-page navigation, landmarks, skip links, index entries and Markdown-link rewriting. The script/resource prohibition and legalFiles() freshness test only establish safe resources and agreement with the generator; they do not independently assert those rendered requirements, although the console-host test also checks each page's canonical URL."
+  },
+  {
+    "unit": "tests/legal-pages.test.mjs::legal texts: the five published texts are the only source, with no draft notes or placeholders left",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This inspects the actual docs/legal directory and texts for the five-file inventory, no drafts/placeholders, the effective date, approved contact addresses and specific published terms/privacy clauses. The bundle-freshness overlap can agree with an incorrectly edited source, and the negative placeholder fixture only tests the checker, not the published texts."
+  },
+  {
+    "unit": "tests/merge-guards.test.mjs::test counts: the manifest is one file per line, sorted, with no total to conflict on",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This uniquely checks that serialize() emits no total and places the two file counts on separate, specifically indented lines. The loss/addition/update tests parse counts and check diagnostics, so minifying the manifest or adding a total could pass them; the candidate's already-sorted input does not independently prove sorting."
+  },
+  {
+    "unit": "tests/model-call-switches.test.mjs::the new model-call switches are AI switches, off everywhere by default, and documented",
+    "judgement": "wrong",
+    "cause": "critical-missed",
+    "evidence": "This explicitly pins workersAiModels and hookDiagnose to ai:true and workspace/platform defaults off, preserving opt-in control over model calls and event-data disclosure, and checks their documentation. features.test.mjs also pins platform defaults, while the listed overlaps exercise grading and sampling caps, but neither supplies these two switches' explicit AI classification and workspace-default pins together with the documentation checks."
+  },
+  {
+    "unit": "tests/pricing.test.mjs::the published sheets: every size is its vCPU times the vCPU-minute price, and published versions are frozen",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This checks every listed size against its vCPU-derived price and pins Object.isFrozen for seven published pricing objects, the supersedes link and LIST_PRICES object identities. The billing-admission overlaps assert balance/admission behavior for selected usage, not the all-size consistency and published-sheet immutability/identity invariants."
+  },
+  {
+    "unit": "tests/registries.test.mjs::registries: route order is the index's order and still decides the match",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This pins recent-route precedence over record IDs and Object.isFrozen(ROUTES), as well as operation uniqueness. The repository registry-agreement test also checks uniqueness and other API tests exercise routes, but the access.test.mjs overlaps do not test these recent-route matches and no other assertion found pins the route array's frozen state."
+  },
+  {
+    "unit": "tests/registries.test.mjs::registries: the global table keeps the families that answered by prefix",
+    "judgement": "debatable",
+    "cause": "deliberate-pin",
+    "evidence": "The repository-wide registry-agreement test in registries.test.mjs already requires a handler for every global route, and access.test.mjs exercises real global dispatch. The remaining assertions pin identical function objects for account/quotas/platform families and null for an unknown name: retaining this refactoring contract is reasonable, but a reviewer could prefer behavioral dispatch tests over handler-identity pins, so retirement is not demonstrably lossless."
+  },
+  {
+    "unit": "tests/rename-assay.test.mjs::the OpenAPI title is Vibernt Assay API; the paths stay",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This independently pins buildOpenApi().info.title to 'Vibernt Assay API' and requires every emitted path to start with '/'. api.test.mjs checks route operations and the OpenAPI version, api-retry-safe.test.mjs checks idempotency headers, and console-host.test.mjs checks serving/routing; none asserts the product title."
+  },
+  {
+    "unit": "tests/source-hygiene.test.mjs::this repository tracks no symlinks, and its JavaScript and Python sources have no literal NUL bytes",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This applies the no-symlink and no-literal-NUL policies to the actual tracked repository sources. The two symlink overlaps validate detection in synthetic git/archive trees, not that this repository remains clean, and neither checks NUL bytes in its tracked JavaScript/Python files."
+  },
+  {
+    "unit": "tests/test-intelligence.test.mjs::glob matching for workspace members and always-run patterns",
+    "judgement": "debatable",
+    "cause": "weak-overlap-tests",
+    "evidence": "The npm/pnpm workspace tests in test-intelligence.test.mjs, Rails support-glob test in import-graph-ruby.test.mjs and servicesFor/serialFiles checks in fanout.test.mjs already assert substantial single-star/double-star behavior through callers. A reviewer could consolidate these basic examples, but the candidate explicitly isolates single-star depth rejection and root-level '**/*.test.js' matching, making complete assertion equivalence to those integration fixtures uncertain."
+  },
+  {
+    "unit": "tests/tia-precise-monorepo.test.mjs::graph: a dist-only exports entry is traced to its source; an untraceable entry is a whole-package reference with its reason",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This asserts exact JavaScript import-graph edges for dist/conditional exports and bundler suffixes, whole-package reasons 'exports-no-entry'/'entry-missing', and distinct implicit/named/namedDirs configuration edges. The C#/JVM overlaps assert language-specific graph structures through shared machinery, not these JavaScript resolutions or reason strings."
+  },
+  {
+    "unit": "tests/ui-connect-agent.test.mjs::model: the user code as the CLI prints it, in any case and spacing; anything else is no code",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "agent-connect.test.mjs already checks case/spacing normalization, invalid lengths and formatting, and agent-connect-code.test.mjs checks shared bindings and generated-copy parity. This candidate additionally pins the alphabet's cardinality to 20 and explicitly rejects slash-separated and null input; the shared-definition checks could accept a consistently changed alphabet, so removing it loses an independent code-format pin."
+  },
+  {
+    "unit": "tests/ui-contexts.test.mjs::redirect helpers: keep the other query parameters, send only the old values, and move whole pages",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "The project and route-audit overlaps already check ordinary redirect destinations and preservation of unrelated parameters. This test additionally asserts that the target's own query value wins, empty added values are dropped, fragments follow the appended query, and a custom 'view' parameter executes its redirect; those withQuery edge cases are not asserted by the overlaps."
+  },
+  {
+    "unit": "tests/ui-contexts.test.mjs::sidebar preference: the rail beside a context unless pinned, collapsed everywhere when chosen",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "The context-shell and collapse-toggle tests cover expanded/pinned transitions beside a context and collapse/expand outside one. This candidate also asserts nextSidebarPreference('collapsed', true) === 'pinned', a transition neither shell fixture performs, so the complete preference-state behavior is not redundant."
+  },
+  {
+    "unit": "tests/ui-fanout.test.mjs::a finished group: wall time, straggler ratio, stragglers handled, containers stopped, the copy's fate",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks the finished fanoutView() output: 6% stragglers, the three named events, '2 of 3 stopped', allStopped:false, the deleted-copy label and four-decimal small cost. The fail-fast overlap checks verdict timing, and the demo overlaps check API isolation/event requests; none asserts these fan-out evidence fields or wording."
+  },
+  {
+    "unit": "tests/ui-fanout.test.mjs::a planned group: shards, expected wall and cost against one container, the copy, a cap",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks a planned fan-out group's six shards, timing basis, workspace-cap sentence, exact comparative cost, shared-copy wording, unfinished state and absent straggler figure. The agent-detail, Settings-sidebar and demo-read overlaps assert unrelated page behavior and do not check those fanoutView() outputs."
+  },
+  {
+    "unit": "tests/ui-fanout.test.mjs::cost-aware fan-out on the card: the cost cap, the actual cost and where the rest of the time went",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This pins the cost-cap sentence, actual-work/container-cost wording, descending overhead order and omission of zero phases, skipped-shard count, and null cap on older plans. ui-drop-in.test.mjs checks a different job-start breakdown, while the demo overlaps check network isolation, so neither verifies this fan-out card's fields and ordering."
+  },
+  {
+    "unit": "tests/ui-get-started-agent.test.mjs::the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This reads the fenced prompts in docs/GET_STARTED.md and docs/QUICKSTART.md and compares them exactly with agentPrompt() using their distinct hosted and example origins/token URLs. The connect-agent dialog overlaps assert the UI prompt or approval flow, not freshness and destination correctness of those two documentation blocks."
+  },
+  {
+    "unit": "tests/ui-job-labels.test.mjs::view models keep the label next to the key",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "The other ui-job-labels.test.mjs page tests already check displayed labels and missing-label keys in tables and slower-test views. This candidate additionally checks whitespace-only labels and an empty job produce the key and empty string respectively, plus model-level label/null propagation; the listed agent-detail and r5/r8 overlaps assert none of those edge cases."
+  },
+  {
+    "unit": "tests/ui-merge-policy-editor.test.mjs::the API request is the real endpoint with the real body, quoted for a shell",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks the complete curl method/origin/workspace endpoint and bearer-variable header, then unquotes and parses its body to require exactly projectId and the supplied definition containing an apostrophe. The editor-page overlaps check selected request substrings, submitted form data and apostrophe escaping in a reason, not the full generated curl endpoint/header and round-tripped body."
+  },
+  {
+    "unit": "tests/ui-pr-selection.test.mjs::offer: shown until pull requests are selected, with the estimate labelled and the action for people who can",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "The r5 test in ui-audit-r3-r8.test.mjs already checks viewer/owner action visibility, but this candidate also checks null/on suppression, the exact labelled minutes/dollars estimate, full default-branch/scheduled-run wording and both missing-data explanations. The listed prediction/push-signal overlaps only exercise shared formatting while asserting other view models."
+  },
+  {
+    "unit": "tests/ui-quality.test.mjs::web performance: a direction is named for a screen reader, not only drawn as an arrow",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "The neighboring score-arrow test checks baseline wording for category.performance, and the real-comparison test checks arrow icons for changed measurements. This candidate additionally requires directionSpec('same', 'vital.lcp') and directionSpec(undefined) to return null and checks timing-metric accessible wording; the link crawl does not assert those no-arrow outcomes."
+  },
+  {
+    "unit": "tests/ui-quality.test.mjs::web performance: the arrow is the way the number moved, so a score that dropped points down",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "The real-comparison test already checks icon direction for changed scores, LCP, bytes and requests, and the screen-reader test checks better/worse label substrings. This candidate alone compares the category.performance icon/tone/full-label objects and explicitly checks CLS/TBT directions, so incorrect success/danger tones or full direction labels could escape the overlaps."
+  },
+  {
+    "unit": "tests/ui-quarantine.test.mjs::quarantine rows: the closed loop's progress, cost and escalation in words",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks the quarantine closed-loop source label, green-run progress, seven-day cost, flips and escalation wording, plus no loop for a manual record and 'Cost not measured yet' for missing cost. The meter, prediction and fail-fast overlaps check common formatting and their own domains, not quarantineRow()/loopText() semantics."
+  },
+  {
+    "unit": "tests/ui-quarantine.test.mjs::shard plans: basis, balance and legs; no estimate by file count",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks mixed-history shard-plan wording, rounded balance, full-selection label, per-leg unit counts, and 'No estimate' with file-count planning. The agent-list and demo API/event overlaps exercise shared helpers without asserting any shardPlanView() fields."
+  },
+  {
+    "unit": "tests/ui-quarantine.test.mjs::the run page quarantine summary",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "This checks quarantineSummary() on an empty project and on two active quarantines with one waived test/job, including waivedTests and the nonblocking-failure sentence. The meter, prediction and speed-report overlaps do not assert quarantine aggregation or its run-page explanation."
+  },
+  {
+    "unit": "tests/ui-review-settings.test.mjs::review settings model: budget inputs carry the API bounds, and \"Block at\" never offers critical",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This compares every BUDGET_FIELDS key and min/max with the API schema, excludes critical from BLOCK_SEVERITIES, and checks severity-dependent comment choices/text. The preset page test excludes critical from category-mapping choices, a different list; the developer-save and version-conflict tests do not establish budget-schema completeness or those comment-threshold rules."
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This audits every route's context/section membership, record parameter declarations and permitted no-context/catch-all exceptions. The link and redirect audits only establish reachable destinations and query preservation, so a reachable page with missing or invalid sidebar-context metadata can pass them while failing this independent registry audit."
+  },
+  {
+    "unit": "tests/ui-settings.test.mjs::settings: a target connection test reads as a sentence in the audit log, under Releases",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "The rendered audit-log test already checks the failed target-test sentence, and the general event test checks categorization/wording for other event types. This candidate additionally pins target.tested to Releases, all four outcome sentences and safe omission of an unknown or absent outcome; those table entries are not asserted elsewhere."
+  },
+  {
+    "unit": "tests/ui-shell-volt.test.mjs::nav: only off areas with a data check are checked, once",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "Other ui-shell-volt.test.mjs shell tests check hiding empty disabled areas and the More features destination. This candidate additionally requires areasToCheck() to exclude both previously checked false and true results and return no checks for an empty feature list; the connect-agent overlaps do not count or assert those pending-check selections."
+  },
+  {
+    "unit": "tests/ui-slower-tests.test.mjs::every empty state says why: no project, no history, too few commits, over the budget, nothing slower, switch off",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "The Slower tests page integration test also checks the project chooser, a populated list and an insufficient-data heading. This candidate additionally pins no-history/off messaging, the maximum scoped commit count (9 of the required 13), the over-budget narrowing instruction and the 240-test empty-result explanation, none of which the listed formatter overlaps assert."
+  },
+  {
+    "unit": "tests/ui-slower-tests.test.mjs::the test page verdict: slower with its run, steady, not current, or not enough runs",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "The Slower tests detail integration test checks the regressed sentence/run link, but this candidate also pins the warning tone and exact steady, not-current, insufficient-count and no-verdict messages. The agent-detail and r5/r8 overlaps do not assert durationVerdict() states or the 6-of-13 versus no-count distinction."
+  },
+  {
+    "unit": "tests/ui-slower-tests.test.mjs::view models: the sentence, the row, durations to a tenth of a second",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "The Slower tests integration test already displays the ordinary 1.2/3.7-second regression, but this candidate also checks gradual-drift wording on trunk, absence of a suite prefix, 85ms/1250ms/null formatting, ratio rounding, sample counts and rule wording. The agent-detail and r5/r8 overlaps merely share formatting paths and do not assert those duration-model contracts."
+  },
+  {
+    "unit": "tests/ui-tests-routes.test.mjs::old ?tab= links redirect to their route and keep every other parameter",
+    "judgement": "wrong",
+    "cause": "assertion-outside-mutation",
+    "evidence": "Generic redirect tests and the route audit cover much query preservation and old-route reachability. This candidate additionally pins the Tests impact alias, unknown-key testsPath() behavior, unchanged pipeline settings tabs, encoded 'a/b' pipeline IDs, and the exact shadow/optimize view-and-permission tuples, which the listed project redirects do not assert."
+  },
+  {
+    "unit": "tests/ui-tests-routes.test.mjs::palette: every Tests section is a page entry on its route",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "The 'settings form body and routes' test in ui-tests.test.mjs already checks that 'flaky' finds /tests/flakiness. This candidate additionally pins bisect, quarantine, holdout and savings search destinations and rejects old ?tab= links in test-page search results, protecting palette entries and keywords beyond route existence."
+  },
+  {
+    "unit": "tests/ui-tests.test.mjs::skip risk shows no number until calibrated",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "This checks that insufficient or absent skip-risk data has no numeric value/percentage, reports progress as 4 of 30, and maps calibrated/degraded results to the expected percentage and tone. The meter/prediction overlaps exercise percent formatting but do not assert riskView()'s calibration-dependent suppression or state mapping."
+  },
+  {
+    "unit": "tests/ui-tests.test.mjs::why no bisection: every reason code has a label, and only the settings-dependent ones link to settings",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This requires every BISECTION_SKIP_REASONS key to have a specific UI label and substantial message, and allows settings links only for the two settings-dependent reasons. The test-history overlaps assert recorded backend reasons and authorization, not the complete UI label/link mapping, unknown-code label or bisection/base/commit projection."
+  },
+  {
+    "unit": "tests/ui-web-metric-labels.test.mjs::labels: one map for every budget metric, with units; an unknown metric keeps its key",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "The budget-table rendering test already pins Performance, LCP, CLS and Total size headers, and the value test checks formatting units. This candidate additionally requires readable labels for every gated WEB_METRICS entry, pins TBT/INP/third-party/script and other category labels, and verifies unknown metric/category behavior; a missing unrendered label would escape those overlaps."
+  },
+  {
+    "unit": "tests/ui.test.mjs::web app: every backend status maps to a known tone",
+    "judgement": "wrong",
+    "cause": "deliberate-pin",
+    "evidence": "This explicitly maps thirteen backend statuses to tones, checks restore/approval labels, and distinguishes failed from running for terminal polling. The demo-read/write/event tests exercise status helpers while asserting API isolation, not this mapping; in particular they do not pin rolled_back to cancelled or interrupted-by-restore to interrupted."
+  },
+  {
+    "unit": "tests/version.test.mjs::the doc path check skips the generated test impact matrix, which quotes other repositories' layouts",
+    "judgement": "wrong",
+    "cause": "weak-overlap-tests",
+    "evidence": "The real-doc missingPaths() check indirectly exercises ignoring the generated matrix, and the other fixture checks ordinary code-fence/glob exclusions. This candidate separately requires namedPaths() to retain src/a.mjs before and src/b.mjs after the matrix while omitting its foreign tests/unit/ path, guarding against an exclusion that incorrectly consumes the rest of a document."
+  }
+]
