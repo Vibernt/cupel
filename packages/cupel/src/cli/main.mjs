@@ -211,10 +211,9 @@ class Context {
 /** Collects the working tree with mutation per config. */
 async function collectHead(ctx, { collector, mutator, cfg, changed }) {
   let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log });
-  if (collector.kind === 'vitest') ctx.log('Vitest report: mutation is unavailable in M6');
-  if (mutator && collector.kind !== 'vitest' && ['node', 'python'].includes(input.runtime.name)) {
+  if (mutator && ['node', 'python'].includes(input.runtime.name)) {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
-    const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log });
+    const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind });
     if (m) input = { ...input, mutation: m };
   }
   return input;
@@ -223,8 +222,8 @@ async function collectHead(ctx, { collector, mutator, cfg, changed }) {
 /** Collects a git ref in a temporary directory, with critical mutation per config. */
 function collectBase(ctx, { collector, mutator, cfg, ref }) {
   return collectRef(collector, { root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log }, async (dir, input) => {
-    if (!mutator || collector.kind === 'vitest' || !['node', 'python'].includes(input.runtime.name)) return input;
-    const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log });
+    if (!mutator || !['node', 'python'].includes(input.runtime.name)) return input;
+    const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log, collectorKind: collector.kind });
     return m ? { ...input, mutation: m } : input;
   });
 }
@@ -248,7 +247,7 @@ async function baseAndHead(ctx, headOption) {
     head = await collectHead(ctx, { collector, mutator, cfg, changed });
     if (mutator && base && head.mutation) {
       const ids = lostSurvivors(base, head);
-      const mutation = await confirm(mutator, { root: ctx.root, cfg, input: head, mutation: head.mutation, ids, log: ctx.log });
+      const mutation = await confirm(mutator, { root: ctx.root, cfg, input: head, mutation: head.mutation, ids, log: ctx.log, collectorKind: collector.kind });
       head = { ...head, mutation };
     }
     ctx.writeCollected(head, null);
@@ -289,7 +288,7 @@ const commands = {
     let { input } = got;
     let result = ctx.engine('report', { input });
     const { collector, mutator, cfg } = got;
-    if (got.collected && ctx.o.evidence && mutator && collector.kind !== 'vitest' && ['node', 'python'].includes(input.runtime.name) && result.exit === EXIT_OK) {
+    if (got.collected && ctx.o.evidence && mutator && ['node', 'python'].includes(input.runtime.name) && result.exit === EXIT_OK) {
       // Optional evidence pass: re-check units whose unique coverage is unverified.
       const candidates = result.report.units
         .filter((u) => u.hints.includes('no-unique-coverage-unverified'))
@@ -300,10 +299,10 @@ const commands = {
         const again = await collectTree(collector, { root: ctx.root, cfg, runs: 1, recheck: candidates, log: ctx.log });
         input = mergeRecheck(input, again);
         if (cfg.mutation.targeted) {
-          let m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: false, targeted: candidates }, log: ctx.log });
+          let m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: false, targeted: candidates }, log: ctx.log, collectorKind: collector.kind });
           if (m) {
             const survivors = m.mutants.filter((x) => x.status === 'survived').map((x) => x.id);
-            m = await confirm(mutator, { root: ctx.root, cfg, input, mutation: m, ids: survivors, log: ctx.log });
+            m = await confirm(mutator, { root: ctx.root, cfg, input, mutation: m, ids: survivors, log: ctx.log, collectorKind: collector.kind });
             input = { ...input, mutation: mergeMutation(input.mutation, m) };
           }
         }

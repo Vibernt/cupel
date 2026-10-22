@@ -214,26 +214,26 @@ export async function collectRef(collector, { root, ref, cfg, runs, log }, after
 }
 
 /** Runs mutateNode for a scope; returns the mutation object, or null when the scope is empty. */
-export async function mutate(mutator, { root, cfg, input, scope, log }) {
+export async function mutate(mutator, { root, cfg, input, scope, log, collectorKind }) {
   const empty = !scope.critical && !(scope.changed && Object.keys(scope.changed).length) && !(scope.targeted ?? []).length;
   if (empty) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
-    return await mutator.mutateNode({ root, config: cfg, input, scope: { critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log });
+    return await mutator.mutateNode({ root, config: cfg, input, scope: { critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind });
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }
 }
 
 /** K7: re-runs survivors through confirmSurvivors when the mutator provides it. */
-export async function confirm(mutator, { root, cfg, input, mutation, ids, log }) {
+export async function confirm(mutator, { root, cfg, input, mutation, ids, log, collectorKind }) {
   if (!ids.length) return mutation;
   log(`confirming ${ids.length} survivors`);
   try {
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, mutation, ids });
     if (typeof mutator.confirmSurvivors !== 'function') return mutation;
-    const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids });
+    const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids, collectorKind });
     return out && Array.isArray(out.mutants) ? out : mutation;
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);

@@ -66,7 +66,7 @@ for (const [version, modules] of versions) {
       });
       assert.equal(exit, 0, err);
       assert.equal(JSON.parse(out).kind, 'report');
-      assert.match(err, /Vitest report: mutation is unavailable in M6/);
+      assert.match(err, /mutating \(critical\)/);
       writeFileSync(join(root, 'tests/spawn.test.ts'), "import { spawnSync } from 'node:child_process'\ntest('starts node', () => { spawnSync(process.execPath, ['-e', '']) })\n");
       const spawned = await collectVitest({ root, files: ['tests/spawn.test.ts'], runs: 1 });
       assert.equal(spawned.tests[0].spawnsInterpreter, true);

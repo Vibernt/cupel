@@ -118,6 +118,11 @@ export function analyse(text) {
   let mask;
   let lexer = 'shared';
   try { mask = lexerMask(src); } catch { mask = fallbackMask(src); lexer = 'fallback'; }
+  return analyseMask(src, mask, lexer);
+}
+
+/** Build line facts from a scanner's exact UTF-16 code-character mask. */
+export function analyseMask(src, mask, lexer) {
   const n = src.length;
   const starts = [0];
   for (let i = 0; i < n; i++) if (src.charCodeAt(i) === 10) starts.push(i + 1);

@@ -14,6 +14,7 @@ export default class CupelVitestReporter {
           duration: test.diagnostic()?.duration ?? 0 });
       }
     }
-    writeFileSync(process.env.CUPEL_VITEST_RESULTS, JSON.stringify({ tests, errors }));
+    const modulesWithErrors = modules.flatMap((module) => module.errors().map((error) => ({ file: module.moduleId, error })));
+    writeFileSync(process.env.CUPEL_VITEST_RESULTS, JSON.stringify({ tests, errors, modulesWithErrors }));
   }
 }
