@@ -46,3 +46,32 @@ test('Python project without node tests selects the bundled pytest collector', (
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('Gemfile with Minitest tests selects the external Ruby collector', (t) => {
+  const ruby = spawnSync('ruby', ['-e', 'require "minitest"'], { encoding: 'utf8' });
+  if (ruby.status !== 0) { t.skip('Ruby and Minitest unavailable'); return; }
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-auto-ruby-')));
+  try {
+    const fixture = fileURLToPath(new URL('../../../spec/conformance/adapters/minitest/', import.meta.url));
+    cpSync(join(fixture, 'lib'), join(root, 'lib'), { recursive: true });
+    cpSync(join(fixture, 'test'), join(root, 'test'), { recursive: true });
+    cpSync(join(fixture, 'Gemfile'), join(root, 'Gemfile'));
+    const out = join(root, 'input.json');
+    const run = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1', '--out', out], {
+      cwd: root, encoding: 'utf8', env: process.env,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    const input = JSON.parse(readFileSync(out, 'utf8'));
+    assert.equal(input.runtime.name, 'ruby');
+    assert.equal(input.tests.length, 3);
+    assert.equal(input.coverage.granularity, 'test');
+    writeFileSync(join(root, 'widget.test.ts'), 'export {};\n');
+    const mixed = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1'], {
+      cwd: root, encoding: 'utf8', env: process.env,
+    });
+    assert.equal(mixed.status, 3);
+    assert.match(mixed.stderr, /no test files match/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
