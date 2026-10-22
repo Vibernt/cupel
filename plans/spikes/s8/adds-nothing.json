@@ -1,0 +1,146 @@
+[
+  {
+    "commit": "e785571074b8104df6073ad8ddcf864d5297d297",
+    "subject": "Release integration: one user code and preset wording, Area › Page paths",
+    "test": "tests/agent-connect-code.test.mjs::Coding agent preset wording: one sentence from the preset, in the panel and the guides",
+    "extend": null
+  },
+  {
+    "commit": "e785571074b8104df6073ad8ddcf864d5297d297",
+    "subject": "Release integration: one user code and preset wording, Area › Page paths",
+    "test": "tests/agent-connect-code.test.mjs::user code: the API and the console code field use the one definition, not a copy of its letters",
+    "extend": "tests/agent-connect-cli.test.mjs::cri agent connect: a denial ends it with nothing stored; the helpers refuse without a connection"
+  },
+  {
+    "commit": "e785571074b8104df6073ad8ddcf864d5297d297",
+    "subject": "Release integration: one user code and preset wording, Area › Page paths",
+    "test": "tests/agent-connect-code.test.mjs::user code: the approval page the API links to is a global console route",
+    "extend": "tests/ui-agent-connect.test.mjs::the approval page shows the agent name as text and approves with what the person left ticked"
+  },
+  {
+    "commit": "575005ecdc31bddfd052b1ee35bb6791085ce89e",
+    "subject": "Connect a coding agent: first setup step and a shortcut on every screen",
+    "test": "tests/coding-agent-summary.test.mjs::principal.inspect agents: another workspace counts nothing of this one, through the Worker route",
+    "extend": "tests/mcp-triage.test.mjs::MCP triage toolset: the core tools plus the read-only triage reads, and only with MCP_TOOLSET triage or all"
+  },
+  {
+    "commit": "575005ecdc31bddfd052b1ee35bb6791085ce89e",
+    "subject": "Connect a coding agent: first setup step and a shortcut on every screen",
+    "test": "tests/ui-connect-agent.test.mjs::model: the user code as the CLI prints it, in any case and spacing; anything else is no code",
+    "extend": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one"
+  },
+  {
+    "commit": "575005ecdc31bddfd052b1ee35bb6791085ce89e",
+    "subject": "Connect a coding agent: first setup step and a shortcut on every screen",
+    "test": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog",
+    "extend": "tests/ui-structure.test.mjs::evaluations: offline evaluation only, its sections in the context sidebar; AI observability is its own sidebar entry and context"
+  },
+  {
+    "commit": "575005ecdc31bddfd052b1ee35bb6791085ce89e",
+    "subject": "Connect a coding agent: first setup step and a shortcut on every screen",
+    "test": "tests/ui-connect-agent.test.mjs::onboarding: done once principal.inspect counts a connected agent, without any request of its own",
+    "extend": "tests/ui-connect-agent.test.mjs::onboarding: Skip for now hides the step for this workspace only, with no request, and says where it went"
+  },
+  {
+    "commit": "575005ecdc31bddfd052b1ee35bb6791085ce89e",
+    "subject": "Connect a coding agent: first setup step and a shortcut on every screen",
+    "test": "tests/ui-requests.test.mjs::/ and /get-started: the coding-agent step adds no request, connected or not",
+    "extend": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog"
+  },
+  {
+    "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+    "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+    "test": "tests/agent-connect.test.mjs::an approval never grants more than was asked for, nor more than the person holds",
+    "extend": "tests/agent-connect.test.mjs::approving needs token.manage in that workspace: a viewer, a non-member and the platform operator elsewhere are refused"
+  },
+  {
+    "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+    "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+    "test": "tests/agent-connect.test.mjs::codes: the device code is high-entropy and only its digest is stored; the user code is short, unambiguous and stored hashed",
+    "extend": "tests/agent-connect-cli.test.mjs::cri agent connect: approve in the console, the token lands in a 0600 file, works on /mcp, and disconnect revokes it"
+  },
+  {
+    "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+    "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+    "test": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it",
+    "extend": "tests/backups.test.mjs::a failing platform backup is isolated: tenant backups and maintenance run, the failure is recorded and alerted"
+  },
+  {
+    "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+    "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+    "test": "tests/agent-connect.test.mjs::the console host serves the decision routes to sessions; the agent routes and any bearer stay on the API host",
+    "extend": "tests/agent-connect.test.mjs::CSRF and origin: the decision routes need the session CSRF token and a same-origin request"
+  },
+  {
+    "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+    "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+    "test": "tests/agent-connect.test.mjs::user codes cannot be guessed: lookups, approvals and denials are limited per person, wrong codes included",
+    "extend": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it"
+  },
+  {
+    "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+    "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+    "test": "tests/agent-connect.test.mjs::workspace A is not workspace B: a request naming a workspace is approved there only; an unknown workspace is never addressed",
+    "extend": "tests/agent-connect.test.mjs::the full flow: approve as a person, the token is answered by exactly one poll, works on /mcp, is journaled and listed"
+  },
+  {
+    "commit": "76858f9467d66b1add4c95bd03324da7dd7e35ee",
+    "subject": "Console: a principal that fails to load shows the error and a retry, not \"You do not have access\"",
+    "test": "tests/ui-principal-failure.test.mjs::principal failure: the next page opened loads the principal again",
+    "extend": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/drop-in-predict.test.mjs::MCP: run_expect is in the core toolset (sixteen tools with tests_plan and the docs tools), so every toolset has it",
+    "extend": null
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/mcp-docs.test.mjs::REST /v1/docs: public like the docs site, cacheable, rate limited per address, no D1 or workspace access",
+    "extend": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/mcp-docs.test.mjs::docs ranking on a fixed index: a heading match beats many body mentions, all terms beat a higher partial score, ties keep the order",
+    "extend": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/mcp-docs.test.mjs::docs reads answer 503 when the installation has not built the docs, never a guess",
+    "extend": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only",
+    "extend": "tests/mcp-triage.test.mjs::MCP triage toolset: the core tools plus the read-only triage reads, and only with MCP_TOOLSET triage or all"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/mcp-docs.test.mjs::docs_index: every guide the public docs site publishes, grouped as the Guides page groups them, and nothing else",
+    "extend": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/mcp-docs.test.mjs::docs_search: deterministic keyword ranking, all terms before some, headings and titles over body text, snippets with the words",
+    "extend": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/ui-get-started-agent.test.mjs::the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART",
+    "extend": "tests/ui-demo-workspace.test.mjs::entry points: the welcome page and Get started offer the demo only while the operator does"
+  },
+  {
+    "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+    "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+    "test": "tests/ui-requests.test.mjs::/get-started: Connect your coding agent is static, so the page reads only its setup progress (as before it)",
+    "extend": "tests/ui-demo-workspace.test.mjs::entry points: the welcome page and Get started offer the demo only while the operator does"
+  }
+]

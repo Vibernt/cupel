@@ -1,0 +1,170 @@
+[
+  {
+    "test": "tests/agent-connect-code.test.mjs::Coding agent preset wording: one sentence from the preset, in the panel and the guides",
+    "extend": null,
+    "judgement": "adds-assertion",
+    "evidence": "No extend test was supplied: this checks CODING_AGENT_SUMMARY against describePermissions, the exact mixed known/unknown-permission wording ('read pipelines; start runs; secret.manage'), the generated summary, and the panel's use of that summary. It also checks that AGENTS, GET_STARTED and DEVELOPERS contain that sentence followed by exactly the preset's permission IDs and no second description; the existing preset-permissions and panel-rendering tests do not assert these documentation and wording contracts.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect-code.test.mjs::user code: the API and the console code field use the one definition, not a copy of its letters",
+    "extend": "tests/agent-connect-cli.test.mjs::cri agent connect: a denial ends it with nothing stored; the helpers refuse without a connection",
+    "judgement": "adds-assertion",
+    "evidence": "The new test asserts API/shared binding identity, console/generated binding identity, a verbatim generated module, no repeated alphabet literal in four consumers, and approval-path agreement for 200 generated codes plus invalid-code rejection. The CLI denial extend test asserts exit 1/CONNECT_DENIED, no stored connection or client configuration, NOT_CONNECTED helpers and invalid-client rejection; it never checks shared-definition identity or generated-copy drift.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect-code.test.mjs::user code: the approval page the API links to is a global console route",
+    "extend": "tests/ui-agent-connect.test.mjs::the approval page shows the agent name as text and approves with what the person left ticked",
+    "judgement": "adds-assertion",
+    "evidence": "The new test derives the path from approvalPathOf and requires exactly one matching ['/connect/:code', 'global'] route, plus a global '/connect' entry route under BASE. The approval-page extend test checks escaped agent-name text, permission checkboxes and the submitted approval payload, but does not assert route-table uniqueness, the entry route, or agreement with the API's shared path definition.",
+    "other": ""
+  },
+  {
+    "test": "tests/coding-agent-summary.test.mjs::principal.inspect agents: another workspace counts nothing of this one, through the Worker route",
+    "extend": "tests/mcp-triage.test.mjs::MCP triage toolset: the core tools plus the read-only triage reads, and only with MCP_TOOLSET triage or all",
+    "judgement": "adds-assertion",
+    "evidence": "Through executeOperation(principal.inspect), the new test asserts connected counts 0 then 1 after token use in one workspace, but 0 for the same person in a separately bootstrapped workspace, and an absent sessionHash. The MCP triage extend test checks listed tools, read-only hints and toolset restrictions, while the nearby coding-agent summary tests check person/token boundaries within one store rather than this two-workspace count isolation.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-connect-agent.test.mjs::model: the user code as the CLI prints it, in any case and spacing; anything else is no code",
+    "extend": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one",
+    "judgement": "adds-assertion",
+    "evidence": "The model test pins the alphabet length to 20 and explicitly rejects overlong, slash-containing and null inputs, alongside case/spacing normalization and exact formatting/path results. The dialog extend test checks empty and 'ABCD-1234' field errors and navigation for two valid spellings; the API code test duplicates several normalization cases but does not pin alphabet length or the null/slash cases.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog",
+    "extend": "tests/ui-structure.test.mjs::evaluations: offline evaluation only, its sections in the context sidebar; AI observability is its own sidebar entry and context",
+    "judgement": "adds-assertion",
+    "evidence": "The new test requires coding-agent to be SETUP_TASKS[0], the first rendered task and readonly checklist item, with 'Connect agent' as the sole primary button, and asserts that clicking it opens the dialog without extra operations. The evaluations-sidebar extend test asserts navigation labels and contexts only; the existing first-hour test checks a generic first-task primary action without naming the coding-agent task or opening its dialog.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-connect-agent.test.mjs::onboarding: done once principal.inspect counts a connected agent, without any request of its own",
+    "extend": "tests/ui-connect-agent.test.mjs::onboarding: Skip for now hides the step for this workspace only, with no request, and says where it went",
+    "judgement": "adds-assertion",
+    "evidence": "With principal agents.connected set to 0 versus 1, the new test asserts absence versus presence of data-complete, '1 of 1 complete' and 'Done', identical operation lists and no page token/principal read. The Skip-for-now extend test asserts removal, cached redraw, focus, workspace-local storage and persistence after skipping, not completion driven by the principal's connected-agent count.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-requests.test.mjs::/ and /get-started: the coding-agent step adds no request, connected or not",
+    "extend": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog",
+    "judgement": "adds-assertion",
+    "evidence": "For both '/' and '/get-started', the new test compares complete page-operation lists with connected=0 and connected=1 and excludes token/principal reads. The extend test only checks that opening the Overview dialog adds no operation; 'onboarding: done once principal.inspect counts a connected agent, without any request of its own' duplicates the Overview comparison, but no other inspected test makes the connected-versus-unconnected request comparison on Get started.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect.test.mjs::an approval never grants more than was asked for, nor more than the person holds",
+    "extend": "tests/agent-connect.test.mjs::approving needs token.manage in that workspace: a viewer, a non-member and the platform operator elsewhere are refused",
+    "judgement": "adds-assertion",
+    "evidence": "The new test requires CONNECT_SCOPE for adding a permission, changing or removing the requested project restriction, or extending seven days to thirty, and accepts narrower grants; it also checks DELEGATION_ESCALATION, DELEGATION_SCOPE and a nonexistent project's NOT_FOUND through approval. The extend test checks FORBIDDEN/MEMBERSHIP for viewers, nonmembers and an operator elsewhere, without testing an otherwise eligible approver widening the request or exceeding their own project/permission scope.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect.test.mjs::codes: the device code is high-entropy and only its digest is stored; the user code is short, unambiguous and stored hashed",
+    "extend": "tests/agent-connect-cli.test.mjs::cri agent connect: approve in the console, the token lands in a 0600 file, works on /mcp, and disconnect revokes it",
+    "judgement": "adds-assertion",
+    "evidence": "The new test checks the 43-character device-code shape, user-code alphabet/format, exact verification and entry URLs, expiry/poll interval, absence of both plaintext codes from the stored row, 64-hex digests and the pending row's TTL. The successful CLI extend test checks credential-file modes, token non-disclosure, MCP use and disconnect revocation, but never inspects request-row code storage; the regex assertion alone does not prove entropy.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it",
+    "extend": "tests/backups.test.mjs::a failing platform backup is isolated: tenant backups and maintenance run, the failure is recorded and alerted",
+    "judgement": "adds-assertion",
+    "evidence": "After forcing request expiry, the new test requires CONNECT_NOT_FOUND from lookup/approve/deny, {status:'expired'} from polling, no created token, removal by hourly housekeeping, and agent_connect_requests membership in PLATFORM_EXCLUDED. The backup-failure extend test checks backup fan-out, maintenance execution, retries and alerts, but never asserts expired connect-request rejection or deletion; the new test swallows scheduled errors, so its cleanup evidence is specifically the final empty row set.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect.test.mjs::the console host serves the decision routes to sessions; the agent routes and any bearer stay on the API host",
+    "extend": "tests/agent-connect.test.mjs::CSRF and origin: the decision routes need the session CSRF token and a same-origin request",
+    "judgement": "adds-assertion",
+    "evidence": "The new test asserts HTTP 421 on the console host for agent-connect creation, polling and a bearer lookup, but a non-421 response for lookup without a bearer. The CSRF/origin extend test asserts 403 CSRF/ORIGIN on decision requests, while existing generic console-host tests do not include these connect endpoints; the new test checks host admission, not a successful authenticated console approval.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect.test.mjs::user codes cannot be guessed: lookups, approvals and denials are limited per person, wrong codes included",
+    "extend": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it",
+    "judgement": "adds-assertion",
+    "evidence": "The new test exhausts CODE_ATTEMPTS_PER_PERSON with wrong-code lookups, then asserts 429/RATE_LIMIT on a valid lookup and 429 on approval, checks counter keys omit guessed codes, and reaches 429 when creating requests from one address. The expiry extend test only rejects expired requests and checks cleanup; despite the new test's title, it does not actually assert a rate-limited denial or compare two people's budgets.",
+    "other": ""
+  },
+  {
+    "test": "tests/agent-connect.test.mjs::workspace A is not workspace B: a request naming a workspace is approved there only; an unknown workspace is never addressed",
+    "extend": "tests/agent-connect.test.mjs::the full flow: approve as a person, the token is answered by exactly one poll, works on /mcp, is journaled and listed",
+    "judgement": "adds-assertion",
+    "evidence": "The new test requires CONNECT_TENANT when approving or denying an A-bound request in B, 404/TENANT for a nonexistent workspace without creating another store, and 403 when the resulting A token reads B. The full-flow extend test checks project-scoped access and one-time token delivery within one workspace, not the requested-workspace restriction or avoidance of a Durable Object for an unknown workspace.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-principal-failure.test.mjs::principal failure: the next page opened loads the principal again",
+    "extend": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+    "judgement": "adds-assertion",
+    "evidence": "After one principal-loader failure on Members, the new test opens General and asserts exactly two loader calls and neither the rate-limit error nor an access-denied message. The route-audit extend test checks that seeded page links resolve without loops, and the nearby retry-button test retries the same page; neither checks recovery on navigation to a different page after principal loading failed.",
+    "other": ""
+  },
+  {
+    "test": "tests/drop-in-predict.test.mjs::MCP: run_expect is in the core toolset (sixteen tools with tests_plan and the docs tools), so every toolset has it",
+    "extend": null,
+    "judgement": "redundant",
+    "evidence": "No extend test was supplied, and the test contains only CORE.includes('run.expect') and CORE.length === 16. 'MCP initialization and compact discovery use the real bearer permission boundary' in tests/clients.test.mjs already requires sixteen default tools and a run_expect entry with its schema/annotation, while the named triage-toolset test in tests/mcp-triage.test.mjs also explicitly asserts CORE.length === 16; the new test does not independently exercise every toolset.",
+    "other": "tests/clients.test.mjs::MCP initialization and compact discovery use the real bearer permission boundary"
+  },
+  {
+    "test": "tests/mcp-docs.test.mjs::REST /v1/docs: public like the docs site, cacheable, rate limited per address, no D1 or workspace access",
+    "extend": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish",
+    "judgement": "adds-assertion",
+    "evidence": "The REST test asserts anonymous success, 'public, max-age=300', console-host guide URLs, zero D1 statements and tenant-object accesses, precise HTTP validation/not-found responses, hashed per-address limit keys, 429 at exhaustion and an independent second-address budget. The extend test checks MCP validation errors, exclusion of nonpublic guides and asset-read caching, not the REST transport, caching, storage-access or address-budget contracts.",
+    "other": ""
+  },
+  {
+    "test": "tests/mcp-docs.test.mjs::docs ranking on a fixed index: a heading match beats many body mentions, all terms beat a higher partial score, ties keep the order",
+    "extend": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits",
+    "judgement": "adds-assertion",
+    "evidence": "On a synthetic index, the new test asserts exact orders ['B#caches','A#mentions','A#both','B#same'] for cache and ['A#both','B#same','B#caches','A#mentions'] for cache+token, plus [] for an unmatched term. The MCP-auth extend test only asserts 401/200/429 responses, and the real-docs search test does not isolate heading weight against repeated body mentions or pin equal-score guide/section ordering.",
+    "other": ""
+  },
+  {
+    "test": "tests/mcp-docs.test.mjs::docs reads answer 503 when the installation has not built the docs, never a guess",
+    "extend": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits",
+    "judgement": "adds-assertion",
+    "evidence": "With ASSETS.fetch returning 404, the new test requires the REST search response to be exactly HTTP 503 with DOCS_UNAVAILABLE. The MCP-auth extend test uses built assets and asserts missing/forged-token rejection and rate limiting; no other inspected docs test asserts this missing-build failure contract.",
+    "other": ""
+  },
+  {
+    "test": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only",
+    "extend": "tests/mcp-triage.test.mjs::MCP triage toolset: the core tools plus the read-only triage reads, and only with MCP_TOOLSET triage or all",
+    "judgement": "adds-assertion",
+    "evidence": "For core, observability, evals, quality, triage, tests, all and nonsense, the new test requires all three docs tools, [readOnlyHint, destructiveHint] === [true, false], exact search/get schema fields, and a successful docs_index guide count. The triage extend test compares its tool list with CORE+TRIAGE, checks TRIAGE annotations and rejects a noncore triage call; it does not pin docs membership, docs schemas or docs behavior across those configurations.",
+    "other": ""
+  },
+  {
+    "test": "tests/mcp-docs.test.mjs::docs_index: every guide the public docs site publishes, grouped as the Guides page groups them, and nothing else",
+    "extend": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only",
+    "judgement": "adds-assertion",
+    "evidence": "The new test asserts exact nonempty group names/order and guide-ID order, every guide's complete {id,title,summary,url,resource} object, a corresponding public page, and absence of operator-guide IDs. The docs-toolset extend test only checks docs_index.total against PUBLIC_GUIDES.length, so a correct count with wrong grouping, metadata or membership would escape its assertions.",
+    "other": ""
+  },
+  {
+    "test": "tests/mcp-docs.test.mjs::docs_search: deterministic keyword ranking, all terms before some, headings and titles over body text, snippets with the words",
+    "extend": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish",
+    "judgement": "adds-assertion",
+    "evidence": "The new test pins parsed terms, ten default hits, the exact DROP_IN/labels-and-sizes top result and URL, bounded matched-word snippets, all-term ordering, identical repeated-query results, limit 25 and quoted/common-word parsing. The bad-query extend test asserts validation/nonpublic-document errors and allowed asset reads; the fixed-index ranking test covers ordering internals but not these search-response and query-parsing contracts.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-get-started-agent.test.mjs::the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART",
+    "extend": "tests/ui-demo-workspace.test.mjs::entry points: the welcome page and Get started offer the demo only while the operator does",
+    "judgement": "adds-assertion",
+    "evidence": "The new test extracts the text block under each guide's connect heading and requires exact equality to agentPrompt using the hosted API/console URLs for GET_STARTED and ci.example.org placeholders for QUICKSTART. The demo-entry extend test only asserts whether the demo link appears and its href; the prompt/UI tests do not compare these two documentation blocks with the generated prompt.",
+    "other": ""
+  },
+  {
+    "test": "tests/ui-requests.test.mjs::/get-started: Connect your coding agent is static, so the page reads only its setup progress (as before it)",
+    "extend": "tests/ui-demo-workspace.test.mjs::entry points: the welcome page and Get started offer the demo only while the operator does",
+    "judgement": "adds-assertion",
+    "evidence": "The new test asserts the connect card exists for both owner and viewer, the owner's request list is nonempty and entirely GET, and neither role makes token/docs/principal page reads. The demo-entry extend test only checks demo-link visibility and href; the other agent request-budget test checks owner connection states without banning docs reads or covering the viewer, so it does not subsume these assertions.",
+    "other": ""
+  }
+]

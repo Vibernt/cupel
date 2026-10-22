@@ -1,0 +1,20 @@
+{
+  "task": "permissions",
+  "arm": "plain",
+  "rep": 1,
+  "prepare": {
+    "command": "node plans/spikes/s8/ab.mjs prepare permissions plain 1",
+    "exit": 1,
+    "stderr": "s8: EPERM: operation not permitted, mkdir '/Users/vid/cupel/.scratch/s8/permissions-plain-1'"
+  },
+  "measure": {
+    "command": "node plans/spikes/s8/ab.mjs measure /Users/vid/cupel/.scratch/s8/permissions-plain-1",
+    "exit": 1,
+    "stderr": "s8: ENOENT: no such file or directory, open '/Users/vid/cupel/.scratch/s8/permissions-plain-1/.s8.json'"
+  },
+  "summarise": {
+    "command": "node plans/spikes/s8/ab.mjs summarise",
+    "exit": 0,
+    "rows": 0
+  }
+}

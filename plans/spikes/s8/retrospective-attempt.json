@@ -1,0 +1,15 @@
+{
+  "assayCommit": "e7855710",
+  "command": "node plans/spikes/s8/retrospective.mjs",
+  "archiveBuilt": true,
+  "config": { "runners": { "node": { "tests": "tests/*.test.mjs" } }, "runs": 1, "mutation": false },
+  "testFilesResolved": 421,
+  "hookFilesObservedBeforeInterrupt": 419,
+  "missingHookFilesBeforeInterrupt": [
+    "tests/actions-js.test.mjs",
+    "tests/actions-workspace.test.mjs"
+  ],
+  "reporterEventsObservedBeforeInterrupt": 64,
+  "observation": "No new reporter or hook files appeared for several minutes. Both missing test files start local HTTP listeners. The collection was interrupted; it produced no complete Cupel report or verdicts.",
+  "collectorCompleted": false
+}
