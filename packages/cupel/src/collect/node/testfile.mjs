@@ -66,8 +66,8 @@ export function shapeOf(tokens) {
  * definition; `line` and `column` (1-based) locate the callee name, `start` and `end` are source offsets.
  * Throws the lexer's LexError when the file cannot be tokenised.
  */
-export function analyseTestFile(src) {
-  const toks = tokenize(src);
+export function analyseTestFile(src, scannedTokens = null) {
+  const toks = scannedTokens ?? tokenize(src);
   const pairs = matchBrackets(toks);
   const N = toks.length;
   const v = (k) => toks[k]?.value;

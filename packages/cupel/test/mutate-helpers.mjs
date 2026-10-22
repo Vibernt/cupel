@@ -102,6 +102,7 @@ export function hashTree(root) {
   const out = {};
   const walk = (dir) => {
     for (const name of readdirSync(dir).sort()) {
+      if (dir === root && name === '.scratch') continue;
       const p = join(dir, name);
       if (statSync(p).isDirectory()) {
         out[`${relative(root, p)}/`] = 'dir';

@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { globMatches } from '../../engine/match.mjs';
 import { analyse, coveredLines } from '../node/lines.mjs';
+import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
 import { VitestCollectorError } from './errors.mjs';
 import { inlineSourceMap, mappedLines } from './sourcemap.mjs';
 
@@ -28,20 +29,25 @@ export function walk(root, testFiles = false) {
   return found.sort();
 }
 
-export function scanSources(root, scope) {
+export function scanSources(root, scope, log = () => {}) {
   const files = walk(root).filter((file) => SOURCE.test(file) && !TEST.test(file) &&
     (scope?.include ?? ['**']).some((g) => globMatches(g, file)) && !(scope?.exclude ?? []).some((g) => globMatches(g, file)));
   const sources = new Map();
+  let ts;
   for (const file of files) {
+    if (/\.[jt]sx$/.test(file)) {
+      ts ??= projectTypeScript(root);
+      if (!ts) { log(`Vitest: skipped ${file}: typescript is not resolvable from the project root`); continue; }
+    }
     const buf = readFileSync(join(root, file));
     const text = buf.toString('utf8');
     let stripped = text;
-    if (/\.[cm]?ts$|\.tsx$/.test(file)) {
+    if (/\.[cm]?ts$/.test(file)) {
       try { stripped = stripTypeScriptTypes(text); }
       catch (e) { throw new VitestCollectorError(`cannot strip TypeScript in ${file}: ${e.message}`); }
     }
-    const an = analyse(stripped);
-    if (an.lexer !== 'shared') throw new VitestCollectorError(`shared lexer cannot analyse ${file}; scanner fallback is not used`);
+    const an = /\.[jt]sx$/.test(file) ? scanJsx(ts, file, text).analysis : analyse(stripped);
+    if (an.lexer !== 'shared' && an.lexer !== 'typescript') throw new VitestCollectorError(`shared lexer cannot analyse ${file}; scanner fallback is not used`);
     sources.set(file, { text, an, hash: `sha256:${createHash('sha256').update(buf).digest('hex')}` });
   }
   return sources;

@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { globMatches } from '../../engine/match.mjs';
 import { formatLines, unionLines } from '../node/lines.mjs';
 import { analyseTestFile, patternFindings } from '../node/testfile.mjs';
+import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
 import { VitestCollectorError } from './errors.mjs';
 import { posix, scanSources, sourceMapLines, TEST, walk } from './sources.mjs';
 
@@ -14,7 +15,7 @@ const sort = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const object = (entries) => Object.fromEntries([...entries].sort((a, b) => sort(a[0], b[0])));
 export { VitestCollectorError } from './errors.mjs';
 
-function resolveVitest(root) {
+export function resolveVitest(root) {
   const require = createRequire(join(root, 'package.json'));
   let pkg;
   try { pkg = require.resolve('vitest/package.json'); }
@@ -36,7 +37,7 @@ function run(command, args, options) {
   });
 }
 
-function splitCommand(value) {
+export function splitCommand(value) {
   const words = [];
   let word = '', quote = null, escaped = false, started = false;
   for (const char of value) {
@@ -70,9 +71,11 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     const real = posix(relative(root, realpathSync(join(root, file))));
     if (real === '..' || real.startsWith('../')) throw new VitestCollectorError(`test file resolves outside project root: ${file}`);
   }
-  const sources = scanSources(root, config.scope);
+  const sources = scanSources(root, config.scope, log);
   mkdirSync(join(root, '.scratch'), { recursive: true });
   const work = mkdtempSync(join(root, '.scratch/cupel-vitest-'));
+  const cache = join(work, 'cache');
+  mkdirSync(cache);
   const mappingFailed = new Set();
   try {
     const original = ['vitest.config.mts', 'vitest.config.ts', 'vitest.config.mjs', 'vitest.config.js', 'vite.config.mts', 'vite.config.ts', 'vite.config.mjs', 'vite.config.js'].find((f) => existsSync(join(root, f)));
@@ -87,10 +90,16 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       const hook = JSON.stringify({ root, out });
       const args = ['run', '--root', root, '--config', configFile, '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'reporter.mjs'), '--includeTaskLocation', ...selected];
       if (pattern) args.push('-t', pattern);
-      const r = await run(command, args, { cwd: root, env: { ...process.env, ...(runner.env ?? {}), CUPEL_VITEST_HOOK: hook, CUPEL_VITEST_IMPORT: vitest.importUrl, CUPEL_VITEST_RESULTS: resultFile } });
+      const r = await run(command, args, { cwd: root, env: { ...process.env, ...(runner.env ?? {}),
+        TMPDIR: cache, XDG_CACHE_HOME: cache, CUPEL_VITEST_HOOK: hook,
+        CUPEL_VITEST_IMPORT: vitest.importUrl, CUPEL_VITEST_RESULTS: resultFile } });
       if (!existsSync(resultFile)) throw new VitestCollectorError(`vitest ${vitest.version} did not report (${r.signal ?? r.code}): ${r.tail.trim()}`);
       const results = JSON.parse(readFileSync(resultFile, 'utf8'));
       if (results.errors?.length) throw new VitestCollectorError(`vitest ${vitest.version} had an unhandled error: ${JSON.stringify(results.errors[0])}`);
+      if (results.modulesWithErrors?.length) throw new VitestCollectorError(`vitest ${vitest.version} could not collect ${results.modulesWithErrors[0].file}: ${JSON.stringify(results.modulesWithErrors[0].error)}`);
+      if (r.code !== 0 && !results.tests.some((t) => t.status === 'failed')) {
+        throw new VitestCollectorError(`vitest ${vitest.version} exited ${r.code} without a failing test: ${r.tail.trim()}`);
+      }
       const hookFiles = readdirSync(out).filter((f) => /\.json$/.test(f) && f !== 'results.json');
       const hookData = hookFiles.map((f) => JSON.parse(readFileSync(join(out, f), 'utf8')));
       if (results.tests.some((t) => t.status !== 'skipped') && !hookData.length) throw new VitestCollectorError(`Vitest hook did not write coverage (exit ${r.code}, files ${hookFiles.join(',')}, tests ${JSON.stringify(results.tests)}): ${r.tail.trim()}`);
@@ -174,10 +183,16 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     for (const file of new Set([...tests.values()].map((t) => t.file))) {
       const text = readFileSync(join(root, file), 'utf8');
       let stripped;
-      try { stripped = /\.[cm]?ts$|\.tsx$/.test(file) ? stripTypeScriptTypes(text) : text; }
+      try { stripped = /\.[cm]?ts$/.test(file) ? stripTypeScriptTypes(text) : text; }
       catch (e) { throw new VitestCollectorError(`cannot strip test file ${file}: ${e.message}`); }
       let definitions;
-      try { definitions = analyseTestFile(stripped); }
+      try {
+        if (/\.[jt]sx$/.test(file)) {
+          const ts = projectTypeScript(root);
+          if (!ts) { log(`Vitest: skipped JSX test analysis for ${file}: typescript is not resolvable from the project root`); continue; }
+          definitions = analyseTestFile(text, scanJsx(ts, file, text).tokens);
+        } else definitions = analyseTestFile(stripped);
+      }
       catch (e) { throw new VitestCollectorError(`shared lexer cannot analyse test file ${file}: ${e.message}`); }
       for (const t of tests.values()) {
         if (t.file !== file) continue;
