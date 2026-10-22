@@ -54,12 +54,30 @@ export function sample(list, cap, seed) {
 
 /** The source text with the mutant's edits applied. */
 export function applyMutant(source, mutant) {
-  let out = source;
-  for (const e of [...mutant.edits].sort((a, b) => b.start - a.start)) out = out.slice(0, e.start) + e.text + out.slice(e.end);
-  return out;
+  const pieces = [];
+  let at = 0;
+  for (const edit of [...mutant.edits].sort((a, b) => a.start - b.start)) {
+    pieces.push(source.slice(at, edit.start), edit.text);
+    at = edit.end;
+  }
+  pieces.push(source.slice(at));
+  return pieces.join('');
 }
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
+
+// Hash the resulting text without ever constructing a copy of the source for each site.
+function mutantHash(source, edits) {
+  const hash = createHash('sha256');
+  let at = 0;
+  for (const edit of [...edits].sort((a, b) => a.start - b.start)) {
+    hash.update(source.slice(at, edit.start));
+    hash.update(edit.text);
+    at = edit.end;
+  }
+  hash.update(source.slice(at));
+  return hash.digest('hex');
+}
 
 /** Ranges [start, end) of every `console.<name>(...)` call: mutants inside them only change log lines. */
 function loggingRanges(tokens, pairs) {
@@ -121,7 +139,7 @@ export function generateMutants(source, text) {
   const seenText = new Set();
   const seenId = new Set();
   const add = (operator, tok, replacement, edits, extra = {}) => {
-    const textHash = sha(applyMutant(text, { edits }));
+    const textHash = mutantHash(text, edits);
     if (seenText.has(textHash)) return false;
     const rel = edits.map((e) => [e.start - tok.start, e.end - e.start, e.text]);
     const id = `${source}:${tok.line}:${tok.col + 1}:${operator}:${sha(JSON.stringify(rel)).slice(0, 8)}`;

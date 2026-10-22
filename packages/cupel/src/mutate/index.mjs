@@ -6,36 +6,38 @@
 // Mutants come from the S3 operators over the shared lexer, are filtered for validity, capped and sampled with
 // `config.mutation.seed`, and served in memory by a module load hook (never written to the project). Tests are
 // selected by the input's coverage. A kill needs a reported failing test (K5); a crash is re-run once, then `error`.
-// Optional extras on the argument object: `jobs` (parallel processes, default CPU count minus 1) and
-// `timeoutFloorMs` (the least a file run may take before it counts as a timeout, default 1000).
+// Optional extras on the argument object: `jobs` (parallel processes, default at most two) and
+// `timeoutFloorMs` (the least a file run may take before it counts as a timeout, default 1000), and
+// `metrics` (a caller-owned counter object used by smoke tests, never part of the mutation result).
 
 import { readFileSync, realpathSync, mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir, cpus, availableParallelism } from 'node:os';
-import { join, extname } from 'node:path';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { effectiveConfig } from '../engine/config.mjs';
-import { buildModel, median } from '../engine/model.mjs';
+import { median } from '../engine/model.mjs';
 import { anyGlobMatches } from '../engine/match.mjs';
 import { lines as parseLines } from '../engine/lines.mjs';
 import { cmp, sortedUnique } from '../engine/order.mjs';
 import { unitOf } from '../engine/integrity.mjs';
-import { generateMutants, applyMutant, sample } from './operators.mjs';
+import { generateMutants, applyMutant, sample, prng } from './operators.mjs';
 import { checkValidity } from './validity.mjs';
+import { enumerateSites } from './sites.mjs';
+import { mutationModel } from './model.mjs';
 import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure } from './runner.mjs';
 
 export { EnvironmentError } from './runner.mjs';
 export { generateMutants, applyMutant, sample, OPERATORS } from './operators.mjs';
 
 const CONFIG_SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
-const JS_EXTENSIONS = new Set(['.mjs', '.js', '.cjs']);
 const TIMEOUT_FACTOR = 3; // a mutant run may take 3x the file's baseline time
 const RECHECK_FACTOR = 3; // a timed-out run is re-run once with 3x the limit (or of a fresh unmutated time, if longer)
 const STOP_AFTER_FILES = 2; // spike S3: a unique kill needs exactly one killing file
 const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
-const defaultJobs = () => Math.max(1, (typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) - 1);
+const defaultJobs = () => Math.max(1, Math.min(2, (typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) - 1));
 
 /** Whether a sorted interval list holds line n. */
 function hasLine(intervals, n) {
@@ -90,60 +92,6 @@ function scopeLines({ input, cfg, model, scope }) {
   return { lines: new Map([...out].sort((a, b) => cmp(a[0], b[0]))), own };
 }
 
-/** Generates, filters and validates the mutants of every in-scope source. */
-async function generate({ root, lines, log }) {
-  const skipped = new Map(); // source -> reason
-  const perSource = [];
-  for (const [source, wanted] of lines) {
-    if (!JS_EXTENSIONS.has(extname(source))) {
-      skipped.set(source, 'not a JavaScript source');
-      continue;
-    }
-    let text;
-    let all;
-    try {
-      text = readFileSync(join(root, source), 'utf8');
-      all = generateMutants(source, text);
-    } catch (error) {
-      skipped.set(source, String(error?.message ?? error));
-      continue;
-    }
-    perSource.push({ source, text, all, wanted });
-  }
-  // The parse mode of each source: .mjs is a module, .cjs CommonJS, .js whichever the original parses as.
-  const probes = [];
-  for (const s of perSource) {
-    const ext = extname(s.source);
-    if (ext !== '.cjs') probes.push({ s, mode: 'module' });
-    if (ext !== '.mjs') probes.push({ s, mode: 'commonjs' });
-  }
-  const probe = await checkValidity(probes.map(({ s, mode }) => ({ mode, text: s.text })));
-  probes.forEach(({ s, mode }, k) => { if (!s.mode && probe.errors[k] === null) s.mode = mode; });
-  const candidates = [];
-  const stats = { generated: 0, logging: 0, outOfScope: 0, invalid: 0 };
-  for (const s of perSource) {
-    if (!s.mode) {
-      skipped.set(s.source, 'the unmutated source does not parse');
-      continue;
-    }
-    for (const m of s.all) {
-      stats.generated++;
-      if (!s.wanted.has(m.line)) stats.outOfScope++;
-      else if (m.filtered) stats.logging++;
-      else candidates.push({ m, s });
-    }
-  }
-  const validity = await checkValidity(candidates.map(({ m, s }) => ({ mode: s.mode, text: applyMutant(s.text, m) })));
-  const eligible = [];
-  candidates.forEach(({ m, s }, k) => {
-    if (validity.errors[k] !== null) stats.invalid++;
-    else eligible.push({ ...m, text: s.text });
-  });
-  for (const [source, reason] of skipped) log(`mutate: skipped ${source}: ${reason}`);
-  log(`mutate: ${stats.generated} generated, ${stats.outOfScope} outside the scope, ${stats.logging} logging-only, ${stats.invalid} invalid (${validity.method}), ${eligible.length} eligible`);
-  return { eligible, skipped: new Set(skipped.keys()) };
-}
-
 /** Shared machinery of one mutation session: test selection, baselines and the kill check. */
 class Session {
   constructor({ root, input, cfg, model, targetedUnits, jobs, timeoutFloorMs, log }) {
@@ -178,15 +126,15 @@ class Session {
     const tests = [];
     for (const t of this.input.tests) {
       if (t.status !== 'passed') continue;
-      const cov = this.model.byTest.get(t.id)?.get(m.source);
-      if (cov && hasLine(cov, m.line)) tests.push(t);
+      const cov = this.model.byTest[t.id]?.[m.source];
+      if (cov && hasLine(parseLines(cov), m.line)) tests.push(t);
     }
     const counts = new Map();
     for (const t of tests) counts.set(t.file, (counts.get(t.file) ?? 0) + 1);
     for (const index of [this.model.setup, this.model.byFile]) {
       for (const [file, cov] of index) {
-        const lines = cov.get(m.source);
-        if (lines && hasLine(lines, m.line) && !counts.has(file) && this.passedByFile.has(file)) counts.set(file, 0);
+        const covered = cov[m.source];
+        if (covered && hasLine(parseLines(covered), m.line) && !counts.has(file) && this.passedByFile.has(file)) counts.set(file, 0);
       }
     }
     const needsFull = tests.some((t) => this.targetedUnits.has(unitOf(t)));
@@ -263,12 +211,14 @@ class Session {
   }
 
   /** Writes the hook's spec for a mutant (in the temporary directory, never in the project). */
-  spec(m) {
+  spec(m, text) {
     const k = ++this.specs;
     const path = join(this.tmp, `mutant-${k}.json`);
+    const sourcePath = join(this.tmp, `source-${k}`);
     const seen = join(this.tmp, `seen-${k}`);
-    writeFileSync(path, JSON.stringify({ url: this.url(m.source), source: applyMutant(m.text, m), seen }));
-    return { path, seen };
+    writeFileSync(sourcePath, text);
+    writeFileSync(path, JSON.stringify({ url: this.url(m.source), sourcePath, seen }));
+    return { path, sourcePath, seen };
   }
 
   /** The input's test ids for a failing reporter line of `file`. */
@@ -350,27 +300,33 @@ class Session {
    * The kill check of one mutant: its selected files, once each, stopping after 2 killing files unless a targeted
    * unit covers the mutant (then every file runs, so its kill data is exact). Returns null when the deadline cut it.
    */
-  async killCheck(m) {
+  async killCheck(m, text) {
     const sel = this.select(m);
     if (sel.counts.size === 0) return { status: 'no-coverage', killedBy: [] };
     if ([...sel.counts.keys()].some((f) => !this.baselines.has(f))) return null; // the budget ended before its baseline
-    const spec = this.spec(m);
-    const outcomes = [];
-    let killing = 0;
-    for (const file of this.order(sel.counts)) {
-      if (!sel.needsFull && killing >= STOP_AFTER_FILES) break;
-      if (performance.now() > this.deadline) return null;
-      const out = await this.runFile(m, spec, file, sel.tests);
-      if (out.kind === 'cut') return null;
-      outcomes.push(out);
-      if (out.kind === 'killed' || out.kind === 'timeout') killing++;
+    const spec = this.spec(m, text);
+    try {
+      const outcomes = [];
+      let killing = 0;
+      for (const file of this.order(sel.counts)) {
+        if (!sel.needsFull && killing >= STOP_AFTER_FILES) break;
+        if (performance.now() > this.deadline) return null;
+        const out = await this.runFile(m, spec, file, sel.tests);
+        if (out.kind === 'cut') return null;
+        outcomes.push(out);
+        if (out.kind === 'killed' || out.kind === 'timeout') killing++;
+      }
+      const kinds = new Set(outcomes.map((o) => o.kind));
+      const loaded = existsSync(spec.seen);
+      const status = kinds.has('killed') ? 'killed' : kinds.has('timeout') ? 'timeout' : kinds.has('error') ? 'error' : loaded ? 'survived' : 'error';
+      if (status === 'error' && !kinds.has('error')) this.log(`mutate: ${m.id} was never loaded by its tests; reported as error`);
+      const killedBy = sortedUnique(outcomes.filter((o) => o.kind === 'killed' || o.kind === 'timeout').flatMap((o) => [...o.killers]));
+      return { status, killedBy };
+    } finally {
+      rmSync(spec.path, { force: true });
+      rmSync(spec.sourcePath, { force: true });
+      rmSync(spec.seen, { force: true });
     }
-    const kinds = new Set(outcomes.map((o) => o.kind));
-    const loaded = existsSync(spec.seen);
-    const status = kinds.has('killed') ? 'killed' : kinds.has('timeout') ? 'timeout' : kinds.has('error') ? 'error' : loaded ? 'survived' : 'error';
-    if (status === 'error' && !kinds.has('error')) this.log(`mutate: ${m.id} was never loaded by its tests; reported as error`);
-    const killedBy = sortedUnique(outcomes.filter((o) => o.kind === 'killed' || o.kind === 'timeout').flatMap((o) => [...o.killers]));
-    return { status, killedBy };
   }
 }
 
@@ -391,54 +347,87 @@ function targetedUnits({ own, eligible, results, skipped }) {
   return out.sort(cmp);
 }
 
+function seededOrder(items, seed) {
+  const out = [...items];
+  const rand = prng(seed);
+  for (let k = out.length - 1; k > 0; k--) {
+    const j = Math.floor(rand() * (k + 1));
+    [out[k], out[j]] = [out[j], out[k]];
+  }
+  return out;
+}
+
 /**
  * Mutation testing of the scope's lines. Returns `input.mutation`: { mutants, targeted, seed, sampled }.
  * Throws EnvironmentError when the unmutated tests do not run cleanly.
  */
-export async function mutateNode({ root, config = {}, input, scope = {}, log = noop, jobs, timeoutFloorMs }) {
+export async function mutateNode({ root, config = {}, input, scope = {}, log = noop, jobs, timeoutFloorMs, metrics }) {
   const started = performance.now();
   const cfg = effectiveConfig(config ?? {}, CONFIG_SCHEMA);
   const { maxMutants, maxSeconds, seed } = cfg.mutation;
   const deadline = started + maxSeconds * 1000;
-  const model = buildModel(input, cfg, null);
+  const model = mutationModel(input, cfg, scope?.targeted ?? []);
   const { lines, own } = scopeLines({ input, cfg, model, scope });
-  const { eligible, skipped } = await generate({ root, lines, log });
+  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log });
+  if (metrics) Object.assign(metrics, { generated: stats.generated, sites: candidates.length, textBuilds: 0, valid: 0, invalid: 0, run: 0 });
 
   // Sampling: mutants on targeted units' own lines first, so those units can be complete; the rest fill the cap.
   const onTargeted = (m) => [...own.values()].some((o) => o.has(m.source) && hasLine(o.get(m.source), m.line));
-  const first = eligible.filter(onTargeted);
-  const rest = eligible.filter((m) => !onTargeted(m));
-  const chosenSet = new Set(first.length >= maxMutants ? sample(first, maxMutants, seed) : [...first, ...sample(rest, maxMutants - first.length, seed)]);
-  const chosen = eligible.filter((m) => chosenSet.has(m));
-  let sampled = chosen.length < eligible.length;
-  if (sampled) log(`mutate: sampled ${chosen.length} of ${eligible.length} (seed ${seed})`);
+  const first = candidates.filter(onTargeted);
+  const rest = candidates.filter((m) => !onTargeted(m));
+  let ordered = candidates;
+  if (candidates.length > maxMutants) {
+    // Keep the old seeded subset and source order when every drawn mutant is valid. Invalid draws use the
+    // remaining targeted sites first, then the remaining sites, in deterministic seeded order.
+    const preferred = first.length >= maxMutants
+      ? sample(first, maxMutants, seed)
+      : [...first, ...sample(rest, maxMutants - first.length, seed)];
+    const chosen = new Set(preferred);
+    ordered = [
+      ...candidates.filter((m) => chosen.has(m)),
+      ...seededOrder(first.filter((m) => !chosen.has(m)), seed),
+      ...seededOrder(rest.filter((m) => !chosen.has(m)), seed),
+    ];
+  }
 
   const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()), jobs, timeoutFloorMs, log });
   session.deadline = deadline;
   try {
-    const files = new Set();
-    for (const m of chosen) for (const f of session.select(m).counts.keys()) files.add(f);
-    await session.baseline([...files]);
-    log(`mutate: baseline of ${files.size} test files done; running ${chosen.length} mutants with ${session.jobs} processes`);
-    let done = 0;
-    const results = await pool(chosen, session.jobs, async (m) => {
-      if (performance.now() > deadline) return null;
-      const r = await session.killCheck(m);
-      if (++done % 25 === 0) log(`mutate: ${done}/${chosen.length}`);
-      return r;
-    });
+    const invalid = new Set();
     const byId = new Map();
-    const mutants = [];
-    chosen.forEach((m, k) => {
-      if (!results[k]) return;
-      byId.set(m.id, results[k]);
-      mutants.push(entry(m, results[k]));
-    });
-    if (mutants.length < chosen.length) {
-      sampled = true;
-      log(`mutate: maxSeconds (${maxSeconds}) reached; ${chosen.length - mutants.length} mutants not run`);
+    let cursor = 0;
+    while (cursor < ordered.length && byId.size < maxMutants && performance.now() < deadline) {
+      const batch = ordered.slice(cursor, cursor + Math.min(session.jobs, maxMutants - byId.size));
+      cursor += batch.length;
+      const built = batch.map((m) => ({ m, text: applyMutant(readFileSync(join(root, m.source), 'utf8'), m) }));
+      if (metrics) metrics.textBuilds += built.length;
+      const validity = await checkValidity(built.map(({ m, text }) => ({ mode: m.mode, text })));
+      const valid = built.filter(({ m }, k) => {
+        if (validity.errors[k] === null) return true;
+        invalid.add(m.id);
+        if (metrics) metrics.invalid++;
+        return false;
+      });
+      if (metrics) metrics.valid += valid.length;
+      const files = new Set();
+      for (const { m } of valid) for (const f of session.select(m).counts.keys()) files.add(f);
+      await session.baseline([...files]);
+      const results = await pool(valid, session.jobs, async ({ m, text }) => {
+        if (performance.now() > deadline) return null;
+        return session.killCheck(m, text);
+      });
+      valid.forEach(({ m }, k) => {
+        if (results[k]) byId.set(m.id, results[k]);
+      });
+      if (metrics) metrics.run = byId.size;
+      if (byId.size && byId.size % 25 === 0) log(`mutate: ${byId.size}/${maxMutants}`);
     }
-    const targeted = targetedUnits({ own, eligible, results: byId, skipped });
+    const mutants = candidates.filter((m) => byId.has(m.id)).map((m) => entry(m, byId.get(m.id)));
+    const sampled = cursor < ordered.length || mutants.length < candidates.length - invalid.size;
+    if (sampled) log(`mutate: sampled ${mutants.length} of ${candidates.length - invalid.size} known valid sites (seed ${seed})`);
+    if (performance.now() >= deadline) log(`mutate: maxSeconds (${maxSeconds}) reached; ${ordered.length - cursor} sites not drawn`);
+    log(`mutate: ${metrics?.valid ?? byId.size} valid, ${invalid.size} invalid, ${mutants.length} run with ${session.jobs} processes`);
+    const targeted = targetedUnits({ own, eligible: candidates.filter((m) => !invalid.has(m.id)), results: byId, skipped });
     return { mutants, targeted, seed, sampled };
   } finally {
     session.close();
@@ -452,7 +441,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
  */
 export async function confirmSurvivors({ root, input, mutation, ids, config = {}, log = noop, jobs, timeoutFloorMs }) {
   const cfg = effectiveConfig(config ?? {}, CONFIG_SCHEMA);
-  const model = buildModel(input, cfg, null);
+  const model = mutationModel(input, cfg, mutation.targeted ?? []);
   const index = new Map(mutation.mutants.map((m, k) => [m.id, k]));
   for (const id of ids) if (!index.has(id)) throw new TypeError(`confirmSurvivors: ${JSON.stringify(id)} is not in mutation.mutants`);
   const todo = sortedUnique(ids).filter((id) => mutation.mutants[index.get(id)].status === 'survived');
@@ -481,7 +470,7 @@ export async function confirmSurvivors({ root, input, mutation, ids, config = {}
     const results = await pool(mutants, session.jobs, async (m) => {
       let last = { status: 'survived', killedBy: [] };
       for (let rep = 0; rep < 2; rep++) {
-        last = await session.killCheck(m);
+        last = await session.killCheck(m, applyMutant(m.text, m));
         if (last.status !== 'survived') break;
       }
       return last;
