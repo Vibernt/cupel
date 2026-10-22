@@ -36,3 +36,7 @@ credentials*.json
 
 # Cupel local cache (collected inputs)
 .cupel/
+
+# benchmark artifacts (the placeholder remains tracked)
+bench/results/*
+!bench/results/.gitkeep
