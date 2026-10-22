@@ -1,0 +1,883 @@
+{
+  "assayRef": "5a5a13133c9e6dfb323b49a340051e955cd9edeb",
+  "rows": [
+    {
+      "commit": "e785571074b8104df6073ad8ddcf864d5297d297",
+      "subject": "Release integration: one user code and preset wording, Area › Page paths",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/agent-connect-code.test.mjs",
+          "name": "user code: the API and the console code field use the one definition, not a copy of its letters",
+          "id": "tests/agent-connect-code.test.mjs::user code: the API and the console code field use the one definition, not a copy of its letters"
+        },
+        {
+          "file": "tests/agent-connect-code.test.mjs",
+          "name": "user code: the approval page the API links to is a global console route",
+          "id": "tests/agent-connect-code.test.mjs::user code: the approval page the API links to is a global console route"
+        },
+        {
+          "file": "tests/agent-connect-code.test.mjs",
+          "name": "Coding agent preset wording: one sentence from the preset, in the panel and the guides",
+          "id": "tests/agent-connect-code.test.mjs::Coding agent preset wording: one sentence from the preset, in the panel and the guides"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "the setup step: a token from agent connect counts as a connected coding agent once it is used, for its approver only",
+          "id": "tests/agent-connect.test.mjs::the setup step: a token from agent connect counts as a connected coding agent once it is used, for its approver only"
+        }
+      ],
+      "checkMs": 50012,
+      "exit": 1,
+      "collectionMs": 47194,
+      "collectedTests": 4724,
+      "verdicts": [
+        {
+          "id": "tests/agent-connect-code.test.mjs::Coding agent preset wording: one sentence from the preset, in the panel and the guides",
+          "verdict": "adds-nothing",
+          "extend": null,
+          "brittle": [
+            "source-text"
+          ]
+        },
+        {
+          "id": "tests/agent-connect-code.test.mjs::user code: the API and the console code field use the one definition, not a copy of its letters",
+          "verdict": "adds-nothing",
+          "extend": "tests/agent-connect-cli.test.mjs::cri agent connect: a denial ends it with nothing stored; the helpers refuse without a connection",
+          "brittle": [
+            "file-snapshot"
+          ]
+        },
+        {
+          "id": "tests/agent-connect-code.test.mjs::user code: the approval page the API links to is a global console route",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-agent-connect.test.mjs::the approval page shows the agent name as text and approves with what the person left ticked",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::the setup step: a token from agent connect counts as a connected coding agent once it is used, for its approver only",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "575005ecdc31bddfd052b1ee35bb6791085ce89e",
+      "subject": "Connect a coding agent: first setup step and a shortcut on every screen",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/coding-agent-summary.test.mjs",
+          "name": "principal.inspect: a person's connected coding agents, counted only once a coding-agent token was used",
+          "id": "tests/coding-agent-summary.test.mjs::principal.inspect: a person's connected coding agents, counted only once a coding-agent token was used"
+        },
+        {
+          "file": "tests/coding-agent-summary.test.mjs",
+          "name": "principal.inspect agents (negative): other tokens, people, roles, workspaces and token callers never count",
+          "id": "tests/coding-agent-summary.test.mjs::principal.inspect agents (negative): other tokens, people, roles, workspaces and token callers never count"
+        },
+        {
+          "file": "tests/coding-agent-summary.test.mjs",
+          "name": "principal.inspect agents: another workspace counts nothing of this one, through the Worker route",
+          "id": "tests/coding-agent-summary.test.mjs::principal.inspect agents: another workspace counts nothing of this one, through the Worker route"
+        },
+        {
+          "file": "tests/coding-agent-summary.test.mjs",
+          "name": "token.create: `purpose` is one label (coding-agent) and grants nothing",
+          "id": "tests/coding-agent-summary.test.mjs::token.create: `purpose` is one label (coding-agent) and grants nothing"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "model: the user code as the CLI prints it, in any case and spacing; anything else is no code",
+          "id": "tests/ui-connect-agent.test.mjs::model: the user code as the CLI prints it, in any case and spacing; anything else is no code"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog",
+          "id": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "onboarding: done once principal.inspect counts a connected agent, without any request of its own",
+          "id": "tests/ui-connect-agent.test.mjs::onboarding: done once principal.inspect counts a connected agent, without any request of its own"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "onboarding: Skip for now hides the step for this workspace only, with no request, and says where it went",
+          "id": "tests/ui-connect-agent.test.mjs::onboarding: Skip for now hides the step for this workspace only, with no request, and says where it went"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "onboarding (negative): no step for a viewer, who cannot make tokens; Get started's Next opens the dialog",
+          "id": "tests/ui-connect-agent.test.mjs::onboarding (negative): no step for a viewer, who cannot make tokens; Get started's Next opens the dialog"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "shortcut: the top bar entry, right of search, on context pages, records, settings and lists; a drawer row on phones",
+          "id": "tests/ui-connect-agent.test.mjs::shortcut: the top bar entry, right of search, on context pages, records, settings and lists; a drawer row on phones"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "shortcut: Help menu, palette command and g then c, none of them clashing with the g-shortcuts",
+          "id": "tests/ui-connect-agent.test.mjs::shortcut: Help menu, palette command and g then c, none of them clashing with the g-shortcuts"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "shortcut (negative): not in the operator console, where g then c is Metered costs",
+          "id": "tests/ui-connect-agent.test.mjs::shortcut (negative): not in the operator console, where g then c is Metered costs"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "dialog: the shared panel with this workspace's origin, a sheet-ready native dialog, the code field and its links",
+          "id": "tests/ui-connect-agent.test.mjs::dialog: the shared panel with this workspace's origin, a sheet-ready native dialog, the code field and its links"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "dialog: the code field refuses what is no code and opens the approval page for one",
+          "id": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "dialog (negative): a viewer gets the prompt and who to ask, never a code field or a token link",
+          "id": "tests/ui-connect-agent.test.mjs::dialog (negative): a viewer gets the prompt and who to ask, never a code field or a token link"
+        },
+        {
+          "file": "tests/ui-connect-agent.test.mjs",
+          "name": "Create API token: the Coding agent preset labels the token for a coding agent; another preset or an edit does not",
+          "id": "tests/ui-connect-agent.test.mjs::Create API token: the Coding agent preset labels the token for a coding agent; another preset or an edit does not"
+        },
+        {
+          "file": "tests/ui-requests.test.mjs",
+          "name": "/ and /get-started: the coding-agent step adds no request, connected or not",
+          "id": "tests/ui-requests.test.mjs::/ and /get-started: the coding-agent step adds no request, connected or not"
+        }
+      ],
+      "checkMs": 49049,
+      "exit": 1,
+      "collectionMs": 46144,
+      "collectedTests": 4699,
+      "verdicts": [
+        {
+          "id": "tests/coding-agent-summary.test.mjs::principal.inspect agents (negative): other tokens, people, roles, workspaces and token callers never count",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/coding-agent-summary.test.mjs::principal.inspect agents: another workspace counts nothing of this one, through the Worker route",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-triage.test.mjs::MCP triage toolset: the core tools plus the read-only triage reads, and only with MCP_TOOLSET triage or all",
+          "brittle": []
+        },
+        {
+          "id": "tests/coding-agent-summary.test.mjs::principal.inspect: a person's connected coding agents, counted only once a coding-agent token was used",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/coding-agent-summary.test.mjs::token.create: `purpose` is one label (coding-agent) and grants nothing",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::Create API token: the Coding agent preset labels the token for a coding agent; another preset or an edit does not",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::dialog (negative): a viewer gets the prompt and who to ask, never a code field or a token link",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::dialog: the shared panel with this workspace's origin, a sheet-ready native dialog, the code field and its links",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::model: the user code as the CLI prints it, in any case and spacing; anything else is no code",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-connect-agent.test.mjs::dialog: the code field refuses what is no code and opens the approval page for one",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::onboarding (negative): no step for a viewer, who cannot make tokens; Get started's Next opens the dialog",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-structure.test.mjs::evaluations: offline evaluation only, its sections in the context sidebar; AI observability is its own sidebar entry and context",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::onboarding: Skip for now hides the step for this workspace only, with no request, and says where it went",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::onboarding: done once principal.inspect counts a connected agent, without any request of its own",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-connect-agent.test.mjs::onboarding: Skip for now hides the step for this workspace only, with no request, and says where it went",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::shortcut (negative): not in the operator console, where g then c is Metered costs",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::shortcut: Help menu, palette command and g then c, none of them clashing with the g-shortcuts",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-connect-agent.test.mjs::shortcut: the top bar entry, right of search, on context pages, records, settings and lists; a drawer row on phones",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-requests.test.mjs::/ and /get-started: the coding-agent step adds no request, connected or not",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-connect-agent.test.mjs::onboarding: Connect your coding agent is the first task of a new workspace and its button opens the dialog",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "c455ae43d0d3d8eedefda7766f5da4a723e2d733",
+      "subject": "Agent connect: rate-limit namespace 4106, revoke tokens nobody collected",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "an approval nobody collects never leaves a live token: the housekeeping revokes it, journals it, then deletes the request",
+          "id": "tests/agent-connect.test.mjs::an approval nobody collects never leaves a live token: the housekeeping revokes it, journals it, then deletes the request"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "the undelivered sweep keeps a request whose revocation failed, retries it, and gives up after a week",
+          "id": "tests/agent-connect.test.mjs::the undelivered sweep keeps a request whose revocation failed, retries it, and gives up after a week"
+        }
+      ],
+      "checkMs": 55110,
+      "exit": 0,
+      "collectionMs": 49216,
+      "collectedTests": 4686,
+      "verdicts": [
+        {
+          "id": "tests/agent-connect.test.mjs::an approval nobody collects never leaves a live token: the housekeeping revokes it, journals it, then deletes the request",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::the undelivered sweep keeps a request whose revocation failed, retries it, and gives up after a week",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "dc6f3bc66cb76b57b680019f4fe93bb24e8bf685",
+      "subject": "Agent connect: cri agent connect, a device-style approval for coding agents",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/agent-connect-cli.test.mjs",
+          "name": "cri agent connect: approve in the console, the token lands in a 0600 file, works on /mcp, and disconnect revokes it",
+          "id": "tests/agent-connect-cli.test.mjs::cri agent connect: approve in the console, the token lands in a 0600 file, works on /mcp, and disconnect revokes it"
+        },
+        {
+          "file": "tests/agent-connect-cli.test.mjs",
+          "name": "cri agent connect: a denial ends it with nothing stored; the helpers refuse without a connection",
+          "id": "tests/agent-connect-cli.test.mjs::cri agent connect: a denial ends it with nothing stored; the helpers refuse without a connection"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "one coding-agent preset: what the MCP core tools need, without agent tasks, secrets, members, tokens, approvals or settings",
+          "id": "tests/agent-connect.test.mjs::one coding-agent preset: what the MCP core tools need, without agent tasks, secrets, members, tokens, approvals or settings"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "codes: the device code is high-entropy and only its digest is stored; the user code is short, unambiguous and stored hashed",
+          "id": "tests/agent-connect.test.mjs::codes: the device code is high-entropy and only its digest is stored; the user code is short, unambiguous and stored hashed"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "a request is refused for human-only or unknown permissions, an unsafe name, and both a preset and a list",
+          "id": "tests/agent-connect.test.mjs::a request is refused for human-only or unknown permissions, an unsafe name, and both a preset and a list"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "the full flow: approve as a person, the token is answered by exactly one poll, works on /mcp, is journaled and listed",
+          "id": "tests/agent-connect.test.mjs::the full flow: approve as a person, the token is answered by exactly one poll, works on /mcp, is journaled and listed"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "polling: a pending poll writes nothing to D1, more than 15 a minute is slow_down, an unknown code creates no counter",
+          "id": "tests/agent-connect.test.mjs::polling: a pending poll writes nothing to D1, more than 15 a minute is slow_down, an unknown code creates no counter"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it",
+          "id": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "a request cannot be approved twice, and a denial is final",
+          "id": "tests/agent-connect.test.mjs::a request cannot be approved twice, and a denial is final"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "only a signed-in person can look up, approve or deny: tokens, agents and devices are refused",
+          "id": "tests/agent-connect.test.mjs::only a signed-in person can look up, approve or deny: tokens, agents and devices are refused"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "approving needs token.manage in that workspace: a viewer, a non-member and the platform operator elsewhere are refused",
+          "id": "tests/agent-connect.test.mjs::approving needs token.manage in that workspace: a viewer, a non-member and the platform operator elsewhere are refused"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "an approval never grants more than was asked for, nor more than the person holds",
+          "id": "tests/agent-connect.test.mjs::an approval never grants more than was asked for, nor more than the person holds"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "workspace A is not workspace B: a request naming a workspace is approved there only; an unknown workspace is never addressed",
+          "id": "tests/agent-connect.test.mjs::workspace A is not workspace B: a request naming a workspace is approved there only; an unknown workspace is never addressed"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "CSRF and origin: the decision routes need the session CSRF token and a same-origin request",
+          "id": "tests/agent-connect.test.mjs::CSRF and origin: the decision routes need the session CSRF token and a same-origin request"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "user codes cannot be guessed: lookups, approvals and denials are limited per person, wrong codes included",
+          "id": "tests/agent-connect.test.mjs::user codes cannot be guessed: lookups, approvals and denials are limited per person, wrong codes included"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "the token stops working when its sponsor is removed, and can revoke itself (cri agent disconnect)",
+          "id": "tests/agent-connect.test.mjs::the token stops working when its sponsor is removed, and can revoke itself (cri agent disconnect)"
+        },
+        {
+          "file": "tests/agent-connect.test.mjs",
+          "name": "the console host serves the decision routes to sessions; the agent routes and any bearer stay on the API host",
+          "id": "tests/agent-connect.test.mjs::the console host serves the decision routes to sessions; the agent routes and any bearer stay on the API host"
+        },
+        {
+          "file": "tests/ui-agent-connect.test.mjs",
+          "name": "the approval page shows the agent name as text and approves with what the person left ticked",
+          "id": "tests/ui-agent-connect.test.mjs::the approval page shows the agent name as text and approves with what the person left ticked"
+        },
+        {
+          "file": "tests/ui-agent-connect.test.mjs",
+          "name": "a viewer cannot approve or deny; an unknown code says so; the code is normalized",
+          "id": "tests/ui-agent-connect.test.mjs::a viewer cannot approve or deny; an unknown code says so; the code is normalized"
+        }
+      ],
+      "checkMs": 71157,
+      "exit": 1,
+      "collectionMs": 68330,
+      "collectedTests": 4684,
+      "verdicts": [
+        {
+          "id": "tests/agent-connect-cli.test.mjs::cri agent connect: a denial ends it with nothing stored; the helpers refuse without a connection",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect-cli.test.mjs::cri agent connect: approve in the console, the token lands in a 0600 file, works on /mcp, and disconnect revokes it",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::CSRF and origin: the decision routes need the session CSRF token and a same-origin request",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::a request cannot be approved twice, and a denial is final",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::a request is refused for human-only or unknown permissions, an unsafe name, and both a preset and a list",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::an approval never grants more than was asked for, nor more than the person holds",
+          "verdict": "adds-nothing",
+          "extend": "tests/agent-connect.test.mjs::approving needs token.manage in that workspace: a viewer, a non-member and the platform operator elsewhere are refused",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::approving needs token.manage in that workspace: a viewer, a non-member and the platform operator elsewhere are refused",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::codes: the device code is high-entropy and only its digest is stored; the user code is short, unambiguous and stored hashed",
+          "verdict": "adds-nothing",
+          "extend": "tests/agent-connect-cli.test.mjs::cri agent connect: approve in the console, the token lands in a 0600 file, works on /mcp, and disconnect revokes it",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it",
+          "verdict": "adds-nothing",
+          "extend": "tests/backups.test.mjs::a failing platform backup is isolated: tenant backups and maintenance run, the failure is recorded and alerted",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::one coding-agent preset: what the MCP core tools need, without agent tasks, secrets, members, tokens, approvals or settings",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::only a signed-in person can look up, approve or deny: tokens, agents and devices are refused",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::polling: a pending poll writes nothing to D1, more than 15 a minute is slow_down, an unknown code creates no counter",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::the console host serves the decision routes to sessions; the agent routes and any bearer stay on the API host",
+          "verdict": "adds-nothing",
+          "extend": "tests/agent-connect.test.mjs::CSRF and origin: the decision routes need the session CSRF token and a same-origin request",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::the full flow: approve as a person, the token is answered by exactly one poll, works on /mcp, is journaled and listed",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::the token stops working when its sponsor is removed, and can revoke itself (cri agent disconnect)",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::user codes cannot be guessed: lookups, approvals and denials are limited per person, wrong codes included",
+          "verdict": "adds-nothing",
+          "extend": "tests/agent-connect.test.mjs::expiry: an expired request cannot be looked up, approved, denied or polled, and the hourly housekeeping deletes it",
+          "brittle": []
+        },
+        {
+          "id": "tests/agent-connect.test.mjs::workspace A is not workspace B: a request naming a workspace is approved there only; an unknown workspace is never addressed",
+          "verdict": "adds-nothing",
+          "extend": "tests/agent-connect.test.mjs::the full flow: approve as a person, the token is answered by exactly one poll, works on /mcp, is journaled and listed",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-agent-connect.test.mjs::a viewer cannot approve or deny; an unknown code says so; the code is normalized",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-agent-connect.test.mjs::the approval page shows the agent name as text and approves with what the person left ticked",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "d12d114959b169abe91a907bb97d5d29ddd4a927",
+      "subject": "Console checks: stay under the API rate limit; drop heuristic false positives",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/ui-route-audit.test.mjs",
+          "name": "browser checks: paced under the API's per-actor rate limit, so a sweep measures pages, not 429s",
+          "id": "tests/ui-route-audit.test.mjs::browser checks: paced under the API's per-actor rate limit, so a sweep measures pages, not 429s"
+        }
+      ],
+      "checkMs": 60790,
+      "exit": 0,
+      "collectionMs": 58095,
+      "collectedTests": 4653,
+      "verdicts": [
+        {
+          "id": "tests/ui-route-audit.test.mjs::browser checks: paced under the API's per-actor rate limit, so a sweep measures pages, not 429s",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "c8f95f57d4987f5788d94cb50c2fc307e36d08ed",
+      "subject": "Pipelines: no Add runners button for a role that cannot add runners",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/ui-pipelines-volt.test.mjs",
+          "name": "/pipelines (negative): at the limit, a role that cannot manage runners is told who can, with no Add runners button",
+          "id": "tests/ui-pipelines-volt.test.mjs::/pipelines (negative): at the limit, a role that cannot manage runners is told who can, with no Add runners button"
+        }
+      ],
+      "checkMs": 50734,
+      "exit": 0,
+      "collectionMs": 47922,
+      "collectedTests": 4652,
+      "verdicts": [
+        {
+          "id": "tests/ui-pipelines-volt.test.mjs::/pipelines (negative): at the limit, a role that cannot manage runners is told who can, with no Add runners button",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "b9eee20e3e4b364f70b909446a5b818bc1be8236",
+      "subject": "Console boot error: centred page with an h1, outside the shell grid",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/ui-boot-error.test.mjs",
+          "name": "boot error: a session that fails to load shows a centred error page with an h1 and a retry, outside the shell grid",
+          "id": "tests/ui-boot-error.test.mjs::boot error: a session that fails to load shows a centred error page with an h1 and a retry, outside the shell grid"
+        }
+      ],
+      "checkMs": 49438,
+      "exit": 0,
+      "collectionMs": 46747,
+      "collectedTests": 4651,
+      "verdicts": [
+        {
+          "id": "tests/ui-boot-error.test.mjs::boot error: a session that fails to load shows a centred error page with an h1 and a retry, outside the shell grid",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "76858f9467d66b1add4c95bd03324da7dd7e35ee",
+      "subject": "Console: a principal that fails to load shows the error and a retry, not \"You do not have access\"",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/ui-principal-failure.test.mjs",
+          "name": "principal failure: a page that needs a permission shows the error and a retry, never \"You do not have access\"",
+          "id": "tests/ui-principal-failure.test.mjs::principal failure: a page that needs a permission shows the error and a retry, never \"You do not have access\""
+        },
+        {
+          "file": "tests/ui-principal-failure.test.mjs",
+          "name": "principal failure: an owner-only guarded page (backups) shows the error, not the forbidden state",
+          "id": "tests/ui-principal-failure.test.mjs::principal failure: an owner-only guarded page (backups) shows the error, not the forbidden state"
+        },
+        {
+          "file": "tests/ui-principal-failure.test.mjs",
+          "name": "principal failure: the next page opened loads the principal again",
+          "id": "tests/ui-principal-failure.test.mjs::principal failure: the next page opened loads the principal again"
+        },
+        {
+          "file": "tests/ui-principal-failure.test.mjs",
+          "name": "principal failure (negative): nothing that needs a permission renders without it; a page without one still opens",
+          "id": "tests/ui-principal-failure.test.mjs::principal failure (negative): nothing that needs a permission renders without it; a page without one still opens"
+        },
+        {
+          "file": "tests/ui-principal-failure.test.mjs",
+          "name": "principal failure (negative): once it loads, a viewer still gets the forbidden state where the role has no access",
+          "id": "tests/ui-principal-failure.test.mjs::principal failure (negative): once it loads, a viewer still gets the forbidden state where the role has no access"
+        }
+      ],
+      "checkMs": 50190,
+      "exit": 1,
+      "collectionMs": 47404,
+      "collectedTests": 4650,
+      "verdicts": [
+        {
+          "id": "tests/ui-principal-failure.test.mjs::principal failure (negative): nothing that needs a permission renders without it; a page without one still opens",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-principal-failure.test.mjs::principal failure (negative): once it loads, a viewer still gets the forbidden state where the role has no access",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-principal-failure.test.mjs::principal failure: a page that needs a permission shows the error and a retry, never \"You do not have access\"",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-principal-failure.test.mjs::principal failure: an owner-only guarded page (backups) shows the error, not the forbidden state",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-principal-failure.test.mjs::principal failure: the next page opened loads the principal again",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "d0185b2e5a278653547aa072c17b430f9d9af0bf",
+      "subject": "Console checks: measure a page once it rendered, not while the loading skeleton shows",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/ui-route-audit.test.mjs",
+          "name": "browser checks (negative): a page is measured once it rendered, never while the loading skeleton shows",
+          "id": "tests/ui-route-audit.test.mjs::browser checks (negative): a page is measured once it rendered, never while the loading skeleton shows"
+        }
+      ],
+      "checkMs": 49302,
+      "exit": 0,
+      "collectionMs": 46511,
+      "collectedTests": 4645,
+      "verdicts": [
+        {
+          "id": "tests/ui-route-audit.test.mjs::browser checks (negative): a page is measured once it rendered, never while the loading skeleton shows",
+          "verdict": "adds-value",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    },
+    {
+      "commit": "7ac1daf670ea1c8a8af464380c66dc71a6af639a",
+      "subject": "Agent onboarding: docs tools over MCP and REST, Connect your coding agent",
+      "author": "vidhatanand <vidhatanand@gmail.com>",
+      "agentCoAuthor": true,
+      "definitions": [
+        {
+          "file": "tests/drop-in-predict.test.mjs",
+          "name": "MCP: run_expect is in the core toolset (sixteen tools with tests_plan and the docs tools), so every toolset has it",
+          "id": "tests/drop-in-predict.test.mjs::MCP: run_expect is in the core toolset (sixteen tools with tests_plan and the docs tools), so every toolset has it"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only",
+          "id": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs_index: every guide the public docs site publishes, grouped as the Guides page groups them, and nothing else",
+          "id": "tests/mcp-docs.test.mjs::docs_index: every guide the public docs site publishes, grouped as the Guides page groups them, and nothing else"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs_search: deterministic keyword ranking, all terms before some, headings and titles over body text, snippets with the words",
+          "id": "tests/mcp-docs.test.mjs::docs_search: deterministic keyword ranking, all terms before some, headings and titles over body text, snippets with the words"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs ranking on a fixed index: a heading match beats many body mentions, all terms beat a higher partial score, ties keep the order",
+          "id": "tests/mcp-docs.test.mjs::docs ranking on a fixed index: a heading match beats many body mentions, all terms beat a higher partial score, ties keep the order"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs_get: a guide by id or slug, one section with its subsections, long answers in parts that add up to the guide",
+          "id": "tests/mcp-docs.test.mjs::docs_get: a guide by id or slug, one section with its subsections, long answers in parts that add up to the guide"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish",
+          "id": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "MCP resources: initialize advertises them; one docs:// resource per public guide; read returns its Markdown; others not found",
+          "id": "tests/mcp-docs.test.mjs::MCP resources: initialize advertises them; one docs:// resource per public guide; read returns its Markdown; others not found"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "MCP docs calls need a token and count against the MCP limits",
+          "id": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "REST /v1/docs: public like the docs site, cacheable, rate limited per address, no D1 or workspace access",
+          "id": "tests/mcp-docs.test.mjs::REST /v1/docs: public like the docs site, cacheable, rate limited per address, no D1 or workspace access"
+        },
+        {
+          "file": "tests/mcp-docs.test.mjs",
+          "name": "docs reads answer 503 when the installation has not built the docs, never a guess",
+          "id": "tests/mcp-docs.test.mjs::docs reads answer 503 when the installation has not built the docs, never a guess"
+        },
+        {
+          "file": "tests/ui-get-started-agent.test.mjs",
+          "name": "the prompt: the connect command first, the manual way as a fallback, core tools only, no secret",
+          "id": "tests/ui-get-started-agent.test.mjs::the prompt: the connect command first, the manual way as a fallback, core tools only, no secret"
+        },
+        {
+          "file": "tests/ui-get-started-agent.test.mjs",
+          "name": "Get started: Connect your coding agent is the first step, with the workspace origin, the one primary action and no token",
+          "id": "tests/ui-get-started-agent.test.mjs::Get started: Connect your coding agent is the first step, with the workspace origin, the one primary action and no token"
+        },
+        {
+          "file": "tests/ui-get-started-agent.test.mjs",
+          "name": "Copy prompt: the async clipboard, then the fallback when it is refused; a failure says what to do",
+          "id": "tests/ui-get-started-agent.test.mjs::Copy prompt: the async clipboard, then the fallback when it is refused; a failure says what to do"
+        },
+        {
+          "file": "tests/ui-get-started-agent.test.mjs",
+          "name": "a person who cannot create tokens is told who can; the prompt still works with the connect command",
+          "id": "tests/ui-get-started-agent.test.mjs::a person who cannot create tokens is told who can; the prompt still works with the connect command"
+        },
+        {
+          "file": "tests/ui-get-started-agent.test.mjs",
+          "name": "the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART",
+          "id": "tests/ui-get-started-agent.test.mjs::the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART"
+        },
+        {
+          "file": "tests/ui-get-started-agent.test.mjs",
+          "name": "Create API token: ?new=1&preset=agent opens the dialog with the Coding agent permissions ticked",
+          "id": "tests/ui-get-started-agent.test.mjs::Create API token: ?new=1&preset=agent opens the dialog with the Coding agent permissions ticked"
+        },
+        {
+          "file": "tests/ui-requests.test.mjs",
+          "name": "/get-started: Connect your coding agent is static, so the page reads only its setup progress (as before it)",
+          "id": "tests/ui-requests.test.mjs::/get-started: Connect your coding agent is static, so the page reads only its setup progress (as before it)"
+        }
+      ],
+      "checkMs": 49535,
+      "exit": 1,
+      "collectionMs": 46643,
+      "collectedTests": 4682,
+      "verdicts": [
+        {
+          "id": "tests/drop-in-predict.test.mjs::MCP: run_expect is in the core toolset (sixteen tools with tests_plan and the docs tools), so every toolset has it",
+          "verdict": "adds-nothing",
+          "extend": null,
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::MCP resources: initialize advertises them; one docs:// resource per public guide; read returns its Markdown; others not found",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::REST /v1/docs: public like the docs site, cacheable, rate limited per address, no D1 or workspace access",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs ranking on a fixed index: a heading match beats many body mentions, all terms beat a higher partial score, ties keep the order",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs reads answer 503 when the installation has not built the docs, never a guess",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-docs.test.mjs::MCP docs calls need a token and count against the MCP limits",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-triage.test.mjs::MCP triage toolset: the core tools plus the read-only triage reads, and only with MCP_TOOLSET triage or all",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs_get: a guide by id or slug, one section with its subsections, long answers in parts that add up to the guide",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs_index: every guide the public docs site publishes, grouped as the Guides page groups them, and nothing else",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-docs.test.mjs::docs tools are in core, so every toolset (and an unknown one) lists and calls them; they are read-only",
+          "brittle": []
+        },
+        {
+          "id": "tests/mcp-docs.test.mjs::docs_search: deterministic keyword ranking, all terms before some, headings and titles over body text, snippets with the words",
+          "verdict": "adds-nothing",
+          "extend": "tests/mcp-docs.test.mjs::docs tools refuse a bad query, an unknown guide or section, and never reach a document the docs site does not publish",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-get-started-agent.test.mjs::Copy prompt: the async clipboard, then the fallback when it is refused; a failure says what to do",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-get-started-agent.test.mjs::Create API token: ?new=1&preset=agent opens the dialog with the Coding agent permissions ticked",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-get-started-agent.test.mjs::Get started: Connect your coding agent is the first step, with the workspace origin, the one primary action and no token",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-get-started-agent.test.mjs::a person who cannot create tokens is told who can; the prompt still works with the connect command",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-get-started-agent.test.mjs::the docs carry the same prompt: the hosted origin in GET_STARTED, a placeholder in QUICKSTART",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-demo-workspace.test.mjs::entry points: the welcome page and Get started offer the demo only while the operator does",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-get-started-agent.test.mjs::the prompt: the connect command first, the manual way as a fallback, core tools only, no secret",
+          "verdict": "adds-value",
+          "brittle": []
+        },
+        {
+          "id": "tests/ui-requests.test.mjs::/get-started: Connect your coding agent is static, so the page reads only its setup progress (as before it)",
+          "verdict": "adds-nothing",
+          "extend": "tests/ui-demo-workspace.test.mjs::entry points: the welcome page and Get started offer the demo only while the operator does",
+          "brittle": []
+        }
+      ],
+      "missing": [],
+      "unmatchedVerdicts": []
+    }
+  ]
+}

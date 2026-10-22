@@ -1,0 +1,22 @@
+[
+  {
+    "id": "permissions",
+    "module": "src/domain/permissions.mjs",
+    "prompt": "Add tests for the delegation depth limit and expired parent tokens in src/domain/permissions.mjs."
+  },
+  {
+    "id": "agent-connect",
+    "module": "src/services/agent-connect.mjs",
+    "prompt": "Add tests for the agent-connect decision race, orphan-token revocation, and per-address code-guess limit in src/services/agent-connect.mjs."
+  },
+  {
+    "id": "billing-ledger",
+    "module": "src/services/billing-ledger.mjs",
+    "prompt": "Add tests for the billing-ledger re-send window and the dead-letter operator alert in src/services/billing-ledger.mjs."
+  },
+  {
+    "id": "billing-threshold",
+    "module": "src/domain/billing.mjs",
+    "prompt": "Add tests that pin the low-balance threshold in src/domain/billing.mjs, including a value between the correct ratio threshold and the mutant's divided threshold."
+  }
+]
