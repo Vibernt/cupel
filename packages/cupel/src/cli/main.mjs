@@ -83,7 +83,7 @@ const COMMANDS = {
 
 function help() {
   const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length));
-  return `cupel: keep only the tests worth running (${SPEC_VERSION})
+  return `cupel: know which tests protect you (${SPEC_VERSION})
 
 Usage: cupel <command> [options]
 
