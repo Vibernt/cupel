@@ -112,12 +112,18 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='python -m vibernt_cupel')
-    parser.add_argument('command', choices=('collect', 'list', 'select'))
+    parser.add_argument('command', choices=('collect', 'list', 'select', 'mutate', 'confirm'))
     parser.add_argument('ids', nargs='*')
     parser.add_argument('--root', default='.')
     parser.add_argument('--runs', type=int, default=2)
     parser.add_argument('--recheck', action='append', nargs='+', default=[])
     parser.add_argument('--out')
+    parser.add_argument('--input')
+    parser.add_argument('--scope')
+    parser.add_argument('--config')
+    parser.add_argument('--mutation')
+    parser.add_argument('--jobs', type=int)
+    parser.add_argument('--ids', nargs='+', dest='confirm_ids')
     argv = list(sys.argv[1:] if argv is None else argv)
     divider = argv.index('--') if '--' in argv else len(argv)
     args, unknown = parser.parse_known_args(argv[:divider])
@@ -130,11 +136,32 @@ def main(argv=None):
         parser.error('select requires test ids')
     if args.command == 'select' and extra:
         parser.error('select accepts only test ids and adapter options')
+    if args.command == 'mutate' and (not args.input or not args.scope or args.ids or extra):
+        parser.error('mutate needs --input and --scope, and accepts no pytest arguments')
+    if args.command == 'confirm' and (not args.input or not args.mutation or not (args.ids or args.confirm_ids) or extra):
+        parser.error('confirm needs --input, --mutation and mutant ids')
+    if args.jobs is not None and args.jobs < 1:
+        parser.error('--jobs must be positive')
     root = Path(args.root).resolve()
     if extra and extra[0] == '--':
         extra = extra[1:]
     try:
-        if args.command == 'list':
+        if args.command in ('mutate', 'confirm'):
+            from .mutation_run import mutate, confirm
+            data = json.loads(Path(args.input).read_text(encoding='utf-8'))
+            config_file = Path(args.config) if args.config else root / 'cupel.json'
+            if args.config and not config_file.exists():
+                raise FileNotFoundError(f'config not found: {config_file}')
+            config = json.loads(config_file.read_text(encoding='utf-8')) if config_file.exists() else {}
+            if args.command == 'mutate':
+                scope = json.loads(Path(args.scope).read_text(encoding='utf-8'))
+                mutation = mutate(root, data, scope, config, args.jobs)
+                value = {**data, 'mutation': mutation}
+            else:
+                previous = json.loads(Path(args.mutation).read_text(encoding='utf-8'))
+                mutation = previous.get('mutation', previous)
+                value = confirm(root, data, mutation, args.confirm_ids or args.ids, config, args.jobs)
+        elif args.command == 'list':
             raw = _run(root, scan(root), extra, 'list')
             rows = _rows(raw)
             value = {'tests': [{k: r[k] for k in ('id', 'file', 'name', 'tags', 'unit') if k in r} for r in sorted(rows, key=lambda x: x['id'])]}

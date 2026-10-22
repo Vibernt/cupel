@@ -25,4 +25,13 @@ Cupel CLI selects this collector automatically for a Python project with no node
 { "runners": { "pytest": { "collector": "/path/to/python -m vibernt_cupel collect" } } }
 ```
 
-The JS CLI runs external collectors at the repository root with `--root`, `--runs`, `--out`, and any re-check ids. Python mutation is not part of M6. The resulting input can be validated with `cupel validate cupel-input.json`.
+The JS CLI runs external collectors at the repository root with `--root`, `--runs`, `--out`, and any re-check ids. `cupel report`, `guard`, and `check` also run Python mutation when enabled in `cupel.json`; `report --evidence` uses the mutation result's `targeted` units. It uses the same interpreter and environment as the pytest collector. The resulting input can be validated with `cupel validate cupel-input.json`.
+
+Run mutation directly with the collected input and a scope file. The scope has `critical` (boolean), `changed` (source path to line set), and `targeted` (unit ids). The command writes the input with `mutation: { mutants, targeted, seed, sampled }` added:
+
+```sh
+python3 -m vibernt_cupel mutate --root . --input cupel-input.json --scope scope.json --out mutated-input.json --jobs 2
+python3 -m vibernt_cupel confirm --root . --input mutated-input.json --mutation mutated-input.json --ids 'src/math.py:8:10:cmp-flip:12345678' --out confirmed.json
+```
+
+`--config cupel.json` overrides the default root config. `--jobs` defaults to half the available cores. Mutants are served through `-p vibernt_cupel.mutant` in fresh pytest processes; the plugin applies edits in memory and project source files remain unchanged. A failing test counts as a kill only if the collected input listed it as passed. A crash is retried and becomes `error`; a timeout is checked against a fresh unmutated run. `confirm` reruns each named survivor twice and writes a mutation object. Edit specs and reports live temporarily under `.scratch/`.
