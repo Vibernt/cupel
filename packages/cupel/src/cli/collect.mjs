@@ -6,9 +6,10 @@
 // that replace the real modules. A path that does not exist means "not available". Outside
 // NODE_ENV=test both variables are ignored.
 
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { delimiter, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { environment } from './errors.mjs';
 import { extractRef } from './git.mjs';
@@ -18,6 +19,58 @@ const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
   mutator: { url: new URL('../mutate/index.mjs', import.meta.url), env: 'CUPEL_TEST_MUTATOR', exports: ['mutateNode'] },
 };
+
+
+const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url));
+const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+
+function hasNodeTests(root) {
+  const visit = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || ['node_modules', 'venv', '.venv', 'env', 'site-packages'].includes(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory() && visit(path)) return true;
+      if (entry.isFile() && /\.(test|spec)\.[cm]?js$/.test(entry.name)) return true;
+    }
+    return false;
+  };
+  return visit(root);
+}
+
+function externalRunner(root, cfg) {
+  for (const [name, runner] of Object.entries(cfg.runners ?? {})) {
+    if (runner.collector) return { name, ...runner };
+  }
+  const setupCfg = join(root, 'setup.cfg');
+  const pythonProject = existsSync(join(root, 'pyproject.toml')) || existsSync(join(root, 'pytest.ini')) ||
+    (existsSync(setupCfg) && /\[tool:pytest\]|\[pytest\]/.test(readFileSync(setupCfg, 'utf8')));
+  if (root && !hasNodeTests(root) && pythonProject) {
+    return { name: 'pytest', collector: 'python3 -m vibernt_cupel collect', env: {} };
+  }
+  return null;
+}
+
+function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
+  const dir = mkdtempSync(join(tmpdir(), 'cupel-external-'));
+  const output = join(dir, 'input.json');
+  try {
+    const env = { ...process.env, ...(runner.env ?? {}) };
+    if (runner.name === 'pytest') env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);
+    if (runner.prepare) {
+      const ready = spawnSync(runner.prepare, { cwd: root, env, shell: true, encoding: 'utf8' });
+      if (ready.error || ready.status !== 0) throw environment(`prepare failed: ${(ready.stderr || ready.error?.message || '').trim()}`);
+    }
+    const command = `${runner.collector} --root ${quote(root)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(u)}`).join(' ')} --out ${quote(output)}`;
+    log(`external collector: ${runner.name}`);
+    const child = spawnSync(command, { cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 28 });
+    if (child.error || child.status !== 0) throw environment(`external collector failed (${child.error?.message ?? `exit ${child.status}`}): ${(child.stderr || child.stdout || '').trim().slice(-500)}`);
+    if (!existsSync(output)) throw environment('external collector did not write --out file');
+    try { return JSON.parse(readFileSync(output, 'utf8')); }
+    catch (error) { throw environment(`external collector output is not JSON: ${error.message}`); }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 /** Loads the collector or the mutator. Returns null when it is not available. */
 export async function loadModule(kind, env = process.env) {
@@ -37,7 +90,9 @@ export async function loadModule(kind, env = process.env) {
   return mod;
 }
 
-export async function requireCollector(env) {
+export async function requireCollector(env, root, cfg) {
+  const external = externalRunner(root, cfg);
+  if (external) return { collectNode: (opts) => collectExternal(external, opts) };
   const mod = await loadModule('collector', env);
   if (!mod) throw environment('collector not available');
   return mod;
