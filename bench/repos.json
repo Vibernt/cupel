@@ -1,72 +1,225 @@
 [
   {
-    "name": "n8n-mcp", "dir": "/Users/vid/cupel/.scratch/bench/repos/n8n-mcp", "language": "TypeScript", "runner": "vitest", "image": "node:22-bookworm",
+    "name": "n8n-mcp",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/n8n-mcp",
+    "language": "TypeScript",
+    "runner": "vitest",
+    "image": "node:22-bookworm",
     "install": "HUSKY=0 npm ci --legacy-peer-deps --cache /cache/npm",
     "test": "FEATURE_TEST_COVERAGE=false npm run test:unit",
-    "cupelConfig": {"runners": {"vitest": {"tests": "tests/unit/**/*.test.ts", "env": {"N8N_MCP_TELEMETRY_DISABLED": "true", "FEATURE_TEST_COVERAGE": "false"}}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "vitest": {
+          "tests": "tests/unit/**/*.test.ts",
+          "env": {
+            "N8N_MCP_TELEMETRY_DISABLED": "true",
+            "FEATURE_TEST_COVERAGE": "false"
+          }
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "CI test.yml uses npm ci --legacy-peer-deps and test:unit. Excludes n8n API, AI validation, other integration, e2e, Docker, UI browser and telemetry paths; these require services, credentials or Chromium."
   },
   {
-    "name": "browser-tools-mcp", "dir": "/Users/vid/cupel/.scratch/bench/repos/browser-tools-mcp", "language": "TypeScript", "runner": "vitest", "image": "node:22-bookworm",
+    "name": "browser-tools-mcp",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/browser-tools-mcp",
+    "language": "TypeScript",
+    "runner": "vitest",
+    "image": "node:22-bookworm",
     "install": "npm ci --cache /cache/npm",
     "test": "npm run test:unit",
-    "cupelConfig": {"runners": {"vitest": {"tests": "browser-tools-mcp/test/unit/**/*.test.ts"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "vitest": {
+          "tests": "browser-tools-mcp/test/unit/**/*.test.ts"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "CI uses npm ci. Excludes the integration project because it binds loopback sockets and spawns an MCP server; excludes e2e because it needs Chromium and an extension."
   },
   {
-    "name": "apify-mcp-server", "dir": "/Users/vid/cupel/.scratch/bench/repos/apify-mcp-server", "language": "TypeScript", "runner": "vitest", "image": "node:22-bookworm",
+    "name": "apify-mcp-server",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/apify-mcp-server",
+    "language": "TypeScript",
+    "runner": "vitest",
+    "image": "node:22-bookworm",
     "install": "corepack pnpm install --frozen-lockfile --store-dir /cache/pnpm",
     "test": "corepack pnpm run test:unit",
-    "cupelConfig": {"runners": {"vitest": {"tests": "tests/unit/**/*.test.ts"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "vitest": {
+          "tests": "tests/unit/**/*.test.ts"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "packageManager is pnpm@11.11.0 and the project test script selects unit. Excludes integration, conformance and evals that require a built server or Apify token."
   },
   {
-    "name": "locally-uncensored", "dir": "/Users/vid/cupel/.scratch/bench/repos/locally-uncensored", "language": "TypeScript", "runner": "vitest", "image": "node:22-bookworm",
+    "name": "locally-uncensored",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/locally-uncensored",
+    "language": "TypeScript",
+    "runner": "vitest",
+    "image": "node:22-bookworm",
     "install": "npm ci --cache /cache/npm",
     "test": "npm test",
-    "cupelConfig": {"runners": {"vitest": {"tests": "{src,dev-server}/**/__tests__/**/*.test.{ts,tsx}"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "vitest": {
+          "tests": "{src,dev-server}/**/__tests__/**/*.test.{ts,tsx}"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "vitest.config.ts includes only src and dev-server tests. Excludes Playwright e2e, Tauri/Rust, voice sidecar and GPU or desktop workloads."
   },
   {
-    "name": "zotero-mcp", "dir": "/Users/vid/cupel/.scratch/bench/repos/zotero-mcp", "language": "Python", "runner": "pytest", "image": "python:3.13-bookworm",
-    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@22.19.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -e '.[dev]'",
-    "test": "/cache/venv/bin/python -m pytest tests --ignore=tests/test_lifespan.py -q",
-    "cupelConfig": {"runners": {"pytest": {"tests": "tests/test_*.py", "collector": "/cache/venv/bin/python -m vibernt_cupel collect", "env": {"PYTEST_ADDOPTS": "--ignore=tests/test_lifespan.py"}}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
-    "notes": "README uses pytest and release CI ignores test_lifespan.py. Dev extra supplies pytest and optional packages. Excludes live Zotero integration plan and test_lifespan; no Zotero service in container. Node 22 is installed into the cache volume in the Python image; report uses that binary and Cupel Python collector via PYTHONPATH."
+    "name": "zotero-mcp",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/zotero-mcp",
+    "language": "Python",
+    "runner": "pytest",
+    "image": "python:3.13-bookworm",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@22.19.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -e '.[dev]' && TIKTOKEN_CACHE_DIR=/cache/tiktoken /cache/venv/bin/python -c \"import tiktoken; tiktoken.get_encoding('cl100k_base')\"",
+    "test": "TIKTOKEN_CACHE_DIR=/cache/tiktoken /cache/venv/bin/python -m pytest tests --ignore=tests/test_lifespan.py -q",
+    "cupelConfig": {
+      "runners": {
+        "pytest": {
+          "tests": "tests/test_*.py",
+          "collector": "/cache/venv/bin/python -m vibernt_cupel collect",
+          "env": {
+            "PYTEST_ADDOPTS": "--ignore=tests/test_lifespan.py",
+            "TIKTOKEN_CACHE_DIR": "/cache/tiktoken"
+          }
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
+    "notes": "README uses pytest and release CI ignores test_lifespan.py. Dev extra supplies pytest and optional packages. Excludes live Zotero integration plan and test_lifespan; no Zotero service in container. Node 22 is installed into the cache volume in the Python image; report uses that binary and Cupel Python collector via PYTHONPATH. tiktoken downloads its encoding on first use, so the install step pre-fetches cl100k_base into the cache volume while the network is on."
   },
   {
-    "name": "Skill_Seekers", "dir": "/Users/vid/cupel/.scratch/bench/repos/Skill_Seekers", "language": "Python", "runner": "pytest", "image": "python:3.13-bookworm",
-    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@22.19.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -r requirements.txt -e '.[ui]' pytest-xdist pytest-timeout psutil",
+    "name": "Skill_Seekers",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/Skill_Seekers",
+    "language": "Python",
+    "runner": "pytest",
+    "image": "python:3.13-bookworm",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@22.19.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -r requirements.txt && /cache/venv/bin/pip install -e '.[ui]' pytest-xdist pytest-timeout psutil",
     "test": "/cache/venv/bin/python -m pytest tests -q -m 'not slow and not integration and not e2e and not network and not serial and not mcp_only'",
-    "cupelConfig": {"runners": {"pytest": {"tests": "tests/test_*.py", "collector": "/cache/venv/bin/python -m vibernt_cupel collect", "env": {"PYTEST_ADDOPTS": "-m 'not slow and not integration and not e2e and not network and not serial and not mcp_only'"}}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
-    "notes": "Matches the unit lane in .github/workflows/tests.yml and its marker exclusions. Browser, vector DB, MCP-only and service suites are excluded. Node 22 is installed into cache in the Python image; the Cupel Python collector is on PYTHONPATH."
+    "cupelConfig": {
+      "runners": {
+        "pytest": {
+          "tests": "tests/test_*.py",
+          "collector": "/cache/venv/bin/python -m vibernt_cupel collect",
+          "env": {
+            "PYTEST_ADDOPTS": "-m 'not slow and not integration and not e2e and not network and not serial and not mcp_only'"
+          }
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
+    "notes": "Matches the unit lane in .github/workflows/tests.yml and its marker exclusions. Browser, vector DB, MCP-only and service suites are excluded. Node 22 is installed into cache in the Python image; the Cupel Python collector is on PYTHONPATH. Installs requirements.txt and the [ui] extra as separate steps, as its CI does; combined, pip cannot resolve them."
   },
   {
-    "name": "github-mcp-server", "dir": "/Users/vid/cupel/.scratch/bench/repos/github-mcp-server", "language": "Go", "runner": "go", "image": "golang:1-bookworm",
+    "name": "github-mcp-server",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/github-mcp-server",
+    "language": "Go",
+    "runner": "go",
+    "image": "golang:1-bookworm",
     "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && go mod download && cd ui && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm && PATH=/cache/node/node_modules/node/bin:$PATH npm run build",
     "test": "./script/test",
-    "cupelConfig": {"runners": {"go": {"tests": "**/*_test.go"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "go": {
+          "tests": "**/*_test.go"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 22 and builds UI. Build-tagged live GitHub e2e with token is excluded. Pending: collector; baseline only."
   },
   {
-    "name": "zeron", "dir": "/Users/vid/cupel/.scratch/bench/repos/zeron", "language": "Rust", "runner": "cargo", "image": "rust:1-bookworm",
+    "name": "zeron",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/zeron",
+    "language": "Rust",
+    "runner": "cargo",
+    "image": "rust:1-bookworm",
     "install": "cargo fetch --locked",
     "test": "cargo test --locked -p zeron-text -p zeron-markdown -p zeron-client",
-    "cupelConfig": {"runners": {"cargo": {"tests": "crates/{text,markdown,client}/**/*.rs"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "cargo": {
+          "tests": "crates/{text,markdown,client}/**/*.rs"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "Cargo workspace lockfile and macOS CI include these pure library crates. Excludes native UI, voice/audio, GPU, browser fixtures, iOS and service tests. Pending: collector; baseline only."
   },
   {
-    "name": "RazorConsole", "dir": "/Users/vid/cupel/.scratch/bench/repos/RazorConsole", "language": "C#", "runner": "dotnet", "image": "mcr.microsoft.com/dotnet/sdk:9.0",
+    "name": "RazorConsole",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/RazorConsole",
+    "language": "C#",
+    "runner": "dotnet",
+    "image": "mcr.microsoft.com/dotnet/sdk:9.0",
     "install": "dotnet restore src/RazorConsole.Tests/RazorConsole.Tests.csproj --property:TargetFramework=net9.0 --packages /cache/nuget",
     "test": "dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --framework net9.0 --no-restore -- --filter-not-trait 'Category=E2E'",
-    "cupelConfig": {"runners": {"dotnet": {"tests": "src/RazorConsole.Tests/**/*.cs"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "dotnet": {
+          "tests": "src/RazorConsole.Tests/**/*.cs"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "CI excludes Category=E2E and project targets net8 through net11; sdk:9.0 is run with --framework net9.0. Excludes PTY e2e, UI gallery and other target frameworks. Pending: collector; baseline only."
   },
   {
-    "name": "activeagent", "dir": "/Users/vid/cupel/.scratch/bench/repos/activeagent", "language": "Ruby", "runner": "minitest", "image": "ruby:3-bookworm",
+    "name": "activeagent",
+    "dir": "/Users/vid/cupel/.scratch/bench/repos/activeagent",
+    "language": "Ruby",
+    "runner": "minitest",
+    "image": "ruby:3-bookworm",
     "install": "BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate",
     "test": "BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rake test TEST='test/{*_test.rb,providers/common/**/*_test.rb}'",
-    "cupelConfig": {"runners": {"minitest": {"tests": "test/{*_test.rb,providers/common/**/*_test.rb}"}}, "mutation": {"maxMutants": 300, "maxSeconds": 1200}},
+    "cupelConfig": {
+      "runners": {
+        "minitest": {
+          "tests": "test/{*_test.rb,providers/common/**/*_test.rb}"
+        }
+      },
+      "mutation": {
+        "maxMutants": 300,
+        "maxSeconds": 1200
+      }
+    },
     "notes": "Uses the repository's Rake test task with TEST= restricted to root and provider-common tests. Excludes provider integration, evals, docs examples, dashboard, browser sidecar and frontend because they may need services, credentials or generated assets. CI creates and migrates a local Rails SQLite database; install does likewise. Pending: collector; baseline only."
   }
 ]
