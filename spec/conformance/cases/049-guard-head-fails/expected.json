@@ -4,7 +4,11 @@
     "checks": [
       {
         "id": "head-passes",
-        "pass": false
+        "pass": false,
+        "units": [
+          "x"
+        ],
+        "preexisting": []
       },
       {
         "id": "coverage-lines",

@@ -168,9 +168,9 @@ test('seeded sweep: every command is deterministic and schema-valid on generated
       const r = go(cmd, inputs, config, args);
       exits.add(r.exit);
       if (cmd === 'guard' && inputs.base === doc && r.exit !== 2) {
-        // Comparing an input with itself can only fail on failing tests at head.
+        // Comparing an input with itself never fails: any failing test is pre-existing (G3).
         const failing = r.report.guard.checks.filter((c) => !c.pass).map((c) => c.id);
-        assert.deepEqual(failing, doc.tests.some((x) => x.status === 'failed') ? ['head-passes'] : [], `seed ${seed}`);
+        assert.deepEqual(failing, [], `seed ${seed}`);
       }
       if (cmd === 'report' && r.exit === 0) {
         const s = r.report.suite;

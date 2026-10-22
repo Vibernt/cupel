@@ -189,7 +189,10 @@ export function guardSection(base, head, cfg, approvals = []) {
   const checks = [];
 
   // G3
-  checks.push({ id: 'head-passes', pass: head.units.every((u) => u.status !== 'failed') });
+  const baseFailed = new Set(base.units.filter((u) => u.status === 'failed').map((u) => u.id));
+  const headFailed = head.units.filter((u) => u.status === 'failed').map((u) => u.id).sort(cmp);
+  const newFailures = headFailed.filter((id) => !baseFailed.has(id));
+  checks.push({ id: 'head-passes', pass: newFailures.length === 0, units: newFailures, preexisting: headFailed.filter((id) => baseFailed.has(id)) });
 
   // G4
   const lost = new Map();

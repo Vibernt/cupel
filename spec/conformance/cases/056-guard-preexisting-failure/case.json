@@ -1,0 +1,11 @@
+{
+  "description": "A unit that fails at both base and head is pre-existing: it is listed but does not fail the guard.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G3",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

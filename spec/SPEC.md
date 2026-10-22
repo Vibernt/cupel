@@ -220,7 +220,7 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 `guard` compares a `base` input with a `head` input under one config. There is no rule G2. Approvals match unit ids exactly.
 
 - **G1** **Runtime.** If `runtime.name` or `runtime.version` differs between base and head, the engine reports the diagnostic `runtime-mismatch` and exits 3. Coverage differs slightly between runtime versions (spike S2), so guard never compares across them.
-- **G3** **Head passes.** The check `head-passes` fails when any unit at head is failed.
+- **G3** **No new failures.** The check `head-passes` fails when a unit is failed at head and was not failed at base (a unit new at head counts as not failed at base). `units` lists those new failures, sorted. Units failed at both base and head are listed as `preexisting`, sorted: the change did not cause them, so they don't fail the guard (found in the benchmark, where repositories carry environment-dependent failures).
 - **G4** **Coverage never falls.** Covered lines are every line in any row's coverage (failed rows included), any file's coverage, and every setup line.
   - Check `coverage-lines`: for each source present in both inputs with equal, present `hash`, the head's covered lines must include the base's. `lost` lists the missing lines.
   - Check `coverage-ratio`: covered over coverable, summed over all sources, must not be lower at head than at base. It is compared as exact fractions, and the check reports both ratios as `base` and `head`.
@@ -237,7 +237,7 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 - **G8** **No critical unit downgraded without approval.** Check `critical-downgraded`: each unit critical at base and present but not critical at head needs an approval `{ action: "downgrade", id }`. `units` lists the unapproved ones, sorted.
 - **G9** **Evidence.** `removed` lists every unit present at base and absent at head as `{ id, tier, uniqueLines, uniqueKills }`, with values from base, sorted by id.
 
-Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when it passes); `coverage-ratio` has `base` and `head`; `critical-coverage` has `sources`; `critical-mutation` has `lost.mutants`, or `missing: true` and no `lost`; `critical-removed` and `critical-downgraded` have `units`; `head-passes` has none of these.
+Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when it passes); `coverage-ratio` has `base` and `head`; `critical-coverage` has `sources`; `critical-mutation` has `lost.mutants`, or `missing: true` and no `lost`; `critical-removed`, `critical-downgraded` and `head-passes` have `units`; `head-passes` also has `preexisting`.
 
 `guard.checks` lists each of the seven checks exactly once, in the order G3, G4 (`coverage-lines`, then `coverage-ratio`), G5, G6, G7, G8. `guard.pass` is true when every check passes. Guard exits 0 when it passes, and 1 when it does not.
 

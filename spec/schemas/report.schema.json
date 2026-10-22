@@ -187,6 +187,7 @@
               "lost": { "$ref": "#/$defs/lost" },
               "missing": { "type": "boolean" },
               "units": { "type": "array", "items": { "type": "string" } },
+              "preexisting": { "type": "array", "items": { "type": "string" } },
               "sources": { "type": "array", "items": { "type": "string" } },
               "base": { "$ref": "#/$defs/coverageRatio" },
               "head": { "$ref": "#/$defs/coverageRatio" }

@@ -978,7 +978,17 @@ kase('049-guard-head-fails', {
   base: gBase(),
   head: gBase({ tests: G_TESTS.map((x) => (x.id === 'x' ? { ...x, status: 'failed' } : x)) }),
   expectExit: 1,
-  expected: { guard: { pass: false, checks: checks({ 'head-passes': {} }) } },
+  expected: { guard: { pass: false, checks: checks({ 'head-passes': { units: ['x'], preexisting: [] } }) } },
+});
+
+kase('056-guard-preexisting-failure', {
+  description: 'A unit that fails at both base and head is pre-existing: it is listed but does not fail the guard.',
+  command: 'guard',
+  rules: rules('+G3'),
+  base: gBase({ tests: G_TESTS.map((x) => (x.id === 'x' ? { ...x, status: 'failed' } : x)) }),
+  head: gBase({ tests: G_TESTS.map((x) => (x.id === 'x' ? { ...x, status: 'failed' } : x)) }),
+  expectExit: 0,
+  expected: { guard: { pass: true, checks: checks({}).map((c) => (c.id === 'head-passes' ? { ...c, units: [], preexisting: ['x'] } : c)) } },
 });
 
 kase('050-guard-critical-coverage-target', {
