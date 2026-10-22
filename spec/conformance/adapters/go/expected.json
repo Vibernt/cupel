@@ -1,0 +1,24 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "go" },
+  "sources": {
+    "math.go": { "coverable": "6,10-11,13-14,16,20" }
+  },
+  "tests": [
+    { "id": "math_test.go::TestNegative", "file": "math_test.go", "name": "TestNegative", "unit": "$absent", "status": "passed" },
+    { "id": "math_test.go::TestPositive", "file": "math_test.go", "name": "TestPositive", "unit": "$absent", "status": "passed" },
+    { "id": "math_test.go::TestZero", "file": "math_test.go", "name": "TestZero", "unit": "$absent", "tags": ["critical"], "status": "passed" }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "math_test.go::TestNegative": { "math.go": "10-11" },
+      "math_test.go::TestPositive": { "math.go": "10,13,16" },
+      "math_test.go::TestZero": { "math.go": "10,13-14" }
+    },
+    "setup": { "math_test.go": { "math.go": "6" } },
+    "rechecked": ["math_test.go::TestNegative", "math_test.go::TestPositive", "math_test.go::TestZero"]
+  },
+  "brittleness": []
+}

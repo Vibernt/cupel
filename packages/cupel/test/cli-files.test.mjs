@@ -153,8 +153,9 @@ test('conformance: an adapter that reproduces the fixture passes; one that does 
   assert.equal(bad.status, 1);
   const out = JSON.parse(bad.stdout);
   assert.equal(out.pass, false);
-  assert.equal(out.fixtures[0].fixture, 'node-test');
-  assert.match(out.fixtures[0].mismatches[0], /^\/tests: expected 5 items, got 4/);
+  const nodeFixture = out.fixtures.find((f) => f.fixture === 'node-test');
+  assert.ok(nodeFixture);
+  assert.match(nodeFixture.mismatches[0], /^\/tests: expected 5 items, got 4/);
 
   const fails = cli('conformance', '--adapter', `"${process.execPath}" -e "process.exit(4)"`);
   assert.equal(fails.status, 1);
