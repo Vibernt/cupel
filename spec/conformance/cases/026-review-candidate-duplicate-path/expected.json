@@ -2,10 +2,10 @@
   "units": [
     {
       "id": "r",
-      "advice": "retire",
-      "reasons": [
-        "no-unique-lines",
-        "duplicate-of"
+      "advice": "keep",
+      "reasons": [],
+      "hints": [
+        "no-unique-evidence"
       ],
       "duplicateOf": "v"
     },

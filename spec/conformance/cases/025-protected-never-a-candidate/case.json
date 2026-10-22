@@ -1,5 +1,5 @@
 {
-  "description": "A failing test's coverage is not trusted: a unit covered only by a failing test is not retired.",
+  "description": "A unit covering a critical source is protected and never a review candidate, even with full evidence.",
   "command": "report",
   "rules": [
     {
@@ -7,7 +7,7 @@
       "polarity": "negative"
     },
     {
-      "id": "A1",
+      "id": "T8",
       "polarity": "positive"
     }
   ],

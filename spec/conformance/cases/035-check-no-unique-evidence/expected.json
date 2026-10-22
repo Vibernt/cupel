@@ -10,7 +10,7 @@
       },
       {
         "id": "new2",
-        "verdict": "adds-nothing",
+        "verdict": "no-unique-evidence",
         "extend": "old",
         "brittle": []
       }

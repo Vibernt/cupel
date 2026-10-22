@@ -1,37 +1,28 @@
 {
   "suite": {
     "advice": {
-      "keep": 3,
+      "keep": 2,
       "consolidate": 0,
       "rewrite": 0,
       "move-to-check": 0,
-      "retire": 0,
       "none": 0
     }
   },
   "units": [
     {
-      "id": "k",
-      "advice": "keep",
-      "reasons": [
-        "unique-lines",
-        "unique-kills"
-      ]
-    },
-    {
-      "id": "r1",
+      "id": "x",
       "advice": "keep",
       "reasons": [],
       "hints": [
-        "no-unique-coverage-unverified"
+        "no-unique-evidence"
       ]
     },
     {
-      "id": "r2",
+      "id": "y",
       "advice": "keep",
       "reasons": [],
       "hints": [
-        "no-unique-coverage-unverified"
+        "no-unique-evidence"
       ]
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "description": "A new test with unique lines adds value; one whose lines another test already covers adds nothing and names the test to extend.",
+  "description": "A new test with unique lines adds value; one whose lines another test already covers gets the informational no-unique-evidence verdict, naming the closest test, and check still exits 0.",
   "command": "check",
   "rules": [
     {
@@ -25,5 +25,5 @@
       "new1"
     ]
   },
-  "expectExit": 1
+  "expectExit": 0
 }

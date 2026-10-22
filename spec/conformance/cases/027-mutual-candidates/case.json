@@ -1,0 +1,11 @@
+{
+  "description": "Two units that cover each other are both review candidates: neither is advice to remove, so no joint pass is needed.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

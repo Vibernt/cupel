@@ -127,7 +127,7 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 - **T5** **Unique critical lines.** If the unit has at least one unique line (S2) in a critical source, the tier is `critical`. Reason: `unique-critical-lines`.
 - **T6** **Minor path rule.** If the unit's file matches a `tiers.minor` glob, the tier is `minor`. Reason: `path-rule`.
 - **T7** **Default.** Otherwise, the tier is `standard`. Reason: `default`.
-- **T8** **Protected.** A unit is **protected** when its tier is `critical`, or when its own lines (S1) include any line of a critical source. A protected unit is never advised retire (A10).
+- **T8** **Protected.** A unit is **protected** when its tier is `critical`, or when its own lines (S1) include any line of a critical source. A protected unit is never a review candidate (A10).
 
 ## 6. Signals
 
@@ -149,7 +149,7 @@ For a unit `u` with rows `R(u)` in test file `f`:
 
 ## 7. Advice
 
-Each unit gets exactly one `advice`: `keep`, `consolidate`, `rewrite`, `move-to-check`, `retire` or `none`. It also gets ordered `reasons` and sorted `hints`.
+Each unit gets exactly one `advice`: `keep`, `consolidate`, `rewrite`, `move-to-check` or `none`. It also gets ordered `reasons` and sorted `hints`. **Cupel v1 never advises removing a test** (D5): three measurements (spikes S6, S8 and S6b) found that deterministic signals cannot tell a redundant test from one with unique assertions.
 
 **Advice rules.** Consolidation groups (A9) are computed first. Then rules are tried in order and the first that applies decides the advice. "Critical" in A6 and A9 means tier `critical`. Thresholds compare exactly against the decimal as written (`0.8` means 8/10), never as binary floating point.
 
@@ -161,13 +161,12 @@ Each unit gets exactly one `advice`: `keep`, `consolidate`, `rewrite`, `move-to-
 - **A6** **Slow and low value.** A passed unit that is not critical, with `runs(u)` ≥ `advice.minRuns`, `durationMs(u)` ≥ `advice.slowMs` and `uniqueLines` < `advice.lowValueUniqueLines`, gets `rewrite`, reason `slow-low-value`. This needs `test` granularity.
 - **A7** **Keep with evidence.** A unit whose tier is `critical`, or with `uniqueLines` ≥ 1, or with `uniqueKills` ≥ 1, gets `keep`. Its reasons are those that hold, in this order: `critical`, `unique-lines`, `unique-kills`.
 - **A8** **No evidence.** A unit with an empty `own(u)` gets `none`, with hint `no-coverage-evidence`. Covering nothing is not the same as being worth nothing (spike S6).
-- **A10** **Retire.** A unit selected by the retire pass gets `retire`, with reason `no-unique-lines`, plus `no-unique-kills` (mutation path) or `duplicate-of` (duplicate path; `duplicateOf` names the other unit).
+- **A10** **Review candidate.** A unit that meets every review-candidate condition below gets `keep` with hint `no-unique-evidence`, and `duplicateOf` when the duplicate path applies. This is where a person may look first. It is never advice to remove.
 - **A11** **Otherwise** the unit gets `keep` with hint `no-unique-coverage-unverified`. This is a review hint, never advice to remove.
 
 **Hints.** These attach whatever the advice:
 - `spawns-interpreter` when any row has `spawnsInterpreter`;
 - `low-evidence` when any row has `kind: "e2e"`;
-- `retire-conflict` when A10 rejected the unit only because of joint safety.
 
 **A9 Consolidation groups.**
 - **Which units can join.** Eligible units have status passed and no brittleness finding (deliberate or not), and are measured at `test` granularity, with `advice.consolidate` true.
@@ -175,29 +174,16 @@ Each unit gets exactly one `advice`: `keep`, `consolidate`, `rewrite`, `move-to-
 - **Groups.** Groups are the connected components of two or more units. They are numbered `g1`, `g2` and so on, in ascending order of each group's smallest unit id. Within a group, units are listed in ascending id order.
 - **What is ignored.** "Own lines are a subset of a sibling's" is not a consolidation signal (spike S6).
 
-**A10 Retire eligibility and the retire pass.**
-
-A unit is a **retire candidate** when all of these hold:
+**A10 Review-candidate conditions.** A unit is a review candidate when all of these hold:
 - it is not protected (T8) and has no `e2e` or `spawnsInterpreter` row;
 - it is passed, at `test` granularity, with a non-empty `own(u)` and `uniqueLines` = 0;
+- every line in `own(u)` is also covered by another **passed** unit or by setup lines. A failing test's coverage is not trusted (A1);
 - it is listed in `coverage.rechecked`;
 - and either:
   - the **mutation path:** it is listed in `mutation.targeted` and `uniqueKills` = 0; or
-  - the **duplicate path:** another unit `v` exists with `shape(u, v)` ≥ `advice.duplicateShape` and `own(v)` ⊇ `own(u)`.
+  - the **duplicate path:** another passed unit `v` exists with `shape(u, v)` ≥ `advice.duplicateShape` and `own(v)` ⊇ `own(u)`. `duplicateOf` is the smallest such `v` id.
 
-Missing mutation data is never "no kill".
-
-Only units that reach A10 (no earlier rule applied) are candidates. A failing test's coverage and kills are not trusted (A1), so the pass counts **passed units only** as remaining coverage, remaining killers and duplicate partners.
-
-**The retire pass** keeps retiring jointly safe:
-1. Sort candidates by `durationMs` descending, then by id ascending.
-2. Take each candidate in turn and accept it only if, after removing it and every unit accepted before it:
-   1. the own lines of the remaining passed units, plus the setup lines of test files that keep at least one unit, still include every line in the own lines of all passed units;
-   2. every detected mutant that had a passed killer still has a `killedBy` row in a remaining passed unit;
-   3. for the duplicate path, at least one qualifying passed `v` remains, for this candidate and for every duplicate-path candidate accepted before it.
-
-   A candidate that fails only these conditions gets hint `retire-conflict` and falls through to A11.
-3. Accepted candidates get `retire`. A candidate qualifying by both paths gets reasons `no-unique-lines`, `no-unique-kills`, `duplicate-of`. `duplicateOf` is the smallest qualifying `v` id still present after the pass.
+Missing mutation data is never "no kill". Each candidate is judged on its own: two candidates that cover each other's lines are both candidates, because neither is advice to remove.
 
 **A12 File granularity.** At `file` granularity, these do not apply:
 - unique lines and unique kills for units (reported as `null`);
@@ -223,11 +209,11 @@ Failed and skipped units are planned like any other. A test file counts as chang
 `check` answers, for each unit named in argument `tests` (a test id names its unit):
 
 - **C1** `adds-value` when the unit is critical, or has `uniqueLines` ≥ 1, or `uniqueKills` ≥ 1.
-- **C2** `adds-nothing` otherwise. `extend` names the other unit (of any status) with the largest overlap of own lines (ties: smallest id), or is `null` when nothing overlaps. At `file` granularity only critical units add value.
+- **C2** `no-unique-evidence` otherwise. It is informational, never "adds nothing" (D14; spike S8 found 23 of 24 such tests asserted something new). `extend` names the other unit (of any status) with the largest overlap of own lines (ties: smallest id), or is `null` when nothing overlaps. At `file` granularity only critical units add value; the others get `no-unique-evidence`.
 - **C3** `weakens` when a `base` input is given, the unit exists in both, and its own lines at head do not include its own lines at base, or a mutant it detected at base (present at head by id) is not detected by it at head. `lost` lists the lost lines (line sets per source) and mutant ids. A head mutant counts as detected by the unit when it is detected and its `killedBy` names a head row of the unit. When head has no `mutation` data, every mutant the unit detected at base counts as lost, as in G6.
 - **C4** `fails` when the unit is failed, and `not-run` when it is skipped. These take precedence over C1 to C3, which take precedence in the order C3, C1, C2.
 
-Verdicts are listed once per unit, in ascending unit id order. Each entry lists `brittle` kinds; `extend` appears only with `adds-nothing`, and `lost` only with `weakens`. `check` exits 0 when every verdict is `adds-value`, and 1 otherwise.
+Verdicts are listed once per unit, in ascending unit id order. Each entry lists `brittle` kinds; `extend` appears only with `no-unique-evidence`, and `lost` only with `weakens`. `check` exits 1 when any verdict is `weakens`, `fails` or `not-run`, and 0 otherwise.
 
 ## 10. Guard
 

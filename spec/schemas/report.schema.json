@@ -49,14 +49,13 @@
         "criticalMutation": { "anyOf": [{ "$ref": "#/$defs/mutationScore" }, { "type": "null" }] },
         "advice": {
           "type": "object",
-          "required": ["keep", "consolidate", "rewrite", "move-to-check", "retire", "none"],
+          "required": ["keep", "consolidate", "rewrite", "move-to-check", "none"],
           "additionalProperties": false,
           "properties": {
             "keep": { "type": "integer", "minimum": 0 },
             "consolidate": { "type": "integer", "minimum": 0 },
             "rewrite": { "type": "integer", "minimum": 0 },
             "move-to-check": { "type": "integer", "minimum": 0 },
-            "retire": { "type": "integer", "minimum": 0 },
             "none": { "type": "integer", "minimum": 0 }
           }
         }
@@ -161,7 +160,7 @@
             "additionalProperties": false,
             "properties": {
               "id": { "type": "string" },
-              "verdict": { "enum": ["adds-value", "adds-nothing", "weakens", "fails", "not-run"] },
+              "verdict": { "enum": ["adds-value", "no-unique-evidence", "weakens", "fails", "not-run"] },
               "extend": { "type": ["string", "null"] },
               "brittle": { "type": "array", "items": { "$ref": "#/$defs/brittleKind" } },
               "lost": { "$ref": "#/$defs/lost" }
@@ -213,7 +212,7 @@
   },
   "$defs": {
     "tier": { "enum": ["critical", "standard", "minor"] },
-    "advice": { "enum": ["keep", "consolidate", "rewrite", "move-to-check", "retire", "none"] },
+    "advice": { "enum": ["keep", "consolidate", "rewrite", "move-to-check", "none"] },
     "brittleKind": { "enum": ["source-text", "css-class", "doc-wording", "file-snapshot"] },
     "lineSet": { "type": "string", "pattern": "^([1-9][0-9]*(-[1-9][0-9]*)?(,[1-9][0-9]*(-[1-9][0-9]*)?)*)?$" },
     "coverageRatio": {

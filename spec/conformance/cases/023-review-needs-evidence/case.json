@@ -1,5 +1,5 @@
 {
-  "description": "Without both the per-process recheck and targeted mutation (or a duplicate), no retire: keep with an unverified hint.",
+  "description": "Without both the per-process recheck and targeted mutation (or a duplicate), no review candidate: keep with the unverified hint.",
   "command": "report",
   "rules": [
     {

@@ -15,8 +15,7 @@
       "advice": "keep",
       "reasons": [],
       "hints": [
-        "no-unique-coverage-unverified",
-        "retire-conflict"
+        "no-unique-coverage-unverified"
       ]
     }
   ]

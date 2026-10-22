@@ -1,5 +1,5 @@
 {
-  "description": "End-to-end tests and tests that spawn an interpreter are flagged and never retired.",
+  "description": "End-to-end tests and tests that spawn an interpreter are flagged and never review candidates.",
   "command": "report",
   "rules": [
     {

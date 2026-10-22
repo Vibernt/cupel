@@ -49,7 +49,7 @@ const m = (id, line, status, killedBy, source = 'src/a.mjs') => {
 /** Parses "+I1 -T8 ..." into rule entries. */
 const rules = (s) => s.trim().split(/\s+/).map((r) => ({ id: r.slice(1), polarity: r[0] === '+' ? 'positive' : 'negative' }));
 
-const ADVICE0 = { keep: 0, consolidate: 0, rewrite: 0, 'move-to-check': 0, retire: 0, none: 0 };
+const ADVICE0 = { keep: 0, consolidate: 0, rewrite: 0, 'move-to-check': 0, none: 0 };
 const advice = (counts) => ({ ...ADVICE0, ...counts });
 const NO_CRIT = { covered: 0, coverable: 0, pct: null };
 
@@ -465,10 +465,10 @@ kase('021-slow-low-value', {
   },
 });
 
-// ---------- retire (A10) ----------
+// ---------- review candidates (A10; no retire in v1, D5) ----------
 
-kase('022-retire-mutation-path', {
-  description: 'Rechecked, targeted, no unique line and no unique kill: retire, and the suite stays whole.',
+kase('022-review-candidate-mutation-path', {
+  description: 'Rechecked, targeted, no unique line and no unique kill: a review candidate, kept with the no-unique-evidence hint, never retired.',
   command: 'report',
   rules: rules('+A10'),
   input: input({
@@ -479,16 +479,16 @@ kase('022-retire-mutation-path', {
   }),
   expectExit: 0,
   expected: {
-    suite: { advice: advice({ keep: 1, retire: 1 }) },
+    suite: { advice: advice({ keep: 2 }) },
     units: [
       { id: 'k', advice: 'keep', reasons: ['unique-lines'] },
-      { id: 'r', advice: 'retire', reasons: ['no-unique-lines', 'no-unique-kills'], duplicateOf: '$absent' },
+      { id: 'r', advice: 'keep', reasons: [], hints: ['no-unique-evidence'], duplicateOf: '$absent' },
     ],
   },
 });
 
-kase('023-retire-needs-evidence', {
-  description: 'Without both the per-process recheck and targeted mutation (or a duplicate), no retire: keep with an unverified hint.',
+kase('023-review-needs-evidence', {
+  description: 'Without both the per-process recheck and targeted mutation (or a duplicate), no review candidate: keep with the unverified hint.',
   command: 'report',
   rules: rules('-A10 +A11'),
   input: input({
@@ -508,7 +508,7 @@ kase('023-retire-needs-evidence', {
   },
 });
 
-kase('024-retire-blocked-by-unique-kill', {
+kase('024-unique-kill-keeps', {
   description: 'A unit with no unique line but a unique kill is kept for the kill.',
   command: 'report',
   rules: rules('-A10 +A7'),
@@ -522,8 +522,8 @@ kase('024-retire-blocked-by-unique-kill', {
   expected: { units: [{ id: 'k' }, { id: 'r', signals: { uniqueLines: 0, uniqueKills: 1 }, advice: 'keep', reasons: ['unique-kills'] }] },
 });
 
-kase('025-retire-protected', {
-  description: 'A unit covering a critical source is protected and never retired, even with full evidence.',
+kase('025-protected-never-a-candidate', {
+  description: 'A unit covering a critical source is protected and never a review candidate, even with full evidence.',
   command: 'report',
   rules: rules('-A10 +T8'),
   input: input({
@@ -542,8 +542,8 @@ kase('025-retire-protected', {
   },
 });
 
-kase('026-retire-duplicate-path', {
-  description: 'A rechecked unit whose body duplicates another unit that covers all its lines is retired as a duplicate.',
+kase('026-review-candidate-duplicate-path', {
+  description: 'A rechecked unit whose body duplicates another unit that covers all its lines is a review candidate naming the duplicate.',
   command: 'report',
   rules: rules('+A10'),
   input: input({
@@ -555,16 +555,16 @@ kase('026-retire-duplicate-path', {
   expectExit: 0,
   expected: {
     units: [
-      { id: 'r', advice: 'retire', reasons: ['no-unique-lines', 'duplicate-of'], duplicateOf: 'v' },
+      { id: 'r', advice: 'keep', reasons: [], hints: ['no-unique-evidence'], duplicateOf: 'v' },
       { id: 'v', advice: 'keep', reasons: ['unique-lines'] },
     ],
   },
 });
 
-kase('027-retire-joint-safety', {
-  description: 'Two mutual duplicates: the slower is retired, the other is kept with a retire-conflict hint so no line is lost.',
+kase('027-mutual-candidates', {
+  description: 'Two units that cover each other are both review candidates: neither is advice to remove, so no joint pass is needed.',
   command: 'report',
-  rules: rules('+A10 -A10'),
+  rules: rules('+A10'),
   input: input({
     tests: [t('x', 'tests/x.test.mjs', 'x', { durationsMs: [100, 100] }), t('y', 'tests/y.test.mjs', 'y', { durationsMs: [50, 50] })],
     cov: { x: '1-5', y: '1-5' },
@@ -573,10 +573,10 @@ kase('027-retire-joint-safety', {
   }),
   expectExit: 0,
   expected: {
-    suite: { advice: advice({ keep: 1, retire: 1 }) },
+    suite: { advice: advice({ keep: 2 }) },
     units: [
-      { id: 'x', advice: 'retire', reasons: ['no-unique-lines', 'no-unique-kills'] },
-      { id: 'y', advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified', 'retire-conflict'] },
+      { id: 'x', advice: 'keep', reasons: [], hints: ['no-unique-evidence'] },
+      { id: 'y', advice: 'keep', reasons: [], hints: ['no-unique-evidence'] },
     ],
   },
 });
@@ -626,7 +626,7 @@ kase('029-failed-and-skipped', {
 });
 
 kase('030-low-evidence-hints', {
-  description: 'End-to-end tests and tests that spawn an interpreter are flagged and never retired.',
+  description: 'End-to-end tests and tests that spawn an interpreter are flagged and never review candidates.',
   command: 'report',
   rules: rules('-A10'),
   input: input({
@@ -757,8 +757,8 @@ kase('034-plan-changed', {
 
 // ---------- check (C) ----------
 
-kase('035-check-adds-nothing', {
-  description: 'A new test with unique lines adds value; one whose lines another test already covers adds nothing and names the test to extend.',
+kase('035-check-no-unique-evidence', {
+  description: 'A new test with unique lines adds value; one whose lines another test already covers gets the informational no-unique-evidence verdict, naming the closest test, and check still exits 0.',
   command: 'check',
   rules: rules('+C1 -C1 +C2 -C4'),
   args: { tests: ['new2', 'new1'] },
@@ -766,20 +766,20 @@ kase('035-check-adds-nothing', {
     tests: [t('new1', 'tests/n.test.mjs'), t('new2', 'tests/n.test.mjs'), t('old', 'tests/o.test.mjs'), t('other', 'tests/x.test.mjs')],
     cov: { new1: '7-8', new2: '2-4', old: '1-6', other: '2' },
   }),
-  expectExit: 1,
+  expectExit: 0,
   expected: {
     command: 'check',
     check: {
       verdicts: [
         { id: 'new1', verdict: 'adds-value', brittle: [], extend: '$absent' },
-        { id: 'new2', verdict: 'adds-nothing', extend: 'old', brittle: [] },
+        { id: 'new2', verdict: 'no-unique-evidence', extend: 'old', brittle: [] },
       ],
     },
   },
 });
 
 kase('036-check-all-add-value', {
-  description: 'Critical tests add value even without unique lines; check exits 0 when every verdict is adds-value.',
+  description: 'Critical tests add value even without unique lines.',
   command: 'check',
   rules: rules('+C1 -C2'),
   args: { tests: ['crit', 'new1'] },
@@ -1009,8 +1009,8 @@ kase('051-ratios-and-timestamp', {
 
 // ---------- readings settled with the independent engine ----------
 
-kase('052-retire-pass-trusts-passed-units', {
-  description: 'A failing test\'s coverage is not trusted: a unit covered only by a failing test is not retired.',
+kase('052-candidates-trust-passed-units', {
+  description: 'A failing test\'s coverage is not trusted: a unit whose lines only a failing test also covers is not a review candidate.',
   command: 'report',
   rules: rules('-A10 +A1'),
   input: input({
@@ -1023,7 +1023,7 @@ kase('052-retire-pass-trusts-passed-units', {
   expected: {
     units: [
       { id: 'f', advice: 'none', reasons: ['failed'] },
-      { id: 'r', signals: { uniqueLines: 0 }, advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified', 'retire-conflict'] },
+      { id: 'r', signals: { uniqueLines: 0 }, advice: 'keep', reasons: [], hints: ['no-unique-coverage-unverified'] },
     ],
   },
 });

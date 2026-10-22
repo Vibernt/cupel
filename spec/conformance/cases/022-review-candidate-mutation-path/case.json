@@ -1,0 +1,11 @@
+{
+  "description": "Rechecked, targeted, no unique line and no unique kill: a review candidate, kept with the no-unique-evidence hint, never retired.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "A10",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

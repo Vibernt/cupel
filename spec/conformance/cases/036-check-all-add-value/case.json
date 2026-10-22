@@ -1,5 +1,5 @@
 {
-  "description": "Critical tests add value even without unique lines; check exits 0 when every verdict is adds-value.",
+  "description": "Critical tests add value even without unique lines.",
   "command": "check",
   "rules": [
     {
