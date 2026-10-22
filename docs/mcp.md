@@ -1,6 +1,6 @@
 # Local MCP server
 
-`cupel mcp` starts a local Model Context Protocol server over stdio. It reads one JSON-RPC 2.0 message per line on stdin, writes one JSON response per line on stdout, and sends diagnostics only to stderr. It does not use the network, install a dependency, delete tests, or make model calls. Retire advice requires a person's approval.
+`cupel mcp` starts a local Model Context Protocol server over stdio. It reads one JSON-RPC 2.0 message per line on stdin, writes one JSON response per line on stdout, and sends diagnostics only to stderr. It does not use the network, install a dependency, delete tests, or make model calls. Cupel never advises removing tests: `no-unique-evidence` means a person may review, never "delete".
 
 The server supports protocol versions `2025-06-18` and `2025-03-26`. Start it with `--root /path/to/repo` to select the repository being assessed. Without `--root`, it uses the git root of the current directory. File paths in tool arguments are resolved from that root; a `config` path overrides its `cupel.json`.
 
@@ -8,7 +8,7 @@ The server supports protocol versions `2025-06-18` and `2025-03-26`. Start it wi
 
 | Tool | When an agent should call it | Inputs |
 |---|---|---|
-| `cupel_check` | Before committing new or changed tests: does this test add anything? | `tests` (test IDs or files), `input` or `headInput`, optional `baseInput` or git `base`, `config` |
+| `cupel_check` | Before committing new or changed tests: review their evidence. | `tests` (test IDs or files), `input` or `headInput`, optional `baseInput` or git `base`, `config` |
 | `cupel_guard` | Before removing or rewriting tests: did the change lose coverage, mutation evidence or protection? | `baseInput` and `headInput` (or `input` for the head), git `base`, `approvals`, `config` |
 | `cupel_plan` | Choose which tests to run first. | `input`, git `changed`, `config` |
 | `cupel_report` | See the whole-suite picture. | `input`, `config`, `page`, `pageSize` |

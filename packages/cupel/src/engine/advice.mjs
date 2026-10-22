@@ -1,4 +1,4 @@
-// Advice (SPEC section 7): A1-A12, consolidation groups (A9) and the retire pass (A10). Pure.
+// Advice (SPEC section 7): A1-A12, consolidation groups (A9) and review candidates (A10). Pure.
 
 import { cmp, sortedUnique } from './order.mjs';
 import { mapUnionAll, mapUnion, mapSubset, mapIsEmpty, exclusiveLines, mapDiff, mapSize } from './lines.mjs';
@@ -100,13 +100,13 @@ export function advise(model, cfg) {
     }
   }
 
-  retirePass(model, cfg, reachA10);
-
   for (const u of reachA10) {
-    if (u.advice === 'retire') continue;
-    u.advice = 'keep'; // A11
-    u.reasons = [];
-    u.hints.push('no-unique-coverage-unverified');
+    u.advice = 'keep';
+    if (isReviewCandidate(u, model, cfg)) {
+      u.hints.push('no-unique-evidence'); // A10
+      const duplicate = duplicatesOf(u, model, cfg)[0];
+      if (duplicate) u.duplicateOf = duplicate.id;
+    } else u.hints.push('no-unique-coverage-unverified'); // A11
   }
   for (const u of model.units) u.hints = sortedUnique(u.hints);
   return { groups };
@@ -119,62 +119,12 @@ function duplicatesOf(u, model, cfg) {
   );
 }
 
-function retirePass(model, cfg, reached) {
-  if (model.fileLevel) return;
-  // Retire candidates, among the units that reach A10.
-  const candidates = [];
-  for (const u of reached) {
-    if (u.protected || u.e2e || u.spawnsInterpreter) continue;
-    if (u.status !== 'passed' || mapIsEmpty(u.own) || u.uniqueLines !== 0 || !u.rechecked) continue;
-    const mutationPath = model.mutation !== null && u.targeted && u.uniqueKills === 0;
-    const dups = duplicatesOf(u, model, cfg);
-    const duplicatePath = dups.length > 0;
-    if (!mutationPath && !duplicatePath) continue;
-    candidates.push({ u, mutationPath, duplicatePath, dups });
-  }
-  candidates.sort((a, b) => b.u.durationMs - a.u.durationMs || cmp(a.u.id, b.u.id));
-
-  // Joint safety is judged over passed units only: a failed or skipped unit's coverage and kills
-  // are not trusted (A1), so they never stand in for a retired unit (ENGINE-NOTES).
-  const trusted = model.units.filter((u) => u.status === 'passed');
-  const trustedKilled = model.mutants.filter(
-    (m) => m.detected && trusted.some((t) => m.killerUnits.has(t.id)),
-  );
-
-  const removed = new Set();
-  const accepted = [];
-  for (const c of candidates) {
-    const trial = new Set(removed).add(c.u.id);
-    const trialAccepted = [...accepted, c];
-    const remaining = trusted.filter((u) => !trial.has(u.id));
-    // 1. Lines: the removed units' own lines are still covered by remaining units, or by setup
-    //    lines of a test file that still has a unit.
-    const liveFiles = new Set(model.units.filter((u) => !trial.has(u.id)).map((u) => u.file));
-    const setupLeft = mapUnionAll([...model.setup].filter(([f]) => liveFiles.has(f)).map(([, m]) => m));
-    const coveredLeft = mapUnion(mapUnionAll(remaining.map((u) => u.own)), setupLeft);
-    const removedOwn = mapUnionAll(trialAccepted.map((x) => x.u.own));
-    let ok = mapSubset(removedOwn, coveredLeft);
-    // 2. Mutants: every detected mutant with a trusted killer still has one that remains.
-    if (ok) ok = trustedKilled.every((m) => remaining.some((t) => m.killerUnits.has(t.id)));
-    // 3. Duplicates: every accepted duplicate-path unit still has a qualifying v that remains.
-    if (ok) ok = trialAccepted.every((x) => !x.duplicatePath || x.dups.some((v) => !trial.has(v.id)));
-    if (ok) {
-      removed.add(c.u.id);
-      accepted.push(c);
-    } else {
-      c.u.hints.push('retire-conflict');
-    }
-  }
-  for (const c of accepted) {
-    const u = c.u;
-    u.advice = 'retire';
-    u.reasons = ['no-unique-lines'];
-    if (c.mutationPath) u.reasons.push('no-unique-kills');
-    if (c.duplicatePath) {
-      u.reasons.push('duplicate-of');
-      u.duplicateOf = c.dups.filter((v) => !removed.has(v.id)).map((v) => v.id).sort(cmp)[0];
-    }
-  }
+function isReviewCandidate(u, model, cfg) {
+  if (u.protected || u.e2e || u.spawnsInterpreter || !u.rechecked || u.uniqueLines !== 0) return false;
+  const passedOthers = model.units.filter((v) => v !== u && v.status === 'passed');
+  const covered = mapUnion(mapUnionAll(passedOthers.map((v) => v.own)), model.allSetup);
+  if (!mapSubset(u.own, covered)) return false;
+  return (model.mutation !== null && u.targeted && u.uniqueKills === 0) || duplicatesOf(u, model, cfg).length > 0;
 }
 
 /** Per-file unique lines at file granularity (A12): [{ file, uniqueLines, hints }]. */

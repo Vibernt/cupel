@@ -13,7 +13,7 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const CASES = fileURLToPath(new URL('../../../spec/conformance/cases/', import.meta.url));
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const casePath = (number, file) => {
-  const names = { 9: '009-label-unknown-tag', 18: '018-consolidate-same-shape', 34: '034-plan-changed', 35: '035-check-adds-nothing', 40: '040-guard-pass', 41: '041-guard-coverage-lost', 46: '046-guard-critical-removed-approved', 48: '048-guard-runtime-mismatch' };
+  const names = { 9: '009-label-unknown-tag', 18: '018-consolidate-same-shape', 34: '034-plan-changed', 35: '035-check-no-unique-evidence', 40: '040-guard-pass', 41: '041-guard-coverage-lost', 46: '046-guard-critical-removed-approved', 48: '048-guard-runtime-mismatch' };
   return `${CASES}${names[number]}/${file}.json`;
 };
 
@@ -110,7 +110,8 @@ test('tools/list describes five tools with object input schemas', async () => {
   for (const tool of tools) {
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
-    assert.ok(tool.description.includes('Cupel never deletes anything itself'));
+    assert.ok(tool.description.includes('Cupel never advises removing tests'));
+    assert.ok(tool.description.includes('no-unique-evidence means a person may review, never delete'));
     assert.ok(tool.inputSchema.properties);
   }
 });
@@ -134,7 +135,7 @@ test('check, guard and plan match run on conformance inputs', async () => {
   const checkArgs = read(casePath(35, 'case')).args;
   const checked = run('check', { input: read(casePath(35, 'input')) }, {}, checkArgs, loadSchemas());
   const check = await call('cupel_check', { input: casePath(35, 'input'), tests: checkArgs.tests });
-  assert.equal(checked.exit, 1);
+  assert.equal(checked.exit, 0);
   assert.equal(check.result.isError, false);
   assert.deepEqual(check.json, checked.report);
 

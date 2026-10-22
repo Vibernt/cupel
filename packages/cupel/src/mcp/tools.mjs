@@ -13,27 +13,27 @@ const schema = (properties) => ({ type: 'object', properties, additionalProperti
 export const TOOLS = [
   {
     name: 'cupel_check',
-    description: 'Before committing new or changed tests, ask: does this test add anything? Pass tests as test IDs or files. With no tests, check all collected units. Cupel never deletes anything itself; retire advice requires a person\'s approval.',
+    description: 'Before committing new or changed tests, review their evidence. Pass tests as test IDs or files. With no tests, check all collected units. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
     inputSchema: schema({ ...paths, tests: { type: 'array', items: string }, base: string }),
   },
   {
     name: 'cupel_report',
-    description: 'Get the whole-suite picture: coverage, mutation, tiers and advice. Cupel never deletes anything itself; retire advice requires a person\'s approval.',
+    description: 'Get the whole-suite picture: coverage, mutation, tiers and advice. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
     inputSchema: schema({ input: string, config: string, ...pages }),
   },
   {
     name: 'cupel_guard',
-    description: 'Before removing or rewriting tests, compare the base with the working tree or saved inputs. With no base, compare HEAD. Cupel never deletes anything itself; retire advice requires a person\'s approval.',
+    description: 'Before removing or rewriting tests, compare the base with the working tree or saved inputs. With no base, compare HEAD. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
     inputSchema: schema({ ...paths, base: string, approvals: { anyOf: [string, { type: 'array', items: { type: 'object', properties: { action: { enum: ['remove', 'downgrade'] }, id: string, by: string }, required: ['action', 'id', 'by'], additionalProperties: false } }] } }),
   },
   {
     name: 'cupel_plan',
-    description: 'Choose what to run first: critical and changed tests before the rest. Cupel never deletes anything itself; retire advice requires a person\'s approval.',
+    description: 'Choose what to run first: critical and changed tests before the rest. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
     inputSchema: schema({ input: string, config: string, changed: string }),
   },
   {
     name: 'cupel_label',
-    description: 'Inspect test tiers and why each tier applies. Cupel never deletes anything itself; retire advice requires a person\'s approval.',
+    description: 'Inspect test tiers and why each tier applies. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
     inputSchema: schema({ input: string, config: string, ...pages }),
   },
 ];

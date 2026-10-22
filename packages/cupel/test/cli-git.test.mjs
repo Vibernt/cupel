@@ -1,5 +1,5 @@
 // Commands that use git or a collector: plan --changed, guard --base, check --base and the report's
-// retire-evidence pass. Collection goes through the test-only stub collector and mutator
+// optional evidence pass. Collection goes through the test-only stub collector and mutator
 // (CUPEL_TEST_COLLECTOR and CUPEL_TEST_MUTATOR, honoured only with NODE_ENV=test).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -208,8 +208,8 @@ test('check: file arguments expand to their units; --base compares with the coll
   assert.deepEqual(JSON.parse(byPath.stdout).check.verdicts.map((v) => v.id), units);
 });
 
-test('report: the retire-evidence pass re-checks and targets units without unique coverage', () => {
-  const c = read(`${CASES}022-retire-mutation-path/input.json`);
+test('report: evidence pass is opt-in and adds review evidence', () => {
+  const c = read(`${CASES}022-review-candidate-mutation-path/input.json`);
   const { mutation, ...rest } = c;
   const first = { ...rest, coverage: { granularity: 'test', byTest: c.coverage.byTest } };
   const dir = join(TMP, 'report');
@@ -218,14 +218,23 @@ test('report: the retire-evidence pass re-checks and targets units without uniqu
   const log = join(TMP, 'report.log');
   const env = { CUPEL_STUB_LOG: log, CUPEL_TEST_MUTATOR: `${FIX}stub-mutator.mjs` };
 
-  const r = cli(dir, ['report', '--json'], env);
+  const basic = cli(dir, ['report', '--json'], env);
+  assert.equal(basic.status, 0, basic.stderr);
+  assert.deepEqual(logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', l.scope])), [
+    ['collect', [], 2],
+    ['mutate', { critical: true, changed: null, targeted: [] }],
+  ]);
+  assert.deepEqual(read(join(dir, '.cupel', 'input.json')).coverage.rechecked ?? [], []);
+
+  rmSync(log);
+  const r = cli(dir, ['report', '--evidence', '--json'], env);
   assert.equal(r.status, 0, r.stderr);
   const final = read(join(dir, '.cupel', 'input.json'));
   assert.deepEqual(final.coverage.rechecked, ['r']);
   assert.deepEqual(final.mutation.targeted, ['r']);
   assert.equal(r.stdout, `${JSON.stringify(run('report', { input: final }, {}, {}, schemas).report, null, 2)}\n`);
   const report = JSON.parse(r.stdout);
-  assert.equal(report.units.find((u) => u.id === 'r').advice, 'retire');
+  assert.deepEqual(report.units.find((u) => u.id === 'r').hints, ['no-unique-evidence']);
 
   const calls = logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', l.scope]));
   assert.deepEqual(calls, [
@@ -241,7 +250,7 @@ test('report: the retire-evidence pass re-checks and targets units without uniqu
 
   // --no-mutation skips mutation and the second pass; --out moves the input.
   rmSync(log);
-  const plain = cli(dir, ['report', '--no-mutation', '--out', 'plain.json'], env);
+  const plain = cli(dir, ['report', '--evidence', '--no-mutation', '--out', 'plain.json'], env);
   assert.equal(plain.status, 0, plain.stderr);
   assert.match(plain.stdout, /^2 tests, 2 units, coverage 60% \(6\/10\), mutation score n\/a$/m);
   assert.match(plain.stdout, /no-unique-coverage-unverified: 1/);

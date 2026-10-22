@@ -53,7 +53,7 @@
       "properties": {
         "critical": { "type": "boolean", "default": true },
         "changedLines": { "type": "boolean", "default": true },
-        "targeted": { "type": "boolean", "default": true, "description": "Mutate the own lines of retire candidates (D5)." },
+        "targeted": { "type": "boolean", "default": true, "description": "With report --evidence, mutate the own lines of units being reviewed (D5)." },
         "maxMutants": { "type": "integer", "minimum": 1, "default": 200 },
         "maxSeconds": { "type": "integer", "minimum": 1, "default": 300 },
         "seed": { "type": "integer", "default": 20261021 }

@@ -61,7 +61,7 @@ test('R2/R3 suite totals', () => {
     criticalCoverage: { covered: 1, coverable: 3, pct: 33.33 },
     mutation: { detected: 2, undetected: 2, score: 50 },
     criticalMutation: { detected: 1, undetected: 0, score: 100 },
-    advice: { keep: 1, consolidate: 0, rewrite: 0, 'move-to-check': 0, retire: 0, none: 2 },
+    advice: { keep: 1, consolidate: 0, rewrite: 0, 'move-to-check': 0, none: 2 },
   });
 });
 
@@ -146,26 +146,9 @@ function generated(seed) {
   };
 }
 
-/** The input with the given units deleted, as a person following the advice would. */
-function without(doc, unitIds) {
-  const d = JSON.parse(JSON.stringify(doc));
-  const gone = new Set(d.tests.filter((x) => unitIds.has(x.unit ?? x.id)).map((x) => x.id));
-  d.tests = d.tests.filter((x) => !gone.has(x.id));
-  for (const id of gone) delete d.coverage.byTest[id];
-  d.coverage.rechecked = d.coverage.rechecked.filter((u) => !unitIds.has(u));
-  if (d.mutation) {
-    d.mutation.targeted = d.mutation.targeted.filter((u) => !unitIds.has(u));
-    for (const m of d.mutation.mutants) m.killedBy = m.killedBy.filter((id) => !gone.has(id));
-  }
-  d.brittleness = d.brittleness.filter((b) => !gone.has(b.test));
-  for (const u of unitIds) delete d.shapes[u];
-  return d;
-}
-
 test('seeded sweep: every command is deterministic and schema-valid on generated inputs', () => {
   const exits = new Set();
   const seen = new Set();
-  let retiredSeen = 0;
   for (let seed = 1; seed <= 150; seed++) {
     const doc = generated(seed);
     const other = generated(seed + 1000);
@@ -193,22 +176,12 @@ test('seeded sweep: every command is deterministic and schema-valid on generated
         const s = r.report.suite;
         assert.equal(Object.values(s.advice).reduce((a, b) => a + b, 0), s.units, `seed ${seed}: one advice per unit`);
         for (const u of r.report.units) seen.add(u.advice);
-        for (const u of r.report.units) if (u.advice === 'retire') assert.equal(u.protected, false, `seed ${seed}: protected never retired`);
-        const retired = new Set(r.report.units.filter((u) => u.advice === 'retire').map((u) => u.id));
-        if (retired.size) {
-          // Joint safety: deleting every retired unit never fails guard's coverage checks.
-          const g = go('guard', { base: doc, head: without(doc, retired) }, config, {});
-          for (const id of ['coverage-lines', 'coverage-ratio', 'critical-coverage', 'critical-removed']) {
-            assert.equal(g.report.guard.checks.find((c) => c.id === id).pass, true, `seed ${seed}: ${id} after retiring`);
-          }
-          retiredSeen++;
-        }
+        for (const u of r.report.units) assert.notEqual(u.advice, 'retire', `seed ${seed}: no unit is ever advised retire`);
       }
     }
   }
   assert.ok(exits.has(0) && exits.has(1), 'the sweep reaches both passing and failing outcomes');
-  assert.ok(retiredSeen > 0, 'the sweep retires something');
-  for (const a of ['keep', 'consolidate', 'rewrite', 'move-to-check', 'retire', 'none']) assert.ok(seen.has(a), `the sweep reaches ${a}`);
+  for (const a of ['keep', 'consolidate', 'rewrite', 'move-to-check', 'none']) assert.ok(seen.has(a), `the sweep reaches ${a}`);
 });
 
 test('every command is accepted and schemas are required', () => {

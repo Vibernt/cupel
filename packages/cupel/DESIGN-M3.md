@@ -67,7 +67,7 @@ Commands:
 
 | Command | Does |
 |---|---|
-| `cupel report [--json] [--input <file>] [--no-mutation] [--runs N]` | Collects (or reads `--input`), runs mutation per config, re-checks and targets retire candidates (below), then runs the engine |
+| `cupel report [--json] [--input <file>] [--evidence] [--no-mutation] [--runs N]` | Collects (or reads `--input`), runs mutation per config, and optionally gathers additional review evidence with `--evidence` |
 | `cupel check <test ids or files…> [--base <ref>]` | |
 | `cupel guard --base <ref>` or `cupel guard --base-input <f> --head-input <f>` `[--approvals <file>]` | With `--base`, the base is collected from `git archive <ref>` unpacked into a temporary directory, never a checkout of the user's working tree |
 | `cupel plan [--changed <ref>]` | Changed lines come from `git diff --unified=0 <ref>` |
@@ -78,7 +78,7 @@ Commands:
 
 Common options: `--config <file>` (default `cupel.json` at the git root), `--json`, `--out <file>`, `--quiet`.
 
-**Retire evidence (D5).** `report` runs the engine once. It takes every unit that ends with hint `no-unique-coverage-unverified` and no `retire-conflict` (at most `config.mutation.maxMutants` worth), re-checks those units, runs targeted mutation on them, merges the results into the input, and runs the engine again. The final input is written to `.cupel/input.json`, so `--input` can replay it.
+**Optional review evidence (D5).** With `--evidence`, `report` runs the engine once, takes units with hint `no-unique-coverage-unverified` (at most `config.mutation.maxMutants`), re-checks those units, runs targeted mutation on them, merges the results into the input, and runs the engine again. Without the flag, collection and mutation run once per config. The final input is written to `.cupel/input.json`, so `--input` can replay it. Cupel never advises removing tests.
 
 **Output and exit codes.**
 - Human output is short: a summary line, then the units that have advice other than `keep`, then the hints.

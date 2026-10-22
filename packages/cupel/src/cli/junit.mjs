@@ -1,6 +1,6 @@
 // JUnit XML to a cupel-spec/1 input (D10). Results and durations only: sources are empty and coverage
 // is `file` granularity with no `byFile`, so the engine can plan, label and report tiers, but never
-// advises retire from JUnit alone.
+// advises removing tests from JUnit alone.
 //
 // Id mapping: `<file or classname>::<name>`, where the first part is the testcase's `file` attribute,
 // else its `classname`, else the enclosing testsuite's `file`, else its `name`, else the XML file's path.
