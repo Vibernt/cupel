@@ -6,7 +6,7 @@
 // that replace the real modules. A path that does not exist means "not available". Outside
 // NODE_ENV=test both variables are ignored.
 
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { delimiter, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -81,6 +81,44 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
     if (!existsSync(output)) throw environment('external collector did not write --out file');
     try { return JSON.parse(readFileSync(output, 'utf8')); }
     catch (error) { throw environment(`external collector output is not JSON: ${error.message}`); }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** The pytest collector's interpreter and environment also run its mutation command. */
+export function mutatePytest({ root, cfg, input, scope, mutation, ids = [] }) {
+  const runner = externalRunner(root, cfg);
+  if (!runner || runner.name !== 'pytest') throw environment('pytest mutation needs a pytest collector');
+  const command = runner.collector.replace(/\s+collect\s*$/, '');
+  if (command === runner.collector) throw environment('pytest collector command must end in collect to locate mutate');
+  const scratch = join(root, '.scratch');
+  mkdirSync(scratch, { recursive: true });
+  const dir = mkdtempSync(join(scratch, 'cupel-pymut-cli-'));
+  try {
+    const inputFile = join(dir, 'input.json');
+    const scopeFile = join(dir, 'scope.json');
+    const configFile = join(dir, 'config.json');
+    const mutationFile = join(dir, 'mutation.json');
+    const output = join(dir, 'output.json');
+    writeFileSync(inputFile, JSON.stringify(input));
+    if (scope) writeFileSync(scopeFile, JSON.stringify(scope));
+    writeFileSync(configFile, JSON.stringify(cfg));
+    if (mutation) writeFileSync(mutationFile, JSON.stringify(mutation));
+    const action = mutation ? 'confirm' : 'mutate';
+    const args = mutation
+      ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${ids.map(quote).join(' ')}`
+      : `--input ${quote(inputFile)} --scope ${quote(scopeFile)}`;
+    const env = { ...process.env, ...(runner.env ?? {}) };
+    env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);
+    env.PYTHONDONTWRITEBYTECODE = '1';
+    const child = spawnSync(`${command} ${action} --root ${quote(root)} --config ${quote(configFile)} ${args} --out ${quote(output)}`, {
+      cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 28,
+    });
+    if (child.error || child.status !== 0) throw environment(`pytest mutation failed (${child.error?.message ?? `exit ${child.status}`}): ${(child.stderr || child.stdout || '').trim().slice(-500)}`);
+    if (!existsSync(output)) throw environment('pytest mutation did not write --out file');
+    const value = JSON.parse(readFileSync(output, 'utf8'));
+    return mutation ? value : value.mutation;
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -181,6 +219,7 @@ export async function mutate(mutator, { root, cfg, input, scope, log }) {
   if (empty) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
+    if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
     return await mutator.mutateNode({ root, config: cfg, input, scope: { critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log });
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
@@ -188,11 +227,13 @@ export async function mutate(mutator, { root, cfg, input, scope, log }) {
 }
 
 /** K7: re-runs survivors through confirmSurvivors when the mutator provides it. */
-export async function confirm(mutator, { root, input, mutation, ids, log }) {
-  if (!ids.length || typeof mutator.confirmSurvivors !== 'function') return mutation;
+export async function confirm(mutator, { root, cfg, input, mutation, ids, log }) {
+  if (!ids.length) return mutation;
   log(`confirming ${ids.length} survivors`);
   try {
-    const out = await mutator.confirmSurvivors({ root, input, mutation, ids });
+    if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, mutation, ids });
+    if (typeof mutator.confirmSurvivors !== 'function') return mutation;
+    const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids });
     return out && Array.isArray(out.mutants) ? out : mutation;
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
