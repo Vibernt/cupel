@@ -17,6 +17,7 @@ import { cmp } from '../engine/order.mjs';
 
 const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
+  vitest: { url: new URL('../collect/vitest/index.mjs', import.meta.url), env: 'CUPEL_TEST_VITEST_COLLECTOR', exports: ['collectVitest'] },
   mutator: { url: new URL('../mutate/index.mjs', import.meta.url), env: 'CUPEL_TEST_MUTATOR', exports: ['mutateNode'] },
 };
 
@@ -48,6 +49,19 @@ function externalRunner(root, cfg) {
     return { name: 'pytest', collector: 'python3 -m vibernt_cupel collect', env: {} };
   }
   return null;
+}
+
+function isVitestProject(root, cfg) {
+  if (cfg.runners?.vitest) return true;
+  const packageFile = join(root, 'package.json');
+  if (existsSync(packageFile)) {
+    const pkg = JSON.parse(readFileSync(packageFile, 'utf8'));
+    if (pkg.dependencies?.vitest || pkg.devDependencies?.vitest || pkg.optionalDependencies?.vitest) return true;
+  }
+  return readdirSync(root).some((name) => {
+    if (/^vitest\.config\.[cm]?[jt]s$/.test(name)) return true;
+    return /^vite\.config\.[cm]?[jt]s$/.test(name) && /\btest\s*:/.test(readFileSync(join(root, name), 'utf8'));
+  });
 }
 
 function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
@@ -93,6 +107,16 @@ export async function loadModule(kind, env = process.env) {
 export async function requireCollector(env, root, cfg) {
   const external = externalRunner(root, cfg);
   if (external) return { collectNode: (opts) => collectExternal(external, opts) };
+  if (env.NODE_ENV === 'test' && env.CUPEL_TEST_COLLECTOR) {
+    const mod = await loadModule('collector', env);
+    if (!mod) throw environment('collector not available');
+    return mod;
+  }
+  if (isVitestProject(root, cfg)) {
+    const mod = await loadModule('vitest', env);
+    if (!mod) throw environment('Vitest collector not available');
+    return { kind: 'vitest', collectNode: mod.collectVitest };
+  }
   const mod = await loadModule('collector', env);
   if (!mod) throw environment('collector not available');
   return mod;

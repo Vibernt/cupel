@@ -84,14 +84,19 @@ export function analyseTestFile(src) {
   const inTest = new Uint8Array(N);
   for (let k = 0; k < N; k++) {
     const t = toks[k];
-    if (t.type !== 'name' || v(k + 1) !== '(' || !pairs.has(k + 1)) continue;
+    if (t.type !== 'name') continue;
     const prev = v(k - 1);
     const isTest = (TEST_CALLEES.has(t.value) && (prev !== '.' || toks[k - 2]?.type === 'name') && prev !== 'function') ||
       (MODIFIERS.has(t.value) && prev === '.' && TEST_CALLEES.has(v(k - 2)));
     if (!isTest) continue;
-    const close = pairs.get(k + 1);
+    let open = k + 1;
+    if (v(k + 1) === '.' && v(k + 2) === 'each' && v(k + 3) === '(' && pairs.has(k + 3)) {
+      open = pairs.get(k + 3) + 1;
+    }
+    if (v(open) !== '(' || !pairs.has(open)) continue;
+    const close = pairs.get(open);
     if (v(close + 1) === '{') continue; // a method definition named test
-    defs.push({ k, open: k + 1, close });
+    defs.push({ k, open, close });
     for (let q = k; q <= close; q++) inTest[q] = 1;
   }
 

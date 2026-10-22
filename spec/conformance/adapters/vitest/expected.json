@@ -1,0 +1,22 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "node" },
+  "sources": { "src/math.ts": { "coverable": "7-9,11-15" }, "vitest.config.mjs": { "coverable": "1" } },
+  "tests": [
+    { "id": "tests/math.test.ts::add sums a pair [critical]", "file": "tests/math.test.ts", "name": "add sums a pair [critical]", "unit": "$absent", "tags": ["critical"], "status": "passed" },
+    { "id": "tests/math.test.ts::cap > maps -1 to 0", "file": "tests/math.test.ts", "name": "cap > maps -1 to 0", "unit": "tests/math.test.ts::@13", "status": "passed" },
+    { "id": "tests/math.test.ts::cap > maps 11 to 10", "file": "tests/math.test.ts", "name": "cap > maps 11 to 10", "unit": "tests/math.test.ts::@13", "status": "passed" },
+    { "id": "tests/math.test.ts::cap > maps 5 to 5", "file": "tests/math.test.ts", "name": "cap > maps 5 to 5", "unit": "tests/math.test.ts::@13", "status": "passed" }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "tests/math.test.ts::add sums a pair [critical]": { "src/math.ts": "7-9,11-13,15" },
+      "tests/math.test.ts::cap > maps -1 to 0": { "src/math.ts": "11-13,15" },
+      "tests/math.test.ts::cap > maps 11 to 10": { "src/math.ts": "11-13,15" },
+      "tests/math.test.ts::cap > maps 5 to 5": { "src/math.ts": "11-15" }
+    },
+    "setup": { "tests/math.test.ts": { "src/math.ts": "9,11-15" } }
+  }
+}

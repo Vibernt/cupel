@@ -282,6 +282,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - A line is coverable when it holds a code character.
   - Coverage counts are painted widest range first, so a character takes the count of the innermost range containing it.
   - A coverable line is covered when any of its code characters has a count above 0.
+  - For sources the runner transforms (TypeScript, bundling), covered ranges in the evaluated code are mapped back to original lines through the source map: an original line is covered when a covered generated code character maps to it. Mapping works at segment granularity, so a closing brace can be credited to the code that follows it (see the Vitest adapter fixture). Coverable lines of TypeScript come from type-stripped text, so type-only lines are never coverable.
   - Characters inside strings and templates count as code, except whitespace. A hashbang line counts as a comment. Lines split at `\n` only, so line numbers agree with `git diff`.
   - Entries for the same file are united.
 - **K2** **Scope.** The default scope is the whole repository minus test directories, dependency and virtual-environment directories, and dot-directories, narrowed by config `scope`.
