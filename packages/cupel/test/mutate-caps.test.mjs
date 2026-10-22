@@ -58,6 +58,64 @@ test('a targeted unit is listed only when every mutant on its own lines ran', as
   assert.deepEqual(r.targeted, []);
 });
 
+test('many large critical sources build texts only for drawn sites', async (t) => {
+  const count = 24;
+  const extra = {};
+  const sources = {};
+  const coverage = {};
+  const imports = [];
+  const assertions = [];
+  for (let i = 0; i < count; i++) {
+    const path = `src/security-${i}.mjs`;
+    extra[path] = `export function critical${i}(x) { return x > 0; }\n// ${'padding'.repeat(14000)}\n`;
+    sources[path] = { coverable: '1' };
+    coverage[path] = '1';
+    imports.push(`import { critical${i} } from '../${path}';`);
+    assertions.push(`assert.equal(critical${i}(1), true);`);
+  }
+  extra['tests/large.test.mjs'] = `${imports.join('\n')}\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\ntest('large sources', () => { ${assertions.join(' ')} });\n`;
+  const p = makeProject(extra);
+  t.after(p.cleanup);
+  const id = 'tests/large.test.mjs::large sources';
+  const input = {
+    ...p.input,
+    sources: { ...p.input.sources, ...sources },
+    tests: [...p.input.tests, { id, file: 'tests/large.test.mjs', name: 'large sources', status: 'passed', durationsMs: [5, 5] }],
+    coverage: { ...p.input.coverage, byTest: { ...p.input.coverage.byTest, [id]: coverage } },
+  };
+  const metrics = {};
+  const result = await mutateNode({ root: p.root, input, scope: { critical: true }, config: { mutation: { maxMutants: 5, seed: 19 } }, jobs: 1, metrics });
+  assert.ok(metrics.sites > 5);
+  assert.equal(result.mutants.length, 5);
+  assert.equal(metrics.run, 5);
+  assert.equal(metrics.textBuilds, metrics.run + metrics.invalid);
+  assert.equal(metrics.valid, metrics.run);
+});
+
+test('an invalid drawn site is replaced from the same seeded order', async (t) => {
+  const source = 'src/security.mjs';
+  const file = 'tests/security.test.mjs';
+  const id = `${file}::flag works`;
+  const p = makeProject({
+    [source]: '!function(){};\nexport function flag(x){ if(x > 0) return true; return false; }\n',
+    [file]: "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { flag } from '../src/security.mjs';\ntest('flag works', () => { assert.equal(flag(1), true); });\n",
+  });
+  t.after(p.cleanup);
+  const input = {
+    ...p.input,
+    sources: { ...p.input.sources, [source]: { coverable: '1-2' } },
+    tests: [...p.input.tests, { id, file, name: 'flag works', status: 'passed', durationsMs: [5, 5] }],
+    coverage: { ...p.input.coverage, byTest: { ...p.input.coverage.byTest, [id]: { [source]: '1-2' } } },
+  };
+  const metrics = {};
+  const result = await mutateNode({ root: p.root, input, scope: { critical: true }, config: { mutation: { maxMutants: 5, seed: 2 } }, jobs: 1, metrics });
+  assert.equal(metrics.invalid, 1);
+  assert.equal(metrics.sites, 6);
+  assert.equal(metrics.textBuilds, 6);
+  assert.equal(result.mutants.length, 5);
+  assert.equal(metrics.run, 5);
+});
+
 test('maxSeconds stops the run, drops what did not finish and sets sampled', async (t) => {
   const p = makeProject();
   t.after(p.cleanup);

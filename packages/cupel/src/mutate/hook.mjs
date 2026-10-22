@@ -1,8 +1,8 @@
 // Preload for mutant runs (K6, spike S3). Loaded with NODE_OPTIONS="--import=<file URL of this module>", so it also
 // applies in child processes the tests start.
 //
-// CUPEL_MUTANT names a JSON file { url, source, seen }. When the module at `url` (a file: URL of the real path; the
-// query string is ignored) is loaded, `source` is served in its place, in memory, and the process id is appended to
+// CUPEL_MUTANT names a small JSON file { url, sourcePath, seen }. When the module at `url` (a file: URL of the real path; the
+// query string is ignored) is loaded, the single mutated source is served in its place, in memory, and the process id is appended to
 // `seen`, so the runner knows the mutant was loaded. The file on disk is never touched. Without CUPEL_MUTANT the
 // hook serves nothing (baseline runs).
 //
@@ -21,7 +21,7 @@ if (specPath) {
       if (url.split('?')[0].split('#')[0] === spec.url) {
         if (spec.seen) appendFileSync(spec.seen, `${process.pid}\n`);
         const original = next(url, context);
-        return { ...original, source: spec.source, shortCircuit: true };
+        return { ...original, source: readFileSync(spec.sourcePath, 'utf8'), shortCircuit: true };
       }
       return next(url, context);
     },
