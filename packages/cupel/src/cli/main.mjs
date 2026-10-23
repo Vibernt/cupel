@@ -1,3 +1,4 @@
+import { assertionsCommand } from './assertions.mjs';
 // The cupel command line (DESIGN-M3.md, "CLI"). Parses arguments with node:util parseArgs, reads or
 // collects inputs, runs the pure engine and prints its report. No network, no dependencies.
 
@@ -38,6 +39,11 @@ const COMMANDS = {
     usage: 'cupel pseudo [--input <file>] [--json]',
     about: 'find functions run without an extreme-mutant kill',
     options: { input: S },
+  },
+  assertions: {
+    usage: 'cupel assertions [--input <file>] [--out <file>] [--json]',
+    about: 'inspect assertion fingerprints (S10b spike)',
+    options: { input: S, out: S },
   },
   report: {
     usage: 'cupel report [--input <file>] [--evidence] [--no-mutation] [--runs N] [--out <file>] [--generated-at <text>]',
@@ -341,6 +347,7 @@ const commands = {
     }
     return EXIT_OK;
   },
+  assertions: assertionsCommand,
   async report(ctx) {
     const pre = ctx.o.input === undefined && ctx.preflight('report');
     if (pre) return ctx.emit(pre);

@@ -1,3 +1,4 @@
+import { writeAssertions } from '../assertions/sidecar.mjs';
 // The node:test collector (M3): runs a suite with per-test coverage and returns a cupel-spec/1 input.
 //
 //   collectNode({ root, config, files, runs = 2, recheck = [], log }) -> Promise<input>
@@ -141,7 +142,7 @@ function readResults(file) {
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-export async function collectNode({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [] } = {}) {
+export async function collectNode({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [], assertionsOut, assertionCap } = {}) {
   if (!root) throw new CollectorError('collectNode: root is required');
   root = realpathSync(resolve(root));
   runs = Math.max(1, Math.trunc(runs ?? 1));
@@ -204,7 +205,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       mkdirSync(out, { recursive: true });
       const children = childCoverage ? join(tmp, `${name}-children`) : null;
       const hookConfig = join(tmp, `${name}.json`);
-      writeFileSync(hookConfig, JSON.stringify({ root, sources: sourceList, testFiles: realTestFiles, out, mode, childCoverage: children }));
+      writeFileSync(hookConfig, JSON.stringify({ root, sources: sourceList, testFiles: realTestFiles, out, mode, childCoverage: children, assertions: !!assertionsOut && name === 'run0', assertionCap }));
       const dest = join(tmp, `${name}.ndjson`);
       const detailFile = join(tmp, `${name}-output.txt`);
       const args = ['--test', '--import', HOOK, `--test-reporter=${REPORTER}`, `--test-reporter-destination=${dest}`];
@@ -224,7 +225,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           file: d.file,
           setup: mode === 'coverage' ? toLines(d.setup) : null,
           childDirs: d.childDirs,
-          tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, lines: mode === 'coverage' ? toLines(t.cov) : null })),
+          tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
         });
       }
       rmSync(out, { recursive: true, force: true });
@@ -352,7 +353,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         if (r !== first && t.status === 'failed') rec.status = 'failed';
         const h = t.hookKey ? r.index.get(`${t.file}\u0000${t.hookKey}`) : null;
         if (h?.interp) rec.interp = true;
-        if (r === first && h) rec.lines = h.lines;
+        if (r === first && h) { rec.lines = h.lines; rec.assertions = h.assertions; }
       }
     }
     const setup = new Map(); // test file -> Map rel -> lines
@@ -483,7 +484,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       setup: sortedObject([...setup].map(([f, m]) => [f, lineObject(m)])),
     };
     if (rechecked.length) coverage.rechecked = rechecked.sort(cmp);
-    return {
+    const input = {
       spec: SPEC,
       kind: 'input',
       runtime: { name: 'node', version: process.versions.node },
@@ -505,6 +506,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       brittleness,
       shapes: sortedObject(shapes),
     };
+    if (assertionsOut) writeAssertions(assertionsOut, input, ordered.filter((t) => t.assertions).map((t) => [t.id, t.assertions]), assertionCap);
+    return input;
   } finally {
     if (!preserveTmp) rmSync(tmp, { recursive: true, force: true });
   }

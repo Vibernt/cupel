@@ -1,3 +1,5 @@
+import { bucket, recorder } from '../assertions/recorder.mjs';
+import { installVitestAssertions } from '../assertions/vitest.mjs';
 // Loaded in each Vitest fork. The inspector session never opens a listening port.
 import { Session } from 'node:inspector';
 import { writeFileSync } from 'node:fs';
@@ -25,6 +27,7 @@ const tests = new Map();
 const setup = new Map();
 const active = new Set();
 const failures = [];
+if (cfg.assertions) installVitestAssertions(vitest, recorder(cfg.root, () => [...active].map((id) => tests.get(id).assertions), cfg.assertionCap));
 let currentFile = null;
 watchInterpreters(() => { for (const id of active) tests.get(id).spawnsInterpreter = true; });
 const take = () => {
@@ -48,7 +51,7 @@ vitest.beforeEach((context) => {
   if (!currentFile) throw new Error('Vitest task did not provide its file path');
   take();
   const id = context.task.id;
-  tests.set(id, { coverage: new Map(), spawnsInterpreter: false });
+  tests.set(id, { coverage: new Map(), spawnsInterpreter: false, ...(cfg.assertions ? { assertions: bucket() } : {}) });
   active.add(id);
 });
 vitest.afterEach((context) => {
@@ -62,7 +65,7 @@ const flush = () => {
     const fileId = currentFile ? createHash('sha256').update(currentFile).digest('hex').slice(0, 16) : 'unknown';
     writeFileSync(`${cfg.out}/${process.pid}-${fileId}.json`, JSON.stringify({ file: currentFile,
       scripts: entries(scripts), setup: entries(setup),
-      tests: Object.fromEntries([...tests].map(([id, t]) => [id, { coverage: entries(t.coverage), spawnsInterpreter: t.spawnsInterpreter }])),
+      tests: Object.fromEntries([...tests].map(([id, t]) => [id, { coverage: entries(t.coverage), spawnsInterpreter: t.spawnsInterpreter, ...(cfg.assertions ? { assertions: t.assertions } : {}) }])),
       failures,
     }));
   } catch (e) {
