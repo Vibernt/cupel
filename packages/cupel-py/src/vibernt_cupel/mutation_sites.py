@@ -6,7 +6,7 @@ import json
 import tokenize
 from dataclasses import dataclass
 
-OPERATORS = ('cmp-flip', 'boundary', 'bool-literal', 'logical', 'negate-cond', 'remove-not', 'arith', 'return-value', 'remove-call')
+OPERATORS = ('cmp-flip', 'boundary', 'bool-literal', 'logical', 'negate-cond', 'remove-not', 'arith', 'return-value', 'remove-call', 'body-replace')
 CMP = {'==': '!=', '!=': '==', '<': '>=', '>=': '<', '>': '<=', '<=': '>'}
 BOUNDARY = {'<': '<=', '<=': '<', '>': '>=', '>=': '>'}
 ARITH = {'+': '-', '-': '+', '*': '/', '/': '*'}
@@ -20,6 +20,11 @@ class Site:
     col: int
     operator: str
     edits: tuple  # byte offsets, end exclusive, UTF-8 replacement bytes
+    function_key: str = ''
+    function_name: str = ''
+    start_line: int = 0
+    end_line: int = 0
+    variant: int = 0
 
 
 def apply(text, site):
@@ -29,7 +34,7 @@ def apply(text, site):
     return raw.decode('utf-8')
 
 
-def generate(source, text):
+def generate(source, text, functions_only=False):
     """Yield descriptors in AST visit order, including invalid sites for the caller to check."""
     tree = ast.parse(text, filename=source)
     raw = text.encode('utf-8')
@@ -71,7 +76,29 @@ def generate(source, text):
         fn = node.func
         return isinstance(fn, ast.Name) and fn.id == 'print' or isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name) and fn.value.id in ('logging', 'logger')
 
+    def body_sites(node):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name == '__init__':
+            return
+        if any((isinstance(dec, ast.Name) and dec.id == 'abstractmethod') or
+               (isinstance(dec, ast.Attribute) and dec.attr == 'abstractmethod') for dec in node.decorator_list):
+            return
+        if not node.body:
+            return
+        first, last = node.body[0], node.body[-1]
+        start, end = span(first)[0], span(last)[1]
+        key = f'{source}:{node.lineno}:{node.col_offset + 1}'
+        for variant, replacement in enumerate(('pass', 'return None')):
+            site = make('body-replace', start, [(start, end, same_lines(start, end, replacement))])
+            if site:
+                yield Site(site.id, source, site.line, site.col, site.operator, site.edits,
+                           key, node.name, first.lineno, last.end_lineno, variant)
+
     def visit(node, in_logging=False):
+        yield from body_sites(node)
+        if functions_only:
+            for child in ast.iter_child_nodes(node):
+                yield from visit(child, in_logging)
+            return
         if logging_call(node):
             in_logging = True
         if not in_logging:

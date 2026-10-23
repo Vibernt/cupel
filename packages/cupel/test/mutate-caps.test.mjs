@@ -34,13 +34,13 @@ test('maxMutants caps the run with a seeded sample and sets sampled; within the 
   const [a, b, all] = await Promise.all([
     mutateNode({ root: p.root, config: capped, input: p.input, scope }),
     mutateNode({ root: p.root, config: capped, input: p.input, scope }),
-    mutateNode({ root: p.root, config: { mutation: { maxMutants: 5 } }, input: p.input, scope }),
+    mutateNode({ root: p.root, config: { mutation: { maxMutants: 10 } }, input: p.input, scope }),
   ]);
   assert.equal(a.mutants.length, 2);
   assert.equal(a.sampled, true);
   assert.equal(a.seed, 7);
   assert.deepEqual(a, b);
-  assert.equal(all.mutants.length, 5);
+  assert.equal(all.mutants.length, 7);
   assert.equal(all.sampled, false);
   const ids = all.mutants.map((m) => m.id);
   for (const m of a.mutants) assert.ok(ids.includes(m.id));
@@ -110,7 +110,7 @@ test('an invalid drawn site is replaced from the same seeded order', async (t) =
   const metrics = {};
   const result = await mutateNode({ root: p.root, input, scope: { critical: true }, config: { mutation: { maxMutants: 5, seed: 2 } }, jobs: 1, metrics });
   assert.equal(metrics.invalid, 1);
-  assert.equal(metrics.sites, 6);
+  assert.equal(metrics.sites, 8);
   assert.equal(metrics.textBuilds, 6);
   assert.equal(result.mutants.length, 5);
   assert.equal(metrics.run, 5);

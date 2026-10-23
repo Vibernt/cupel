@@ -24,7 +24,8 @@ def _draw(items, amount, seed):
 
 def _run(root, nodeids, env, tmp, timeout, deadline, spec=None):
     report = Path(tmp, f'report-{time.monotonic_ns()}.jsonl')
-    child_env = {**os.environ, **env, 'PYTHONDONTWRITEBYTECODE': '1', 'CUPEL_MUTANT_REPORT': str(report)}
+    child_env = {**os.environ, **env, 'PYTHONDONTWRITEBYTECODE': '1',
+                 'TMPDIR': tmp, 'XDG_CACHE_HOME': tmp, 'CUPEL_MUTANT_REPORT': str(report)}
     if spec:
         child_env['CUPEL_MUTANT_SPEC'] = str(spec)
     else:
@@ -163,12 +164,26 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
             text = source.read_text(encoding='utf-8')
             compile(text, str(source), 'exec')
             texts[path] = text
-            candidates.extend(s for s in generate(path, text) if s.line in wanted_lines)
+            candidates.extend(s for s in generate(path, text, functions_only=bool(scope.get('functions'))) if s.line in wanted_lines)
         except (OSError, SyntaxError, UnicodeError) as error:
             raise EnvironmentError(f'cannot mutate {path}: {error}') from error
     targeted = [s for s in candidates if any(s.line in paths.get(s.source, set()) for paths in own.values())]
     other = [s for s in candidates if s not in targeted]
-    if len(candidates) > cap:
+    primary_by_function = {s.function_key: s.id for s in candidates if s.variant == 0}
+    if scope.get('functions'):
+        primary = [s for s in candidates if s.variant == 0]
+        secondary = [s for s in candidates if s.variant == 1]
+        first_targeted = [s for s in primary if s in targeted]
+        first_other = [s for s in primary if s not in targeted]
+        if len(primary) > cap:
+            preferred = (whole_units(first_targeted, own, cap) if len(first_targeted) >= cap else
+                         first_targeted + _draw(first_other, cap - len(first_targeted), seed))
+            chosen = {s.id for s in preferred}
+            ordered = (preferred + _draw([s for s in first_targeted if s.id not in chosen], len(first_targeted), seed) +
+                       _draw([s for s in first_other if s.id not in chosen], len(first_other), seed) + secondary)
+        else:
+            ordered = primary + secondary
+    elif len(candidates) > cap:
         preferred = whole_units(targeted, own, cap) if len(targeted) >= cap else targeted + _draw(other, cap - len(targeted), seed)
         chosen = {s.id for s in preferred}
         ordered = preferred + _draw([s for s in targeted if s.id not in chosen], len(targeted), seed) + _draw([s for s in other if s.id not in chosen], len(other), seed)
@@ -182,10 +197,15 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
         session = Session(root, input_data, config, tmp, deadline, timeout_floor_ms)
         cursor = 0
         while cursor < len(ordered) and len(results) < cap and time.monotonic() < deadline:
-            batch = ordered[cursor:cursor + min(jobs, cap - len(results))]
+            phase_end = next((i for i in range(cursor, len(ordered)) if scope.get('functions') and
+                              ordered[cursor].variant == 0 and ordered[i].variant == 1), len(ordered))
+            batch = ordered[cursor:cursor + min(jobs, cap - len(results), phase_end - cursor)]
             cursor += len(batch)
             valid = []
             for site in batch:
+                if scope.get('functions') and site.variant == 1:
+                    if results.get(primary_by_function.get(site.function_key), (None,))[0] != 'survived':
+                        continue
                 text = apply(texts[site.source], site)
                 try:
                     compile(text, site.source, 'exec')
@@ -205,12 +225,16 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
                 if result is not None:
                     results[site.id] = result
     mutants = [_entry(site, results[site.id]) for site in candidates if site.id in results]
+    eligible = ([s for s in candidates if s.variant == 0 or
+                 results.get(primary_by_function.get(s.function_key), (None,))[0] == 'survived']
+                if scope.get('functions') else candidates)
     complete = []
     for uid, paths in own.items():
-        mine = [s for s in candidates if s.line in paths.get(s.source, set()) and s.id not in invalid]
+        mine = [s for s in eligible if s.line in paths.get(s.source, set()) and s.id not in invalid]
         if all(s.id in results and results[s.id][0] != 'error' for s in mine):
             complete.append(uid)
-    return {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed, 'sampled': len(results) < len(candidates) - len(invalid)}
+    return {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
+            'sampled': any(s.id not in results and s.id not in invalid for s in eligible)}
 
 
 def confirm(root, input_data, mutation, ids, config=None, jobs=None, timeout_floor_ms=1000):

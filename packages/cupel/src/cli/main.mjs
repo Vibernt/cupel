@@ -18,6 +18,9 @@ import { loadModule, requireCollector, collectTree, collectRef, mutate, confirm,
 import { formatReport } from './human.mjs';
 import { junitToInput } from './junit.mjs';
 import { XmlError } from './xml.mjs';
+import { bodySitesPytest } from './collect.mjs';
+import { sourceMutants } from '../mutate/sites.mjs';
+import { analyzePseudo } from '../analysis/pseudo.mjs';
 
 export const FIXTURES_DIR = fileURLToPath(new URL('../../../../spec/conformance/adapters/', import.meta.url));
 
@@ -31,6 +34,11 @@ const S = { type: 'string' };
 const B = { type: 'boolean' };
 
 const COMMANDS = {
+  pseudo: {
+    usage: 'cupel pseudo [--input <file>] [--json]',
+    about: 'find functions run without an extreme-mutant kill',
+    options: { input: S },
+  },
   report: {
     usage: 'cupel report [--input <file>] [--evidence] [--no-mutation] [--runs N] [--out <file>] [--generated-at <text>]',
     about: 'score every test and give advice',
@@ -291,6 +299,48 @@ function mergeRecheck(first, second) {
 }
 
 const commands = {
+  async pseudo(ctx) {
+    const cfg = ctx.effective();
+    const collected = ctx.o.input === undefined;
+    const collector = await requireCollector(ctx.env, ctx.root, cfg);
+    let input = collected ? await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped }) : ctx.readInput(ctx.o.input);
+    const errors = inputErrors(ctx, input);
+    if (errors.length) throw usage(`pseudo input is invalid: ${errors[0].path}: ${errors[0].message}`);
+    if (!['node', 'python'].includes(input.runtime?.name)) throw environment(`pseudo does not support runtime ${input.runtime?.name ?? 'unknown'}`);
+    const mutator = await loadModule('mutator', ctx.env);
+    if (!mutator) throw environment('mutation module not available');
+    if (input.runtime.name === 'node' && typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation not available');
+    let mutation;
+    if (!input.mutation) {
+      mutation = await mutate(mutator, { root: ctx.root, cfg, input, scope: { functions: true }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
+    } else if (input.mutation.mutants.some((m) => m.operator !== 'body-replace')) {
+      throw usage('pseudo --input needs function-scope body-replace mutation data');
+    } else {
+      mutation = input.mutation;
+    }
+    const survivors = mutation.mutants.filter((m) => m.status === 'survived').map((m) => m.id);
+    mutation = await confirm(mutator, { root: ctx.root, cfg, input, mutation, ids: survivors, log: ctx.log, collectorKind: collector.kind });
+    input = { ...input, mutation };
+    const sites = input.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg, input }) :
+      Object.keys(input.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
+        .flatMap((source) => {
+          const found = sourceMutants(ctx.root, source, readFileSync(join(ctx.root, source), 'utf8'), undefined, true);
+          if (found === null) throw environment(`body sites cannot parse ${source}: TypeScript is not resolvable`);
+          return found;
+        });
+    const siteIds = new Set(sites.map((site) => site.id));
+    const missing = mutation.mutants.find((mutant) => !siteIds.has(mutant.id));
+    if (missing) throw environment(`body-replace site ${missing.id} is missing from the current source`);
+    const result = analyzePseudo(input, sites);
+    if (ctx.o.json) ctx.io.out(`${JSON.stringify(result, null, 2)}\n`);
+    else {
+      ctx.io.out(`Pseudo-tested functions (${result.pseudoTestedFunctions.length}):\n`);
+      for (const fn of result.pseudoTestedFunctions) ctx.io.out(`  ${fn.source}:${fn.startLine} ${fn.name}\n`);
+      ctx.io.out(`Pseudo-tests (${result.pseudoTests.length}):\n`);
+      for (const unit of result.pseudoTests) ctx.io.out(`  ${unit.id}\n`);
+    }
+    return EXIT_OK;
+  },
   async report(ctx) {
     const pre = ctx.o.input === undefined && ctx.preflight('report');
     if (pre) return ctx.emit(pre);
