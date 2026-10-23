@@ -1,0 +1,424 @@
+{
+  "subsumed": [
+    {
+      "unit": "tests/actions-cache-proxy.test.mjs::restores: a service that keeps refusing the first read as busy ends as a failed restore, never a partial body",
+      "judgement": "not-redundant",
+      "evidence": "actions-cache-proxy.test.mjs:335-339 starts a real local cache service that repeatedly returns busy and checks rangedProxy's exhausted first-read response. All four builds.test.mjs subsumers exercise container startup/readiness/capability refusal instead. The shared response.status=503 says nothing about cache download failure handling."
+    },
+    {
+      "unit": "tests/anthropic-federation.test.mjs::a token Anthropic gives with less than two minutes left is used once and never cached",
+      "judgement": "not-redundant",
+      "evidence": "anthropic-federation.test.mjs:274-284 exchanges a newly issued 90-second token twice for the same eval-judge purpose. The subsumer at 231-272 uses normal-lived tokens, a separate agent, then advances time into expiry. It does not cover receiving a token already inside the no-cache window, nor the two successful awaited infer calls in that scenario."
+    },
+    {
+      "unit": "tests/api.test.mjs::development auth refuses production origin",
+      "judgement": "not-redundant",
+      "evidence": "api.test.mjs:62-67 rejects DEV_AUTH with a production APP_ORIGIN and no separate console origin. console-host.test.mjs:362-369 instead keeps APP_ORIGIN local and supplies a production CONSOLE_ORIGIN. These protect different configuration inputs; the Turnstile outage test exercises an unrelated 503 path."
+    },
+    {
+      "unit": "tests/api.test.mjs::every query parameter declares a type queryValues can produce from a string",
+      "judgement": "not-redundant",
+      "evidence": "api.test.mjs:254-270 walks ROUTES and GLOBAL_ROUTES and rejects query schemas that cannot be produced from string coercion. The subsumers compute offenders from link construction and synchronous command bodies, respectively. Identical empty-array assertions do not cover this schema invariant."
+    },
+    {
+      "unit": "tests/api.test.mjs::tenant scope is enforced independently of valid token authentication",
+      "judgement": "not-redundant",
+      "evidence": "api.test.mjs:99-103 creates a project.read bearer token and uses it against another tenant's projects URL. The installation test uses a signed-in member to create a project with an unbound GitHub installation. Shared session-fixture assertions and a 403 do not replace cross-tenant token authorization."
+    },
+    {
+      "unit": "tests/api.test.mjs::unbound private GitHub installation cannot be selected by a tenant",
+      "judgement": "not-redundant",
+      "evidence": "api.test.mjs:116-123 attempts project creation for victim/private with installationId 123 that the tenant does not own. The token-scope subsumer only reads another tenant's projects using a bearer token; it never exercises installation ownership during project creation."
+    },
+    {
+      "unit": "tests/automerge.test.mjs::a request-changes from a review with incomplete coverage still blocks: withholding never needs full coverage",
+      "judgement": "not-redundant",
+      "evidence": "automerge.test.mjs:396-407 explicitly marks an agent request-changes review coverageIncomplete=true and still requires REVIEW_REJECTED. The subsumer at 353-368 uses agent-and-human policy, an approving agent and a rejecting human. It cannot detect incorrectly discarding incomplete negative agent reviews."
+    },
+    {
+      "unit": "tests/browser-switch.test.mjs::an ordinary build job is not affected by the browser switch",
+      "judgement": "not-redundant",
+      "evidence": "browser-switch.test.mjs:78-84 turns browserTesting off and verifies an ordinary build still claims capacity. arm-builds.test.mjs:152-160 enables armBuilds for a multi-architecture job. The former guards isolation of the browser gate from ordinary builds, not ARM admission."
+    },
+    {
+      "unit": "tests/capacity-reattempt.test.mjs::negative: the capacity bound does not lift the bound of other platform failures",
+      "judgement": "not-redundant",
+      "evidence": "capacity-reattempt.test.mjs:75-86 first consumes retries with CONTAINER_CAPACITY and then observes CONTAINER_NOT_READY at the ordinary platform bound. The listed alternatives either exhaust capacity/rollout bounds themselves or transition RUNNER_OUTDATED to LOG_GAP. This specific mixed-failure transition protects the capacity exception from raising other failures' limit."
+    },
+    {
+      "unit": "tests/check-packs.test.mjs::vendored and build directories never contribute a stack",
+      "judgement": "not-redundant",
+      "evidence": "check-packs.test.mjs:77-80 supplies valid-looking manifests under node_modules, vendor and target/debug and expects no stacks. The subsumer at 68-76 supplies malformed or unread root manifests. Directory exclusion can fail independently of parse-error handling."
+    },
+    {
+      "unit": "tests/configuration.test.mjs::every Worker variable, secret and binding read in src/ is registered",
+      "judgement": "not-redundant",
+      "evidence": "configuration.test.mjs:20-23 checks unregisteredReads(CONFIGURATION_NAMES), covering every Worker environment read. feature-gates.test.mjs:74-78 checks that registered non-placeholder feature keys have gate sites. Registration completeness and actual feature enforcement are different invariants despite both calling the result missing."
+    },
+    {
+      "unit": "tests/credential-leak.test.mjs::recovery still accepts the target's configured secret",
+      "judgement": "redundant",
+      "evidence": "credential-leak.test.mjs:249-253 recovers a failed, reconciliation-required release using its target's configured deployment secret and a different operator. quality.test.mjs:273-301 already sets up the same failure/checkpoint, uses the target's configured f.secret.id and an independent ops human, and asserts rolling_back plus generation and retained lock. The extra unrelated target/secret in recoveryFixture is not consulted by this positive case. Folding its explicit configured-secret documentation into that stronger test preserves the check."
+    },
+    {
+      "unit": "tests/edge-auth.test.mjs::a real token is refused when replayed under another tenant or token identity",
+      "judgement": "not-redundant",
+      "evidence": "edge-auth.test.mjs:115-121 tampers separately with a real token's tenant, token ID and secret, requiring 401 before any tenant call. The subsumer creates and revokes an intact token. Revocation does not verify binding of the bearer secret to the encoded tenant and token identities."
+    },
+    {
+      "unit": "tests/feature-gates.test.mjs::every non-placeholder switch in the registry has at least one gate call site",
+      "judgement": "not-redundant",
+      "evidence": "feature-gates.test.mjs:74-78 requires each non-placeholder FEATURE_KEY to occur at a gate call site. configuration.test.mjs:20-23 only detects environment reads absent from the configuration registry. A registered but unenforced feature passes the latter and fails the former."
+    },
+    {
+      "unit": "tests/migrate-azure-pipelines.test.mjs::@444",
+      "judgement": "not-redundant",
+      "evidence": "migrate-azure-pipelines.test.mjs:398-452 parameterizes Azure-specific refusals, including pool demands, Azure tasks, variable groups and template expressions. Each case finds the expected error code/severity/line/suggestion and compiles any returned pipeline, which can throw outside assert. CircleCI's separate converter and syntax table do not cover those inputs."
+    },
+    {
+      "unit": "tests/migrate-drone.test.mjs::drone: narrower-behaviour cases report warnings with lines",
+      "judgement": "not-redundant",
+      "evidence": "migrate-drone.test.mjs:247-268 checks warning severity for narrowed Drone/Woodpecker behavior (clone settings, runner selection, path filters and other listed cases) and unconditionally compiles the result. The Drone and CircleCI negative tables require errors on different inputs; neither proves these conversions remain usable with warnings."
+    },
+    {
+      "unit": "tests/migrate-drone.test.mjs::drone: negative cases report their code and line",
+      "judgement": "not-redundant",
+      "evidence": "migrate-drone.test.mjs:207-245 checks Drone/Woodpecker-specific negative inputs such as privileged steps, volumes, from_secret mappings and unsupported pipeline kinds. It checks the selected diagnostic's code, error severity, line and suggestion, and compilation when a pipeline exists. CircleCI tests a different converter; normalized hit assertions erase this distinction."
+    },
+    {
+      "unit": "tests/native-job-secrets.test.mjs::a same-repository pull request run receives the mapped secrets",
+      "judgement": "not-redundant",
+      "evidence": "native-job-secrets.test.mjs:168-172 uses a webhook-triggered pull_request with headRepositoryId equal to the bound repository. The capability-positive subsumer uses the ordinary launch defaults and an explicitly capable runner. Only this case verifies same-repository PR admission to mapped secrets, rather than overblocking every PR."
+    },
+    {
+      "unit": "tests/native-job-secrets.test.mjs::negative: a secret whose project scope no longer includes the project fails the attempt",
+      "judgement": "not-redundant",
+      "evidence": "native-job-secrets.test.mjs:196-204 creates a pipeline while the secret is broadly scoped, then changes projectIds to another project before launching. The branch-scope subsumer starts with a release/* restriction and tests main versus release/1.0. Project-scope revocation after pipeline creation is a distinct runtime authorization check."
+    },
+    {
+      "unit": "tests/native-job-secrets.test.mjs::negative: malformed capability entries count as absent",
+      "judgement": "not-redundant",
+      "evidence": "native-job-secrets.test.mjs:304-308 supplies case changes, trailing whitespace, nested arrays and objects pretending to be native-secrets capability entries. The subsumers use absent capabilities or well-formed unrelated entries. This guards malformed-input acceptance independently of missing-capability handling."
+    },
+    {
+      "unit": "tests/prestage.test.mjs::a fork's pull request is never pre-staged",
+      "judgement": "not-redundant",
+      "evidence": "prestage.test.mjs:257-269 uses the enabled prestageWorld defaults, seeds history and delivers a fork pull_request. The subsumer explicitly disables the grant and sends a push. A feature gate stopping all work cannot establish fork isolation when pre-staging is enabled."
+    },
+    {
+      "unit": "tests/pricing-single-source.test.mjs::no customer price is written by hand in the console or the guides (outside generated blocks)",
+      "judgement": "not-redundant",
+      "evidence": "pricing-single-source.test.mjs:39-50 scans console/guides for handwritten prices, honoring explicit allowances/generated blocks. Its subsumers scan feature-key prose and import shadowing. The arrays named found summarize different source rules and different regressions."
+    },
+    {
+      "unit": "tests/quality.test.mjs::rollback failure holds target lock until reconciliation",
+      "judgement": "not-redundant",
+      "evidence": "quality.test.mjs:138-146 attempts another release while the previous release is failed with needsReconciliation=true, before recovery. The listed tests check an active release and, after successful release.recover, a rolling_back release. Neither checks the lock in the failed-but-unreconciled state itself."
+    },
+    {
+      "unit": "tests/recovery.test.mjs::dangling references fail referential integrity verification",
+      "judgement": "not-redundant",
+      "evidence": "recovery.test.mjs:221-226 deletes pipeline records, backs up the resulting dangling run reference, and requires SNAPSHOT_INTEGRITY with a run.pipelineId violation. The subsumer requires EVIDENCE_MISSING after deleting R2 bytes. Both assert.rejects predicates are collapsed to [Function], losing distinct error-code and detail checks."
+    },
+    {
+      "unit": "tests/target-connection.test.mjs::target connection test: an account-owned Cloudflare token is verified at the account endpoint",
+      "judgement": "not-redundant",
+      "evidence": "target-connection.test.mjs:166-174 scripts user/tokens/verify to return 401 and accounts/<account>/tokens/verify to succeed. Healthy-user-token and AWS subsumers never exercise account-owned token verification after user-token refusal. The awaited target test must complete successfully under that distinct provider response sequence."
+    },
+    {
+      "unit": "tests/token-last-used.test.mjs::a refused command still counts as a use of a valid token; its rolled-back writes do not take the stamp along",
+      "judgement": "not-redundant",
+      "evidence": "token-last-used.test.mjs:67-71 checks that a valid token's timestamp survives a FORBIDDEN command and its transaction rollback. The subsumer deliberately makes timestamp writes fail, then checks a later successful project.list records the stamp. It does not assert persistence of a successful stamp accompanying a refused command."
+    },
+    {
+      "unit": "tests/ui-billing.test.mjs::a developer never sees Settings, Billing even where billing is on",
+      "judgement": "not-redundant",
+      "evidence": "ui-billing.test.mjs:122-132 uses a developer with billing=true and checks no billing.get and no Billing navigation. The subsumer uses an owner with billing disabled. Role-based hiding when the feature is enabled is independent of feature-off hiding."
+    },
+    {
+      "unit": "tests/ui-contrast.test.mjs::@63",
+      "judgement": "not-redundant",
+      "evidence": "ui-contrast.test.mjs:63-66 evaluates the TEXT token-pair matrix against 4.5:1 in light and dark themes. The tests at 67-70 use NON_TEXT and 3:1, including control/chart pairs. Shared empty failure lists do not imply identical inputs or thresholds."
+    },
+    {
+      "unit": "tests/ui-contrast.test.mjs::@67",
+      "judgement": "not-redundant",
+      "evidence": "ui-contrast.test.mjs:67-70 evaluates NON_TEXT pairs, including borders, focus rings and chart marks, against 3:1 in both themes. TEXT at 63-66 has a different pair matrix and a 4.5:1 threshold; several non-text pairs are absent from it."
+    },
+    {
+      "unit": "tests/ui-features.test.mjs::console copy never names a feature switch by its registry key",
+      "judgement": "not-redundant",
+      "evidence": "ui-features.test.mjs:192-208 scans user-facing console copy for internal FEATURE_KEYS, with syntax exclusions. Pricing and import-shadowing scans do not inspect that rule. A feature identifier leaking into prose can pass both listed subsumers."
+    },
+    {
+      "unit": "tests/ui-import-shadowing.test.mjs::console modules: no local declaration shadows an import of the same module",
+      "judgement": "not-redundant",
+      "evidence": "ui-import-shadowing.test.mjs:26-44 collects local variable/destructuring declarations that reuse imported names. The pricing and feature-copy tests inspect unrelated prose/content constraints. The shared found=[] assertion loses the declaration-analysis semantics."
+    },
+    {
+      "unit": "tests/ui-quality.test.mjs::web performance: the browser copy of the report model is the server module, byte for byte",
+      "judgement": "not-redundant",
+      "evidence": "ui-quality.test.mjs:251-257 compares public/generated/web-report.mjs with src/lib/web-report.mjs and checks its generated header. browser.test.mjs:54-113 checks separate docker/web-quality copies and toolchain pins. A stale browser copy can coexist with correct Docker copies even though the normalized copy/source assertions match."
+    },
+    {
+      "unit": "tests/ui-route-audit.test.mjs::route audit: every context item and main menu item opens a routed page; markers left from the split are reported",
+      "judgement": "not-redundant",
+      "evidence": "ui-route-audit.test.mjs:145-184 enumerates every context/menu item, resolves its destination and records stale todo/next/anchor/redirect markers and wrong active items. The alternatives check rendered links, accessibility, redirect behavior or route declarations. They do not enumerate the same navigation configuration or provide these strict-mode diagnostics."
+    },
+    {
+      "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+      "judgement": "not-redundant",
+      "evidence": "ui-route-audit.test.mjs:334-356 crawls seeded rendered pages and resolves their actual links, including content-generated links outside the menus. The other audits inspect menu definitions, route metadata, redirects or accessibility. All call report(fail), but only this one constructs failures from those rendered links; it also reports unseeded coverage."
+    },
+    {
+      "unit": "tests/ui-route-audit.test.mjs::route audit: every page has one h1, labelled landmarks, one current context item, named controls and labelled fields",
+      "judgement": "not-redundant",
+      "evidence": "ui-route-audit.test.mjs:363-378 inspects a11yProblems for each rendered page, with explicit exemptions for h1 and current-item rules. Link resolution and route/menu metadata cannot catch unnamed controls, unlabelled fields or malformed landmarks. Matching report() assertions conceal the different violation lists."
+    },
+    {
+      "unit": "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes",
+      "judgement": "not-redundant",
+      "evidence": "ui-route-audit.test.mjs:209-273 probes guarded routes across owner/viewer/operator, billing and desktop contexts, preserves keep/query values, detects loops and checks OLD_LINKS land on their intended routes. Other audits do not run this principal/query matrix or verify preservation and legacy destinations. Strict diagnostics are also useful beyond assert calls."
+    },
+    {
+      "unit": "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context",
+      "judgement": "not-redundant",
+      "evidence": "ui-route-audit.test.mjs:92-143 validates declared context IDs, sections, record parameters and missing contexts, including catch-all redirect requirements and the NO_CONTEXT exceptions. A page can remain reachable and accessible while its route metadata violates these rules, so the four report(fail) subsumers do not replace it."
+    },
+    {
+      "unit": "tests/ui-tabs.test.mjs::tabs: a hidden tab cannot be opened by value",
+      "judgement": "not-redundant",
+      "evidence": "ui-tabs.test.mjs:149-153 marks findings hidden, assigns that value and requires overview to stay visible. Its subsumers select visible tabs or check initial setup. They do not test refusing programmatic activation of a hidden tab."
+    },
+    {
+      "unit": "tests/ui-tabs.test.mjs::tabs: on arrival exactly one panel is open, the first tab",
+      "judgement": "not-redundant",
+      "evidence": "ui-tabs.test.mjs:92-96 mounts with tabs assigned before connectedCallback. The subsumer at 103-109 explicitly assigns them after connection. These exercise different lifecycle orderings; a regression in initial connection with preexisting tabs can leave late assignment working."
+    },
+    {
+      "unit": "tests/ui-volt-evals.test.mjs::Lists: an empty state never repeats the header primary as a second lime button",
+      "judgement": "not-redundant",
+      "evidence": "ui-volt-evals.test.mjs:139-150 opens five empty evaluation list routes and requires exactly one primary action on each. The subsumers cover a not-found page, a populated pipeline audit and Get started. The same selector/count on those pages does not protect evaluation empty-state actions."
+    },
+    {
+      "unit": "tests/ui-workspace-dense.test.mjs::workspace pages have no context sidebar and no section picker (NAVIGATION.md)",
+      "judgement": "not-redundant",
+      "evidence": "ui-workspace-dense.test.mjs:173-185 checks six workspace pages, including overview, projects, speed, Get started and guides, have neither context sidebar nor section picker. ui-contexts.test.mjs:168-210 checks that absence only on /failures while exercising rail transitions. It does not cover the other five route configurations."
+    },
+    {
+      "unit": "tests/web-report-platform.test.mjs::revoking a link stops the public page immediately, and so does turning the switch off",
+      "judgement": "not-redundant",
+      "evidence": "web-report-platform.test.mjs:437-449 checks a working link, force-off refusal, restoration after re-enable, then explicit share revocation causing 404. The subsumer at 450-461 checks switch refusal and view accounting but never revokes the share. Losing immediate revocation would pass it."
+    },
+    {
+      "unit": "tests/workflow-optimizer-api.test.mjs::daily limits: per project and per workspace",
+      "judgement": "not-redundant",
+      "evidence": "workflow-optimizer-api.test.mjs:231-238 seeds five recent optimization records and requires 429 OPTIMIZER_RATE_LIMITED with no GitHub writes. The subsumer instead requires REPOSITORY_FORK or GITHUB_WORKFLOWS_PERMISSION on different fixtures. Their rejection predicates are distinct despite the [Function] fingerprint. The title overstates coverage: this body does not separately exhaust the workspace-wide limit."
+    }
+  ],
+  "pseudo": [
+    {
+      "source": "public/app/components/code.mjs",
+      "startLine": 43,
+      "name": "update",
+      "judgement": "unchecked",
+      "evidence": "components/code.mjs:43-71 builds the actual pre/code output, accessible label, copy and optional download controls. ui-pipelines-v2.test.mjs checks vi-code presence and its .value (including API request commands), not rendered code text or those controls. Route/a11y crawling is not a positive content oracle. Removing update can leave the wrapper/value assertions intact while making code unreadable; this is functional, not merely syntax-highlighting decoration."
+    },
+    {
+      "source": "public/app/components/menu.mjs",
+      "startLine": 34,
+      "name": "connectedCallback",
+      "judgement": "unchecked",
+      "evidence": "components/menu.mjs:34-51 wires trigger click/ArrowUp/ArrowDown and aria-haspopup/expanded, guarding reconnection. Console tests inspect menu.items through support/console.mjs accountMenu(), and page/table tests inspect action definitions. Those do not prove the trigger opens the menu or keyboard focus works. A connected but inert menu is a real interaction gap."
+    },
+    {
+      "source": "public/app/lib/router.mjs",
+      "startLine": 390,
+      "name": "onClick",
+      "judgement": "unchecked",
+      "evidence": "router.mjs:390-408 intercepts unmodified same-origin app links and handles same-page hashes. support/console.mjs open() calls startRouter/navigate directly; route audits resolve hrefs directly. support/dom.mjs:699-701 click() emits a plain Event without button=0, so this handler returns at its first guard for those synthetic clicks. Internal-link interception, modifier exclusions and hash scrolling are not established by the route tests."
+    },
+    {
+      "source": "public/app/pages/admin/quotas.mjs",
+      "startLine": 117,
+      "name": "<arrow@117>",
+      "judgement": "unchecked",
+      "evidence": "admin/quotas.mjs:117 passes an onChange callback that refreshes the workspace table and audit after catalog changes. ui-plans.test.mjs:155-180 verifies initial catalog/controls, the initial audit request and source wiring, but does not mutate a plan and assert both dependent views reload. A successful edit can leave stale quota/audit views undetected."
+    },
+    {
+      "source": "public/app/pages/admin/system.mjs",
+      "startLine": 186,
+      "name": "draw",
+      "judgement": "unchecked",
+      "evidence": "admin/system.mjs:186-199 renders filtered registry rows and result counts, including defaults, problems and empty-state reset. ui-redesign-contexts.test.mjs:109-124 tests filterRegistry in isolation; ui-structure.test.mjs opens the configuration route and checks its title/request partition. Neither checks the resulting configuration cells/count or filtering interaction. The pure helper checks do not cover draw's output."
+    },
+    {
+      "source": "public/app/pages/automerge/candidate.mjs",
+      "startLine": 384,
+      "name": "renderEvidence",
+      "judgement": "unchecked",
+      "evidence": "automerge/candidate.mjs:384-400 hides absent evidence or renders policy approval, merge commit/digest, reviewers and pipeline evidence in an inspector. The candidate is visited by shell/route audits (including ui-redesign-contexts.test.mjs), while ui-automerge.test.mjs checks decision-model helpers. Those do not assert this evidence section's presence, values or absence. Losing audit evidence from the candidate page is a meaningful presentation gap."
+    },
+    {
+      "source": "public/app/pages/automerge/candidates.mjs",
+      "startLine": 77,
+      "name": "setEmpty",
+      "judgement": "unchecked",
+      "evidence": "automerge/candidates.mjs:77-84 selects three distinct empty states from filters, project existence and manage permission, including Clear filters and setup links. The route crawl checks existing links and accessibility, not that required empty-state guidance/actions exist. ui-automerge.test.mjs's policy-list request test covers another page. A generic table empty state can survive without these behaviors being checked."
+    },
+    {
+      "source": "public/app/pages/evaluations/suite-new.mjs",
+      "startLine": 111,
+      "name": "stepBody",
+      "judgement": "unchecked",
+      "evidence": "evaluations/suite-new.mjs:111-202 renders dataset/import, checks, endpoints, gates, triggers and final creation fields with handlers. ui-volt-evals.test.mjs:114-137 checks template names/selection; ui-eval-suites.test.mjs tests suiteBody and other model helpers directly. Neither completes the rendered wizard or asserts the step fields. An empty step body can leave the tested template picker and model functions intact."
+    },
+    {
+      "source": "public/app/pages/infrastructure/plan.mjs",
+      "startLine": 185,
+      "name": "renderBanner",
+      "judgement": "unchecked",
+      "evidence": "infrastructure/plan.mjs:185-215 renders status-specific banners, missing approval/destroy gates, expiry, rejection reason and failure/drift guidance. ui-deliver-volt.test.mjs:219-240 checks approval controls, destroy cards and requester restrictions rendered elsewhere, not this banner. The status explanation can disappear while those assertions still pass; it is important operational information, not cosmetic styling."
+    },
+    {
+      "source": "public/app/pages/pipelines/editor.mjs",
+      "startLine": 209,
+      "name": "formTemplate",
+      "judgement": "unchecked",
+      "evidence": "pipelines/editor.mjs:209-286 creates the editable General, Triggers, Concurrency and Jobs form with field bindings and add/remove controls. ui-pipelines-volt.test.mjs:397-425 checks introductory/template copy, while ui-pipelines-v2.test.mjs:263-279 checks YAML mode and docked buttons. Pure pipeline-model tests do not edit this DOM form. These checks can pass with all form-mode controls missing."
+    },
+    {
+      "source": "public/app/pages/pipelines/editor.mjs",
+      "startLine": 893,
+      "name": "<arrow@892>",
+      "judgement": "unchecked",
+      "evidence": "pipelines/editor.mjs:893-897 removes the document click guard and beforeunload listener, clears validation debounce and aborts validation. Harness close() navigates away but also clears its own tracked timers and resets the DOM. Existing editor tests do not observe stale listeners, post-unmount validation or request cancellation. Harness teardown can mask a genuine lifecycle leak."
+    },
+    {
+      "source": "public/app/pages/pipelines/new.mjs",
+      "startLine": 173,
+      "name": "<arrow@173>",
+      "judgement": "unchecked",
+      "evidence": "pipelines/new.mjs:173 updates projectId, the URL, footer and generated request when the multi-project select changes. ui-pipelines-v2.test.mjs:201-241 supplies one project and verifies name changes and creation for p1. It never changes the project select. That separate callback can fail while all tested request generation remains correct."
+    },
+    {
+      "source": "public/app/pages/quality/_shared.mjs",
+      "startLine": 38,
+      "name": "severityRow",
+      "judgement": "unchecked",
+      "evidence": "quality/_shared.mjs:38-44 renders severity counts in order plus their screen-reader label, or No open findings. ui-quality.test.mjs checks severityTone and openFindingsCell's model, not severityRow's rendered numbers/accessible summary. Route audits do not require those counts to exist. Removing the summary loses substantive scan information."
+    },
+    {
+      "source": "public/app/pages/quality/checks.mjs",
+      "startLine": 346,
+      "name": "detectionNote",
+      "judgement": "unchecked",
+      "evidence": "quality/checks.mjs:346-350 explains missing detection or renders the detected commit/stacks/frameworks/time and manifest-read warnings. ui-quality-checks.test.mjs tests selection/adoption helpers and scans source for operations/routes; it does not assert this output. A partial detection can be presented without its warning and still satisfy those tests."
+    },
+    {
+      "source": "public/app/pages/quality/performance.mjs",
+      "startLine": 290,
+      "name": "opportunities",
+      "judgement": "unchecked",
+      "evidence": "quality/performance.mjs:290-302 renders Lighthouse opportunity titles, kind, displayed value, savings in time/bytes and advice, or an explicit no-opportunities message. ui-quality.test.mjs checks report-model helpers, geometry and source wiring, not these table rows. The page crawl verifies links/structure rather than the measured savings and advice, leaving this report content unchecked."
+    },
+    {
+      "source": "public/app/pages/releases/new.mjs",
+      "startLine": 191,
+      "name": "<arrow@191>",
+      "judgement": "unchecked",
+      "evidence": "releases/new.mjs:191 changes targetId and clears runId, artifactId, strategy and evalRunIds before redrawing. ui-redesign-deliver.test.mjs:91-105 checks free/locked target controls and Continue, but does not select a different target after populating dependent choices. The crucial reset of release inputs across targets has no behavioral assertion there."
+    },
+    {
+      "source": "public/app/pages/settings/features.mjs",
+      "startLine": 131,
+      "name": "badges",
+      "judgement": "unchecked",
+      "evidence": "settings/features.mjs:131-133 displays Recommended, Holds source code, Cloudflare Artifacts and Calls a model conditionally. ui-settings-v2.test.mjs:451-481 checks requests, switches, filters, overrides and anchors; ui-settings-volt.test.mjs checks confirmation wiring. Neither asserts these badges. Custody and model-call disclosures convey material behavior, so their absence is not just cosmetic."
+    },
+    {
+      "source": "public/app/pages/settings/members.mjs",
+      "startLine": 185,
+      "name": "<arrow@185>",
+      "judgement": "unchecked",
+      "evidence": "settings/members.mjs:185 toggles showRevoked, persists revoked=1 in the query and redraws. ui-settings-v2.test.mjs:141-177 asserts initially collapsed content and separately opens a URL already containing revoked=1; it never clicks this disclosure. Initial URL rendering does not establish that expanding/collapsing the group updates both rows and URL."
+    },
+    {
+      "source": "public/app/pages/settings/tokens.mjs",
+      "startLine": 243,
+      "name": "reveal",
+      "judgement": "unchecked",
+      "evidence": "settings/tokens.mjs:243-278 implements the one-time secret display, copy feedback, nondismissible dialog and confirmation before closing uncopied. ui-connect-agent.test.mjs:355-390 submits token creation but asserts only the captured request purpose, then closes any dialogs without checking their contents. The successful creation path therefore does not verify that the user can actually retrieve the new token."
+    },
+    {
+      "source": "public/app/pages/settings/tokens.mjs",
+      "startLine": 82,
+      "name": "<arrow@82>",
+      "judgement": "unchecked",
+      "evidence": "The arrow at settings/tokens.mjs:82 column 202 is the Show revoked and expired handler: it checks inactive and calls apply(), not the earlier Create token arrow on the same line. Token creation/route tests use empty token.list responses and do not click this action with hidden inactive rows. Revealing those rows is a distinct missing interaction check."
+    },
+    {
+      "source": "public/app/pages/settings/tokens.mjs",
+      "startLine": 92,
+      "name": "load",
+      "judgement": "unchecked",
+      "evidence": "settings/tokens.mjs:92-98 loads tokens, member directory and project map, then applies them to the table. ui-connect-agent.test.mjs:355-390 and ui-get-started-agent.test.mjs use empty list fixtures while checking the creation dialog/presets; shell tests merely visit the route. They do not require populated rows, owner/project labels or post-create/revoke refresh. An empty load leaves those narrow checks working."
+    },
+    {
+      "source": "public/app/pages/ui-kit.mjs",
+      "startLine": 213,
+      "name": "loadLog",
+      "judgement": "unchecked",
+      "evidence": "ui-kit.mjs:213-220 loads a selected job's logs.content, labels/resets the log component, sets returned lines and marks completion, with abort/error behavior. The route audit visits the UI kit but checks links/a11y, not selected-job log output; ui-run-logs.test.mjs tests a different run page. This is lower-priority demonstration functionality, but it performs a real data read and selection-dependent update rather than a cosmetic no-op."
+    },
+    {
+      "source": "src/lib/tar.mjs",
+      "startLine": 81,
+      "name": "paxRecords",
+      "judgement": "unchecked",
+      "evidence": "tar.mjs:81-96 decodes PAX key/value records used by readTarGz for path and linkpath overrides. test-intelligence.test.mjs:574-603 and source-links.test.mjs build archives with the host tar command without forcing a PAX override that disagrees with the ordinary header. They check paths/links, but those can come from ustar prefixes or GNU long names while incidental PAX metadata is ignored. There is no format-controlled oracle for this parser's override behavior, especially traversal/link overrides; the Python untar tests exercise a different implementation."
+    },
+    {
+      "source": "src/platform/test-history-store.mjs",
+      "startLine": 1686,
+      "name": "oldestResultAt",
+      "judgement": "unchecked",
+      "evidence": "test-history-store.mjs:1686-1688 returns the minimum time across result_packs and legacy results, or null. backtestLater feeds it into backtestTia. test-history-packs.test.mjs and test-history-shards.test.mjs compare reads() between layouts, including backtest metadata, but both sides use this same method; replacing it on both sides preserves equality. There is no independent expected oldest timestamp for empty, packed, legacy and mixed data. This retention/coverage boundary is not trivial."
+    },
+    {
+      "source": "src/plugins/billing/dodo.mjs",
+      "startLine": 42,
+      "name": "scrub",
+      "judgement": "checked-elsewhere",
+      "evidence": "billing-config.test.mjs:69-103 ('the adapter never reports a mocked success') injects a provider 500 message containing the fake WRITE_KEY and asserts failed.message excludes it; a thrown transport error is also checked for leakage. Thus the security effect is checked through dodoClient, not wholly unasserted. The body-removal mutant can still pass because dodo.mjs:97-109 substitutes a generic message when scrub returns nothing. This oracle does not verify retained safe context, the REDACTED marker or length bounds; those remain gaps, but the survivor alone does not mean redaction safety has no check."
+    },
+    {
+      "source": "src/services/backups.mjs",
+      "startLine": 373,
+      "name": "Map",
+      "judgement": "unchecked",
+      "evidence": "The reported name Map is not a function declaration here: backups.mjs:373-382 is the try block inside previousInventory (declared at 369), following an early return new Map(). It verifies/loads prior evidence chunks into a map so buildInventory can reuse immutable entries instead of calling EVIDENCE.head again. recovery.test.mjs tests snapshot chains, round trips and integrity, but does not assert prior inventory reuse or count head calls. Fresh inventory rebuilding can yield the same snapshot. This reuse gap is real, while the reported whole-function mutation boundary/name should be corrected before interpreting it as a function-level result."
+    },
+    {
+      "source": "src/services/plan-store.mjs",
+      "startLine": 23,
+      "name": "forgetPlans",
+      "judgement": "unchecked",
+      "evidence": "plan-store.mjs:23-27 invalidates a tenant assignment and/or catalog cache after changes. billing-plans.test.mjs:91-134 calls w.reset() after assignment, edit, retirement and return to default; support/billing-world.mjs reset() itself calls resetPlanCaches(). Those tests assert updated limits only after independently clearing the caches, bypassing the behavior forgetPlans must supply to normal requests. Test a warmed cache followed by mutation and immediate read without reset."
+    },
+    {
+      "source": "src/services/shadow.mjs",
+      "startLine": 42,
+      "name": "runCost",
+      "judgement": "unchecked",
+      "evidence": "services/shadow.mjs:42-57 reads usage_resources for this tenant/run, prices each row, sums/rounds cost and returns null for absent data or errors. shadow.test.mjs:184-228 calls observeShadow but checks publication suppression, pairing, disagreement and duration, not observation cost; pure verdict fixtures inject costUsd directly. Neither verifies this SQL scope/pricing/sum or null behavior. Domain container-cost runCost tests exercise another function."
+    },
+    {
+      "source": "src/storage/sql-store.mjs",
+      "startLine": 570,
+      "name": "nextOutbox",
+      "judgement": "unchecked",
+      "evidence": "sql-store.mjs:570-572 finds the earliest future next_at for a particular outbox kind, excluding due items, to avoid redundant warm/predict scheduling. drop-in-warm.test.mjs:189-229 checks runners and nextAt, and drop-in-predict.test.mjs checks signal/runner idempotency, not the number/timing of future dropin-warm outbox entries. Returning nothing can enqueue redundant future ticks while those behaviors pass. A fixture with due/future entries and multiple kinds is needed to check the actual minimum and scheduling deduplication."
+    }
+  ]
+}

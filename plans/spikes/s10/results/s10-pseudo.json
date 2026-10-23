@@ -1,0 +1,321 @@
+[
+  {
+    "id": "public/app/components/code.mjs:42:14",
+    "source": "public/app/components/code.mjs",
+    "name": "update",
+    "startLine": 43,
+    "endLine": 71,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/components/code.mjs:43:9:body-replace:8cee954d"
+    ]
+  },
+  {
+    "id": "public/app/components/menu.mjs:33:25",
+    "source": "public/app/components/menu.mjs",
+    "name": "connectedCallback",
+    "startLine": 34,
+    "endLine": 51,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/components/menu.mjs:34:9:body-replace:0c1b7354"
+    ]
+  },
+  {
+    "id": "public/app/lib/router.mjs:389:25",
+    "source": "public/app/lib/router.mjs",
+    "name": "onClick",
+    "startLine": 390,
+    "endLine": 408,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/lib/router.mjs:390:5:body-replace:4d46ad4d"
+    ]
+  },
+  {
+    "id": "public/app/pages/admin/quotas.mjs:117:106",
+    "source": "public/app/pages/admin/quotas.mjs",
+    "name": "<arrow@117>",
+    "startLine": 117,
+    "endLine": 117,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/admin/quotas.mjs:117:108:body-replace:4a972ab3"
+    ]
+  },
+  {
+    "id": "public/app/pages/admin/system.mjs:185:24",
+    "source": "public/app/pages/admin/system.mjs",
+    "name": "draw",
+    "startLine": 186,
+    "endLine": 199,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/admin/system.mjs:186:9:body-replace:c05aa55e"
+    ]
+  },
+  {
+    "id": "public/app/pages/automerge/candidate.mjs:383:41",
+    "source": "public/app/pages/automerge/candidate.mjs",
+    "name": "renderEvidence",
+    "startLine": 384,
+    "endLine": 400,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/automerge/candidate.mjs:384:5:body-replace:e36a3e9e"
+    ]
+  },
+  {
+    "id": "public/app/pages/automerge/candidates.mjs:76:28",
+    "source": "public/app/pages/automerge/candidates.mjs",
+    "name": "setEmpty",
+    "startLine": 77,
+    "endLine": 84,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/automerge/candidates.mjs:77:9:body-replace:d79e6771"
+    ]
+  },
+  {
+    "id": "public/app/pages/evaluations/suite-new.mjs:110:25",
+    "source": "public/app/pages/evaluations/suite-new.mjs",
+    "name": "stepBody",
+    "startLine": 111,
+    "endLine": 202,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/evaluations/suite-new.mjs:111:9:body-replace:05ceb409"
+    ]
+  },
+  {
+    "id": "public/app/pages/infrastructure/plan.mjs:184:39",
+    "source": "public/app/pages/infrastructure/plan.mjs",
+    "name": "renderBanner",
+    "startLine": 185,
+    "endLine": 215,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/infrastructure/plan.mjs:185:5:body-replace:c2945f05"
+    ]
+  },
+  {
+    "id": "public/app/pages/pipelines/editor.mjs:208:32",
+    "source": "public/app/pages/pipelines/editor.mjs",
+    "name": "formTemplate",
+    "startLine": 209,
+    "endLine": 286,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/pipelines/editor.mjs:209:9:body-replace:cb5b0c86"
+    ]
+  },
+  {
+    "id": "public/app/pages/pipelines/editor.mjs:892:25",
+    "source": "public/app/pages/pipelines/editor.mjs",
+    "name": "<arrow@892>",
+    "startLine": 893,
+    "endLine": 897,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/pipelines/editor.mjs:893:9:body-replace:feeb11d1"
+    ]
+  },
+  {
+    "id": "public/app/pages/pipelines/new.mjs:173:157",
+    "source": "public/app/pages/pipelines/new.mjs",
+    "name": "<arrow@173>",
+    "startLine": 173,
+    "endLine": 173,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/pipelines/new.mjs:173:159:body-replace:92057442"
+    ]
+  },
+  {
+    "id": "public/app/pages/quality/_shared.mjs:37:88",
+    "source": "public/app/pages/quality/_shared.mjs",
+    "name": "severityRow",
+    "startLine": 38,
+    "endLine": 44,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/quality/_shared.mjs:38:5:body-replace:dd15746f"
+    ]
+  },
+  {
+    "id": "public/app/pages/quality/checks.mjs:345:33",
+    "source": "public/app/pages/quality/checks.mjs",
+    "name": "detectionNote",
+    "startLine": 346,
+    "endLine": 350,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/quality/checks.mjs:346:5:body-replace:4a0f9006"
+    ]
+  },
+  {
+    "id": "public/app/pages/quality/performance.mjs:289:30",
+    "source": "public/app/pages/quality/performance.mjs",
+    "name": "opportunities",
+    "startLine": 290,
+    "endLine": 302,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/quality/performance.mjs:290:5:body-replace:196fab3c"
+    ]
+  },
+  {
+    "id": "public/app/pages/releases/new.mjs:191:41",
+    "source": "public/app/pages/releases/new.mjs",
+    "name": "<arrow@191>",
+    "startLine": 191,
+    "endLine": 191,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/releases/new.mjs:191:43:body-replace:f77b149b"
+    ]
+  },
+  {
+    "id": "public/app/pages/settings/features.mjs:130:26",
+    "source": "public/app/pages/settings/features.mjs",
+    "name": "badges",
+    "startLine": 131,
+    "endLine": 133,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/settings/features.mjs:131:9:body-replace:c6731b03"
+    ]
+  },
+  {
+    "id": "public/app/pages/settings/members.mjs:185:100",
+    "source": "public/app/pages/settings/members.mjs",
+    "name": "<arrow@185>",
+    "startLine": 185,
+    "endLine": 185,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/settings/members.mjs:185:102:body-replace:20cdb46a"
+    ]
+  },
+  {
+    "id": "public/app/pages/settings/tokens.mjs:242:24",
+    "source": "public/app/pages/settings/tokens.mjs",
+    "name": "reveal",
+    "startLine": 243,
+    "endLine": 278,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/settings/tokens.mjs:243:5:body-replace:ee5d071d"
+    ]
+  },
+  {
+    "id": "public/app/pages/settings/tokens.mjs:82:202",
+    "source": "public/app/pages/settings/tokens.mjs",
+    "name": "<arrow@82>",
+    "startLine": 82,
+    "endLine": 82,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/settings/tokens.mjs:82:204:body-replace:6d119057"
+    ]
+  },
+  {
+    "id": "public/app/pages/settings/tokens.mjs:91:27",
+    "source": "public/app/pages/settings/tokens.mjs",
+    "name": "load",
+    "startLine": 92,
+    "endLine": 98,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/settings/tokens.mjs:92:9:body-replace:62d3961b"
+    ]
+  },
+  {
+    "id": "public/app/pages/ui-kit.mjs:212:34",
+    "source": "public/app/pages/ui-kit.mjs",
+    "name": "loadLog",
+    "startLine": 213,
+    "endLine": 220,
+    "status": "pseudo-tested",
+    "mutants": [
+      "public/app/pages/ui-kit.mjs:213:9:body-replace:454cd6b1"
+    ]
+  },
+  {
+    "id": "src/lib/tar.mjs:80:28",
+    "source": "src/lib/tar.mjs",
+    "name": "paxRecords",
+    "startLine": 81,
+    "endLine": 96,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/lib/tar.mjs:81:5:body-replace:231a3843"
+    ]
+  },
+  {
+    "id": "src/platform/test-history-store.mjs:1685:22",
+    "source": "src/platform/test-history-store.mjs",
+    "name": "oldestResultAt",
+    "startLine": 1686,
+    "endLine": 1688,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/platform/test-history-store.mjs:1686:9:body-replace:0e94b873"
+    ]
+  },
+  {
+    "id": "src/plugins/billing/dodo.mjs:41:30",
+    "source": "src/plugins/billing/dodo.mjs",
+    "name": "scrub",
+    "startLine": 42,
+    "endLine": 46,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/plugins/billing/dodo.mjs:42:5:body-replace:27bf7ffc"
+    ]
+  },
+  {
+    "id": "src/services/backups.mjs:372:9",
+    "source": "src/services/backups.mjs",
+    "name": "Map",
+    "startLine": 373,
+    "endLine": 382,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/services/backups.mjs:373:9:body-replace:9f3eea2e"
+    ]
+  },
+  {
+    "id": "src/services/plan-store.mjs:22:72",
+    "source": "src/services/plan-store.mjs",
+    "name": "forgetPlans",
+    "startLine": 23,
+    "endLine": 27,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/services/plan-store.mjs:23:5:body-replace:9ca22195"
+    ]
+  },
+  {
+    "id": "src/services/shadow.mjs:41:53",
+    "source": "src/services/shadow.mjs",
+    "name": "runCost",
+    "startLine": 42,
+    "endLine": 57,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/services/shadow.mjs:42:5:body-replace:5acbe35d"
+    ]
+  },
+  {
+    "id": "src/storage/sql-store.mjs:569:28",
+    "source": "src/storage/sql-store.mjs",
+    "name": "nextOutbox",
+    "startLine": 570,
+    "endLine": 572,
+    "status": "pseudo-tested",
+    "mutants": [
+      "src/storage/sql-store.mjs:570:9:body-replace:0e7442a4"
+    ]
+  }
+]

@@ -1,0 +1,570 @@
+[
+  {
+    "unit": "tests/actions-cache-proxy.test.mjs::restores: a service that keeps refusing the first read as busy ends as a failed restore, never a partial body",
+    "subsumedBy": [
+      "tests/builds.test.mjs::a start Cloudflare refuses for capacity is coded CONTAINER_CAPACITY at once, not as a readiness timeout",
+      "tests/builds.test.mjs::container start failure is recorded with a code and the same attempt is not started again",
+      "tests/builds.test.mjs::negative: the container refuses to forward a manifest with native secrets to a runner without them",
+      "tests/builds.test.mjs::readiness is polled outside blockConcurrencyWhile and a crash before ready is coded with its exit"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"strictEqual\",\"response . status\",\"[\\\"number\\\",\\\"503\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/anthropic-federation.test.mjs::a token Anthropic gives with less than two minutes left is used once and never cached",
+    "subsumedBy": [
+      "tests/anthropic-federation.test.mjs::federated call: mint, exchange, Messages with Bearer; cached per workspace and agent until two minutes before expiry"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"strictEqual\",\"fake . exchanges ( ) . length\",\"[\\\"number\\\",\\\"2\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/api.test.mjs::development auth refuses production origin",
+    "subsumedBy": [
+      "tests/console-host.test.mjs::DEV_AUTH is refused when the console origin is not localhost (negative)",
+      "tests/turnstile.test.mjs::workspace creation: verified once per new workspace, replays need no token, an outage always refuses"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"strictEqual\",\"r . status\",\"[\\\"number\\\",\\\"503\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/api.test.mjs::every query parameter declares a type queryValues can produce from a string",
+    "subsumedBy": [
+      "tests/console-host.test.mjs::emails, PR comments, check details and console links use the console origin",
+      "tests/faults.test.mjs::[fault:d1-read-failure] tenant commands are synchronous: none is async, none reaches the network or D1, a promise is refused"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"offenders\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/api.test.mjs::tenant scope is enforced independently of valid token authentication",
+    "subsumedBy": [
+      "tests/api.test.mjs::unbound private GitHub installation cannot be selected by a tenant"
+    ],
+    "cloneOf": [],
+    "assertionCount": 4,
+    "fingerprints": [
+      "[\"ok\",\"requested . development ?. token\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"r . status\",\"[\\\"number\\\",\\\"403\\\"]\"]",
+      "[\"strictEqual\",\"tenant . status\",\"[\\\"number\\\",\\\"200\\\"]\"]",
+      "[\"strictEqual\",\"verified . status\",\"[\\\"number\\\",\\\"200\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/api.test.mjs::unbound private GitHub installation cannot be selected by a tenant",
+    "subsumedBy": [
+      "tests/api.test.mjs::tenant scope is enforced independently of valid token authentication"
+    ],
+    "cloneOf": [],
+    "assertionCount": 4,
+    "fingerprints": [
+      "[\"ok\",\"requested . development ?. token\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"r . status\",\"[\\\"number\\\",\\\"403\\\"]\"]",
+      "[\"strictEqual\",\"tenant . status\",\"[\\\"number\\\",\\\"200\\\"]\"]",
+      "[\"strictEqual\",\"verified . status\",\"[\\\"number\\\",\\\"200\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/automerge.test.mjs::a request-changes from a review with incomplete coverage still blocks: withholding never needs full coverage",
+    "subsumedBy": [
+      "tests/automerge.test.mjs::an independent request-changes verdict blocks and leaves the PR open"
+    ],
+    "cloneOf": [],
+    "assertionCount": 37,
+    "fingerprints": [
+      "[\"ok\",\"url . pathname . startsWith ( prefix )\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"new Headers ( init . headers ) . get ( 'authorization' )\",\"[\\\"string\\\",\\\"Bearer installation-token\\\"]\"]",
+      "[\"strictEqual\",\"t . get ( m . id ) . code\",\"[\\\"string\\\",\\\"REVIEW_REJECTED\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/browser-switch.test.mjs::an ordinary build job is not affected by the browser switch",
+    "subsumedBy": [
+      "tests/arm-builds.test.mjs::with the switch on, a multi-arch job goes on to claim build capacity"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"ok\",\"w . leases . includes ( 'claim:build' )\",\"[\\\"undefined\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/capacity-reattempt.test.mjs::negative: the capacity bound does not lift the bound of other platform failures",
+    "subsumedBy": [
+      "tests/capacity-reattempt.test.mjs::a job refused for capacity waits between re-attempts and is not started early, then exhausts its bound",
+      "tests/runner-capabilities.test.mjs::RUNNER_OUTDATED is a platform failure, re-attempted with rollout-sized delays up to its own bound, then exhausted",
+      "tests/runner-capabilities.test.mjs::negative: the rollout bound does not lift the bound of other platform failures"
+    ],
+    "cloneOf": [],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"strictEqual\",\"t . job ( ) . status\",\"[\\\"string\\\",\\\"failed\\\"]\"]",
+      "[\"strictEqual\",\"t . store . get ( 'reliability-receipt' , `rel_${ attempt . id }` ) . status\",\"[\\\"string\\\",\\\"exhausted\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/check-packs.test.mjs::vendored and build directories never contribute a stack",
+    "subsumedBy": [
+      "tests/check-packs.test.mjs::an unreadable manifest is a warning and never an invented stack"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"d . stacks\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/configuration.test.mjs::every Worker variable, secret and binding read in src/ is registered",
+    "subsumedBy": [
+      "tests/feature-gates.test.mjs::every non-placeholder switch in the registry has at least one gate call site"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"missing\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/credential-leak.test.mjs::recovery still accepts the target's configured secret",
+    "subsumedBy": [
+      "tests/quality.test.mjs::failed rollback recovery requires an independent human and retains target lock"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"strictEqual\",\"recovered . status\",\"[\\\"string\\\",\\\"rolling_back\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/edge-auth.test.mjs::a real token is refused when replayed under another tenant or token identity",
+    "subsumedBy": [
+      "tests/edge-auth.test.mjs::a new token works immediately over REST and MCP; revocation stops it at the edge at once"
+    ],
+    "cloneOf": [],
+    "assertionCount": 7,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"calls\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]",
+      "[\"strictEqual\",\"( await send ( f , `${ f . root }/projects` , { auth : { bearer } } ) ) . status\",\"[\\\"number\\\",\\\"401\\\"]\"]",
+      "[\"strictEqual\",\"tenant . status\",\"[\\\"number\\\",\\\"200\\\"]\"]",
+      "[\"strictEqual\",\"token . status\",\"[\\\"number\\\",\\\"200\\\"]\"]",
+      "[\"strictEqual\",\"verified . status\",\"[\\\"number\\\",\\\"200\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/feature-gates.test.mjs::every non-placeholder switch in the registry has at least one gate call site",
+    "subsumedBy": [
+      "tests/configuration.test.mjs::every Worker variable, secret and binding read in src/ is registered"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"missing\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/migrate-azure-pipelines.test.mjs::@444",
+    "subsumedBy": [
+      "tests/migrate-circleci.test.mjs::CircleCI: errors are located (negative table)"
+    ],
+    "cloneOf": [],
+    "assertionCount": 132,
+    "fingerprints": [
+      "[\"ok\",\"hit . suggestion\",\"[\\\"undefined\\\"]\"]",
+      "[\"ok\",\"hit\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"1\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"2\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"3\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"4\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"5\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"6\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"9\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/migrate-drone.test.mjs::drone: narrower-behaviour cases report warnings with lines",
+    "subsumedBy": [
+      "tests/migrate-circleci.test.mjs::CircleCI: errors are located (negative table)",
+      "tests/migrate-drone.test.mjs::drone: negative cases report their code and line"
+    ],
+    "cloneOf": [],
+    "assertionCount": 20,
+    "fingerprints": [
+      "[\"ok\",\"hit\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"1\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"3\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"4\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"5\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"6\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"7\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/migrate-drone.test.mjs::drone: negative cases report their code and line",
+    "subsumedBy": [
+      "tests/migrate-circleci.test.mjs::CircleCI: errors are located (negative table)"
+    ],
+    "cloneOf": [],
+    "assertionCount": 78,
+    "fingerprints": [
+      "[\"ok\",\"hit . suggestion\",\"[\\\"undefined\\\"]\"]",
+      "[\"ok\",\"hit\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"1\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"2\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"3\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"4\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"5\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"6\\\"]\"]",
+      "[\"strictEqual\",\"hit . line\",\"[\\\"number\\\",\\\"7\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/native-job-secrets.test.mjs::a same-repository pull request run receives the mapped secrets",
+    "subsumedBy": [
+      "tests/native-job-secrets.test.mjs::a runner that has native secrets receives the job and its secrets"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"out . manifest . secretValues\",\"[\\\"object\\\",[[\\\"LIVE_SECRET\\\",[\\\"string\\\",\\\"live-secret-QZX9wv7Kp2mN4rT8yB\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/native-job-secrets.test.mjs::negative: a secret whose project scope no longer includes the project fails the attempt",
+    "subsumedBy": [
+      "tests/native-job-secrets.test.mjs::negative: a secret whose branch scope excludes the run's branch fails the attempt"
+    ],
+    "cloneOf": [],
+    "assertionCount": 7,
+    "fingerprints": [
+      "[\"match\",\"String ( out . attempt . error )\",\"[\\\"regexp\\\",\\\"JOB_SECRET: .*\\\\\\\\bLIVE_SECRET\\\\\\\\b\\\",\\\"\\\"]\"]",
+      "[\"match\",\"out . attempt . error\",\"[\\\"regexp\\\",\\\"SECRET_SCOPE\\\",\\\"\\\"]\"]",
+      "[\"ok\",\"! all . includes ( value )\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . failure ?. code\",\"[\\\"string\\\",\\\"JOB_SECRET\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . failure ?. origin\",\"[\\\"string\\\",\\\"code\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . status\",\"[\\\"string\\\",\\\"failed\\\"]\"]",
+      "[\"strictEqual\",\"out . manifest\",\"[\\\"null\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/native-job-secrets.test.mjs::negative: malformed capability entries count as absent",
+    "subsumedBy": [
+      "tests/native-job-secrets.test.mjs::negative: a native job with secrets is never sent to a runner without native secrets, and nothing is unsealed",
+      "tests/native-job-secrets.test.mjs::negative: a runner that has some capabilities but not native secrets is refused, naming what is missing"
+    ],
+    "cloneOf": [],
+    "assertionCount": 6,
+    "fingerprints": [
+      "[\"match\",\"String ( out . attempt . error )\",\"[\\\"regexp\\\",\\\"^RUNNER_OUTDATED: .*native-secrets\\\",\\\"\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . failure ?. code\",\"[\\\"string\\\",\\\"RUNNER_OUTDATED\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . failure ?. origin\",\"[\\\"string\\\",\\\"platform\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . failure ?. reattempted\",\"[\\\"boolean\\\",\\\"true\\\"]\"]",
+      "[\"strictEqual\",\"out . attempt . status\",\"[\\\"string\\\",\\\"failed\\\"]\"]",
+      "[\"strictEqual\",\"out . manifest\",\"[\\\"null\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/prestage.test.mjs::a fork's pull request is never pre-staged",
+    "subsumedBy": [
+      "tests/prestage.test.mjs::switch off by default: a push with history pre-stages nothing (no record, no runner object, no GitHub call)"
+    ],
+    "cloneOf": [],
+    "assertionCount": 3,
+    "fingerprints": [
+      "[\"strictEqual\",\"answer . status\",\"[\\\"number\\\",\\\"200\\\"]\"]",
+      "[\"strictEqual\",\"prestaged ( w ) . length\",\"[\\\"number\\\",\\\"0\\\"]\"]",
+      "[\"strictEqual\",\"w . f . env . GHA_RUNNERS . hosts . size\",\"[\\\"number\\\",\\\"0\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/pricing-single-source.test.mjs::no customer price is written by hand in the console or the guides (outside generated blocks)",
+    "subsumedBy": [
+      "tests/ui-features.test.mjs::console copy never names a feature switch by its registry key",
+      "tests/ui-import-shadowing.test.mjs::console modules: no local declaration shadows an import of the same module"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"found\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/quality.test.mjs::rollback failure holds target lock until reconciliation",
+    "subsumedBy": [
+      "tests/quality.test.mjs::active release locks destination and blocks target edits",
+      "tests/quality.test.mjs::failed rollback recovery requires an independent human and retains target lock"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"throws\",\"( ) => release ( f , t )\",\"[\\\"regexp\\\",\\\"holds this target\\\",\\\"\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/recovery.test.mjs::dangling references fail referential integrity verification",
+    "subsumedBy": [
+      "tests/recovery.test.mjs::missing or altered R2 evidence is detected and blocks restore unless explicitly accepted"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"rejects\",\"( ) => restoreInto ( f , emptyStore ( ) , { manifestDigest : written . digest } )\",\"[\\\"function\\\",\\\"[Function]\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/target-connection.test.mjs::target connection test: an account-owned Cloudflare token is verified at the account endpoint",
+    "subsumedBy": [
+      "tests/target-connection.test.mjs::target connection test: AWS ECS checks STS GetCallerIdentity, then reads the service and its task definition",
+      "tests/target-connection.test.mjs::target connection test: a healthy Cloudflare Workers target passes every check with read-only calls"
+    ],
+    "cloneOf": [],
+    "assertionCount": 5,
+    "fingerprints": [
+      "[\"ok\",\"key\",\"[\\\"undefined\\\"]\"]",
+      "[\"strictEqual\",\"result . lastTest . outcome\",\"[\\\"string\\\",\\\"passed\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/token-last-used.test.mjs::a refused command still counts as a use of a valid token; its rolled-back writes do not take the stamp along",
+    "subsumedBy": [
+      "tests/token-last-used.test.mjs::a failed stamp never fails the request and is logged"
+    ],
+    "cloneOf": [],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"strictEqual\",\"f . stored ( record . id ) . lastUsedAt\",\"[\\\"number\\\",\\\"1700000000000\\\"]\"]",
+      "[\"throws\",\"( ) => f . call ( 'secret.create' , { name : 'x' , purpose : 'deployment' , value : 'v' } , actor )\",\"[\\\"object\\\",[[\\\"code\\\",[\\\"string\\\",\\\"FORBIDDEN\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-billing.test.mjs::a developer never sees Settings, Billing even where billing is on",
+    "subsumedBy": [
+      "tests/ui-billing.test.mjs::billing off for the workspace: no Settings section, and the old URL lands on Settings without asking the API"
+    ],
+    "cloneOf": [],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"ok\",\"! page . operations . includes ( 'billing.get' )\",\"[\\\"undefined\\\"]\"]",
+      "[\"ok\",\"! settingsNav ( harness ) . includes ( 'Billing' )\",\"[\\\"undefined\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-contrast.test.mjs::@63",
+    "subsumedBy": [
+      "tests/ui-contrast.test.mjs::@67"
+    ],
+    "cloneOf": [
+      "tests/ui-contrast.test.mjs::@67"
+    ],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"failing . map ( ( [ name , value ] ) => `${ name }: ${ value . toFixed ( 2 ) }` )\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-contrast.test.mjs::@67",
+    "subsumedBy": [
+      "tests/ui-contrast.test.mjs::@63"
+    ],
+    "cloneOf": [
+      "tests/ui-contrast.test.mjs::@63"
+    ],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"failing . map ( ( [ name , value ] ) => `${ name }: ${ value . toFixed ( 2 ) }` )\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-features.test.mjs::console copy never names a feature switch by its registry key",
+    "subsumedBy": [
+      "tests/pricing-single-source.test.mjs::no customer price is written by hand in the console or the guides (outside generated blocks)",
+      "tests/ui-import-shadowing.test.mjs::console modules: no local declaration shadows an import of the same module"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"found\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-import-shadowing.test.mjs::console modules: no local declaration shadows an import of the same module",
+    "subsumedBy": [
+      "tests/pricing-single-source.test.mjs::no customer price is written by hand in the console or the guides (outside generated blocks)",
+      "tests/ui-features.test.mjs::console copy never names a feature switch by its registry key"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"found\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-quality.test.mjs::web performance: the browser copy of the report model is the server module, byte for byte",
+    "subsumedBy": [
+      "tests/browser.test.mjs::the browser image carries the web-quality toolchain at the versions the catalogue and the pin file name"
+    ],
+    "cloneOf": [],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"match\",\"copy . split ( '\\\\n' ) [ 0 ]\",\"[\\\"regexp\\\",\\\"Generated from src\\\\\\\\/lib\\\\\\\\/web-report\\\\\\\\.mjs by `npm run docs`\\\",\\\"\\\"]\"]",
+      "[\"strictEqual\",\"copy . split ( '\\\\n' ) . slice ( 1 ) . join ( '\\\\n' )\",\"[\\\"string-sha256\\\",47944,\\\"157dd9a72ac72b1c0f3a1fc46d13cf53c2c6f2177d7798b4b825836ef8d6fd6f\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every context item and main menu item opens a routed page; markers left from the split are reported",
+    "subsumedBy": [
+      "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+      "tests/ui-route-audit.test.mjs::route audit: every page has one h1, labelled landmarks, one current context item, named controls and labelled fields",
+      "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes",
+      "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"fail\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+    "subsumedBy": [
+      "tests/ui-route-audit.test.mjs::route audit: every context item and main menu item opens a routed page; markers left from the split are reported",
+      "tests/ui-route-audit.test.mjs::route audit: every page has one h1, labelled landmarks, one current context item, named controls and labelled fields",
+      "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes",
+      "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"fail\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every page has one h1, labelled landmarks, one current context item, named controls and labelled fields",
+    "subsumedBy": [
+      "tests/ui-route-audit.test.mjs::route audit: every context item and main menu item opens a routed page; markers left from the split are reported",
+      "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+      "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes",
+      "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"fail\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes",
+    "subsumedBy": [
+      "tests/ui-route-audit.test.mjs::route audit: every context item and main menu item opens a routed page; markers left from the split are reported",
+      "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+      "tests/ui-route-audit.test.mjs::route audit: every page has one h1, labelled landmarks, one current context item, named controls and labelled fields",
+      "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"fail\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-route-audit.test.mjs::route audit: every route declares a valid context, or is a record, a global page, a redirect or an area without a context",
+    "subsumedBy": [
+      "tests/ui-route-audit.test.mjs::route audit: every context item and main menu item opens a routed page; markers left from the split are reported",
+      "tests/ui-route-audit.test.mjs::route audit: every in-app link on every page (owner, seeded data) opens a routed page",
+      "tests/ui-route-audit.test.mjs::route audit: every page has one h1, labelled landmarks, one current context item, named controls and labelled fields",
+      "tests/ui-route-audit.test.mjs::route audit: every redirect lands on a routed page, keeps the other query parameters and never loops; old links land on their new routes"
+    ],
+    "cloneOf": [],
+    "assertionCount": 1,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"fail\",\"[\\\"array\\\",[[\\\"length\\\",[\\\"number\\\",\\\"0\\\"]]]]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-tabs.test.mjs::tabs: a hidden tab cannot be opened by value",
+    "subsumedBy": [
+      "tests/ui-tabs.test.mjs::tabs: clicking through leaves exactly one panel visible and keeps the URL in step",
+      "tests/ui-tabs.test.mjs::tabs: on arrival exactly one panel is open, the first tab",
+      "tests/ui-tabs.test.mjs::tabs: tabs assigned after connecting never store the string \"undefined\""
+    ],
+    "cloneOf": [],
+    "assertionCount": 3,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"visible ( el )\",\"[\\\"array\\\",[[\\\"0\\\",[\\\"string\\\",\\\"overview\\\"]],[\\\"length\\\",[\\\"number\\\",\\\"1\\\"]]]]\"]",
+      "[\"strictEqual\",\"selector\",\"[\\\"string\\\",\\\":scope > [data-tab]\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-tabs.test.mjs::tabs: on arrival exactly one panel is open, the first tab",
+    "subsumedBy": [
+      "tests/ui-tabs.test.mjs::tabs: tabs assigned after connecting never store the string \"undefined\""
+    ],
+    "cloneOf": [],
+    "assertionCount": 4,
+    "fingerprints": [
+      "[\"deepStrictEqual\",\"visible ( el )\",\"[\\\"array\\\",[[\\\"0\\\",[\\\"string\\\",\\\"overview\\\"]],[\\\"length\\\",[\\\"number\\\",\\\"1\\\"]]]]\"]",
+      "[\"strictEqual\",\"el . value\",\"[\\\"string\\\",\\\"overview\\\"]\"]",
+      "[\"strictEqual\",\"selector\",\"[\\\"string\\\",\\\":scope > [data-tab]\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-volt-evals.test.mjs::Lists: an empty state never repeats the header primary as a second lime button",
+    "subsumedBy": [
+      "tests/not-found.test.mjs::console: an unknown address shows the not-found state with the escaped path, the actions and the run, and makes no request",
+      "tests/ui-pipelines-v2.test.mjs::/pipelines/audit: findings in one dense table, most severe first, each row opening in place",
+      "tests/ui-workspace-dense.test.mjs::get started: templates and the features entry are shared setting rows with their action"
+    ],
+    "cloneOf": [],
+    "assertionCount": 5,
+    "fingerprints": [
+      "[\"strictEqual\",\"load . root . querySelectorAll ( '.btn-primary' ) . length\",\"[\\\"number\\\",\\\"1\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/ui-workspace-dense.test.mjs::workspace pages have no context sidebar and no section picker (NAVIGATION.md)",
+    "subsumedBy": [
+      "tests/ui-contexts.test.mjs::shell: a context turns the menu into the rail with tooltips; pointing at it opens the overlay; pinning keeps it open"
+    ],
+    "cloneOf": [],
+    "assertionCount": 12,
+    "fingerprints": [
+      "[\"strictEqual\",\"app . contextSidebar ( )\",\"[\\\"null\\\"]\"]",
+      "[\"strictEqual\",\"app . sectionPicker ( )\",\"[\\\"null\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/web-report-platform.test.mjs::revoking a link stops the public page immediately, and so does turning the switch off",
+    "subsumedBy": [
+      "tests/web-report-platform.test.mjs::a link the switch refuses is not counted as viewed (negative)"
+    ],
+    "cloneOf": [],
+    "assertionCount": 4,
+    "fingerprints": [
+      "[\"strictEqual\",\"( await w . fetchShare ( `/share/report/${ w . T }/${ w . created . share . id }` , w . created . token ) ) . status\",\"[\\\"number\\\",\\\"200\\\"]\"]",
+      "[\"strictEqual\",\"( await w . fetchShare ( `/share/report/${ w . T }/${ w . created . share . id }` , w . created . token ) ) . status\",\"[\\\"number\\\",\\\"404\\\"]\"]"
+    ]
+  },
+  {
+    "unit": "tests/workflow-optimizer-api.test.mjs::daily limits: per project and per workspace",
+    "subsumedBy": [
+      "tests/workflow-optimizer-api.test.mjs::no pull request to a fork; without the Workflows permission the branch is refused and the proposal fails clearly"
+    ],
+    "cloneOf": [],
+    "assertionCount": 2,
+    "fingerprints": [
+      "[\"rejects\",\"w . gh ( ( ) => w . api ( 'workflow.optimization.open' , { id : w . project . id , path : PATH , suggestionId : s . id } , w . dev ) )\",\"[\\\"function\\\",\\\"[Function]\\\"]\"]",
+      "[\"strictEqual\",\"w . github . writes . length\",\"[\\\"number\\\",\\\"0\\\"]\"]"
+    ]
+  }
+]
