@@ -26,10 +26,10 @@ export function runProcess(program, args, { cwd, env = process.env, maxBytes = 6
 export function cacheEnv(repo) {
   const common = { HOME: '/cache/home', TMPDIR: '/tmp', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/bin/false' };
   if (repo.runner === 'pytest') return { ...common, PATH: '/cache/node/node_modules/node/bin:/cache/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', PYTHONPATH: '/cupel/packages/cupel-py/src', PIP_CACHE_DIR: '/cache/pip' };
-  if (repo.runner === 'go') return { ...common, GOPATH: '/cache/go', GOCACHE: '/cache/go-build', GOTOOLCHAIN: 'auto' };
+  if (repo.runner === 'go') return { ...common, PATH: '/cache/node/node_modules/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', GOPATH: '/cache/go', GOCACHE: '/cache/go-build', GOTOOLCHAIN: 'auto' };
   if (repo.runner === 'cargo') return { ...common, CARGO_HOME: '/cache/cargo', CARGO_TARGET_DIR: '/cache/target' };
   if (repo.runner === 'dotnet') return { ...common, NUGET_PACKAGES: '/cache/nuget', DOTNET_CLI_HOME: '/cache/home' };
-  if (repo.runner === 'minitest') return { ...common, BUNDLE_PATH: '/cache/bundle', BUNDLE_GEMFILE: '/work/Gemfile', RAILS_ENV: 'test', CI: 'true' };
+  if (repo.runner === 'minitest') return { ...common, PATH: '/cache/node/node_modules/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', BUNDLE_PATH: '/cache/bundle', BUNDLE_GEMFILE: '/work/gemfiles/rails8.gemfile', RAILS_ENV: 'test', CI: 'true' };
   return { ...common, npm_config_cache: '/cache/npm', COREPACK_HOME: '/cache/corepack', HUSKY: '0' };
 }
 
