@@ -58,7 +58,8 @@
         "byTest": { "type": "object", "additionalProperties": { "$ref": "#/$defs/linesBySource" } },
         "byFile": { "type": "object", "additionalProperties": { "$ref": "#/$defs/linesBySource" } },
         "setup": { "type": "object", "additionalProperties": { "$ref": "#/$defs/linesBySource" } },
-        "rechecked": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "rechecked": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "unstable": { "$ref": "#/$defs/linesBySource" }
       }
     },
     "mutation": {

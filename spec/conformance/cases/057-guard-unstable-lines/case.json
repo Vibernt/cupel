@@ -1,0 +1,11 @@
+{
+  "description": "A line covered at base but not at head is not lost when it is unstable (covered in some runs only).",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

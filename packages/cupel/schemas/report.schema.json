@@ -171,7 +171,7 @@
     },
     "guard": {
       "type": "object",
-      "required": ["pass", "checks", "removed"],
+      "required": ["pass", "checks", "removed", "renamed"],
       "additionalProperties": false,
       "properties": {
         "pass": { "type": "boolean" },
@@ -193,6 +193,10 @@
               "head": { "$ref": "#/$defs/coverageRatio" }
             }
           }
+        },
+        "renamed": {
+          "type": "array",
+          "items": { "type": "object", "required": ["from", "to"], "additionalProperties": false, "properties": { "from": { "type": "string" }, "to": { "type": "string" } } }
         },
         "removed": {
           "type": "array",

@@ -54,6 +54,7 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 - At `test` granularity, `coverage.byTest` maps each test id to the lines it covered during its own run, per source. At `file` granularity, `coverage.byFile` maps each test file to the lines its run covered.
 - `coverage.setup` maps each test file to lines covered outside any test: module loading and file-level `before`/`after` hooks.
 - `coverage.rechecked` lists the units whose coverage was confirmed by running each in its own process (K4).
+- `coverage.unstable` maps sources to lines that were covered in some collection runs and not in others (K13). Such lines are timing-dependent and never count as lost (G4).
 
 ### 3.5 Mutation
 
@@ -221,7 +222,7 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 
 - **G1** **Runtime.** If `runtime.name` or `runtime.version` differs between base and head, the engine reports the diagnostic `runtime-mismatch` and exits 3. Coverage differs slightly between runtime versions (spike S2), so guard never compares across them.
 - **G3** **No new failures.** The check `head-passes` fails when a unit is failed at head and was not failed at base (a unit new at head counts as not failed at base). `units` lists those new failures, sorted. Units failed at both base and head are listed as `preexisting`, sorted: the change did not cause them, so they don't fail the guard (found in the benchmark, where repositories carry environment-dependent failures).
-- **G4** **Coverage never falls.** Covered lines are every line in any row's coverage (failed rows included), any file's coverage, and every setup line.
+- **G4** **Coverage never falls.** Covered lines are every line in any row's coverage (failed rows included), any file's coverage, and every setup line. Lines in `coverage.unstable` at base or at head are left out of both checks below, from covered and from coverable alike (found in the benchmark: the same 26 timing-dependent lines were reported lost in two unrelated commits).
   - Check `coverage-lines`: for each source present in both inputs with equal, present `hash`, the head's covered lines must include the base's. `lost` lists the missing lines.
   - Check `coverage-ratio`: covered over coverable, summed over all sources, must not be lower at head than at base. It is compared as exact fractions, and the check reports both ratios as `base` and `head`.
 - **G5** **Critical coverage.** The check `critical-coverage` covers every critical source present in both inputs:
@@ -233,9 +234,10 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 - **G6** **Critical mutation never falls.** Check `critical-mutation`:
   - Every mutant on a critical source that is detected at base and present at head (same id) must be detected at head. `lost` lists the mutant ids.
   - If base has any mutant on a critical source and head has no `mutation` data, the check fails with `missing: true`. Absent data is never a pass.
-- **G7** **No critical unit removed without approval.** Check `critical-removed`: each unit critical at base and absent at head needs an approval `{ action: "remove", id }`. `units` lists the unapproved ones, sorted.
+- **G7** **No critical unit removed without approval.** Check `critical-removed`: each unit critical at base and absent at head needs an approval `{ action: "remove", id }`, unless it was renamed to a unit that is critical at head. `units` lists the unapproved ones, sorted.
+  - **Renames.** A unit present only at base and a unit present only at head are a rename when they are in the same file and `shape` ≥ `advice.duplicateShape`. Pairs are matched greedily: highest shape first, then base id, then head id, each unit used once. Coverage and mutation are still checked by G4 to G6, so a rename cannot hide a weakening.
 - **G8** **No critical unit downgraded without approval.** Check `critical-downgraded`: each unit critical at base and present but not critical at head needs an approval `{ action: "downgrade", id }`. `units` lists the unapproved ones, sorted.
-- **G9** **Evidence.** `removed` lists every unit present at base and absent at head as `{ id, tier, uniqueLines, uniqueKills }`, with values from base, sorted by id.
+- **G9** **Evidence.** `removed` lists every unit present at base and absent at head, other than renamed ones, as `{ id, tier, uniqueLines, uniqueKills }`, with values from base, sorted by id. `renamed` lists the renames as `{ from, to }`, sorted by `from`.
 
 Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when it passes); `coverage-ratio` has `base` and `head`; `critical-coverage` has `sources`; `critical-mutation` has `lost.mutants`, or `missing: true` and no `lost`; `critical-removed`, `critical-downgraded` and `head-passes` have `units`; `head-passes` also has `preexisting`.
 
@@ -253,7 +255,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - Object keys appear in the order the report schema lists them.
   - `generatedAt` appears only when passed as an argument, and never after exit 2 or 3.
   - Report `spec` is always `cupel-spec/1`, whatever minor version the input names.
-  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `guard` emits `runtime` and `guard`. With two inputs, `runtime` is the head's.
+  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `guard` emits `runtime` and `guard`; `guard.renamed` is always present. With two inputs, `runtime` is the head's.
   - Every list whose order this spec does not state (rows, `skipped`, map keys such as `lost.lines`) is sorted by code point.
 - **R2** **Ratios.**
   - Coverage is reported as `{ covered, coverable, pct }`.
@@ -296,10 +298,11 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
 - **K7** **Flakes.** A mutant detected at base that survives at head is re-run at least twice more before it is reported as survived (spike S4).
 - **K8** **Durations.** Durations are recorded from at least `advice.minRuns` runs where that is affordable.
 - **K9** **Runtime.** `runtime` names the interpreter and its exact version.
-- **K10** **Test ids.** Ids are stable across runs: the file path, `::`, then the full test name as written (tier tags included), with ` > ` between suite levels. Tests that come from one definition (a parametrized or looped test) are rows: they have distinct ids and share `unit`, which is the file path, `::@`, and the line of the definition (for example `tests/math.test.mjs::@15`). A test that is the only one from its definition has no `unit`. Adapters list `tests` sorted by id.
+- **K10** **Test ids.** Ids are stable across runs: the file path, `::`, then the full test name as written (tier tags included), with ` > ` between suite levels. Tests that come from one definition (a parametrized or looped test) are rows: they have distinct ids and share `unit`, which must not change when unrelated lines move: the file path, `::`, the suite path and ` > ` (when inside suites), then the definition's title as written in source, before any substitution (for example `tests/math.test.mjs::clamp keeps ${x} in range`, or a pytest function's qualified name). When one suite has several definitions with the same title, the second and later get ` #2`, ` #3`, and so on, in source order. Line numbers are never part of a unit id (found in the benchmark: 33 of 91 "removed" units were only shifted lines). A test that is the only one from its definition has no `unit`. Adapters list `tests` sorted by id.
   - When two tests in one file have the same full name, the second and later get ` #2`, ` #3` and so on appended to the id.
   - When the definition sits in another module (a helper that registers tests), `unit` is `<file>::@<helper path>:<line>`, with `:<column>` added if two definitions share a line.
   - Only leaf tests appear in `tests`. A parent's own coverage goes to each of its leaves, and a failed parent marks its leaves failed, so advice about a parent never silently covers its children.
+- **K13** **Unstable lines.** When a collector runs the suite more than once, it reports in `coverage.unstable` every line covered in some runs but not all, for any test or setup, and uses the union of the runs for `byTest` and `setup`.
 - **K11** **Interpreters.** `spawnsInterpreter` is set when a test starts another interpreter of the same language.
 - **K12** **Shapes.**
   - The unit's body is every token of the test call after its first argument (the options and the callback). It is tokenised. Strings, numbers and regular expressions are replaced by the placeholders `S`, `N` and `R`.

@@ -20,7 +20,7 @@ const NODE22 = { name: 'node', version: '22.23.3' };
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
 /** Builds an input. `cov` maps test id to a line set of `src` (default src/a.mjs) or to { source: lines }. */
-function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, mutation, brittleness, shapes, runtime = NODE22, spec = 'cupel-spec/1' }) {
+function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, runtime = NODE22, spec = 'cupel-spec/1' }) {
   const coverage = { granularity };
   if (granularity === 'test') {
     coverage.byTest = Object.fromEntries(Object.entries(cov).map(([id, v]) => [id, typeof v === 'string' ? { 'src/a.mjs': v } : v]));
@@ -29,6 +29,7 @@ function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = 
   }
   if (setup) coverage.setup = setup;
   if (rechecked) coverage.rechecked = rechecked;
+  if (unstable) coverage.unstable = unstable;
   const out = { spec, kind: 'input', runtime, sources, tests, coverage };
   if (mutation) out.mutation = mutation;
   if (brittleness) out.brittleness = brittleness;
@@ -989,6 +990,51 @@ kase('056-guard-preexisting-failure', {
   head: gBase({ tests: G_TESTS.map((x) => (x.id === 'x' ? { ...x, status: 'failed' } : x)) }),
   expectExit: 0,
   expected: { guard: { pass: true, checks: checks({}).map((c) => (c.id === 'head-passes' ? { ...c, units: [], preexisting: ['x'] } : c)) } },
+});
+
+kase('057-guard-unstable-lines', {
+  description: 'A line covered at base but not at head is not lost when it is unstable (covered in some runs only).',
+  command: 'guard',
+  rules: rules('+G4'),
+  base: gBase(),
+  head: gBase({ cov: { ...G_COV, x: '1-2' }, unstable: { 'src/a.mjs': '3' } }),
+  expectExit: 0,
+  expected: { guard: { pass: true, checks: checks(), removed: [], renamed: [] } },
+});
+
+const R_SRC = { 'src/core.mjs': { coverable: '1-10', hash: 'hc' } };
+const rInput = (id, name, shape) => input({
+  sources: R_SRC,
+  tests: [t(id, 'tests/k.test.mjs', name, { tags: ['critical'] }), t('k2', 'tests/k2.test.mjs', 'k2', { tags: ['critical'] })],
+  cov: { [id]: { 'src/core.mjs': '1-4' }, k2: { 'src/core.mjs': '1-4' } },
+  shapes: { [id]: shape, k2: SHAPE_C },
+});
+
+kase('058-guard-critical-renamed', {
+  description: 'A critical test renamed in the same file with a near-identical body is a rename, not a removal: no approval needed.',
+  command: 'guard',
+  rules: rules('+G7 +G9'),
+  base: rInput('kold', 'k old', SHAPE_A),
+  head: rInput('knew', 'k new', SHAPE_A),
+  expectExit: 0,
+  expected: { guard: { pass: true, checks: checks(), removed: [], renamed: [{ from: 'kold', to: 'knew' }] } },
+});
+
+kase('059-guard-rename-too-different', {
+  description: 'A replacement whose body differs is not a rename: removing the critical test still needs approval.',
+  command: 'guard',
+  rules: rules('-G7 -G9'),
+  base: rInput('kold', 'k old', SHAPE_A),
+  head: rInput('knew', 'k new', range(21, 30)),
+  expectExit: 1,
+  expected: {
+    guard: {
+      pass: false,
+      checks: checks({ 'critical-removed': { units: ['kold'] } }),
+      removed: [{ id: 'kold', tier: 'critical', uniqueLines: 0, uniqueKills: 0 }],
+      renamed: [],
+    },
+  },
 });
 
 kase('050-guard-critical-coverage-target', {

@@ -1,0 +1,15 @@
+{
+  "description": "A critical test renamed in the same file with a near-identical body is a rename, not a removal: no approval needed.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G7",
+      "polarity": "positive"
+    },
+    {
+      "id": "G9",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

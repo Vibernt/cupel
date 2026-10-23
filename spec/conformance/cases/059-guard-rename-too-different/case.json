@@ -1,0 +1,15 @@
+{
+  "description": "A replacement whose body differs is not a rename: removing the critical test still needs approval.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G7",
+      "polarity": "negative"
+    },
+    {
+      "id": "G9",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

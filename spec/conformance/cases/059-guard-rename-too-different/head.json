@@ -1,0 +1,71 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/core.mjs": {
+      "coverable": "1-10",
+      "hash": "hc"
+    }
+  },
+  "tests": [
+    {
+      "id": "knew",
+      "file": "tests/k.test.mjs",
+      "name": "k new",
+      "status": "passed",
+      "tags": [
+        "critical"
+      ]
+    },
+    {
+      "id": "k2",
+      "file": "tests/k2.test.mjs",
+      "name": "k2",
+      "status": "passed",
+      "tags": [
+        "critical"
+      ]
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "knew": {
+        "src/core.mjs": "1-4"
+      },
+      "k2": {
+        "src/core.mjs": "1-4"
+      }
+    }
+  },
+  "shapes": {
+    "knew": [
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+    ],
+    "k2": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      12
+    ]
+  }
+}
