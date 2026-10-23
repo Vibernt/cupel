@@ -31,6 +31,8 @@ import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync, wr
 import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { basename, delimiter, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bucket, recorder } from '../assertions/recorder.mjs';
+import { installNodeAssertions } from '../assertions/node.mjs';
 import { promisify } from 'node:util';
 import { positiveIntervals, unionIntervals, addAll } from './intervals.mjs';
 
@@ -87,6 +89,7 @@ async function install(cfg, mainFile) {
     const all = [...active];
     return all.length < 2 ? all : all.filter((t) => !all.some((u) => u !== t && u.fullName.startsWith(`${t.fullName} > `)));
   };
+  if (cfg.assertions) installNodeAssertions(recorder(root, () => leaves().map((t) => t.assertions), cfg.assertionCap));
   const checkpoint = () => {
     if (!post) return;
     const { result } = post('Profiler.takePreciseCoverage');
@@ -110,7 +113,7 @@ async function install(cfg, mainFile) {
     const fullName = t.fullName ?? t.name;
     const n = seen.get(fullName) ?? 0;
     seen.set(fullName, n + 1);
-    const rec = { i: tests.length, fullName, n, interp: false, cov: new Map(), ctx: t };
+    const rec = { i: tests.length, fullName, n, interp: false, cov: new Map(), ctx: t, ...(cfg.assertions ? { assertions: bucket() } : {}) };
     tests.push(rec);
     active.add(rec);
   }));
@@ -255,7 +258,7 @@ async function install(cfg, mainFile) {
       file: relative(root, mainFile).split(sep).join('/'),
       pid: process.pid,
       mode: cfg.mode,
-      tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov) })),
+      tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
       setup: Object.fromEntries(setup),
       childDirs,
     };

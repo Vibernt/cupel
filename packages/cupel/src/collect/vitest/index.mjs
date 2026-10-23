@@ -1,3 +1,4 @@
+import { writeAssertions } from '../assertions/sidecar.mjs';
 import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -64,7 +65,7 @@ export function splitCommand(value) {
   return words;
 }
 
-export async function collectVitest({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [] } = {}) {
+export async function collectVitest({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [], assertionsOut, assertionCap } = {}) {
   if (!root) throw new VitestCollectorError('collectVitest: root is required');
   root = realpathSync(resolve(root));
   const vitest = resolveVitest(root);
@@ -106,7 +107,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       mkdirSync(out);
       const resultFile = join(out, 'results.json');
       const detailFile = join(out, 'process-output.txt');
-      const hook = JSON.stringify({ root, out });
+      const hook = JSON.stringify({ root, out, assertions: !!assertionsOut && label === 'run0', assertionCap });
       const projects = runner.project === undefined ? [] : Array.isArray(runner.project) ? runner.project : [runner.project];
       if (projects.some((project) => typeof project !== 'string' || !project)) throw new VitestCollectorError('runners.vitest.project must be a name or list of names');
       const args = ['run', '--root', root, '--config', configFile, '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'reporter.mjs'), '--includeTaskLocation', ...projects.flatMap((project) => ['--project', project]), ...selected];
@@ -142,7 +143,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
         preserveWork = true;
         throw new VitestCollectorError(collectorError(`Vitest hook did not write coverage for ${missing[0].file} (${missing.length} tests; exit ${r.code})`, JSON.stringify({ hookFiles, missing, output: r.tail }, null, 2), work));
       }
-      const coverage = new Map(), setup = new Map(), spawns = new Set();
+      const coverage = new Map(), setup = new Map(), spawns = new Set(), assertions = new Map();
       const convert = (data, into, scriptMap) => {
         for (const [id, intervals] of Object.entries(data)) {
           const script = scriptMap[id];
@@ -170,10 +171,11 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
           if (!coverage.has(id)) coverage.set(id, new Map());
           convert(data.coverage, coverage.get(id), h.scripts);
           if (data.spawnsInterpreter) spawns.add(id);
+          if (data.assertions) assertions.set(id, data.assertions);
         }
       }
       log(`Vitest ${vitest.version}: ${results.tests.length} tests in ${Math.round(r.ms)} ms`);
-      return { ...results, coverage, setup, spawns, ms: r.ms };
+      return { ...results, coverage, setup, spawns, assertions, ms: r.ms };
     };
     const repeats = [];
     for (let i = 0; i < Math.max(1, runs); i++) repeats.push(await execute(`run${i}`));
@@ -248,7 +250,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       } catch (error) { skipFile(diagnostics, log, 'Vitest test analysis', file, error); }
     }
     const ordered = [...tests.values()].sort((a, b) => sort(a.id, b.id));
-    return {
+    const input = {
       spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'node', version: process.versions.node },
       sources: object([...sources].filter(([file]) => !mappingFailed.has(file)).map(([file, source]) => [file, { coverable: formatLines(source.an.coverable), hash: source.hash }])),
       tests: ordered.map((t) => {
@@ -259,5 +261,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       brittleness: brittleness.sort((a, b) => sort(a.test, b.test) || sort(a.kind, b.kind) || a.line - b.line),
       shapes: object(shapes),
     };
+    if (assertionsOut) writeAssertions(assertionsOut, input, ordered.filter((t) => first.assertions.has(t.taskId)).map((t) => [t.id, first.assertions.get(t.taskId)]), assertionCap);
+    return input;
   } finally { if (!preserveWork) rmSync(work, { recursive: true, force: true }); }
 }
