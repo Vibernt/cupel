@@ -15,40 +15,61 @@ const lineCount = (set) => String(set ?? '').split(',').filter(Boolean).reduce((
   return total + end - start + 1;
 }, 0);
 
+function criticalMutations(repo) {
+  const path = join(repo.dir, '.cupel', 'input.json');
+  if (!existsSync(path)) return null;
+  const mutants = JSON.parse(readFileSync(path, 'utf8')).mutation?.mutants;
+  if (!mutants) return null;
+  const counts = { killed: 0, timeout: 0, survived: 0, 'no-coverage': 0, error: 0 };
+  for (const mutant of mutants) {
+    if (!(mutant.status in counts)) throw new Error(`unknown mutation status ${mutant.status} in ${path}`);
+    counts[mutant.status]++;
+  }
+  const survivors = mutants.filter((m) => m.status === 'survived')
+    .sort((a, b) => a.source.localeCompare(b.source) || a.line - b.line || a.operator.localeCompare(b.operator))
+    .slice(0, 15);
+  return { counts, survivors };
+}
+
+const count = (mutation, status) => mutation ? mutation.counts[status] : '—';
+
 export function renderBenchmark(repos, candidates, results) {
   const byName = new Map(candidates.map((c) => [c.repo.split('/').at(-1).toLowerCase(), c]));
   const lines = [
     '# Cupel benchmark: 10 public repositories', '',
-    'This document is generated from `bench/results/`. Missing results are shown as pending; no repository commands have been inferred to have passed.', '',
+    'This document is generated from `bench/results/` and existing candidate `.cupel/input.json` files. Missing stage results are shown as pending; mutation counts can appear from a retained input even when its report stage is not recorded.', '',
     '## Cross-repository summary', '',
-    '| Repository | Size | Agent share | Runner | Baseline median | Cupel collection | Overhead | Critical mutation | Guard replay | Plan replay | Status |',
-    '|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---|',
+    '| Repository | Size | Agent share | Runner | Baseline median | Cupel collection | Overhead | Critical score | Killed | Timeout | Survived | No coverage | Error | Guard replay | Plan replay | Status |',
+    '|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|',
   ];
   for (const repo of repos) {
     const c = byName.get(repo.name.toLowerCase());
     if (!c) throw new Error(`candidate inventory has no entry for ${repo.name}`);
     const r = results[repo.name] ?? {};
     const guard = r['guard-replay']; const plan = r['plan-replay']; const report = r.report;
+    const mutation = criticalMutations(repo);
     const status = [r.install, r.baseline, report, guard, plan].some((s) => s?.status === 'failed') ? 'failed' :
       report?.status === 'ok' ? `${guard && plan ? 'replays done' : 'report only'}${report.pending?.length ? `; ${report.pending.join(', ')} pending` : ''}` :
       report?.status ?? (r.baseline?.status === 'ok' ? 'baseline only' : r.install?.status === 'ok' ? 'installed only' : 'not run');
-    lines.push(`| ${safe(repo.name)} | ${c ? `${(c.sizeKB / 1024).toFixed(1)} MiB` : '—'} | ${c ? percent(c.agentShare) : '—'} | ${repo.runner} | ${ms(r.baseline?.medianMs)} | ${ms(report?.collectionMs)} | ${ratio(report?.overheadRatio)} | ${pct(report?.suite?.criticalMutation?.score)} | ${guard?.outcomes?.length ?? '—'} | ${plan?.outcomes?.length ?? '—'} | ${safe(status)} |`);
+    lines.push(`| ${safe(repo.name)} | ${c ? `${(c.sizeKB / 1024).toFixed(1)} MiB` : '—'} | ${c ? percent(c.agentShare) : '—'} | ${repo.runner} | ${ms(r.baseline?.medianMs)} | ${ms(report?.collectionMs)} | ${ratio(report?.overheadRatio)} | ${pct(report?.suite?.criticalMutation?.score)} | ${count(mutation, 'killed')} | ${count(mutation, 'timeout')} | ${count(mutation, 'survived')} | ${count(mutation, 'no-coverage')} | ${count(mutation, 'error')} | ${guard?.outcomes?.length ?? '—'} | ${plan?.outcomes?.length ?? '—'} | ${safe(status)} |`);
   }
   for (const repo of repos) {
     const c = byName.get(repo.name.toLowerCase());
     const r = results[repo.name] ?? {};
     const report = r.report; const baseline = r.baseline;
+    const mutation = criticalMutations(repo);
     lines.push('', `## ${repo.name}`, '',
       `- **Size, language, runner, agent share:** ${c ? `${(c.sizeKB / 1024).toFixed(1)} MiB, ` : 'unknown size, '}${repo.language}, ${repo.runner}, ${c ? percent(c.agentShare) : 'unknown agent share'} (${c?.commitsSampled ?? 'unknown'} sampled commits).`,
       `- **Baseline:** ${ms(baseline?.medianMs)} median of ${baseline?.runs?.length ?? 0} runs; counts ${baseline?.runs?.map((v) => `${v.counts.passed ?? '?'} passed/${v.counts.failed ?? '?'} failed/${v.counts.skipped ?? '?'} skipped`).join(', ') || 'not recorded'}.`,
       `- **Environment failures:** ${baseline ? baseline.failingTests?.length ? `${baseline.failingTests.map(safe).join(', ')}${baseline.flakyCheck ? `; repeated on check: ${baseline.flakyCheck.repeatedFailures.map(safe).join(', ') || 'none'}` : ''}` : 'none recorded' : repo.firstRunEnvironmentFailure ? `${safe(repo.firstRunEnvironmentFailure)} (reported from first run; test name unavailable)` : 'not measured'}.`,
       `- **Cupel:** collection ${ms(report?.collectionMs)}; two run test-duration sums ${report?.collectionRunDurationSumsMs?.map(ms).join(' / ') ?? '—'}; full report ${ms(report?.wallMs)}; collection overhead ${ratio(report?.overheadRatio)}; peak RSS ${report?.peakKb == null ? 'unavailable' : `${Math.round(report.peakKb / 1024)} MiB`}.`,
       `- **Evidence:** line coverage ${pct(report?.suite?.coverage?.pct)}, critical line coverage ${pct(report?.suite?.criticalCoverage?.pct)}, critical mutation score ${pct(report?.suite?.criticalMutation?.score)}${report?.suite?.criticalMutation ? ` (${report.suite.criticalMutation.detected} detected, ${report.suite.criticalMutation.undetected} undetected)` : ''}.`,
+      `- **Critical mutants:** ${mutation ? `${count(mutation, 'killed')} killed; ${count(mutation, 'timeout')} timeout; ${count(mutation, 'survived')} survived (run but uncaught); ${count(mutation, 'no-coverage')} no coverage (never run); ${count(mutation, 'error')} error` : 'unavailable'}.`,
       `- **Advice:** ${report?.rewritePins?.length ?? 0} rewrite pins listed${report?.suite ? ` (${report.suite.advice.rewrite} total)` : ''}; ${report?.groups?.length ?? 0} consolidation groups listed${report?.groupCount != null ? ` (${report.groupCount} total)` : ''}; ${report?.noUniqueEvidenceCount ?? 0} no-unique-evidence hints.`,
       `- **Scope:** ${safe(repo.notes)}`);
-    if (report?.topSurvivors?.length) {
+    if (mutation?.survivors.length) {
       lines.push('', 'Top surviving mutants on critical code:', '', '| File | Line | Operator |', '|---|---:|---|');
-      for (const m of report.topSurvivors) lines.push(`| ${safe(m.source)} | ${m.line} | ${safe(m.operator)} |`);
+      for (const m of mutation.survivors) lines.push(`| ${safe(m.source)} | ${m.line} | ${safe(m.operator)} |`);
     } else lines.push('', 'Top surviving mutants: unavailable.');
     if (report?.rewritePins?.length) lines.push('', `Rewrite pins: ${report.rewritePins.map((p) => `${safe(p.file)} (${p.brittle.join(', ')})`).join('; ')}.`);
     if (report?.groups?.length) lines.push('', `Consolidation groups: ${report.groups.map((g) => `${safe(g.file)} (${g.units.length} units)`).join('; ')}.`);
@@ -77,8 +98,8 @@ export function renderBenchmark(repos, candidates, results) {
     '- `install` and the install substeps of guard replay are the sole network-enabled Docker operations. The first install hydrates missing Git blobs from the public remote and verifies the object set. Baselines run three times with `--network none`; report collection uses two runs. Each candidate has a separate Docker cache volume and only its repository and read-only Cupel tree mounted.',
     '- Guard replay selects the five newest non-merge commits that changed tests. Each parent and head is archived inside a container, installed, collected and compared. Plan replay uses the ten newest source-changing non-merge commits with their exact zero-context diff line sets against the report input.',
     '- The plain baseline and Cupel collection may have different instrumentation and file scope; the overhead ratio is collection wall time divided by median plain wall time. Full report wall time includes mutation and is listed separately. Expected plan time is the sum of observed unit durations, not a measured shortened run.',
-    '- Mutation is capped at 300 mutants and 1,200 seconds per collection. A score from a capped sample is not whole-code mutation coverage. Current Cupel mutates only runtime `node`; Python and forthcoming Vitest collection have no mutation evidence unless Cupel adds support. Missing mutation remains unavailable, not zero.',
-    '- The ten displayed critical survivors are ordered by file and line, not by severity. A no-mutation report with `--runs 2` measures collection plus Cupel grading, so its wall time is an upper bound on collector time. The two run duration sums add each test\'s duration and are not wall time when tests run in parallel.',
+    '- Mutation is capped at 300 mutants and 1,200 seconds per collection. A score from a capped sample is not whole-code mutation coverage. Cupel can mutate Node and Vitest tests on runtime `node`; Python has no mutation evidence. Missing mutation remains unavailable, not zero.',
+    '- Up to fifteen displayed critical survivors are ordered by file and line, not by severity. Critical mutation counts come from each repository’s `.cupel/input.json`; survived means run but uncaught, while no coverage means no test ran the mutant. A no-mutation report with `--runs 2` measures collection plus Cupel grading, so its wall time is an upper bound on collector time. The two run duration sums add each test\'s duration and are not wall time when tests run in parallel.',
     '- Go, Rust, .NET and Ruby have no Cupel collector in this build. Their baseline is measured but Cupel report and replays remain `pending: collector`. Any install, baseline or collection failure is recorded as a failure without substitute commands.',
     '- Agent share and size come from the candidate inventory, not from these benchmark runs. Agent share measures commit trailers and bot authors in a recent window; it does not prove the authorship of every test.',
     '- Docker, registry access, install scripts, candidate tests, git archive replay and real benchmark timing were not run while building this harness. The orchestrator must run them on Colima linux/arm64 and inspect each stage JSON.',

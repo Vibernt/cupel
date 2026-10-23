@@ -166,7 +166,7 @@ async function planReplay() {
     const b64 = Buffer.from(JSON.stringify(changed) + '\n').toString('base64');
     const command = `echo ${b64} | base64 -d > /tmp/cupel-changed-lines.json && ${cupelCommand(repo, 'plan', '--config /work/.cupel-bench.json --input /work/.cupel/input.json --changed-lines /tmp/cupel-changed-lines.json --json')}`;
     const result = checked(await dockerRun(repo, 'none', command), `plan ${commit}`);
-    outcomes.push({ commit, touchedTests: changedPaths.filter(testFile), changedSourceFiles: Object.keys(changed), ...planMetrics(parseJson(result, 'plan'), input, changedPaths.filter(testFile)) });
+    outcomes.push({ commit, touchedTests: changedPaths.filter(testFile), changedSourceFiles: Object.keys(changed).filter((path) => !testFile(path)), ...planMetrics(parseJson(result, 'plan'), input, changedPaths.filter(testFile)) });
   }
   return save('plan-replay', { status: 'ok', outcomes });
 }

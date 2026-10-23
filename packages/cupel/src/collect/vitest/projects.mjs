@@ -40,7 +40,7 @@ function expandEntry(entry, root) {
   });
 }
 
-function wrapProject(path, { work, setupFile, pluginModule }) {
+function wrapProject(path, { work, setupFile, pluginModule, packageDir }) {
   // Keep a file entry: Vitest 5 reads its name before resolving inline entries.
   // The wrapper loads the owner's config, then adds Cupel's hook inside that project.
   const file = statSync(path).isFile();
@@ -54,19 +54,25 @@ function wrapProject(path, { work, setupFile, pluginModule }) {
     `const test = base.test ?? {}; const root = resolve(${JSON.stringify(root)}, test.root ?? base.root ?? '.');\n` +
     `return await injectVitestProjects({ ...base, root, test: { ...test, root, name: test.name ?? ${JSON.stringify(projectName(path))} } }, ` +
     `{ root, work: ${JSON.stringify(work)}, setupFile: ${JSON.stringify(setupFile)}, ` +
-    `plugin: ${pluginModule ? 'createMutantPlugin()' : 'undefined'}, pluginModule: ${JSON.stringify(pluginModule)} }); };\n`);
+    `plugin: ${pluginModule ? 'createMutantPlugin()' : 'undefined'}, pluginModule: ${JSON.stringify(pluginModule)}, packageDir: ${JSON.stringify(packageDir)} }); };\n`);
   return wrapper;
 }
 
-function injectProject(project, setupFile, plugin) {
+function injectProject(project, setupFile, plugin, root, packageDir) {
   const test = project.test ?? {};
   const setup = test.setupFiles;
   return { ...project,
+    server: allowCupel(project.server, root, packageDir),
     ...(plugin ? { plugins: [...(project.plugins ?? []), plugin] } : {}),
     test: { ...test, pool: 'forks', includeTaskLocation: true,
       setupFiles: [...(Array.isArray(setup) ? setup : setup ? [setup] : []), setupFile],
       coverage: { ...(test.coverage ?? {}), enabled: false } },
   };
+}
+
+function allowCupel(server, root, packageDir) {
+  const fs = server?.fs ?? {};
+  return { ...server, fs: { ...fs, allow: [...new Set([...(fs.allow ?? []), root, packageDir])] } };
 }
 
 async function workspaceDefinitions(path, root) {
@@ -76,17 +82,19 @@ async function workspaceDefinitions(path, root) {
   return (await import(pathToFileURL(absolute).href)).default;
 }
 
-export async function injectVitestProjects(base, { root, work, setupFile, plugin, pluginModule, include, workspaceFile }) {
+export async function injectVitestProjects(base, { root, work, setupFile, plugin, pluginModule, include, workspaceFile, packageDir }) {
+  if (!packageDir) throw new Error('Cupel package directory is required for Vitest file access');
   const { cache: ignoredCache, ...test } = base.test ?? {};
   const workspace = test.projects === undefined && (test.workspace ?? workspaceFile);
   const definitions = test.projects ?? (typeof workspace === 'string' ? await workspaceDefinitions(workspace, root) : workspace);
   if (definitions !== undefined && !Array.isArray(definitions)) throw new Error('Cupel requires an array in test.projects or test.workspace');
   const projects = definitions?.flatMap((entry) => {
-    if (typeof entry !== 'string') return [injectProject(entry, setupFile, plugin)];
-    return expandEntry(entry, root).map((path) => wrapProject(path, { work, setupFile, pluginModule }));
+    if (typeof entry !== 'string') return [injectProject(entry, setupFile, plugin, root, packageDir)];
+    return expandEntry(entry, root).map((path) => wrapProject(path, { work, setupFile, pluginModule, packageDir }));
   });
   const setup = test.setupFiles;
   return { ...base,
+    server: allowCupel(base.server, root, packageDir),
     ...(plugin && !projects ? { plugins: [...(base.plugins ?? []), plugin] } : {}),
     test: { ...test, ...(projects ? { [test.projects === undefined ? 'workspace' : 'projects']: projects } : {}),
       ...(include && !projects ? { include } : {}),

@@ -128,7 +128,11 @@ test('Vitest collection reports a module load error rather than a partial input'
   const p = project('/Users/vid/codecrystal/hub-ts/node_modules');
   t.after(p.cleanup);
   writeFileSync(join(p.root, 'tests/broken.test.ts'), "import '../src/missing';\n");
-  await assert.rejects(collectVitest({ root: p.root, files: ['tests/broken.test.ts'], runs: 1 }), /could not collect/);
+  await assert.rejects(collectVitest({ root: p.root, files: ['tests/broken.test.ts'], runs: 1 }), (error) => {
+    assert.equal(error.exitCode, 3);
+    assert.match(error.message, /could not load tests\/broken\.test\.ts: Cannot find module/);
+    return true;
+  });
 });
 
 test('Vitest CLI report and --evidence run mutation', { skip: !existsSync('/Users/vid/codecrystal/hub-ts/node_modules/vitest/package.json'), timeout: 60000 }, async (t) => {
