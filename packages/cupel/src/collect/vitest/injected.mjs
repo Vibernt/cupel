@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 // copied too, so a new helper module can never be left behind.
 const packageDir = fileURLToPath(new URL('../../../', import.meta.url));
 const entries = [
+  'collect/vitest/config-loader.mjs',
   'collect/vitest/projects.mjs',
   'collect/vitest/setup.mjs',
   'collect/vitest/reporter.mjs',

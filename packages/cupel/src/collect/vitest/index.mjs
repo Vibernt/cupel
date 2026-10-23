@@ -100,10 +100,10 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     mkdirSync(cache);
     const original = ['vitest.config.mts', 'vitest.config.ts', 'vitest.config.mjs', 'vitest.config.js', 'vite.config.mts', 'vite.config.ts', 'vite.config.mjs', 'vite.config.js'].find((f) => existsSync(join(root, f)));
     const configFile = join(work, 'config.mjs');
-    const importOriginal = original ? `import original from ${JSON.stringify(pathToFileURL(join(root, original)).href)};` : 'const original = {};';
+    const originalPath = original ? join(root, original) : null;
     const include = files?.length ? fileNames : runner.tests ? [runner.tests] : null;
     const workspaceFile = vitest.version.startsWith('3.') ? findVitestWorkspace(root) : undefined;
-    writeFileSync(configFile, `${importOriginal}\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/projects.mjs')).href)};\nexport default async (env) => { const base = typeof original === 'function' ? await original(env) : original; return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(work)}, setupFile: ${JSON.stringify(injected.module('collect/vitest/setup.mjs'))}, include: ${JSON.stringify(include)}, workspaceFile: ${JSON.stringify(workspaceFile)}, packageDir: ${JSON.stringify(injected.packageDir)} }), cacheDir: ${JSON.stringify(join(work, 'vite-cache'))} }; };\n`);
+    writeFileSync(configFile, `import { loadOriginalVitestConfig } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/config-loader.mjs')).href)};\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/projects.mjs')).href)};\nexport default async (env) => { const base = await loadOriginalVitestConfig(${JSON.stringify(originalPath)}, ${JSON.stringify(root)}, env); return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(work)}, setupFile: ${JSON.stringify(injected.module('collect/vitest/setup.mjs'))}, include: ${JSON.stringify(include)}, workspaceFile: ${JSON.stringify(workspaceFile)}, packageDir: ${JSON.stringify(injected.packageDir)} }), cacheDir: ${JSON.stringify(join(work, 'vite-cache'))} }; };\n`);
     const execute = async (label, selected = fileNames, pattern = null) => {
       const out = join(work, label);
       mkdirSync(out);

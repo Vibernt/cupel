@@ -30,13 +30,13 @@ export class VitestMutantRunner {
     Object.assign(this.env, { TMPDIR: cache, XDG_CACHE_HOME: cache, CUPEL_VITEST_IMPORT: this.importUrl });
     const original = ['vitest.config.mts', 'vitest.config.ts', 'vitest.config.mjs', 'vitest.config.js',
       'vite.config.mts', 'vite.config.ts', 'vite.config.mjs', 'vite.config.js'].find((f) => existsSync(join(root, f)));
-    const base = original ? `import original from ${JSON.stringify(pathToFileURL(join(root, original)).href)};` : 'const original = {};';
+    const originalPath = original ? join(root, original) : null;
     this.config = join(tmp, 'vitest.config.mjs');
     const pluginModule = pathToFileURL(injected.module('mutate/vitest-plugin.mjs')).href;
     const workspaceFile = vitest.version.startsWith('3.') ? findVitestWorkspace(root) : undefined;
-    writeFileSync(this.config, `${base}\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/projects.mjs')).href)};\n` +
+    writeFileSync(this.config, `import { loadOriginalVitestConfig } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/config-loader.mjs')).href)};\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/projects.mjs')).href)};\n` +
       `import { createMutantPlugin } from ${JSON.stringify(pluginModule)};\n` +
-      `export default async (env) => { const base = typeof original === 'function' ? await original(env) : original;\n` +
+      `export default async (env) => { const base = await loadOriginalVitestConfig(${JSON.stringify(originalPath)}, ${JSON.stringify(root)}, env);\n` +
       `  return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(tmp)}, setupFile: ${JSON.stringify(injected.module('mutate/vitest-setup.mjs'))}, plugin: createMutantPlugin(), pluginModule: ${JSON.stringify(pluginModule)}, workspaceFile: ${JSON.stringify(workspaceFile)}, packageDir: ${JSON.stringify(injected.packageDir)} }), cacheDir: ${JSON.stringify(join(cache, 'vite'))} }; };\n`);
   }
 
