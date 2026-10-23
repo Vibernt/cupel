@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectVitest } from '../src/collect/vitest/index.mjs';
@@ -11,6 +11,8 @@ import { validate } from '../src/engine/schema.mjs';
 import { run } from '../src/engine/index.mjs';
 import { main } from '../src/cli/main.mjs';
 import { requireCollector } from '../src/cli/collect.mjs';
+import { linkVitestModules } from './vitest-modules.mjs';
+import { VitestMutantRunner } from '../src/mutate/vitest.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const fixture = join(repo, 'spec/conformance/adapters/vitest');
@@ -42,7 +44,7 @@ for (const [version, modules] of versions) {
     const root = mkdtempSync(join(repo, '.scratch/vitest-test-'));
     try {
       cpSync(fixture, root, { recursive: true });
-      symlinkSync(modules, join(root, 'node_modules'));
+      linkVitestModules(root, modules);
       const input = await collectVitest({ root, runs: 2 });
       assert.deepEqual(match(expected, input), []);
       assert.deepEqual(validate(schemas.input, input), []);
@@ -73,6 +75,20 @@ for (const [version, modules] of versions) {
       writeFileSync(join(root, 'tests/custom.unit.ts'), "test('custom selection', () => { expect(1).toBe(1) })\n");
       const custom = await collectVitest({ root, config: { runners: { vitest: { tests: 'tests/**/*.unit.ts' } } }, runs: 1 });
       assert.deepEqual(custom.tests.map((t) => t.id), ['tests/custom.unit.ts::custom selection']);
+      writeFileSync(join(root, 'vitest.config.ts'), `import path from 'node:path';
+export default { resolve: { alias: { '@source': path.resolve(__dirname, 'src') } },
+  test: { globals: true, include: ['tests/alias.test.ts'] } };
+`);
+      rmSync(join(root, 'vitest.config.mjs'));
+      writeFileSync(join(root, 'tests/alias.test.ts'), "import { add } from '@source/math';\ntest('dirname alias', () => { expect(add({ left: 1, right: 2 })).toBe(3); });\n");
+      const dirnameInput = await collectVitest({ root, runs: 1 });
+      assert.deepEqual(dirnameInput.tests.map((t) => t.id), ['tests/alias.test.ts::dirname alias']);
+      assert.equal(dirnameInput.tests[0].status, 'passed');
+      const mutationWork = mkdtempSync(join(root, '.scratch/vitest-mutation-config-'));
+      const mutationRunner = new VitestMutantRunner(root, {}, mutationWork);
+      const mutationResult = await mutationRunner.runTestFile({ file: 'tests/alias.test.ts', timeoutMs: 10000 });
+      assert.equal(mutationResult.code, 0, mutationResult.stderr);
+      assert.ok(mutationResult.results.some((row) => row.t?.includes('dirname alias')));
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
 }

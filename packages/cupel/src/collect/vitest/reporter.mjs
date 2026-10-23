@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { writeAtomicJson } from '../atomic-json.mjs';
 
 export default class CupelVitestReporter {
   onTestRunEnd(modules, errors) {
@@ -15,6 +15,6 @@ export default class CupelVitestReporter {
       }
     }
     const modulesWithErrors = modules.flatMap((module) => module.errors().map((error) => ({ file: module.moduleId, error })));
-    writeFileSync(process.env.CUPEL_VITEST_RESULTS, JSON.stringify({ tests, errors, modulesWithErrors }));
+    writeAtomicJson(process.env.CUPEL_VITEST_RESULTS, { tests, errors, modulesWithErrors });
   }
 }

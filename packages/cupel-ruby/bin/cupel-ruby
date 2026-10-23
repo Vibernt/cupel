@@ -11,6 +11,7 @@ options = { root: '.', runs: 2, recheck: [] }
 parser = OptionParser.new do |opts|
   opts.on('--root DIR') { |value| options[:root] = value }
   opts.on('--runs N', Integer) { |value| options[:runs] = value }
+  opts.on('--tests GLOB') { |value| options[:tests] = value }
   opts.on('--recheck UNIT') { |value| options[:recheck] << value }
   opts.on('--out FILE') { |value| options[:out] = value }
 end
@@ -18,7 +19,7 @@ begin
   parser.order!(ARGV)
   abort '--runs must be positive' if options[:runs] < 1
   ARGV.shift if ARGV.first == '--'
-  result = Cupel::Runner.collect(options[:root], options[:runs], options[:recheck], ARGV)
+  result = Cupel::Runner.collect(options[:root], options[:runs], options[:recheck], ARGV, tests: options[:tests])
   json = JSON.pretty_generate(result) + "\n"
   options[:out] ? File.write(options[:out], json) : puts(json)
 rescue StandardError => e

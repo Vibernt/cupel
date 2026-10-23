@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { execute, goEnvironment, jsonObjects, parallel } from './process.mjs';
 import { covered, lineSet, profile, subtract } from './coverage.mjs';
 import { definitions } from './tests.mjs';
+import { matchesGoTestFile } from './test-globs.mjs';
 
 const topLevel = (name) => /^Test[A-Z0-9_]/.test(name);
 const anchored = (name) => `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
@@ -16,7 +17,7 @@ function result(output, name) {
   return { status: { PASS: 'passed', FAIL: 'failed', SKIP: 'skipped' }[last[1]], duration: Math.round(Number(last[2]) * 1000) };
 }
 
-export async function collectGo({ root, runs = 2, recheck = [], packages: patterns = ['./...'], note = () => {} }) {
+export async function collectGo({ root, runs = 2, recheck = [], packages: patterns = ['./...'], tests: testGlob, note = () => {} }) {
   if (!Number.isSafeInteger(runs) || runs < 1) throw new Error('--runs must be a positive integer');
   if (!patterns.length || patterns.some((p) => p.startsWith('-'))) throw new Error('Go package arguments must be non-option package patterns');
   const env = goEnvironment(root);
@@ -44,7 +45,8 @@ export async function collectGo({ root, runs = 2, recheck = [], packages: patter
       const defs = definitions(pkg, root);
       const binary = join(scratch, `package-${pi}.test`);
       await execute('go', ['test', '-c', '-covermode=count', `-coverpkg=${coverpkg}`, '-o', binary, pkg.ImportPath], { root, env });
-      const listed = (await execute(binary, ['-test.list', '.*'], { root, env })).stdout.split('\n').filter(topLevel);
+      const listed = (await execute(binary, ['-test.list', '.*'], { root, env })).stdout.split('\n').filter(topLevel)
+        .filter((name) => !testGlob || (defs.has(name) && matchesGoTestFile(testGlob, defs.get(name).file)));
       for (const name of listed) if (!defs.has(name)) throw new Error(`listed Go test ${name} has no source definition in ${pkg.ImportPath}`);
       const setupFile = join(scratch, `setup-${pi}.cover`);
       await execute(binary, ['-test.run', '^$', '-test.coverprofile', setupFile], { root, env });
@@ -71,6 +73,7 @@ export async function collectGo({ root, runs = 2, recheck = [], packages: patter
     }
   } finally { rmSync(scratch, { recursive: true, force: true }); }
   tests.sort((a, b) => (a.id > b.id) - (a.id < b.id));
+  if (testGlob && !tests.length) throw new Error(`no Go test files match ${testGlob}`);
   const ids = new Set(tests.map((t) => t.id));
   for (const id of recheck) if (!ids.has(id)) throw new Error(`unknown Go recheck unit: ${id}`);
   return {

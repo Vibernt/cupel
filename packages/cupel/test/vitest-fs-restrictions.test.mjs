@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectVitest } from '../src/collect/vitest/index.mjs';
 import { mutateVitest } from '../src/mutate/index.mjs';
 import { injectVitestProjects } from '../src/collect/vitest/projects.mjs';
+import { linkVitestModules } from './vitest-modules.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const fixture = join(repo, 'spec/conformance/adapters/vitest');
@@ -28,7 +29,7 @@ for (const [version, modules] of versions) {
       const root = mkdtempSync(join(repo, '.scratch/vitest-fs-'));
       t.after(() => rmSync(root, { recursive: true, force: true }));
       cpSync(fixture, root, { recursive: true });
-      symlinkSync(modules, join(root, 'node_modules'));
+      linkVitestModules(root, modules);
       writeFileSync(join(root, 'web-node-environment.mjs'),
         "import { builtinEnvironments } from 'vitest/runtime'; export default { ...builtinEnvironments.node, name: 'web-node', viteEnvironment: 'client' };\n");
       writeFileSync(join(root, 'vitest.config.mjs'),

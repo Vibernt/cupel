@@ -89,9 +89,9 @@ const COMMANDS = {
     options: { adapter: S, fixtures: S },
   },
   'collect-go': {
-    usage: 'cupel collect-go --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- packages…]',
+    usage: 'cupel collect-go --root DIR [--runs N] [--tests GLOB] [--recheck UNIT…] [--out FILE] [-- packages…]',
     about: 'collect Go test coverage as cupel-spec/1 input',
-    options: { root: S, runs: S, recheck: { type: 'string', multiple: true }, out: S },
+    options: { root: S, runs: S, tests: S, recheck: { type: 'string', multiple: true }, out: S },
     positionals: true,
   },
   mcp: {
@@ -621,7 +621,7 @@ export async function main(argv, io) {
       if (!o.root) throw usage('collect-go needs --root DIR');
       if (o.runs !== undefined && (!/^[1-9][0-9]*$/.test(o.runs) || !Number.isSafeInteger(Number(o.runs)))) throw usage('--runs needs a positive safe integer');
       const { collectGo } = await import('../collect/go/index.mjs');
-      const input = await collectGo({ root: resolve(io.cwd, o.root), runs: o.runs === undefined ? 2 : Number(o.runs), recheck: o.recheck ?? [], packages: parsed.positionals.length ? parsed.positionals : ['./...'], note: (message) => io.err(`cupel collect-go: ${message}\n`) });
+      const input = await collectGo({ root: resolve(io.cwd, o.root), runs: o.runs === undefined ? 2 : Number(o.runs), tests: o.tests, recheck: o.recheck ?? [], packages: parsed.positionals.length ? parsed.positionals : ['./...'], note: (message) => io.err(`cupel collect-go: ${message}\n`) });
       if (o.out) writeJson(resolve(io.cwd, o.out), input);
       else io.out(`${JSON.stringify(input, null, 2)}\n`);
       return EXIT_OK;

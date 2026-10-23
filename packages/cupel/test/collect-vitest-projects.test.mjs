@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { collectVitest } from '../src/collect/vitest/index.mjs';
 import { injectVitestProjects } from '../src/collect/vitest/projects.mjs';
+import { linkVitestModules } from './vitest-modules.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const versions = [
@@ -36,7 +37,7 @@ function fixture(modules, form) {
     mkdirSync(join(root, name, '..'), { recursive: true });
     writeFileSync(join(root, name), content);
   }
-  symlinkSync(modules, join(root, 'node_modules'));
+  linkVitestModules(root, modules);
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 

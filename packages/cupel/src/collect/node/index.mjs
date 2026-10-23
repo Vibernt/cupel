@@ -36,6 +36,7 @@ import { positiveIntervals, unionIntervals } from './intervals.mjs';
 import { analyseTestFile, patternFindings } from './testfile.mjs';
 import { collectorError } from '../error-detail.mjs';
 import { skipFile } from '../skipped.mjs';
+import { readWorkerJson } from '../read-json.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = pathToFileURL(join(HERE, 'hook.mjs')).href;
@@ -135,9 +136,14 @@ function run(cmd, args, opts) {
   });
 }
 
-function readResults(file) {
+function readResults(file, diagnostics, log) {
   if (!existsSync(file)) return null;
-  return readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const results = [];
+  for (const line of readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
+    try { results.push(JSON.parse(line)); }
+    catch (error) { skipFile(diagnostics, log, 'Node results', file, error); }
+  }
+  return results;
 }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
@@ -211,16 +217,22 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       const args = ['--test', '--import', HOOK, `--test-reporter=${REPORTER}`, `--test-reporter-destination=${dest}`];
       if (pattern) args.push(`--test-name-pattern=${pattern}`);
       const r = await run(process.execPath, [...args, ...only], { cwd: root, detailFile, env: { ...env, CUPEL_NODE_HOOK: hookConfig } });
-      const results = readResults(dest);
+      const results = readResults(dest, diagnostics, log);
       if (!results) {
         preserveTmp = true;
         throw new CollectorError(collectorError(`node --test did not run (${r.signal ?? `exit ${r.code}`}): ${r.tail.trim().split('\n')[0]}`, readFileSync(detailFile, 'utf8'), tmp));
       }
       const hook = [];
       for (const f of readdirSync(out).sort(cmp)) {
+        if (f.endsWith('.json.tmp')) {
+          skipFile(diagnostics, log, 'Node hook', join(out, f), 'incomplete atomic write');
+          continue;
+        }
+        if (!f.endsWith('.json')) continue;
         const p = join(out, f);
-        const d = JSON.parse(readFileSync(p, 'utf8'));
+        const d = readWorkerJson(p, diagnostics, log, 'Node hook');
         rmSync(p);
+        if (!d) continue;
         hook.push({
           file: d.file,
           setup: mode === 'coverage' ? toLines(d.setup) : null,
@@ -241,7 +253,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         const subDir = join(dir, sub);
         for (const f of readdirSync(subDir)) {
           let data;
-          try { data = JSON.parse(readFileSync(join(subDir, f), 'utf8')); } catch { continue; } // a child killed mid-write
+          data = readWorkerJson(join(subDir, f), diagnostics, log, 'Node child coverage');
+          if (!data) continue;
           for (const sc of data.result ?? []) {
             const rel = sourceOfUrl(sc.url);
             if (!rel) continue;
@@ -402,6 +415,10 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         while (next < jobs.length) {
           const k = next++;
           const { u, rows, pattern } = jobs[k];
+          if (rows.some((row) => row.status !== 'skipped' && !row.lines)) {
+            log(`recheck: ${u} has missing suite coverage; recheck cannot supply evidence`);
+            continue;
+          }
           const r = await suiteRun(`recheck${k}`, { mode: 'coverage', files: [rows[0].file], pattern, childCoverage: true });
           const leaves = new Map(leafTests(r.results).map((t) => [t.id, t]));
           const index = hookIndex(r.hook);

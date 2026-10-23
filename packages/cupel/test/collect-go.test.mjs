@@ -56,6 +56,15 @@ test('Go collector CLI and automatic external selection work', { skip: !hasGo &&
     const autoSubtest = spawnSync(process.execPath, [bin, 'report', '--runs', '1', '--out', join(root, '.scratch/subtest-report.json'), '--json'], { cwd: root, env, encoding: 'utf8' });
     assert.equal(autoSubtest.status, 0, autoSubtest.stderr);
     assert.match(autoSubtest.stderr, /math_test\.go::TestSub: subtests TestSub\/child/);
+    writeFileSync(join(root, 'widget.test.mjs'), "import { test } from 'node:test'; test('frontend', () => {});\n");
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { go: { tests: '{math,other}_test.go' } } }));
+    const configured = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1', '--out', join(root, '.scratch/configured.json')], { cwd: root, env, encoding: 'utf8' });
+    assert.equal(configured.status, 0, configured.stderr);
+    assert.equal(JSON.parse(readFileSync(join(root, '.scratch/configured.json'), 'utf8')).runtime.name, 'go');
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { go: { tests: 'missing_test.go' } } }));
+    const unmatched = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1'], { cwd: root, env, encoding: 'utf8' });
+    assert.equal(unmatched.status, 3);
+    assert.match(unmatched.stderr, /no Go test files match missing_test\.go/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -8,8 +8,8 @@ require_relative 'static'
 
 module Cupel
   module Runner
-    def self.test_files(root)
-      Dir.glob('test/**/*_test.rb', base: root).sort
+    def self.test_files(root, pattern = 'test/**/*_test.rb')
+      Dir.glob(pattern, base: root).select { |file| File.file?(File.join(root, file)) }.sort
     end
 
     def self.execute(root, files, args, result_dir, select: nil)
@@ -59,10 +59,11 @@ module Cupel
         'locationLine' => location[1] }
     end
 
-    def self.collect(root, runs, recheck, args)
+    def self.collect(root, runs, recheck, args, tests: nil)
       root = File.realpath(root)
-      files = args.first == 'rake' || args.first == 'bin/rails' ? [] : args.empty? ? test_files(root) : args
-      raise 'no test/**/*_test.rb files found' if files.empty? && args.empty?
+      raise '--tests cannot be combined with a test command' if tests && %w[rake bin/rails].include?(args.first)
+      files = %w[rake bin/rails].include?(args.first) ? [] : args.empty? ? test_files(root, tests || 'test/**/*_test.rb') : args
+      raise "no test files match #{tests || 'test/**/*_test.rb'}" if files.empty? && args.empty?
 
       sources = Lines.scan(root)
       all = []
