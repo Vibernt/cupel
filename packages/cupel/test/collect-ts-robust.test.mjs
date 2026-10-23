@@ -100,15 +100,13 @@ test('TypeScript without createScanner skips transform-only TS and keeps other f
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('one uncollectable Vitest module does not stop another test file',
+test('one uncollectable Vitest module stops collection even when another test file runs',
   { skip: !existsSync(vitest) }, async (t) => {
     const root = project(false);
     t.after(() => rmSync(root, { recursive: true, force: true }));
     writeFileSync(join(root, 'tests/broken.test.ts'), "import '../src/missing';\n");
-    const diagnostics = [];
-    const input = await collectVitest({ root, runs: 1, diagnostics });
-    assert.ok(input.tests.some((row) => row.name === 'high'));
-    assert.ok(diagnostics.some((row) => row.file === 'tests/broken.test.ts'));
+    await assert.rejects(collectVitest({ root, runs: 1 }),
+      /could not load tests\/broken\.test\.ts: Cannot find module/);
   });
 
 test('CLI writes skipped.json beside --out and keeps the input schema clean',

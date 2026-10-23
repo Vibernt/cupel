@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderBenchmark } from './report.mjs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { dockerArgs } from './docker.mjs';
 import { sourceFile, testFile } from './git.mjs';
 
@@ -18,7 +20,7 @@ test('rendering fake measurements shows metrics, replay losses and caveats', () 
     'plan-replay': { status: 'ok', outcomes: [{ commit: 'b'.repeat(40), selectedShare: 0.5, expectedMs: 20, fullMs: 40, touched: [{ id: 'u', bucket: 'affected' }] }] },
   } });
   assert.match(markdown, /critical mutation score 60\.00%/);
-  assert.match(markdown, /src\/x\.ts \| 3 \| negate/);
+  assert.match(markdown, /Top surviving mutants: unavailable/);
   assert.match(markdown, /FAIL \(critical-mutation\)/);
   assert.match(markdown, /50\.0% \| 0\.02 s \/ 0\.04 s/);
   assert.match(markdown, /Method and caveats/);
@@ -55,4 +57,20 @@ test('commit classifiers exclude test and configuration changes from source repl
   assert.equal(sourceFile('crates/text/src/lib.rs'), true);
   assert.equal(sourceFile('src/__tests__/engine.test.ts'), false);
   assert.equal(sourceFile('vitest.config.ts'), false);
+});
+
+test('critical mutation counts distinguish survivors from never-run mutants', () => {
+  mkdirSync('.scratch', { recursive: true });
+  const dir = mkdtempSync('.scratch/bench-report-');
+  try {
+    mkdirSync(join(dir, '.cupel'));
+    const statuses = ['killed', 'timeout', 'survived', 'survived', 'no-coverage', 'error'];
+    writeFileSync(join(dir, '.cupel/input.json'), JSON.stringify({ mutation: { mutants: statuses.map((status, index) =>
+      ({ status, source: 'src/a.ts', line: index + 1, operator: 'op' })) } }));
+    const markdown = renderBenchmark([{ ...repo, dir }], [candidate], { sample: { report: { status: 'ok', suite: { criticalMutation: { score: 50 }, advice: { rewrite: 0 } } } } });
+    assert.match(markdown, /50\.00% \| 1 \| 1 \| 2 \| 1 \| 1/);
+    assert.match(markdown, /2 survived \(run but uncaught\); 1 no coverage \(never run\)/);
+    assert.match(markdown, /src\/a\.ts \| 3 \| op/);
+    assert.match(markdown, /src\/a\.ts \| 4 \| op/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

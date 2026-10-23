@@ -47,7 +47,7 @@ test('legacy workspace file definitions receive a wrapper for each project', asy
   writeFileSync(join(root, 'package.json'), '{"private":true,"type":"module"}');
   writeFileSync(join(root, 'vitest.workspace.mjs'), "export default ['./vitest.unit.config.mjs'];\n");
   writeFileSync(join(root, 'vitest.unit.config.mjs'), "export default { test: { name: 'unit', include: ['tests/unit.test.ts'] } };\n");
-  const config = await injectVitestProjects({}, { root, work: root, setupFile: '/cupel/setup.mjs',
+  const config = await injectVitestProjects({}, { root, work: root, setupFile: '/cupel/setup.mjs', packageDir: '/cupel',
     workspaceFile: 'vitest.workspace.mjs' });
   assert.equal(config.test.workspace.length, 1);
   const wrapped = await import(pathToFileURL(config.test.workspace[0]).href);

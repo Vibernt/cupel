@@ -28,5 +28,5 @@ export async function recentCommits(repo, kind, limit) {
 
 export async function commitChangedLines(repo, commit) {
   const diff = await git(repo, ['-c', 'core.quotePath=false', 'diff', '--unified=0', '--no-renames', `${commit}^`, commit, '--']);
-  return Object.fromEntries(Object.entries(parseUnifiedDiff(diff)).filter(([path]) => sourceFile(path)));
+  return Object.fromEntries(Object.entries(parseUnifiedDiff(diff)).map(([path, lines]) => [path, testFile(path) ? '' : lines]));
 }

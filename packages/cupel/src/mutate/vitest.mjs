@@ -1,19 +1,21 @@
 // Vitest's in-memory mutant transport. The shared mutation session owns selection and classification.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { resolveVitest, splitCommand } from '../collect/vitest/index.mjs';
 import { findVitestWorkspace } from '../collect/vitest/projects.mjs';
+import { copyInjectedVitestModules } from '../collect/vitest/injected.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
 let counter = 0;
 
 export class VitestMutantRunner {
   constructor(root, cfg, tmp) {
     this.root = root;
     this.tmp = tmp;
+    const injected = copyInjectedVitestModules(tmp);
+    this.reporter = injected.module('mutate/vitest-reporter.mjs');
     const vitest = resolveVitest(root);
     const runner = cfg.runners?.vitest ?? {};
     this.projects = runner.project === undefined ? [] : Array.isArray(runner.project) ? runner.project : [runner.project];
@@ -30,12 +32,12 @@ export class VitestMutantRunner {
       'vite.config.mts', 'vite.config.ts', 'vite.config.mjs', 'vite.config.js'].find((f) => existsSync(join(root, f)));
     const base = original ? `import original from ${JSON.stringify(pathToFileURL(join(root, original)).href)};` : 'const original = {};';
     this.config = join(tmp, 'vitest.config.mjs');
-    const pluginModule = pathToFileURL(join(here, 'vitest-plugin.mjs')).href;
+    const pluginModule = pathToFileURL(injected.module('mutate/vitest-plugin.mjs')).href;
     const workspaceFile = vitest.version.startsWith('3.') ? findVitestWorkspace(root) : undefined;
-    writeFileSync(this.config, `${base}\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(join(dirname(here), 'collect/vitest/projects.mjs')).href)};\n` +
+    writeFileSync(this.config, `${base}\nimport { injectVitestProjects } from ${JSON.stringify(pathToFileURL(injected.module('collect/vitest/projects.mjs')).href)};\n` +
       `import { createMutantPlugin } from ${JSON.stringify(pluginModule)};\n` +
       `export default async (env) => { const base = typeof original === 'function' ? await original(env) : original;\n` +
-      `  return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(tmp)}, setupFile: ${JSON.stringify(join(here, 'vitest-setup.mjs'))}, plugin: createMutantPlugin(), pluginModule: ${JSON.stringify(pluginModule)}, workspaceFile: ${JSON.stringify(workspaceFile)} }), cacheDir: ${JSON.stringify(join(cache, 'vite'))} }; };\n`);
+      `  return { ...await injectVitestProjects(base, { root: ${JSON.stringify(root)}, work: ${JSON.stringify(tmp)}, setupFile: ${JSON.stringify(injected.module('mutate/vitest-setup.mjs'))}, plugin: createMutantPlugin(), pluginModule: ${JSON.stringify(pluginModule)}, workspaceFile: ${JSON.stringify(workspaceFile)}, packageDir: ${JSON.stringify(injected.packageDir)} }), cacheDir: ${JSON.stringify(join(cache, 'vite'))} }; };\n`);
   }
 
   spec(spec) {
@@ -52,7 +54,7 @@ export class VitestMutantRunner {
     return new Promise((resolve) => {
       const started = performance.now();
       const args = [...this.command.slice(1), 'run', '--root', this.root, '--config', this.config,
-        '--configLoader', 'runner', '--pool=forks', '--reporter', join(here, 'vitest-reporter.mjs'),
+        '--configLoader', 'runner', '--pool=forks', '--reporter', this.reporter,
         ...this.projects.flatMap((project) => ['--project', project]), file];
       const child = spawn(this.command[0], args, { cwd: this.root, env, detached: true, stdio: ['ignore', 'ignore', 'pipe'] });
       let stderr = '', timedOut = false, cut = false, finished = false;
