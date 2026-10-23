@@ -6,11 +6,12 @@ import { dockerRun, cupelCommand, shellQuote } from './docker.mjs';
 import { median, peakKb, reportMetrics, guardMetrics, planMetrics } from './parse.mjs';
 import { baselineRun, capturedError, reportCommandCompleted } from './baseline.mjs';
 import { recentCommits, commitChangedLines, testFile } from './git.mjs';
+import { runtimeFor } from './runtime.mjs';
 
 const benchDir = import.meta.dirname;
 const repos = JSON.parse(readFileSync(join(benchDir, 'repos.json'), 'utf8'));
 const stages = ['install', 'baseline', 'report', 'guard-replay', 'plan-replay'];
-const pendingRunners = new Set(['go', 'cargo', 'dotnet', 'minitest']);
+const pendingRunners = new Set(['cargo', 'dotnet']);
 const [name, requested] = process.argv.slice(2);
 const repo = repos.find((item) => item.name === name);
 if (!repo || ![...stages, 'all'].includes(requested)) {
@@ -56,7 +57,6 @@ function inputAt(path = join(repo.dir, '.cupel', 'input.json')) {
   const input = JSON.parse(readFileSync(path, 'utf8'));
   if (!input.tests?.length) throw new Error('Cupel collected zero tests; collector selection must be fixed');
   // The input names the runtime, not the runner: Vitest and node:test report node, pytest reports python.
-  const runtimeFor = { vitest: 'node', 'node-test': 'node', pytest: 'python' };
   const want = runtimeFor[repo.runner];
   if (want && input.runtime?.name !== want) throw new Error(`expected a ${want} runtime from the ${repo.runner} collector, got ${input.runtime?.name ?? 'unknown'}`);
   return input;

@@ -6,5 +6,12 @@ test('every Docker command creates the cache home before running', () => {
   const repo = { name: 'ruby-sample', dir: '/tmp/sample', runner: 'minitest', image: 'ruby:3-bookworm' };
   const args = dockerArgs(repo, 'none', 'set -eu; bundle exec rake test');
   assert.equal(args.at(-1), 'mkdir -p /cache/home && set -eu; bundle exec rake test');
-  assert.ok(args.includes('BUNDLE_GEMFILE=/work/Gemfile'));
+  assert.ok(args.includes('BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile'));
+});
+
+test('Go and Ruby containers expose cached Node 22 to Cupel', () => {
+  for (const runner of ['go', 'minitest']) {
+    const args = dockerArgs({ name: `${runner}-sample`, dir: '/tmp/sample', runner, image: `${runner}:latest` }, 'none', 'node --version');
+    assert.ok(args.includes('PATH=/cache/node/node_modules/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'));
+  }
 });

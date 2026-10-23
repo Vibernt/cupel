@@ -158,7 +158,7 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 22 and builds UI. Build-tagged live GitHub e2e with token is excluded. Pending: collector; baseline only."
+    "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 22 and builds UI. Build-tagged live GitHub e2e with token is excluded."
   },
   {
     "name": "zeron",
@@ -208,8 +208,8 @@
     "language": "Ruby",
     "runner": "minitest",
     "image": "ruby:3-bookworm",
-    "install": "BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_GEMFILE=/work/Gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate",
-    "test": "BUNDLE_GEMFILE=/work/Gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rake test TEST='test/{*_test.rb,providers/common/**/*_test.rb}'",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate",
+    "test": "BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bin/test",
     "cupelConfig": {
       "runners": {
         "minitest": {
@@ -221,6 +221,6 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "Uses the repository's Rake test task with TEST= restricted to root and provider-common tests. Excludes provider integration, evals, docs examples, dashboard, browser sidecar and frontend because they may need services, credentials or generated assets. CI creates and migrates a local Rails SQLite database; install does likewise. Pending: collector; baseline only."
+    "notes": "Mirrors the CI test lane with gemfiles/rails8.gemfile, including the local Rails SQLite database setup, and runs bin/test. The benchmark container has no provider credentials or external services, so network-dependent tests may still fail."
   }
 ]
