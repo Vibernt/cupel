@@ -146,7 +146,7 @@
     "runner": "go",
     "image": "golang:1-bookworm",
     "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && go mod download && cd ui && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm && PATH=/cache/node/node_modules/node/bin:$PATH npm run build",
-    "test": "./script/test",
+    "test": "go test -race -json ./...",
     "cupelConfig": {
       "runners": {
         "go": {
@@ -208,8 +208,8 @@
     "language": "Ruby",
     "runner": "minitest",
     "image": "ruby:3-bookworm",
-    "install": "BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate",
-    "test": "BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rake test TEST='test/{*_test.rb,providers/common/**/*_test.rb}'",
+    "install": "BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_GEMFILE=/work/Gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate",
+    "test": "BUNDLE_GEMFILE=/work/Gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rake test TEST='test/{*_test.rb,providers/common/**/*_test.rb}'",
     "cupelConfig": {
       "runners": {
         "minitest": {

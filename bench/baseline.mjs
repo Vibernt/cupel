@@ -1,4 +1,4 @@
-import { testCounts } from './parse.mjs';
+import { goFailingNames, testCounts } from './parse.mjs';
 
 export function failingNames(runner, output) {
   const text = output.replace(/\x1b\[[0-9;]*m/g, '');
@@ -11,7 +11,8 @@ export function failingNames(runner, output) {
     dotnet: /^\s*Failed\s+(.+?)\s*\[/gm,
     minitest: /^\s*\d+\) (?:Failure|Error):\s*\n([^\n]+)/gm,
   };
-  return [...new Set([...text.matchAll(patterns[runner] ?? /$^/g)].map((m) => m[1].trim()))].slice(0, 50);
+  const goNames = runner === 'go' ? goFailingNames(text) : [];
+  return [...new Set([...goNames, ...text.matchAll(patterns[runner] ?? /$^/g)].map((m) => m[1]?.trim()).filter(Boolean))].slice(0, 50);
 }
 
 export function baselineRun(runner, result) {

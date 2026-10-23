@@ -29,7 +29,7 @@ export function cacheEnv(repo) {
   if (repo.runner === 'go') return { ...common, GOPATH: '/cache/go', GOCACHE: '/cache/go-build', GOTOOLCHAIN: 'auto' };
   if (repo.runner === 'cargo') return { ...common, CARGO_HOME: '/cache/cargo', CARGO_TARGET_DIR: '/cache/target' };
   if (repo.runner === 'dotnet') return { ...common, NUGET_PACKAGES: '/cache/nuget', DOTNET_CLI_HOME: '/cache/home' };
-  if (repo.runner === 'minitest') return { ...common, BUNDLE_PATH: '/cache/bundle', RAILS_ENV: 'test', CI: 'true' };
+  if (repo.runner === 'minitest') return { ...common, BUNDLE_PATH: '/cache/bundle', BUNDLE_GEMFILE: '/work/Gemfile', RAILS_ENV: 'test', CI: 'true' };
   return { ...common, npm_config_cache: '/cache/npm', COREPACK_HOME: '/cache/corepack', HUSKY: '0' };
 }
 
@@ -38,7 +38,7 @@ export function dockerArgs(repo, network, command, workdir = '/work') {
   const args = ['run', '--rm', '--platform', 'linux/arm64', '--network', network,
     '-v', `${repo.dir}:/work`, '-v', `${cupelRoot}:/cupel:ro`, '-v', `cupel-bench-${repo.name.toLowerCase().replaceAll('_', '-')}-cache:/cache`, '-w', workdir];
   for (const [key, value] of Object.entries(cacheEnv(repo))) args.push('-e', `${key}=${value}`);
-  args.push(repo.image, 'sh', '-c', command);
+  args.push(repo.image, 'sh', '-c', `mkdir -p /cache/home && ${command}`);
   return args;
 }
 
