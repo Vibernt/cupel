@@ -6,6 +6,44 @@ export function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function goJsonEvents(text) {
+  return text.split('\n').flatMap((line) => {
+    try {
+      const event = JSON.parse(line);
+      return event && typeof event === 'object' && event.Action && event.Package ? [event] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function goCounts(text) {
+  const events = goJsonEvents(text);
+  if (!events.length) return null;
+  const tests = new Map();
+  const packages = new Map();
+  for (const event of events) {
+    const packageState = packages.get(event.Package) ?? { failed: false, hasTestFailure: false };
+    if (event.Action === 'fail' && !event.Test) packageState.failed = true;
+    if (event.Action === 'fail' && event.Test && !event.Test.includes('/')) packageState.hasTestFailure = true;
+    packages.set(event.Package, packageState);
+    if (event.Test && !event.Test.includes('/') && ['pass', 'fail', 'skip'].includes(event.Action)) {
+      tests.set(`${event.Package}\0${event.Test}`, event.Action);
+    }
+  }
+  const counts = { passed: 0, failed: 0, skipped: 0 };
+  for (const action of tests.values()) counts[action === 'pass' ? 'passed' : action === 'fail' ? 'failed' : 'skipped']++;
+  for (const packageState of packages.values()) if (packageState.failed && !packageState.hasTestFailure) counts.failed++;
+  return counts;
+}
+
+export function goFailingNames(output) {
+  const events = goJsonEvents(output);
+  const names = events.filter((event) => event.Action === 'fail' && event.Test && !event.Test.includes('/'))
+    .map((event) => event.Test);
+  return [...new Set(names)].slice(0, 50);
+}
+
 export function testCounts(runner, output) {
   const text = output.replace(/\x1b\[[0-9;]*m/g, '');
   const n = (pattern) => Number([...text.matchAll(pattern)].at(-1)?.[1] ?? 0);
@@ -13,7 +51,7 @@ export function testCounts(runner, output) {
   if (runner === 'pytest') return /\d+ (?:passed|failed|skipped)\b/.test(text) ? {
     passed: n(/(\d+) passed\b/g), failed: n(/(\d+) failed\b/g), skipped: n(/(\d+) skipped\b/g),
   } : unknown;
-  if (runner === 'go') return { passed: null, failed: null, skipped: null }; // package summaries do not expose test counts
+  if (runner === 'go') return goCounts(text) ?? unknown;
   if (runner === 'cargo') return /test result: (?:ok|FAILED)\./.test(text) ? {
     passed: [...text.matchAll(/test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored/g)].reduce((a, m) => a + Number(m[1]), 0),
     failed: [...text.matchAll(/test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored/g)].reduce((a, m) => a + Number(m[2]), 0),

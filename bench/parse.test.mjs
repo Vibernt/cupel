@@ -14,6 +14,20 @@ import { median, testCounts, peakKb, reportMetrics, guardMetrics, planMetrics } 
   assert.equal(peakKb('Maximum resident set size (kbytes): 12345'), 12345);
 });
 
+test('Go JSON counts top-level tests, ignores subtests, and counts build failures', () => {
+  const output = [
+    '{"Action":"run","Package":"example/a","Test":"TestPass"}',
+    '{"Action":"pass","Package":"example/a","Test":"TestPass"}',
+    '{"Action":"run","Package":"example/a","Test":"TestNested"}',
+    '{"Action":"run","Package":"example/a","Test":"TestNested/case"}',
+    '{"Action":"skip","Package":"example/a","Test":"TestNested/case"}',
+    '{"Action":"pass","Package":"example/a","Test":"TestNested"}',
+    '{"Action":"fail","Package":"example/b","Output":"# example/b"}',
+    '{"Action":"fail","Package":"example/b","Elapsed":0}',
+  ].join('\n');
+  assert.deepEqual(testCounts('go', output), { passed: 2, failed: 1, skipped: 0 });
+});
+
 test('report metrics extract critical survivors, advice and missing evidence', () => {
   const report = { kind: 'report', command: 'report', suite: { criticalMutation: { score: 50 } }, units: [
     { id: 'a', file: 'x.test.ts', advice: 'rewrite', signals: { brittle: ['source-text'] }, hints: ['no-unique-coverage-unverified'] },
