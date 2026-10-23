@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dockerArgs } from './docker.mjs';
+import { cacheEnv, dockerArgs } from './docker.mjs';
 
 test('every Docker command creates the cache home before running', () => {
   const repo = { name: 'ruby-sample', dir: '/tmp/sample', runner: 'minitest', image: 'ruby:3-bookworm' };
@@ -9,9 +9,17 @@ test('every Docker command creates the cache home before running', () => {
   assert.ok(args.includes('BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile'));
 });
 
-test('Go and Ruby containers expose cached Node 22 to Cupel', () => {
-  for (const runner of ['go', 'minitest']) {
-    const args = dockerArgs({ name: `${runner}-sample`, dir: '/tmp/sample', runner, image: `${runner}:latest` }, 'none', 'node --version');
-    assert.ok(args.includes('PATH=/cache/node/node_modules/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'));
+test('toolchain runners preserve their image toolchain and cached Node on PATH', () => {
+  const paths = {
+    go: ['/usr/local/go/bin', '/cache/go/bin'],
+    cargo: ['/usr/local/cargo/bin'],
+    minitest: ['/usr/local/bundle/bin'],
+    dotnet: ['/usr/share/dotnet'],
+  };
+  for (const [runner, required] of Object.entries(paths)) {
+    const path = cacheEnv({ runner }).PATH.split(':');
+    for (const directory of ['/cache/node/node_modules/node/bin', ...required]) {
+      assert.ok(path.includes(directory), `${runner} PATH lacks ${directory}`);
+    }
   }
 });

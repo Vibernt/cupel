@@ -12,19 +12,33 @@ module Cupel
       Dir.glob(pattern, base: root).select { |file| File.file?(File.join(root, file)) }.sort
     end
 
+    def self.failure_detail(stdout, stderr)
+      lines = (stderr.empty? ? stdout : stderr).strip.lines.map(&:chomp)
+      (lines.length > 40 ? lines.first(20) + ['...'] + lines.last(20) : lines).join("\n")
+    end
+
     def self.execute(root, files, args, result_dir, select: nil)
       prefix = File.join(result_dir, 'result')
+      rubyopt = [ENV['RUBYOPT'], "-r#{File.expand_path('minitest_plugin', __dir__)}"].compact.join(' ')
       env = { 'CUPEL_RUBY_RESULT' => prefix,
               'CUPEL_RUBY_ROOT' => root,
-              'CUPEL_RUBY_FILES' => JSON.generate(files),
-              'RUBYOPT' => [ENV['RUBYOPT'], "-r#{File.expand_path('minitest_plugin', __dir__)}"].compact.join(' ') }
+              'CUPEL_RUBY_FILES' => JSON.generate(files) }
       command = if args.first == 'rake'
                   ['ruby', '-S', *args]
                 elsif args.first == 'bin/rails'
                   ['ruby', *args]
                 else
-                  ['ruby', '-Ilib', '-Itest', '-rjson', '-e', 'JSON.parse(ENV.fetch("CUPEL_RUBY_FILES")).each { |file| require File.expand_path(file); Cupel::MinitestPlugin.record_file_setup(file) }']
+                  load_path = ['-Itest', '-Ilib']
+                  load_path << '-Ispec' if File.directory?(File.join(root, 'spec'))
+                  ['ruby', *load_path, '-rjson', '-e', 'JSON.parse(ENV.fetch("CUPEL_RUBY_FILES")).each { |file| path = File.expand_path(file); abort "File does not exist: #{path}" unless File.file?(path); require path; Cupel::MinitestPlugin.record_file_setup(file) }']
                 end
+      if File.file?(File.join(root, 'Gemfile')) || ENV['BUNDLE_GEMFILE']
+        # Load the plugin in the test process, after Bundler has selected the project's gems.
+        env['RUBYOPT'] = nil
+        command = ['bundle', 'exec', 'env', "RUBYOPT=-rbundler/setup #{rubyopt}", *command]
+      else
+        env['RUBYOPT'] = rubyopt
+      end
       if select
         pattern = "/^#{Regexp.escape(select)}$/"
         if args.first == 'rake'
@@ -38,10 +52,10 @@ module Cupel
         JSON.parse(File.read(path)).then { |data| data['tests'].empty? ? [] : [data] }
       end
       if records.empty?
-        raise "Minitest did not report any tests (exit #{status.exitstatus}): #{(stderr.empty? ? stdout : stderr).strip[-500..]}"
+        raise "Minitest did not report any tests (exit #{status.exitstatus}): #{failure_detail(stdout, stderr)}"
       end
       unless [0, 1].include?(status.exitstatus)
-        raise "test command exited #{status.exitstatus}: #{(stderr.empty? ? stdout : stderr).strip[-500..]}"
+        raise "test command exited #{status.exitstatus}: #{failure_detail(stdout, stderr)}"
       end
       records
     end
