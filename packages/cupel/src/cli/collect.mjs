@@ -9,7 +9,6 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { delimiter, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { environment } from './errors.mjs';
 import { extractRef } from './git.mjs';
@@ -98,11 +97,13 @@ function isVitestProject(root, cfg) {
 }
 
 function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
-  const dir = mkdtempSync(join(tmpdir(), 'cupel-external-'));
+  const scratch = join(root, '.scratch');
+  mkdirSync(scratch, { recursive: true });
+  const dir = mkdtempSync(join(scratch, 'cupel-external-'));
   let preserveDir = false;
   const output = join(dir, 'input.json');
   try {
-    const env = { ...process.env, ...(runner.env ?? {}) };
+    const env = { ...process.env, ...(runner.env ?? {}), TMPDIR: dir, XDG_CACHE_HOME: dir };
     if (runner.name === 'pytest') env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);
     if (runner.prepare) {
       const ready = spawnSync(runner.prepare, { cwd: root, env, shell: true, encoding: 'utf8' });
@@ -160,7 +161,7 @@ export function mutatePytest({ root, cfg, input, scope, mutation, ids = [] }) {
     const args = mutation
       ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${ids.map(quote).join(' ')}`
       : `--input ${quote(inputFile)} --scope ${quote(scopeFile)}`;
-    const env = { ...process.env, ...(runner.env ?? {}) };
+    const env = { ...process.env, ...(runner.env ?? {}), TMPDIR: dir, XDG_CACHE_HOME: dir };
     env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);
     env.PYTHONDONTWRITEBYTECODE = '1';
     const child = spawnSync(`${command} ${action} --root ${quote(root)} --config ${quote(configFile)} ${args} --out ${quote(output)}`, {
@@ -173,6 +174,27 @@ export function mutatePytest({ root, cfg, input, scope, mutation, ids = [] }) {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+export function bodySitesPytest({ root, cfg, input }) {
+  const runner = externalRunner(root, cfg);
+  if (!runner || runner.name !== 'pytest') throw environment('Python body sites need a pytest collector');
+  const command = runner.collector.replace(/\s+collect\s*$/, '');
+  if (command === runner.collector) throw environment('pytest collector command must end in collect to locate body-sites');
+  const scratch = join(root, '.scratch');
+  mkdirSync(scratch, { recursive: true });
+  const dir = mkdtempSync(join(scratch, 'cupel-body-sites-'));
+  try {
+    const inputFile = join(dir, 'input.json');
+    writeFileSync(inputFile, JSON.stringify(input));
+    const env = { ...process.env, ...(runner.env ?? {}), PYTHONDONTWRITEBYTECODE: '1', TMPDIR: dir, XDG_CACHE_HOME: dir };
+    env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);
+    const child = spawnSync(`${command} body-sites --root ${quote(root)} --input ${quote(inputFile)}`, {
+      cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 26,
+    });
+    if (child.error || child.status !== 0) throw environment(`Python body sites failed: ${(child.stderr || child.error?.message || '').trim()}`);
+    return JSON.parse(child.stdout);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
 /** Loads the collector or the mutator. Returns null when it is not available. */
@@ -266,12 +288,12 @@ export async function collectRef(collector, { root, ref, cfg, runs, log }, after
 
 /** Runs mutateNode for a scope; returns the mutation object, or null when the scope is empty. */
 export async function mutate(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
-  const empty = !scope.critical && !(scope.changed && Object.keys(scope.changed).length) && !(scope.targeted ?? []).length;
+  const empty = !scope.functions && !scope.critical && !(scope.changed && Object.keys(scope.changed).length) && !(scope.targeted ?? []).length;
   if (empty) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
-    return await mutator.mutateNode({ root, config: cfg, input, scope: { critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
+    return await mutator.mutateNode({ root, config: cfg, input, scope: { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }

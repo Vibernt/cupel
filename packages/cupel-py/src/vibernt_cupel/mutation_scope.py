@@ -66,6 +66,11 @@ def scope_lines(input_data, scope, config):
         for path, record in input_data['sources'].items():
             if critical_source(path, config):
                 add(path, lines(record['coverable']))
+    if scope.get('functions'):
+        for test in input_data['tests']:
+            if test['status'] == 'passed':
+                for path, value in input_data['coverage'].get('byTest', {}).get(test['id'], {}).items():
+                    add(path, lines(value))
     for path, value in (scope.get('changed') or {}).items():
         if path in input_data['sources']:
             add(path, lines(input_data['sources'][path]['coverable']) if value == '' or value == [] else lines(value))

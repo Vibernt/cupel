@@ -58,7 +58,7 @@ test('a mutation run: kills, a survivor, a timeout, determinism, no file written
   // A mutant that breaks module loading is a kill credited to every test of the file.
   assert.deepEqual(status('src/guard.mjs:5:cmp-flip').killedBy, [ID.guard]);
 
-  assert.equal(a.mutants.length, 16);
+  assert.equal(a.mutants.length, 21);
   assert.equal(a.sampled, false);
   assert.equal(a.seed, 20261021);
   for (const x of a.mutants) assert.match(x.id, /^src\/(calc|guard)\.mjs:\d+:\d+:[a-z-]+:[0-9a-f]{8}$/);
@@ -72,10 +72,10 @@ test('a mutation run: kills, a survivor, a timeout, determinism, no file written
   assert.equal(exit, 0, JSON.stringify(report.diagnostics));
   assert.deepEqual(validate(schemas.report, report), []);
   const unit = (id) => report.units.find((u) => u.id === id);
-  assert.equal(unit(ID.caps).signals.uniqueKills, 3);
-  assert.equal(unit(ID.spin).signals.uniqueKills, 5);
+  assert.equal(unit(ID.caps).signals.uniqueKills, 5);
+  assert.equal(unit(ID.spin).signals.uniqueKills, 6);
   assert.equal(unit(ID.small).signals.kills, 0);
-  // 11 detected (10 killed and 1 timeout) of 14 scored; the 2 errors are not scored.
-  assert.equal(report.suite.mutation.detected, 11);
+  // 16 detected of 19 scored; the 2 errors are not scored.
+  assert.equal(report.suite.mutation.detected, 16);
   assert.equal(report.suite.mutation.undetected, 3);
 });

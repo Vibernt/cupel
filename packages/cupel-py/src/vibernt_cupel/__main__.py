@@ -13,11 +13,14 @@ from .static import inspect
 
 
 def _run(root, sources, args, mode='run'):
-    with tempfile.TemporaryDirectory(prefix='cupel-py-') as tmp:
+    scratch = root / '.scratch'
+    scratch.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='cupel-py-', dir=scratch) as tmp:
         result = Path(tmp, 'result.json')
         env = os.environ.copy()
         env.update(CUPEL_ROOT=str(root), CUPEL_RESULT=str(result), CUPEL_MODE=mode,
-                   CUPEL_SOURCES=json.dumps(sorted(sources)), PYTHONDONTWRITEBYTECODE='1')
+                   CUPEL_SOURCES=json.dumps(sorted(sources)), PYTHONDONTWRITEBYTECODE='1',
+                   TMPDIR=tmp, XDG_CACHE_HOME=tmp)
         src = str(Path(__file__).resolve().parents[1])
         env['PYTHONPATH'] = os.pathsep.join(filter(None, (src, env.get('PYTHONPATH', ''))))
         command = [sys.executable, '-m', 'pytest', '-p', 'vibernt_cupel.plugin', '-p', 'no:cacheprovider', *args]
@@ -113,7 +116,7 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='python -m vibernt_cupel')
-    parser.add_argument('command', choices=('collect', 'list', 'select', 'mutate', 'confirm'))
+    parser.add_argument('command', choices=('collect', 'list', 'select', 'mutate', 'confirm', 'body-sites'))
     parser.add_argument('ids', nargs='*')
     parser.add_argument('--root', default='.')
     parser.add_argument('--runs', type=int, default=2)
@@ -147,7 +150,23 @@ def main(argv=None):
     if extra and extra[0] == '--':
         extra = extra[1:]
     try:
-        if args.command in ('mutate', 'confirm'):
+        if args.command == 'body-sites':
+            from .mutation_sites import generate
+            if not args.input:
+                parser.error('body-sites needs --input')
+            data = json.loads(Path(args.input).read_text(encoding='utf-8'))
+            value = []
+            for path in sorted(data['sources']):
+                if not path.endswith('.py'):
+                    continue
+                source = (root / path).resolve()
+                if not source.is_relative_to(root):
+                    raise ValueError(f'source escapes root: {path}')
+                for site in generate(path, source.read_text(encoding='utf-8'), functions_only=True):
+                    value.append({'id': site.id, 'source': site.source, 'operator': site.operator,
+                                  'function_key': site.function_key, 'function_name': site.function_name,
+                                  'start_line': site.start_line, 'end_line': site.end_line, 'variant': site.variant})
+        elif args.command in ('mutate', 'confirm'):
             from .mutation_run import mutate, confirm
             data = json.loads(Path(args.input).read_text(encoding='utf-8'))
             config_file = Path(args.config) if args.config else root / 'cupel.json'

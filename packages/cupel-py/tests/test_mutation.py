@@ -13,17 +13,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from vibernt_cupel.match import tokens, word_matches, glob_matches, critical_source
 from vibernt_cupel.mutation_sites import apply, generate
 from vibernt_cupel.mutation_run import mutate, confirm, whole_units, source_path, EnvironmentError
+from vibernt_cupel.__main__ import collect
 
 ROOT = Path(__file__).resolve().parents[3]
 PYTEST = Path('/Users/vid/codecrystal/.venv/bin/python')
 
 
 class SitesTest(unittest.TestCase):
+    def test_body_sites_include_async_and_skip_init_and_abstract(self):
+        source = ('from abc import abstractmethod\n'
+                  'class C:\n'
+                  '    def __init__(self):\n        self.x = 1\n'
+                  '    @abstractmethod\n    def required(self):\n        pass\n'
+                  '    async def work(self):\n        value = 2\n        return value\n')
+        sites = list(generate('logic.py', source, functions_only=True))
+        self.assertEqual(len(sites), 2)
+        self.assertEqual([s.function_name for s in sites], ['work', 'work'])
+        self.assertEqual([s.variant for s in sites], [0, 1])
+        for site in sites:
+            compile(apply(source, site), 'logic.py', 'exec')
+
     def test_operators_and_logging_exclusion(self):
         source = ('def f(x, y):\n    if not (x < 3 and True):\n        logging.info(x + 1)\n        logger.debug(x < y)\n        print(x == y)\n        return x * y\n    while x != y or False:\n        call(x)\n        return True\n    return x / y\n')
         sites = list(generate('f.py', source))
         operators = {s.operator for s in sites}
-        self.assertEqual(operators, {'cmp-flip', 'boundary', 'bool-literal', 'logical', 'negate-cond', 'remove-not', 'arith', 'return-value', 'remove-call'})
+        self.assertEqual(operators, {'cmp-flip', 'boundary', 'bool-literal', 'logical', 'negate-cond', 'remove-not', 'arith', 'return-value', 'remove-call', 'body-replace'})
         self.assertFalse(any(s.line in (3, 4, 5) for s in sites))
         for site in sites:
             compile(apply(source, site), 'f.py', 'exec')
@@ -96,6 +110,55 @@ class RunnerTest(unittest.TestCase):
         self.test.write_text(test)
         uid = 'tests/test_logic.py::test_value'
         return {'sources': {'logic.py': {'coverable': covered}}, 'tests': [{'id': uid, 'file': 'tests/test_logic.py', 'name': 'test_value', 'status': 'passed', 'durationsMs': [1]}], 'coverage': {'granularity': 'test', 'byTest': {uid: {'logic.py': covered}}, 'setup': {'tests/test_logic.py': {}}}}
+
+    def test_function_scope_pseudo_and_checked(self):
+        source = ('def ignored(x):\n    answer = x + 1\n    return answer\n\n'
+                  'def checked(x):\n    answer = x + 2\n    return answer\n')
+        tests = ('from logic import ignored, checked\n'
+                 'def test_calls_only():\n    ignored(3)\n\n'
+                 'def test_checks_value():\n    assert checked(3) == 5\n')
+        self.source.write_text(source)
+        self.test.write_text(tests)
+        before = {str(path.relative_to(self.root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in (self.source, self.test)}
+        input_data = collect(self.root, 1, [], [])
+        config = {'mutation': {'maxMutants': 10, 'maxSeconds': 60}}
+        first = mutate(self.root, input_data, {'functions': True}, config, jobs=1, timeout_floor_ms=500)
+        second = mutate(self.root, input_data, {'functions': True}, config, jobs=1, timeout_floor_ms=500)
+        self.assertEqual(first, second)
+        self.assertEqual(len(first['mutants']), 3)
+        self.assertEqual([m['status'] for m in first['mutants']], ['survived', 'survived', 'killed'])
+        self.assertFalse(first['sampled'])
+        checked_unit = 'tests/test_logic.py::test_checks_value'
+        targeted = mutate(self.root, input_data, {'functions': True, 'targeted': [checked_unit]},
+                          config, jobs=1, timeout_floor_ms=500)
+        self.assertEqual(targeted['targeted'], [checked_unit])
+        capped = mutate(self.root, input_data, {'functions': True, 'targeted': [checked_unit]},
+                        {'mutation': {'maxMutants': 1, 'seed': 7}}, jobs=1, timeout_floor_ms=500)
+        self.assertEqual([m['line'] for m in capped['mutants']], [6])
+        self.assertEqual(capped['targeted'], [checked_unit])
+        self.assertEqual(before, {str(path.relative_to(self.root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                                  for path in (self.source, self.test)})
+        sites = list(generate('logic.py', source, functions_only=True))
+        by_id = {m['id']: m for m in first['mutants']}
+        self.assertEqual([s.function_name for s in sites if s.variant == 0 and by_id[s.id]['status'] == 'survived'], ['ignored'])
+        import subprocess
+        catalogue = [{'id': s.id, 'source': s.source, 'operator': s.operator, 'function_key': s.function_key,
+                      'function_name': s.function_name, 'start_line': s.start_line,
+                      'end_line': s.end_line, 'variant': s.variant} for s in sites]
+        module = (ROOT / 'packages/cupel/src/analysis/pseudo.mjs').as_uri()
+        script = (f"import {{ analyzePseudo }} from {json.dumps(module)}; "
+                  "import { readFileSync } from 'node:fs'; "
+                  "const p = JSON.parse(readFileSync(0, 'utf8')); "
+                  "process.stdout.write(JSON.stringify(analyzePseudo(p.input, p.sites))); ")
+        analyzed = subprocess.run(['node', '--input-type=module', '-e', script],
+                                  input=json.dumps({'input': {**input_data, 'mutation': first}, 'sites': catalogue}),
+                                  text=True, capture_output=True, check=True)
+        report = json.loads(analyzed.stdout)
+        self.assertEqual([f['name'] for f in report['pseudoTestedFunctions']], ['ignored'])
+        self.assertEqual([f['name'] for f in report['testedFunctions']], ['checked'])
+        self.assertEqual([u['id'] for u in report['pseudoTests']], ['tests/test_logic.py::test_calls_only'])
+        self.assertEqual([u['pseudoShare'] for u in report['units']], [1, 0])
 
     def test_kill_caps_determinism_and_no_file_written(self):
         data = self.input('def value(x):\n    if x < 2:\n        return True\n    return False\n', 'from logic import value\ndef test_value():\n    assert value(1) is True\n    assert value(3) is False\n')

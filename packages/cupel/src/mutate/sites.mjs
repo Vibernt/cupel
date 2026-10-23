@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { extname, join } from 'node:path';
 import { generateMutants } from './operators.mjs';
+import { bodySites } from './body-sites.mjs';
 import { checkValidity } from './validity.mjs';
 import { parseTypeScript, projectTypeScript, scanJsx } from '../lang/js/project-typescript.mjs';
 import { skipFile } from '../collect/skipped.mjs';
@@ -12,7 +13,9 @@ const JS_EXTENSIONS = new Set(['.mjs', '.js', '.cjs']);
 const TS_EXTENSIONS = new Set(['.ts', '.mts', '.cts']);
 const JSX_EXTENSIONS = new Set(['.jsx', '.tsx']);
 
-export function sourceMutants(root, source, text, ts) {
+export function sourceMutants(root, source, text, ts, functions = false) {
+  const generate = (value, scanned) => functions ? bodySites(source, value, scanned) :
+    [...generateMutants(source, value, scanned), ...bodySites(source, value, scanned)];
   const ext = extname(source);
   if (TS_EXTENSIONS.has(ext)) {
     let stripped;
@@ -20,16 +23,21 @@ export function sourceMutants(root, source, text, ts) {
     catch (stripError) {
       ts ??= projectTypeScript(root);
       if (!ts) throw new Error(`${stripError.message}; typescript is not resolvable from the project root`);
-      return generateMutants(source, text, scanJsx(ts, source, text).tokens).map((m) => ({ ...m, mode: 'typescript-scanned' }));
+      const scanned = scanJsx(ts, source, text).tokens;
+      const all = functions ? bodySites(source, text, scanned) :
+        [...generateMutants(source, text, scanned), ...bodySites(source, text, scanned)];
+      return all.map((m) => ({ ...m, mode: 'typescript-scanned' }));
     }
-    return generateMutants(source, stripped).map((m) => ({ ...m, mode: 'typescript' }));
+    const all = functions ? bodySites(source, text) :
+      [...generateMutants(source, stripped), ...bodySites(source, text)];
+    return all.map((m) => ({ ...m, mode: 'typescript' }));
   }
   if (JSX_EXTENSIONS.has(ext)) {
     ts ??= projectTypeScript(root);
     if (!ts) return null;
-    return generateMutants(source, text, scanJsx(ts, source, text).tokens).map((m) => ({ ...m, mode: 'jsx' }));
+    return generate(text, scanJsx(ts, source, text).tokens).map((m) => ({ ...m, mode: 'jsx' }));
   }
-  return generateMutants(source, text);
+  return generate(text);
 }
 
 export async function candidateValidity(root, items) {
@@ -53,7 +61,7 @@ export async function candidateValidity(root, items) {
   return { errors };
 }
 
-export async function enumerateSites({ root, lines, log, diagnostics = [] }) {
+export async function enumerateSites({ root, lines, log, diagnostics = [], functions = false }) {
   const skipped = new Map();
   const candidates = [];
   const stats = { generated: 0, logging: 0, outOfScope: 0 };
@@ -68,7 +76,7 @@ export async function enumerateSites({ root, lines, log, diagnostics = [] }) {
       const ts = JSX_EXTENSIONS.has(ext) ? projectTypeScript(root) : null;
       if (JSX_EXTENSIONS.has(ext) && !ts) throw new Error('typescript is not resolvable from the project root');
       text = readFileSync(join(root, source), 'utf8');
-      all = sourceMutants(root, source, text, ts);
+      all = sourceMutants(root, source, text, ts, functions);
     } catch (error) {
       skipped.set(source, String(error?.message ?? error));
       continue;

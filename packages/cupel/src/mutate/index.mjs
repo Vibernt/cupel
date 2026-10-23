@@ -73,6 +73,12 @@ function scopeLines({ input, cfg, model, scope }) {
   if (scope?.critical) {
     for (const [path, info] of model.sources) if (info.critical) add(path, info.coverable);
   }
+  if (scope?.functions) {
+    for (const test of input.tests) {
+      if (test.status !== 'passed') continue;
+      for (const [path, value] of Object.entries(model.byTest[test.id] ?? {})) add(path, parseLines(value));
+    }
+  }
   for (const [path, lineSet] of Object.entries(scope?.changed ?? {})) {
     if (!model.sources.has(path)) continue;
     const ranges = intervalsOf(lineSet);
@@ -398,15 +404,28 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
   const deadline = started + maxSeconds * 1000;
   const model = mutationModel(input, cfg, scope?.targeted ?? []);
   const { lines, own } = scopeLines({ input, cfg, model, scope });
-  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log, diagnostics });
+  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log, diagnostics, functions: !!scope.functions });
   if (metrics) Object.assign(metrics, { generated: stats.generated, sites: candidates.length, textBuilds: 0, valid: 0, invalid: 0, run: 0 });
 
   // Sampling: mutants on targeted units' own lines first, so those units can be complete; the rest fill the cap.
   const onTargeted = (m) => [...own.values()].some((o) => o.has(m.source) && hasLine(o.get(m.source), m.line));
   const first = candidates.filter(onTargeted);
   const rest = candidates.filter((m) => !onTargeted(m));
+  const primaryByFunction = new Map(candidates.filter((m) => m.variant === 0).map((m) => [m.functionKey, m.id]));
   let ordered = candidates;
-  if (candidates.length > maxMutants) {
+  if (scope.functions) {
+    const primary = candidates.filter((m) => m.variant === 0);
+    const secondary = candidates.filter((m) => m.variant === 1);
+    const targeted = primary.filter(onTargeted);
+    const other = primary.filter((m) => !onTargeted(m));
+    if (primary.length > maxMutants) {
+      const preferred = targeted.length >= maxMutants ? wholeUnits(targeted, own, maxMutants) :
+        [...targeted, ...sample(other, maxMutants - targeted.length, seed)];
+      const chosen = new Set(preferred);
+      ordered = [...preferred, ...seededOrder(targeted.filter((m) => !chosen.has(m)), seed),
+        ...seededOrder(other.filter((m) => !chosen.has(m)), seed), ...secondary];
+    } else ordered = [...primary, ...secondary];
+  } else if (candidates.length > maxMutants) {
     // Keep the old seeded subset and source order when every drawn mutant is valid. Invalid draws use the
     // remaining targeted sites first, then the remaining sites, in deterministic seeded order.
     const preferred = first.length >= maxMutants
@@ -427,9 +446,14 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     const byId = new Map();
     let cursor = 0;
     while (cursor < ordered.length && byId.size < maxMutants && performance.now() < deadline) {
-      const batch = ordered.slice(cursor, cursor + Math.min(session.jobs, maxMutants - byId.size));
+      const boundary = scope.functions && ordered[cursor]?.variant === 0
+        ? ordered.findIndex((m, k) => k >= cursor && m.variant === 1) : -1;
+      const batchSize = Math.min(session.jobs, maxMutants - byId.size,
+        boundary < 0 ? ordered.length - cursor : boundary - cursor);
+      const batch = ordered.slice(cursor, cursor + batchSize);
       cursor += batch.length;
-      const built = batch.flatMap((m) => {
+      const ready = scope.functions ? batch.filter((m) => m.variant === 0 || byId.get(primaryByFunction.get(m.functionKey))?.status === 'survived') : batch;
+      const built = ready.flatMap((m) => {
         if (skipped.has(m.source)) return [];
         try { return [{ m, text: applyMutant(readFileSync(join(root, m.source), 'utf8'), m) }]; }
         catch (error) {
@@ -462,11 +486,13 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
       if (byId.size && byId.size % 25 === 0) log(`mutate: ${byId.size}/${maxMutants}`);
     }
     const mutants = candidates.filter((m) => byId.has(m.id)).map((m) => entry(m, byId.get(m.id)));
-    const sampled = cursor < ordered.length || mutants.length < candidates.length - invalid.size;
-    if (sampled) log(`mutate: sampled ${mutants.length} of ${candidates.length - invalid.size} known valid sites (seed ${seed})`);
+    const eligible = scope.functions ? candidates.filter((m) => m.variant === 0 ||
+      byId.get(primaryByFunction.get(m.functionKey))?.status === 'survived') : candidates;
+    const sampled = eligible.some((m) => !byId.has(m.id) && !invalid.has(m.id));
+    if (sampled) log(`mutate: sampled ${mutants.length} of ${eligible.length - invalid.size} known valid sites (seed ${seed})`);
     if (performance.now() >= deadline) log(`mutate: maxSeconds (${maxSeconds}) reached; ${ordered.length - cursor} sites not drawn`);
     log(`mutate: ${metrics?.valid ?? byId.size} valid, ${invalid.size} invalid, ${mutants.length} run with ${session.jobs} processes`);
-    const targeted = targetedUnits({ own, eligible: candidates.filter((m) => !invalid.has(m.id)), results: byId, skipped });
+    const targeted = targetedUnits({ own, eligible: eligible.filter((m) => !invalid.has(m.id)), results: byId, skipped });
     return { mutants, targeted, seed, sampled };
   } finally {
     session.close();
