@@ -54,7 +54,7 @@ export class VitestMutantRunner {
     return new Promise((resolve) => {
       const started = performance.now();
       const args = [...this.command.slice(1), 'run', '--root', this.root, '--config', this.config,
-        '--configLoader', 'runner', '--pool=forks', '--reporter', this.reporter,
+        '--pool=forks', '--reporter', this.reporter,
         ...this.projects.flatMap((project) => ['--project', project]), file];
       const child = spawn(this.command[0], args, { cwd: this.root, env, detached: true, stdio: ['ignore', 'ignore', 'pipe'] });
       let stderr = '', timedOut = false, cut = false, finished = false;

@@ -27,7 +27,8 @@
 // Config: { root, sources: [rel paths], testFiles: [real paths], out, mode: 'coverage' | 'spawns', childCoverage }
 // Node 22.3+ (TestContext.fullName). Standard library only.
 
-import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
+import { writeAtomicJson } from '../atomic-json.mjs';
 import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { basename, delimiter, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -262,6 +263,6 @@ async function install(cfg, mainFile) {
       setup: Object.fromEntries(setup),
       childDirs,
     };
-    writeFileSync(join(cfg.out, `${process.pid}.json`), JSON.stringify(body));
+    writeAtomicJson(join(cfg.out, `${process.pid}.json`), body);
   });
 }

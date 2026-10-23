@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectNode } from '../src/collect/node/index.mjs';
 import { collectVitest } from '../src/collect/vitest/index.mjs';
 import { analyseAssertions } from '../src/analysis/assertions.mjs';
 import { main } from '../src/cli/main.mjs';
+import { linkVitestModules } from './vitest-modules.mjs';
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
 async function project(framework, source, check, options = {}) {
   mkdirSync(scratch, { recursive: true });
@@ -14,7 +15,7 @@ async function project(framework, source, check, options = {}) {
   try {
     mkdirSync(join(root, 'tests'));
     writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module', private: true, ...(framework === 'vitest' ? { devDependencies: { vitest: '4.1.11' } } : {}) }));
-    if (framework === 'vitest') symlinkSync('/Users/vid/codecrystal/hub-ts/node_modules', join(root, 'node_modules'));
+    if (framework === 'vitest') linkVitestModules(root, '/Users/vid/codecrystal/hub-ts/node_modules');
     const { testFile = 'tests/example.test.mjs', ...collectionOptions } = options;
     writeFileSync(join(root, testFile), source);
     const out = join(root, '.scratch/input.json');

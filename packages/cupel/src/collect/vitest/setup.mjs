@@ -3,6 +3,7 @@ import { installVitestAssertions } from '../assertions/vitest.mjs';
 // Loaded in each Vitest fork. The inspector session never opens a listening port.
 import { Session } from 'node:inspector';
 import { writeFileSync } from 'node:fs';
+import { writeAtomicJson } from '../atomic-json.mjs';
 import { createHash } from 'node:crypto';
 import { positiveIntervals, unionIntervals } from '../node/intervals.mjs';
 import { watchInterpreters } from './interpreters.mjs';
@@ -63,11 +64,11 @@ const flush = () => {
     take();
     const entries = (map) => Object.fromEntries(map);
     const fileId = currentFile ? createHash('sha256').update(currentFile).digest('hex').slice(0, 16) : 'unknown';
-    writeFileSync(`${cfg.out}/${process.pid}-${fileId}.json`, JSON.stringify({ file: currentFile,
+    writeAtomicJson(`${cfg.out}/${process.pid}-${fileId}.json`, { file: currentFile,
       scripts: entries(scripts), setup: entries(setup),
       tests: Object.fromEntries([...tests].map(([id, t]) => [id, { coverage: entries(t.coverage), spawnsInterpreter: t.spawnsInterpreter, ...(cfg.assertions ? { assertions: t.assertions } : {}) }])),
       failures,
-    }));
+    });
   } catch (e) {
     writeFileSync(`${cfg.out}/${process.pid}.error`, String(e.stack ?? e));
   }

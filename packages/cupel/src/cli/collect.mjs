@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, 
 import { spawnSync } from 'node:child_process';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { environment } from './errors.mjs';
+import { environment, usage } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
@@ -54,8 +54,16 @@ function hasPytestTests(root) {
 }
 
 function externalRunner(root, cfg) {
-  for (const [name, runner] of Object.entries(cfg.runners ?? {})) {
+  const named = Object.entries(cfg.runners ?? {});
+  if (named.length > 1) throw usage(`multiple runners configured (${named.map(([name]) => name).join(', ')}); collection supports one runner`);
+  if (named.length) {
+    const [name, runner] = named[0];
     if (runner.collector) return { name, ...runner };
+    if (name === 'go') return { name, ...runner, collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-go` };
+    if (name === 'minitest') return { name, ...runner, collector: `ruby ${quote(RUBY_BIN)} collect` };
+    if (name === 'pytest') return { name, ...runner, collector: 'python3 -m vibernt_cupel collect' };
+    if (name === 'node' || name === 'vitest') return null;
+    throw usage(`runner ${name} needs a collector command`);
   }
   if (existsSync(join(root, 'go.mod')) && !hasNodeTests(root) && !hasPytestTests(root)) {
     return { name: 'go', collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-go` };
@@ -114,7 +122,8 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
         throw environment(collectorError(`external collector prepare failed (${ready.error?.message ?? `exit ${ready.status}`}): ${cause}`, detail, dir));
       }
     }
-    const command = `${runner.collector} --root ${quote(root)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(u)}`).join(' ')} --out ${quote(output)}`;
+    const tests = runner.tests && ['go', 'minitest'].includes(runner.name) ? ` --tests ${quote(runner.tests)}` : '';
+    const command = `${runner.collector} --root ${quote(root)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(u)}`).join(' ')} --out ${quote(output)}${tests}`;
     log(`external collector: ${runner.name}`);
     const child = spawnSync(command, { cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 28 });
     if (child.error || child.status !== 0) {
@@ -219,6 +228,11 @@ export async function requireCollector(env, root, cfg) {
   const external = externalRunner(root, cfg);
   if (external) return { collectNode: (opts) => collectExternal(external, opts) };
   if (env.NODE_ENV === 'test' && env.CUPEL_TEST_COLLECTOR) {
+    const mod = await loadModule('collector', env);
+    if (!mod) throw environment('collector not available');
+    return mod;
+  }
+  if (cfg.runners?.node) {
     const mod = await loadModule('collector', env);
     if (!mod) throw environment('collector not available');
     return mod;

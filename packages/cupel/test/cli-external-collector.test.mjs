@@ -42,6 +42,13 @@ test('Python project without node tests selects the bundled pytest collector', (
     const input = JSON.parse(readFileSync(out, 'utf8'));
     assert.equal(input.runtime.name, 'python');
     assert.equal(input.tests.length, 5);
+    writeFileSync(join(root, 'frontend.test.mjs'), "import { test } from 'node:test'; test('frontend', () => {});\n");
+    writeFileSync(join(root, 'cupel.json'), '{"runners":{"pytest":{}}}');
+    const configured = spawnSync(process.execPath, [bin, 'label', '--runs', '1', '--out', out], {
+      cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${dirname(python)}:${process.env.PATH}`, PYTHONDONTWRITEBYTECODE: '1' },
+    });
+    assert.equal(configured.status, 0, configured.stderr);
+    assert.equal(JSON.parse(readFileSync(out, 'utf8')).runtime.name, 'python');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -71,6 +78,16 @@ test('Gemfile with Minitest tests selects the external Ruby collector', (t) => {
     });
     assert.equal(mixed.status, 3);
     assert.match(mixed.stderr, /no test files match/);
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { minitest: { tests: 'test/{math,other}_test.rb' } } }));
+    const configured = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1', '--out', out], {
+      cwd: root, encoding: 'utf8', env: process.env,
+    });
+    assert.equal(configured.status, 0, configured.stderr);
+    assert.equal(JSON.parse(readFileSync(out, 'utf8')).runtime.name, 'ruby');
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { minitest: { tests: 'test/missing_test.rb' } } }));
+    const unmatched = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1'], { cwd: root, encoding: 'utf8', env: process.env });
+    assert.equal(unmatched.status, 3);
+    assert.match(unmatched.stderr, /no test files match test\/missing_test\.rb/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
