@@ -1,0 +1,44 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "a",
+        "reasons": [
+          "same-shape-group"
+        ]
+      },
+      {
+        "unit": "b",
+        "reasons": [
+          "same-shape-group"
+        ]
+      },
+      {
+        "unit": "c",
+        "reasons": [
+          "no-unique-evidence"
+        ]
+      },
+      {
+        "unit": "d",
+        "reasons": [
+          "brittle"
+        ]
+      },
+      {
+        "unit": "e",
+        "reasons": [
+          "never-passes"
+        ]
+      },
+      {
+        "unit": "z",
+        "tier": "critical",
+        "reasons": [
+          "brittle"
+        ]
+      }
+    ],
+    "critical": 1
+  }
+}

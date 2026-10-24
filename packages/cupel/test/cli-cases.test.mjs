@@ -41,12 +41,16 @@ function cliArgs(dir, c) {
     args.push('--approvals', f);
   }
   if (a.tests !== undefined) args.push(...a.tests);
+  if (a.units !== undefined) for (const u of a.units) args.push('--units', u);
+  if (a.limit !== undefined) args.push('--limit', String(a.limit));
+  if (existsSync(p('assertions.json'))) args.push('--assertions', p('assertions.json'));
   return args;
 }
 
 function engine(dir, c) {
   const p = (f) => `${CASES}${dir}/${f}`;
   const inputs = existsSync(p('base.json')) ? { base: read(p('base.json')), head: read(p('head.json')) } : { input: read(p('input.json')) };
+  if (existsSync(p('assertions.json'))) inputs.assertions = read(p('assertions.json'));
   const config = existsSync(p('config.json')) ? read(p('config.json')) : {};
   return run(c.command, inputs, config, c.args ?? {}, schemas);
 }
@@ -70,3 +74,13 @@ for (const dir of readdirSync(CASES).sort()) {
     assert.doesNotMatch(human.stdout, /\x1b\[/, 'no colour when stdout is not a TTY');
   });
 }
+
+test('review reads the adjacent assertion sidecar when replaying an input', () => {
+  const dir = `${CASES}074-review-assertion-sidecar/`;
+  const input = join(CWD, 'review-input.json');
+  writeFileSync(input, readFileSync(`${dir}input.json`));
+  writeFileSync(`${input}.assertions.json`, readFileSync(`${dir}assertions.json`));
+  const result = cli(['review', '--input', input, '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).review.candidates[0].evidence.assertions.assertionCount, 1);
+});

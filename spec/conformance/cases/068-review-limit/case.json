@@ -1,0 +1,14 @@
+{
+  "description": "Limit applies after sorting and may exclude a later candidate.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V2",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "limit": 2
+  },
+  "expectExit": 0
+}

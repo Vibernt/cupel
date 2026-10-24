@@ -9,7 +9,7 @@
 //     the "Private :: Do Not Upload" classifier. Lifting either needs the owner (L6).
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -91,7 +91,18 @@ export function runChecks(root = ROOT) {
   for (const f of walk(join(root, 'packages/cupel-py/src'), ['.py'])) {
     report(f, findViolations(readFileSync(f, 'utf8'), PY_NETWORK), 'network call');
   }
-  for (const f of walk(join(root, 'packages/cupel/src/engine'), ['.mjs', '.js', '.cjs'])) {
+  // The engine and every module it imports, transitively, through relative imports.
+  const engineModules = new Set();
+  const visitEngine = (file) => {
+    if (engineModules.has(file)) return;
+    engineModules.add(file);
+    for (const [, spec] of readFileSync(file, 'utf8').matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      const next = join(dirname(file), spec);
+      if (existsSync(next)) visitEngine(next);
+    }
+  };
+  for (const f of walk(join(root, 'packages/cupel/src/engine'), ['.mjs', '.js', '.cjs'])) visitEngine(f);
+  for (const f of [...engineModules].sort()) {
     const text = readFileSync(f, 'utf8');
     report(f, findViolations(text, JS_NONDETERMINISM), 'clock or randomness in engine');
     report(f, findViolations(text, JS_ENGINE_IMPURE), 'runtime API in engine (engine must be pure)');

@@ -1,0 +1,20 @@
+{
+  "version": "cupel-assertions/1",
+  "inputIdentity": "{\"tests\":[[\"u\",\"u\",\"passed\"]],\"sources\":[[\"src/a.mjs\",null]],\"shapes\":[]}",
+  "tests": {
+    "u": {
+      "count": 1,
+      "records": [
+        {
+          "matcher": "equal",
+          "subject": "x",
+          "expectedFingerprint": "1",
+          "trivial": false
+        }
+      ],
+      "capHit": false,
+      "incomplete": false,
+      "errors": []
+    }
+  }
+}

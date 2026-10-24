@@ -1,0 +1,20 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "n",
+        "evidence": {
+          "assertions": {
+            "assertionCount": 1
+          }
+        }
+      },
+      {
+        "unit": "p",
+        "evidence": {
+          "assertions": "$absent"
+        }
+      }
+    ]
+  }
+}

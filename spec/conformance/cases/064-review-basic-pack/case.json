@@ -1,0 +1,23 @@
+{
+  "description": "Same-shape siblings and a rechecked no-unique-evidence unit enter a review pack with line sets and overlaps.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V1",
+      "polarity": "positive"
+    },
+    {
+      "id": "V4",
+      "polarity": "positive"
+    },
+    {
+      "id": "V5",
+      "polarity": "positive"
+    },
+    {
+      "id": "I4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

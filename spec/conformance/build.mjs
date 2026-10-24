@@ -20,7 +20,7 @@ const NODE22 = { name: 'node', version: '22.23.3' };
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
 /** Builds an input. `cov` maps test id to a line set of `src` (default src/a.mjs) or to { source: lines }. */
-function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, runtime = NODE22, runtimes, spec = 'cupel-spec/1' }) {
+function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, functionSites, runtime = NODE22, runtimes, spec = 'cupel-spec/1' }) {
   const coverage = { granularity };
   if (granularity === 'test') {
     coverage.byTest = Object.fromEntries(Object.entries(cov).map(([id, v]) => [id, typeof v === 'string' ? { 'src/a.mjs': v } : v]));
@@ -34,6 +34,7 @@ function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = 
   if (mutation) out.mutation = mutation;
   if (brittleness) out.brittleness = brittleness;
   if (shapes) out.shapes = shapes;
+  if (functionSites) out.functionSites = functionSites;
   return out;
 }
 
@@ -1178,11 +1179,140 @@ kase('055-check-weakens-without-head-mutation', {
   expected: { check: { verdicts: [{ id: 'w', verdict: 'weakens', lost: { lines: {}, mutants: ['m1'] } }] } },
 });
 
+// ---------- cleanup review pack (V1-V5, I4) ----------
+
+const REVIEW_NOTICE = "No unique evidence is not proof that a test is redundant. Read each candidate's assertions; a proposed removal or merge must pass guard before it is committed. Cupel never advises removal.";
+const REVIEW_BASIC = input({
+  tests: [t('a', 'tests/g.test.mjs'), t('b', 'tests/g.test.mjs'), t('n', 'tests/n.test.mjs'), t('x', 'tests/x.test.mjs')],
+  cov: { a: '1-2', b: '1-2', n: '3-4', x: '3-4' },
+  shapes: { a: [1, 2, 3], b: [1, 2, 3] },
+  rechecked: ['n'], mutation: { mutants: [], targeted: ['n'] },
+});
+const basicA = { unit: 'a', file: 'tests/g.test.mjs', tier: 'standard', tierReason: 'default', status: 'passed',
+  reasons: ['same-shape-group'], evidence: { ownLines: { 'src/a.mjs': '1-2' }, uniqueLines: {}, kills: 0, uniqueKills: 0,
+    overlaps: [{ unit: 'b', sharedLines: 2, sharedKills: 0, coversAllOf: true }], group: { id: 'g1', members: ['a', 'b'] }, brittle: [], assertions: '$absent', pseudoTestedFunctions: '$absent' }, guardRequired: true };
+const basicB = { ...basicA, unit: 'b', evidence: { ...basicA.evidence, overlaps: [{ unit: 'a', sharedLines: 2, sharedKills: 0, coversAllOf: true }] } };
+const basicN = { unit: 'n', file: 'tests/n.test.mjs', tier: 'standard', tierReason: 'default', status: 'passed',
+  reasons: ['no-unique-evidence'], evidence: { ownLines: { 'src/a.mjs': '3-4' }, uniqueLines: {}, kills: 0, uniqueKills: 0,
+    overlaps: [{ unit: 'x', sharedLines: 2, sharedKills: 0, coversAllOf: true }], group: null, brittle: [] }, guardRequired: true };
+
+kase('064-review-basic-pack', { description: 'Same-shape siblings and a rechecked no-unique-evidence unit enter a review pack with line sets and overlaps.',
+  command: 'review', rules: rules('+V1 +V4 +V5 +I4'), input: REVIEW_BASIC, expectExit: 0,
+  expected: { command: 'review', suite: '$absent', units: '$absent', review: { notice: REVIEW_NOTICE, candidates: [basicA, basicB, basicN], critical: 0 } } });
+
+kase('065-review-overlap-superset', { description: 'A partner covers every own line and every detected kill while also having more evidence.',
+  command: 'review', rules: rules('+V4'), input: input({
+    tests: [t('u', 'tests/u.test.mjs'), t('v', 'tests/v.test.mjs')], cov: { u: '1-2', v: '1-3' },
+    brittleness: [{ test: 'u', kind: 'source-text' }],
+    mutation: { mutants: [m('m1', 1, 'killed', ['u', 'v']), m('m2', 3, 'killed', ['v'])] },
+  }), expectExit: 0, expected: { review: { candidates: [{ unit: 'u', reasons: ['brittle'], evidence: {
+    ownLines: { 'src/a.mjs': '1-2' }, uniqueLines: {}, kills: 1, uniqueKills: 0,
+    overlaps: [{ unit: 'v', sharedLines: 2, sharedKills: 1, coversAllOf: true }], brittle: ['source-text'] } }] } } });
+
+const REVIEW_ORDER = input({
+  tests: [t('a', 'tests/g.test.mjs'), t('b', 'tests/g.test.mjs'), t('c', 'tests/c.test.mjs'),
+    t('x', 'tests/x.test.mjs'), t('d', 'tests/d.test.mjs'), t('e', 'tests/e.test.mjs', 'e', { status: 'failed', runStatuses: ['failed', 'skipped'] }),
+    t('z', 'tests/z.test.mjs', 'z', { tags: ['critical'] })],
+  cov: { a: '1-2', b: '1-2', c: '3', x: '3', d: '4', e: '5', z: '6' },
+  shapes: { a: [1, 2, 3], b: [1, 2, 3] }, rechecked: ['c'], mutation: { mutants: [], targeted: ['c'] },
+  brittleness: [{ test: 'd', kind: 'source-text' }, { test: 'z', kind: 'css-class' }],
+});
+kase('066-review-order-critical-last', { description: 'Groups, no-unique evidence, brittleness and never-passing units are ordered before critical candidates.',
+  command: 'review', rules: rules('+V2 -V2'), input: REVIEW_ORDER, expectExit: 0,
+  expected: { review: { candidates: [
+    { unit: 'a', reasons: ['same-shape-group'] }, { unit: 'b', reasons: ['same-shape-group'] },
+    { unit: 'c', reasons: ['no-unique-evidence'] }, { unit: 'd', reasons: ['brittle'] },
+    { unit: 'e', reasons: ['never-passes'] }, { unit: 'z', tier: 'critical', reasons: ['brittle'] },
+  ], critical: 1 } } });
+
+kase('067-review-units-filter', { description: 'A test file selects its candidates while the others remain outside the pack.',
+  command: 'review', rules: rules('+I4 -V1'), input: REVIEW_BASIC, args: { units: ['tests/n.test.mjs'] }, expectExit: 0,
+  expected: { review: { candidates: [{ unit: 'n', reasons: ['no-unique-evidence'] }], critical: 0 } } });
+
+kase('068-review-limit', { description: 'Limit applies after sorting and may exclude a later candidate.',
+  command: 'review', rules: rules('-V2'), input: REVIEW_BASIC, args: { limit: 2 }, expectExit: 0,
+  expected: { review: { candidates: [{ unit: 'a' }, { unit: 'b' }], critical: 0 } } });
+
+kase('069-review-never-passes', { description: 'Failed and skipped units get a never-passes reason without claiming unique evidence.',
+  command: 'review', rules: rules('-V4'), input: input({ tests: [t('f', 'tests/f.test.mjs', 'f', { status: 'failed', runStatuses: ['failed', 'failed'] }),
+    t('s', 'tests/s.test.mjs', 's', { status: 'skipped', runStatuses: ['skipped', 'skipped'] })], cov: { f: '1', s: '2' } }), expectExit: 0,
+  expected: { review: { candidates: [{ unit: 'f', reasons: ['never-passes'], status: 'failed' },
+    { unit: 's', reasons: ['never-passes'], status: 'skipped' }] } } });
+
+kase('070-review-vocabulary', { description: 'Machine-checked vocabulary forbids removal-language outside the fixed notice.',
+  command: 'review', rules: rules('-V5'), input: REVIEW_BASIC, forbidVocabulary: true, expectExit: 0,
+  expected: { review: { notice: REVIEW_NOTICE, candidates: [{ unit: 'a' }, { unit: 'b' }, { unit: 'n' }] } } });
+
+kase('071-review-integrity-error', { description: 'A function site without a matching mutant is rejected before the review section is built.',
+  command: 'review', rules: rules('-I4'), input: input({ tests: [t('u', 'tests/u.test.mjs')], cov: { u: '1' },
+    functionSites: [{ id: 'missing', source: 'src/a.mjs', operator: 'body-replace', functionKey: 'f', functionName: 'f', startLine: 1, endLine: 1, variant: 0 }] }),
+  expectExit: 2, expected: { diagnostics: [{ code: 'invalid-function-site', severity: 'error', path: '/functionSites/0' }], review: '$absent' } });
+
+const PSEUDO_SITE = { id: 'body', source: 'src/a.mjs', operator: 'body-replace', functionKey: 'f', functionName: 'f', startLine: 1, endLine: 2, variant: 0 };
+const pseudoInput = (status) => input({ tests: [t('p', 'tests/p.test.mjs')], cov: { p: '1-2' },
+  mutation: { mutants: [{ ...m('body', 1, status, status === 'killed' ? ['p'] : undefined), operator: 'body-replace' }] },
+  functionSites: [PSEUDO_SITE],
+});
+
+kase('072-review-pseudo-test', { description: 'A covered function whose body replacement survives marks an otherwise unlisted pseudo-test.',
+  command: 'review', rules: rules('+V3'), input: pseudoInput('survived'), expectExit: 0,
+  expected: { review: { candidates: [{ unit: 'p', reasons: ['pseudo-test'], evidence: {
+    pseudoTestedFunctions: ['f'], ownLines: { 'src/a.mjs': '1-2' }, uniqueLines: { 'src/a.mjs': '1-2' }, kills: 0 } }] } } });
+
+kase('073-review-pseudo-killed', { description: 'A killed body replacement is tested and does not create a pseudo-test candidate.',
+  command: 'review', rules: rules('-V3 -V1'), input: pseudoInput('killed'), expectExit: 0,
+  expected: { review: { candidates: [], critical: 0 } } });
+
+const ASSERTION_INPUT = input({ tests: [t('u', 'tests/u.test.mjs')], cov: { u: '1' }, brittleness: [{ test: 'u', kind: 'source-text' }] });
+const ASSERTION_SIDECAR = {
+  version: 'cupel-assertions/1',
+  inputIdentity: JSON.stringify({ tests: [['u', 'u', 'passed']], sources: [['src/a.mjs', null]], shapes: [] }),
+  tests: { u: { count: 1, records: [{ matcher: 'equal', subject: 'x', expectedFingerprint: '1', trivial: false }], capHit: false, incomplete: false, errors: [] } },
+};
+kase('074-review-assertion-sidecar', { description: 'A matching S10b sidecar supplies a fingerprint summary without changing candidate selection.',
+  command: 'review', rules: rules('+V3 +I4'), input: ASSERTION_INPUT, assertions: ASSERTION_SIDECAR, expectExit: 0,
+  expected: { review: { candidates: [{ unit: 'u', evidence: { assertions: {
+    assertionCount: 1, fingerprints: ['["equal","x","1"]'], uniqueFingerprints: ['["equal","x","1"]'],
+    incomplete: false, capHit: false, assertionFree: false, subsumedBy: [], cloneOf: [],
+  } } }] } } });
+
+kase('075-review-sidecar-mismatch', { description: 'A sidecar for another input is an integrity error, never silently ignored.',
+  command: 'review', rules: rules('-I4'), input: ASSERTION_INPUT,
+  assertions: { ...ASSERTION_SIDECAR, inputIdentity: 'wrong' }, expectExit: 2,
+  expected: { diagnostics: [{ code: 'invalid-assertions', severity: 'error' }], review: '$absent' } });
+
+const MULTI_REVIEW = input({
+  sources: { 'src/a.mjs': { coverable: '1' }, 'src/b.py': { coverable: '1' } },
+  runtimes: [{ runner: 'node', name: 'node', version: '22.23.3' }, { runner: 'py', name: 'python', version: '3.12' }],
+  tests: [t('n', 'tests/n.test.mjs', 'n', { runner: 'node' }), t('p', 'tests/test_p.py', 'p', { runner: 'py' })],
+  cov: { n: { 'src/a.mjs': '1' }, p: { 'src/b.py': '1' } },
+  brittleness: [{ test: 'n', kind: 'source-text' }, { test: 'p', kind: 'source-text' }],
+});
+kase('076-review-multi-runner-assertions', { description: 'A merged S10b sidecar supplies one runner, leaving the other runner unobserved.',
+  command: 'review', rules: rules('+V3 -V3'), input: MULTI_REVIEW,
+  assertions: { version: 'cupel-assertions-multi/1', runners: { node: {
+    version: 'cupel-assertions/1',
+    inputIdentity: JSON.stringify({ tests: [['n', 'n', 'passed']], sources: [['src/a.mjs', null]], shapes: [] }),
+    tests: { n: { count: 1, records: [{ matcher: 'equal', subject: 'x', expectedFingerprint: '1', trivial: false }], capHit: false, incomplete: false, errors: [] } },
+  } } }, expectExit: 0,
+  expected: { review: { candidates: [{ unit: 'n', evidence: { assertions: { assertionCount: 1 } } },
+    { unit: 'p', evidence: { assertions: '$absent' } }] } } });
+
+kase('077-review-passed-in-one-run', { description: 'A failed aggregate status with a passing run cannot claim that the test never passes.',
+  command: 'review', rules: rules('-V1'), input: input({ tests: [t('f', 'tests/f.test.mjs', 'f', { status: 'failed', runStatuses: ['passed', 'failed'] })], cov: { f: '1' } }),
+  expectExit: 0, expected: { review: { candidates: [] } } });
+
+kase('078-review-unknown-unit', { description: 'An unknown review selection fails integrity instead of producing an empty pack.',
+  command: 'review', rules: rules('-I4'), input: REVIEW_BASIC, args: { units: ['tests/missing.test.mjs'] }, expectExit: 2,
+  expected: { diagnostics: [{ code: 'unknown-unit', severity: 'error', path: '/units/0' }], review: '$absent' } });
+
+
 // ---------- write ----------
 
 function filesFor(c) {
   const files = {};
   const caseJson = { description: c.description, command: c.command, rules: c.rules };
+  if (c.forbidVocabulary) caseJson.forbidVocabulary = true;
   if (c.args) caseJson.args = c.args;
   caseJson.expectExit = c.expectExit;
   files['case.json'] = caseJson;
@@ -1190,6 +1320,7 @@ function filesFor(c) {
   if (c.base) files['base.json'] = c.base;
   if (c.head) files['head.json'] = c.head;
   if (c.config) files['config.json'] = c.config;
+  if (c.assertions) files['assertions.json'] = c.assertions;
   files['expected.json'] = c.expected;
   return Object.fromEntries(Object.entries(files).map(([k, v]) => [k, JSON.stringify(v, null, 2) + '\n']));
 }

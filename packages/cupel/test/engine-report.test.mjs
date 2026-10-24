@@ -185,6 +185,6 @@ test('seeded sweep: every command is deterministic and schema-valid on generated
 });
 
 test('every command is accepted and schemas are required', () => {
-  assert.deepEqual(COMMANDS, ['report', 'plan', 'check', 'guard', 'label', 'validate']);
+  assert.deepEqual(COMMANDS, ['report', 'plan', 'check', 'guard', 'label', 'validate', 'review']);
   assert.throws(() => run('report', { input: sample() }, {}, {}, {}), /schemas/);
 });

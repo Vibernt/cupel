@@ -57,6 +57,7 @@
           "unit": { "type": "string", "minLength": 1 },
           "tags": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "status": { "enum": ["passed", "failed", "skipped"] },
+          "runStatuses": { "type": "array", "minItems": 1, "items": { "enum": ["passed", "failed", "skipped"] } },
           "durationsMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
           "kind": { "enum": ["unit", "e2e"] },
           "runner": { "type": "string", "minLength": 1 },
@@ -120,6 +121,24 @@
     "shapes": {
       "type": "object",
       "additionalProperties": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }
+    },
+    "functionSites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "operator", "functionKey", "functionName", "startLine", "endLine", "variant"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "operator": { "const": "body-replace" },
+          "functionKey": { "type": "string", "minLength": 1 },
+          "functionName": { "type": "string" },
+          "startLine": { "type": "integer", "minimum": 1 },
+          "endLine": { "type": "integer", "minimum": 1 },
+          "variant": { "type": "integer", "minimum": 0, "maximum": 1 }
+        }
+      }
     }
   },
   "$defs": {

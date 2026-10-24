@@ -1,0 +1,11 @@
+{
+  "description": "A failed aggregate status with a passing run cannot claim that the test never passes.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

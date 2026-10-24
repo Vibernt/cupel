@@ -1,0 +1,15 @@
+{
+  "description": "A merged S10b sidecar supplies one runner, leaving the other runner unobserved.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V3",
+      "polarity": "positive"
+    },
+    {
+      "id": "V3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

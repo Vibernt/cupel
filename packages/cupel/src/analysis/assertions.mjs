@@ -55,3 +55,31 @@ export function analyseAssertions(input, sidecar) {
       subsumedBy, cloneOf, assertionFree: u.incomplete ? null : u.records.every((a) => a.trivial === true) };
   }) };
 }
+
+// The identity-only projection of one runner from a merged input. It matches the
+// reconstruction used by `cupel assertions --input`, without importing CLI I/O.
+function runnerIdentityInput(input, runtime) {
+  const tests = input.tests.filter((t) => t.runner === runtime.runner);
+  const ids = new Set(tests.map((t) => t.id));
+  const units = new Set(tests.map((t) => t.unit ?? t.id));
+  const files = new Set(tests.map((t) => t.file));
+  const selected = (obj, keys) => Object.fromEntries(Object.entries(obj ?? {}).filter(([key]) => keys.has(key)));
+  const coverage = input.coverage;
+  const covered = [selected(coverage.byTest, ids), selected(coverage.byFile, files), selected(coverage.setup, files)];
+  const paths = new Set(covered.flatMap((part) => Object.values(part).flatMap(Object.keys)));
+  const ext = runtime.name === 'node' ? /\.[cm]?[jt]sx?$/ : runtime.name === 'python' ? /\.py$/ :
+    runtime.name === 'go' ? /\.go$/ : runtime.name === 'rust' ? /\.rs$/ : /\.rb$/;
+  for (const path of Object.keys(input.sources)) if (ext.test(path)) paths.add(path);
+  return { tests: tests.map(({ runner, ...test }) => test), sources: selected(input.sources, paths), shapes: selected(input.shapes, units) };
+}
+
+/** Accepts the raw S10b sidecar for one runner or the CLI's merged sidecar. */
+export function analyseReviewAssertions(input, sidecar) {
+  if (!input.runtimes) return analyseAssertions(input, sidecar).units;
+  if (sidecar?.version !== 'cupel-assertions-multi/1' || !sidecar.runners ||
+      typeof sidecar.runners !== 'object' || Array.isArray(sidecar.runners)) throw new Error('merged input needs a multi-runner assertion sidecar');
+  const names = new Set(input.runtimes.map((r) => r.runner));
+  for (const name of Object.keys(sidecar.runners)) if (!names.has(name)) throw new Error(`unknown assertion runner: ${name}`);
+  return input.runtimes.flatMap((runtime) => sidecar.runners[runtime.runner]
+    ? analyseAssertions(runnerIdentityInput(input, runtime), sidecar.runners[runtime.runner]).units : []);
+}

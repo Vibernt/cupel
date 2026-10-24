@@ -1,5 +1,6 @@
 // S10a evidence only. This module has no I/O and does not change engine advice.
 import { lines } from '../engine/lines.mjs';
+import { cmp } from '../engine/order.mjs';
 
 const expand = (value) => lines(value).flatMap(([start, end]) => Array.from({ length: end - start + 1 }, (_, k) => start + k));
 const keyOf = (site) => site.functionKey ?? site.function_key;
@@ -32,7 +33,7 @@ export function analyzePseudo(input, sites) {
       endLine: fn.endLine, status: tested ? 'tested' : pseudoTested ? 'pseudo-tested' : 'incomplete',
       mutants: [first, second].filter(Boolean).map((m) => m.id) });
   }
-  functions.sort((a, b) => a.id.localeCompare(b.id));
+  functions.sort((a, b) => cmp(a.id, b.id));
   const units = new Map();
   for (const test of input.tests) {
     const id = test.unit ?? test.id;
@@ -56,7 +57,7 @@ export function analyzePseudo(input, sites) {
     rows.push({ id: unit.id, coveredFunctions: touched.map((fn) => fn.id), pseudoTestedFunctions: pseudo.map((fn) => fn.id),
       pseudoShare: touched.length ? pseudo.length / touched.length : 0, pseudoTest: onlyPseudo });
   }
-  rows.sort((a, b) => a.id.localeCompare(b.id));
+  rows.sort((a, b) => cmp(a.id, b.id));
   return { functions, pseudoTestedFunctions: functions.filter((fn) => fn.status === 'pseudo-tested'),
     testedFunctions: functions.filter((fn) => fn.status === 'tested'), units: rows,
     pseudoTests: rows.filter((unit) => unit.pseudoTest) };

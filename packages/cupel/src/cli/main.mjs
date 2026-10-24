@@ -51,6 +51,11 @@ const COMMANDS = {
     about: 'score every test and give advice',
     options: { input: S, out: S, evidence: B, 'no-mutation': B, runs: S, 'generated-at': S },
   },
+  review: {
+    usage: 'cupel review [--input FILE] [--config FILE] [--units ID_OR_FILE ...] [--limit N] [--assertions FILE] [--json]',
+    about: 'pack test evidence for an agent to review before changing tests',
+    options: { input: S, units: { type: 'string', multiple: true }, limit: S, assertions: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
+  },
   check: {
     usage: 'cupel check <test ids or files...> [--base <ref> | --base-input <file>] [--input <file>] [--no-mutation] [--runs N]',
     about: 'does a new or changed test add anything?',
@@ -216,7 +221,7 @@ class Context {
   async mutator() {
     if (this.o['no-mutation']) return null;
     const m = await loadModule('mutator', this.env);
-    if (!m && this.io.strictDependencies) throw environment('mutation not available');
+    if (!m && (this.io.strictDependencies || this.command === 'review')) throw environment('mutation not available');
     if (!m) this.log('mutation not available; continuing without mutation data');
     return m;
   }
@@ -404,6 +409,21 @@ const commands = {
     }
     if (got.collected) ctx.writeCollected(input, join(ctx.root, '.cupel', 'input.json'));
     return ctx.emit(result);
+  },
+
+  async review(ctx) {
+    const args = { ...ctx.args };
+    if (ctx.o.units !== undefined) args.units = ctx.o.units;
+    if (ctx.o.limit !== undefined) args.limit = /^[0-9]+$/.test(ctx.o.limit) ? Number(ctx.o.limit) : ctx.o.limit;
+    const pre = ctx.o.input === undefined && ctx.preflight('review', args);
+    if (pre) return ctx.emit(pre);
+    const { input, collected } = await singleInput(ctx, { mutation: true });
+    const sidecarPath = ctx.o.assertions !== undefined ? ctx.path(ctx.o.assertions) :
+      ctx.o.input !== undefined ? `${ctx.path(ctx.o.input)}.assertions.json` : null;
+    const assertions = sidecarPath && existsSync(sidecarPath) ? readJson(sidecarPath, 'assertion sidecar') : undefined;
+    if (ctx.o.assertions !== undefined && assertions === undefined) throw usage(`cannot read assertion sidecar ${sidecarPath}`);
+    if (collected) ctx.writeCollected(input, join(ctx.root, '.cupel', 'input.json'));
+    return ctx.emit(ctx.engine('review', { input, ...(assertions ? { assertions } : {}) }, args));
   },
 
   async label(ctx) {

@@ -1,0 +1,11 @@
+{
+  "description": "A partner covers every own line and every detected kill while also having more evidence.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Machine-checked vocabulary forbids removal-language outside the fixed notice.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V5",
+      "polarity": "negative"
+    }
+  ],
+  "forbidVocabulary": true,
+  "expectExit": 0
+}

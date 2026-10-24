@@ -84,6 +84,22 @@ function check(r, c) {
   });
 }
 
+function review(r, c) {
+  const pack = r.review;
+  const out = [`review: ${pack.candidates.length} candidates (${pack.critical} critical)`, pack.notice];
+  for (const candidate of pack.candidates) {
+    const e = candidate.evidence;
+    out.push('', `${candidate.unit}  ${candidate.tier} / ${candidate.status}  ${candidate.reasons.join(', ')}`);
+    out.push(`  ${candidate.file}; own ${JSON.stringify(e.ownLines)}; unique ${JSON.stringify(e.uniqueLines)}; kills ${e.kills}; unique kills ${e.uniqueKills ?? 'n/a'}`);
+    if (e.group) out.push(`  group ${e.group.id}: ${e.group.members.join(', ')}`);
+    if (e.overlaps.length) out.push(`  overlaps: ${e.overlaps.map((v) => `${v.unit} (${v.sharedLines} lines, ${v.sharedKills} kills${v.coversAllOf ? ', covers all' : ''})`).join('; ')}`);
+    if (e.brittle.length) out.push(`  brittle: ${e.brittle.join(', ')}`);
+    if (e.pseudoTestedFunctions?.length) out.push(`  pseudo-tested functions: ${e.pseudoTestedFunctions.join(', ')}`);
+    if (e.assertions) out.push(`  assertions: ${e.assertions.assertionCount}; unique fingerprints: ${e.assertions.uniqueFingerprints.length}${e.assertions.incomplete ? ' (incomplete)' : ''}`);
+  }
+  return out;
+}
+
 function guard(r, c) {
   const g = r.guard;
   const out = [];
@@ -106,12 +122,12 @@ function guard(r, c) {
   return out;
 }
 
-const SECTIONS = { report, label, plan, check, guard };
+const SECTIONS = { report, label, plan, check, guard, review };
 
 /** Formats an engine report for people. */
 export function formatReport(command, r, colour) {
   const c = painter(colour);
-  const lines = r.suite || r.guard ? SECTIONS[command](r, c) : [];
+  const lines = r.suite || r.guard || r.review ? SECTIONS[command](r, c) : [];
   const diags = diagnostics(r, c);
   if (diags.length) lines.push(...(lines.length ? [''] : []), ...diags);
   return lines.length ? `${lines.join('\n')}\n` : '';

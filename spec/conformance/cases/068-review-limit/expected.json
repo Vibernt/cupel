@@ -1,0 +1,13 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "a"
+      },
+      {
+        "unit": "b"
+      }
+    ],
+    "critical": 0
+  }
+}

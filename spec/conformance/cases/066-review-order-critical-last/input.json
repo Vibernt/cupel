@@ -1,0 +1,121 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [
+    {
+      "id": "a",
+      "file": "tests/g.test.mjs",
+      "name": "a",
+      "status": "passed"
+    },
+    {
+      "id": "b",
+      "file": "tests/g.test.mjs",
+      "name": "b",
+      "status": "passed"
+    },
+    {
+      "id": "c",
+      "file": "tests/c.test.mjs",
+      "name": "c",
+      "status": "passed"
+    },
+    {
+      "id": "x",
+      "file": "tests/x.test.mjs",
+      "name": "x",
+      "status": "passed"
+    },
+    {
+      "id": "d",
+      "file": "tests/d.test.mjs",
+      "name": "d",
+      "status": "passed"
+    },
+    {
+      "id": "e",
+      "file": "tests/e.test.mjs",
+      "name": "e",
+      "status": "failed",
+      "runStatuses": [
+        "failed",
+        "skipped"
+      ]
+    },
+    {
+      "id": "z",
+      "file": "tests/z.test.mjs",
+      "name": "z",
+      "status": "passed",
+      "tags": [
+        "critical"
+      ]
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "a": {
+        "src/a.mjs": "1-2"
+      },
+      "b": {
+        "src/a.mjs": "1-2"
+      },
+      "c": {
+        "src/a.mjs": "3"
+      },
+      "x": {
+        "src/a.mjs": "3"
+      },
+      "d": {
+        "src/a.mjs": "4"
+      },
+      "e": {
+        "src/a.mjs": "5"
+      },
+      "z": {
+        "src/a.mjs": "6"
+      }
+    },
+    "rechecked": [
+      "c"
+    ]
+  },
+  "mutation": {
+    "mutants": [],
+    "targeted": [
+      "c"
+    ]
+  },
+  "brittleness": [
+    {
+      "test": "d",
+      "kind": "source-text"
+    },
+    {
+      "test": "z",
+      "kind": "css-class"
+    }
+  ],
+  "shapes": {
+    "a": [
+      1,
+      2,
+      3
+    ],
+    "b": [
+      1,
+      2,
+      3
+    ]
+  }
+}

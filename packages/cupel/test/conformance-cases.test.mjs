@@ -40,7 +40,7 @@ test('every case is well formed and its inputs and config validate', () => {
 
 test('every engine rule in the spec has a positive and a negative case', () => {
   const text = readFileSync(`${SPEC}SPEC.md`, 'utf8');
-  const specRules = new Set([...text.matchAll(/\*\*([ITSACGPLRE]\d+)\b/g)].map((m) => m[1]));
+  const specRules = new Set([...text.matchAll(/\*\*([ITSACGPLREV]\d+)\b/g)].map((m) => m[1]));
   const seen = new Map();
   for (const dir of caseDirs) {
     for (const r of read(`${CASES}${dir}/case.json`).rules) {
@@ -77,9 +77,20 @@ test('the engine passes every conformance case', { skip: !existsSync(ENGINE) && 
     const p = (f) => `${CASES}${dir}/${f}`;
     const c = read(p('case.json'));
     const inputs = existsSync(p('base.json')) ? { base: read(p('base.json')), head: read(p('head.json')) } : { input: read(p('input.json')) };
+    if (existsSync(p('assertions.json'))) inputs.assertions = read(p('assertions.json'));
     const config = existsSync(p('config.json')) ? read(p('config.json')) : {};
     const { report, exit } = run(c.command, inputs, config, c.args ?? {}, schemas);
     const problems = match(read(p('expected.json')), report);
+    if (c.forbidVocabulary && report.review) {
+      const scan = (value, path = '') => {
+        if (Array.isArray(value)) value.forEach((v, i) => scan(v, `${path}/${i}`));
+        else if (value && typeof value === 'object') for (const [key, v] of Object.entries(value)) {
+          if (/retire|remove|delete|redundant/i.test(key)) problems.push(`forbidden key ${path}/${key}`);
+          scan(v, `${path}/${key}`);
+        } else if (typeof value === 'string' && path !== '/notice' && /retire|remove|delete|redundant/i.test(value)) problems.push(`forbidden value ${path}`);
+      };
+      scan(report.review);
+    }
     if (exit !== c.expectExit) problems.unshift(`exit: expected ${c.expectExit}, got ${exit}`);
     if (problems.length) failures.push(`${dir}\n    ${problems.join('\n    ')}`);
   }

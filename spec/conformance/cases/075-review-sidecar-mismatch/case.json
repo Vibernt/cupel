@@ -1,0 +1,11 @@
+{
+  "description": "A sidecar for another input is an integrity error, never silently ignored.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "I4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

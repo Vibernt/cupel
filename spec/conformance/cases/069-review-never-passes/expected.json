@@ -1,0 +1,20 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "f",
+        "reasons": [
+          "never-passes"
+        ],
+        "status": "failed"
+      },
+      {
+        "unit": "s",
+        "reasons": [
+          "never-passes"
+        ],
+        "status": "skipped"
+      }
+    ]
+  }
+}

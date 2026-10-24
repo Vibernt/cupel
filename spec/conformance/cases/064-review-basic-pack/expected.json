@@ -1,0 +1,114 @@
+{
+  "command": "review",
+  "suite": "$absent",
+  "units": "$absent",
+  "review": {
+    "notice": "No unique evidence is not proof that a test is redundant. Read each candidate's assertions; a proposed removal or merge must pass guard before it is committed. Cupel never advises removal.",
+    "candidates": [
+      {
+        "unit": "a",
+        "file": "tests/g.test.mjs",
+        "tier": "standard",
+        "tierReason": "default",
+        "status": "passed",
+        "reasons": [
+          "same-shape-group"
+        ],
+        "evidence": {
+          "ownLines": {
+            "src/a.mjs": "1-2"
+          },
+          "uniqueLines": {},
+          "kills": 0,
+          "uniqueKills": 0,
+          "overlaps": [
+            {
+              "unit": "b",
+              "sharedLines": 2,
+              "sharedKills": 0,
+              "coversAllOf": true
+            }
+          ],
+          "group": {
+            "id": "g1",
+            "members": [
+              "a",
+              "b"
+            ]
+          },
+          "brittle": [],
+          "assertions": "$absent",
+          "pseudoTestedFunctions": "$absent"
+        },
+        "guardRequired": true
+      },
+      {
+        "unit": "b",
+        "file": "tests/g.test.mjs",
+        "tier": "standard",
+        "tierReason": "default",
+        "status": "passed",
+        "reasons": [
+          "same-shape-group"
+        ],
+        "evidence": {
+          "ownLines": {
+            "src/a.mjs": "1-2"
+          },
+          "uniqueLines": {},
+          "kills": 0,
+          "uniqueKills": 0,
+          "overlaps": [
+            {
+              "unit": "a",
+              "sharedLines": 2,
+              "sharedKills": 0,
+              "coversAllOf": true
+            }
+          ],
+          "group": {
+            "id": "g1",
+            "members": [
+              "a",
+              "b"
+            ]
+          },
+          "brittle": [],
+          "assertions": "$absent",
+          "pseudoTestedFunctions": "$absent"
+        },
+        "guardRequired": true
+      },
+      {
+        "unit": "n",
+        "file": "tests/n.test.mjs",
+        "tier": "standard",
+        "tierReason": "default",
+        "status": "passed",
+        "reasons": [
+          "no-unique-evidence"
+        ],
+        "evidence": {
+          "ownLines": {
+            "src/a.mjs": "3-4"
+          },
+          "uniqueLines": {},
+          "kills": 0,
+          "uniqueKills": 0,
+          "overlaps": [
+            {
+              "unit": "x",
+              "sharedLines": 2,
+              "sharedKills": 0,
+              "coversAllOf": true
+            }
+          ],
+          "group": null,
+          "brittle": []
+        },
+        "guardRequired": true
+      }
+    ],
+    "critical": 0
+  }
+}

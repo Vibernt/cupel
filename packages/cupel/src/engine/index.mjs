@@ -9,9 +9,11 @@ import { advise, fileSummaries } from './advice.mjs';
 import { suiteSection, unitEntry, planSection, checkSection, guardSection } from './commands.mjs';
 import { orderKeys } from './keyorder.mjs';
 import { tokens } from './match.mjs';
+import { reviewSection } from './review.mjs';
+import { analyseReviewAssertions } from '../analysis/assertions.mjs';
 
 export const SPEC_VERSION = 'cupel-spec/1';
-export const COMMANDS = Object.freeze(['report', 'plan', 'check', 'guard', 'label', 'validate']);
+export const COMMANDS = Object.freeze(['report', 'plan', 'check', 'guard', 'label', 'validate', 'review']);
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -35,10 +37,10 @@ function finish(schemas, base, extra, diagnostics, exit) {
 
 /**
  * Runs one command.
- * @param {'report'|'plan'|'check'|'guard'|'label'|'validate'} command
- * @param {{ input?: object, base?: object, head?: object }} inputs
+ * @param {'report'|'plan'|'check'|'guard'|'label'|'validate'|'review'} command
+ * @param {{ input?: object, base?: object, head?: object, assertions?: object }} inputs
  * @param {object} config the parsed cupel.json, or {}
- * @param {{ changed?: object, tests?: string[], approvals?: object[], generatedAt?: string }} args
+ * @param {{ changed?: object, tests?: string[], units?: string[], limit?: number, approvals?: object[], generatedAt?: string }} args
  * @param {{ input: object, config: object, report: object }} schemas
  * @returns {{ report: object, exit: number }}
  */
@@ -80,6 +82,20 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   if (command === 'check') {
     const [label, head] = docs[docs.length - 1];
     diagnostics.push(...testArgumentDiagnostics(head, args.tests, label));
+  }
+  if (command === 'review') {
+    const doc = docs[0][1];
+    if (args.units) {
+      const names = new Set(doc.tests.flatMap((t) => [t.id, t.unit ?? t.id, t.file]));
+      args.units.forEach((name, i) => {
+        if (!names.has(name)) diagnostics.push({ code: 'unknown-unit', severity: 'error', path: `/units/${i}`, message: `argument units[${i}]: ${JSON.stringify(name)} is neither a unit, row nor test file` });
+      });
+    }
+    if (doc.functionSites) diagnostics.push(...functionSiteDiagnostics(doc));
+    if (inputs.assertions !== undefined) {
+      try { analyseReviewAssertions(doc, inputs.assertions); }
+      catch (error) { diagnostics.push({ code: 'invalid-assertions', severity: 'error', message: error.message }); }
+    }
   }
   if (diagnostics.length) return stop(diagnostics, EXIT_USAGE);
 
@@ -128,6 +144,9 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     case 'report':
       analysis();
       break;
+    case 'review':
+      out.review = reviewSection(head, args, inputs.assertions);
+      break;
     case 'label':
       analysis();
       if (diagnostics.some((d) => d.code === 'unknown-tag')) exit = EXIT_FAILED; // T2, L1
@@ -151,6 +170,23 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     }
   }
   return finish(schemas, base, out, diagnostics, exit);
+}
+
+function functionSiteDiagnostics(input) {
+  const out = [];
+  const mutants = new Map((input.mutation?.mutants ?? []).map((m) => [m.id, m]));
+  const seen = new Set();
+  input.functionSites.forEach((site, i) => {
+    const mutant = mutants.get(site.id);
+    if (seen.has(site.id) || !mutant || mutant.operator !== 'body-replace' || mutant.source !== site.source ||
+        site.startLine > site.endLine || !input.sources[site.source] ||
+        mutant.line < site.startLine || mutant.line > site.endLine) {
+      out.push({ code: 'invalid-function-site', severity: 'error', path: `/functionSites/${i}`,
+        message: `function site ${JSON.stringify(site.id)} must match one body-replace mutant and a source range containing its line` });
+    }
+    seen.add(site.id);
+  });
+  return out;
 }
 
 /** I1: a tier word with no tokens would match every path, so it is an invalid config. */

@@ -1,0 +1,16 @@
+{
+  "description": "An unknown review selection fails integrity instead of producing an empty pack.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "I4",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "units": [
+      "tests/missing.test.mjs"
+    ]
+  },
+  "expectExit": 2
+}

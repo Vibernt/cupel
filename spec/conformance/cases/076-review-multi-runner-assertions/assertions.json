@@ -1,0 +1,25 @@
+{
+  "version": "cupel-assertions-multi/1",
+  "runners": {
+    "node": {
+      "version": "cupel-assertions/1",
+      "inputIdentity": "{\"tests\":[[\"n\",\"n\",\"passed\"]],\"sources\":[[\"src/a.mjs\",null]],\"shapes\":[]}",
+      "tests": {
+        "n": {
+          "count": 1,
+          "records": [
+            {
+              "matcher": "equal",
+              "subject": "x",
+              "expectedFingerprint": "1",
+              "trivial": false
+            }
+          ],
+          "capHit": false,
+          "incomplete": false,
+          "errors": []
+        }
+      }
+    }
+  }
+}

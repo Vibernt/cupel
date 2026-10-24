@@ -1,0 +1,31 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "u",
+        "reasons": [
+          "brittle"
+        ],
+        "evidence": {
+          "ownLines": {
+            "src/a.mjs": "1-2"
+          },
+          "uniqueLines": {},
+          "kills": 1,
+          "uniqueKills": 0,
+          "overlaps": [
+            {
+              "unit": "v",
+              "sharedLines": 2,
+              "sharedKills": 1,
+              "coversAllOf": true
+            }
+          ],
+          "brittle": [
+            "source-text"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -22,6 +22,11 @@ export const TOOLS = [
     inputSchema: schema({ input: string, config: string, ...pages }),
   },
   {
+    name: 'cupel_review',
+    description: 'Before deleting or merging tests: get evidence per candidate, read the test code, propose a change, then run cupel_guard; Cupel never advises removal.',
+    inputSchema: schema({ input: string, config: string, units: { type: 'array', items: string }, limit: { type: 'integer', minimum: 0 }, assertions: string }),
+  },
+  {
     name: 'cupel_guard',
     description: 'Before removing or rewriting tests, compare the base with the working tree or saved inputs. With no base, compare HEAD. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
     inputSchema: schema({ ...paths, base: string, approvals: { anyOf: [string, { type: 'array', items: { type: 'object', properties: { action: { enum: ['remove', 'downgrade'] }, id: string, by: string }, required: ['action', 'id', 'by'], additionalProperties: false } }] } }),
@@ -52,8 +57,10 @@ export function validateCall(name, args) {
     if (!own(properties, key)) return `unknown argument ${JSON.stringify(key)}`;
     if (['page', 'pageSize'].includes(key)) {
       if (!Number.isInteger(value) || value < 1 || (key === 'pageSize' && value > 200)) return `${key} must be a positive integer${key === 'pageSize' ? ' at most 200' : ''}`;
-    } else if (key === 'tests') {
-      if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !item)) return 'tests must be an array of non-empty strings';
+    } else if (key === 'tests' || key === 'units') {
+      if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !item)) return `${key} must be an array of non-empty strings`;
+    } else if (key === 'limit') {
+      if (!Number.isSafeInteger(value) || value < 0) return 'limit must be a nonnegative safe integer';
     } else if (key === 'approvals') {
       if (typeof value === 'string' && value) continue;
       if (!Array.isArray(value) || value.some((item) => !object(item) || !['remove', 'downgrade'].includes(item.action)
@@ -85,6 +92,11 @@ function commandArgs(name, p) {
   } else {
     option('input', p.input);
     if (cmd === 'plan') option('changed', p.changed);
+    if (cmd === 'review') {
+      for (const unit of p.units ?? []) option('units', unit);
+      option('limit', p.limit === undefined ? undefined : String(p.limit));
+      option('assertions', p.assertions);
+    }
   }
   return args;
 }
@@ -109,6 +121,7 @@ function summary(cmd, report, exit, error) {
   if (cmd === 'guard') return `guard ${report.guard.pass ? 'passed' : 'failed'}; ${report.guard.checks.length} checks`;
   if (cmd === 'check') return `check ${exit === 1 ? 'failed' : 'passed'}; ${report.check.verdicts.length} verdicts`;
   if (cmd === 'plan') return `plan: ${report.plan.order.length} units, expected ${report.plan.expectedMs} ms`;
+  if (cmd === 'review') return `review: ${report.review.candidates.length} candidates (${report.review.critical} critical); read code, then run cupel_guard`;
   const line = summaryLine(report.suite);
   return cmd === 'label' && exit === 1 ? `label failed: ${line}` : line;
 }

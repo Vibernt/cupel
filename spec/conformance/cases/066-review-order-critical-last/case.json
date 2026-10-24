@@ -1,0 +1,15 @@
+{
+  "description": "Groups, no-unique evidence, brittleness and never-passing units are ordered before critical candidates.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V2",
+      "polarity": "positive"
+    },
+    {
+      "id": "V2",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

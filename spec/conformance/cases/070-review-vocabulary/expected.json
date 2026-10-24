@@ -1,0 +1,16 @@
+{
+  "review": {
+    "notice": "No unique evidence is not proof that a test is redundant. Read each candidate's assertions; a proposed removal or merge must pass guard before it is committed. Cupel never advises removal.",
+    "candidates": [
+      {
+        "unit": "a"
+      },
+      {
+        "unit": "b"
+      },
+      {
+        "unit": "n"
+      }
+    ]
+  }
+}

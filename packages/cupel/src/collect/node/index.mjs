@@ -358,13 +358,14 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     const tests = new Map(); // id -> test
     for (const t of first.leaves) {
       if (tests.has(t.id)) continue;
-      tests.set(t.id, { ...t, firstStatus: t.status, durationsMs: [], interp: false, lines: null });
+      tests.set(t.id, { ...t, firstStatus: t.status, durationsMs: [], runStatuses: [], interp: false, lines: null });
     }
     for (const r of all) {
       for (const t of r.leaves) {
         const rec = tests.get(t.id);
         if (!rec) continue;
         rec.durationsMs.push(Math.max(0, Math.round(t.ms ?? 0)));
+        rec.runStatuses.push(t.status);
         if (r !== first && t.status === 'failed') rec.status = 'failed';
         const h = t.hookKey ? r.index.get(`${t.file}\u0000${t.hookKey}`) : null;
         if (h?.interp) rec.interp = true;
@@ -540,6 +541,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           ...(tags.length ? { tags } : {}),
           status: t.status,
           durationsMs: t.durationsMs,
+          ...(t.runStatuses.length === all.length ? { runStatuses: t.runStatuses } : {}),
           ...(t.interp ? { spawnsInterpreter: true } : {}),
         };
       }),
