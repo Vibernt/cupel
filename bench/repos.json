@@ -166,7 +166,7 @@
     "language": "Rust",
     "runner": "cargo",
     "image": "rust:1-bookworm",
-    "install": "cargo fetch --locked",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && rustup toolchain install stable --profile minimal && rustup component add llvm-tools-preview && npm install --prefix /cache/node node@22.19.0 && cargo fetch --locked",
     "test": "cargo test --locked -p zeron-text -p zeron-markdown -p zeron-client",
     "cupelConfig": {
       "runners": {
@@ -179,7 +179,7 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "Cargo workspace lockfile and macOS CI include these pure library crates. Excludes native UI, voice/audio, GPU, browser fixtures, iOS and service tests. Pending: collector; baseline only."
+    "notes": "Cargo workspace lockfile and macOS CI include these pure library crates. The Cargo collector selects packages from the test-file glob. Excludes native UI, voice/audio, GPU, browser fixtures, iOS and service tests. Collector benchmark has not been run."
   },
   {
     "name": "RazorConsole",

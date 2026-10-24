@@ -11,7 +11,7 @@ import { runtimeFor } from './runtime.mjs';
 const benchDir = import.meta.dirname;
 const repos = JSON.parse(readFileSync(join(benchDir, 'repos.json'), 'utf8'));
 const stages = ['install', 'baseline', 'report', 'guard-replay', 'plan-replay'];
-const pendingRunners = new Set(['cargo', 'dotnet']);
+const pendingRunners = new Set(['dotnet']);
 const [name, requested] = process.argv.slice(2);
 const repo = repos.find((item) => item.name === name);
 if (!repo || ![...stages, 'all'].includes(requested)) {

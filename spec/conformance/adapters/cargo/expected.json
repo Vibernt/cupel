@@ -1,0 +1,24 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "rust" },
+  "sources": {
+    "src/lib.rs": { "coverable": "1-9,11-13" }
+  },
+  "tests": [
+    { "id": "tests/integration.rs::negative", "file": "tests/integration.rs", "name": "negative", "unit": "$absent", "status": "passed" },
+    { "id": "tests/integration.rs::positive", "file": "tests/integration.rs", "name": "positive", "unit": "$absent", "status": "passed" },
+    { "id": "tests/integration.rs::zero", "file": "tests/integration.rs", "name": "zero", "unit": "$absent", "tags": ["critical"], "status": "passed" }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "tests/integration.rs::negative": { "src/lib.rs": "1-3,9" },
+      "tests/integration.rs::positive": { "src/lib.rs": "1-2,4-5,7-9" },
+      "tests/integration.rs::zero": { "src/lib.rs": "1-2,4-6,9" }
+    },
+    "setup": {},
+    "rechecked": ["tests/integration.rs::negative", "tests/integration.rs::positive", "tests/integration.rs::zero"]
+  },
+  "brittleness": []
+}

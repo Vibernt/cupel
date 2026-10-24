@@ -19,6 +19,7 @@ Cupel never uses the network and never modifies your working tree. Every command
 | `cupel validate <file>` | Checks an input, report or config against the spec schemas |
 | `cupel conformance --adapter "<command>" [--fixtures <dir>]` | Runs an adapter in each fixture of `spec/conformance/adapters/` and matches its output against `expected.json` |
 | `cupel collect-go --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- packages…]` | Collects [Go](go.md) tests into `cupel-spec/1` input; default package pattern `./...` |
+| `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]` | Collects [Rust](rust.md) tests with isolated LLVM coverage |
 
 `cupel mcp [--root <dir>]` starts the [local MCP server](mcp.md) over stdio.
 

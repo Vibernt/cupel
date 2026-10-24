@@ -23,3 +23,9 @@ test('toolchain runners preserve their image toolchain and cached Node on PATH',
     }
   }
 });
+
+test('Cargo toolchain and LLVM component persist in the cache volume', () => {
+  const env = cacheEnv({ runner: 'cargo' });
+  assert.equal(env.RUSTUP_HOME, '/cache/rustup');
+  assert.equal(env.CARGO_HOME, '/cache/cargo');
+});
