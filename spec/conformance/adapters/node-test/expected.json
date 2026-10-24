@@ -31,21 +31,21 @@
       "id": "tests/math.test.mjs::clamp keeps -1 in range",
       "file": "tests/math.test.mjs",
       "name": "clamp keeps -1 in range",
-      "unit": "tests/math.test.mjs::@15",
+      "unit": "tests/math.test.mjs::clamp keeps ${x} in range",
       "status": "passed"
     },
     {
       "id": "tests/math.test.mjs::clamp keeps 11 in range",
       "file": "tests/math.test.mjs",
       "name": "clamp keeps 11 in range",
-      "unit": "tests/math.test.mjs::@15",
+      "unit": "tests/math.test.mjs::clamp keeps ${x} in range",
       "status": "passed"
     },
     {
       "id": "tests/math.test.mjs::clamp keeps 5 in range",
       "file": "tests/math.test.mjs",
       "name": "clamp keeps 5 in range",
-      "unit": "tests/math.test.mjs::@15",
+      "unit": "tests/math.test.mjs::clamp keeps ${x} in range",
       "status": "passed"
     }
   ],

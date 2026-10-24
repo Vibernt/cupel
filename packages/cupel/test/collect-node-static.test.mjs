@@ -54,6 +54,11 @@ test('K12: FNV-1a over UTF-8, masked 4-token shingles of the body after the name
   assert.equal(b.column, 1);
 });
 
+test('K10 static titles preserve template source and decode JavaScript string values', () => {
+  const defs = analyseTestFile('test(`value ${x}`, () => {});\ntest("value\\x20two", () => {});\ntest(\'it\\\'s ready\', () => {});\n');
+  assert.deepEqual(defs.map((def) => def.title), ['value ${x}', 'value two', "it's ready"]);
+});
+
 const flags = (src) => analyseTestFile(src).map((d) => d.flags.map((f) => f.kind));
 
 test('brittleness: an anchored source read with a literal assertion is a source-text pin', () => {

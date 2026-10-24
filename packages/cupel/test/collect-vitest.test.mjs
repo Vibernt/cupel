@@ -24,6 +24,29 @@ const versions = [
   ['5.0.1', '/Users/vid/codecrystal/web/node_modules'],
 ];
 
+test('Vitest K10 title survives shifted lines and K13 records a changing branch', { skip: !existsSync(join(versions[0][1], 'vitest/package.json')) }, async () => {
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const root = mkdtempSync(join(repo, '.scratch/vitest-k10-k13-'));
+  try {
+    cpSync(fixture, root, { recursive: true });
+    linkVitestModules(root, versions[0][1]);
+    mkdirSync(join(root, '.scratch'), { recursive: true });
+    writeFileSync(join(root, '.scratch/count'), '0');
+    writeFileSync(join(root, 'src/branch.ts'), 'export function pick(n: number) {\n  if (n % 2) {\n    return 1\n  }\n  return 2\n}\n');
+    const body = "import { test, expect } from 'vitest';\nimport { readFileSync, writeFileSync } from 'node:fs';\nimport { pick } from '../src/branch';\nconst counter = new URL('../.scratch/count', import.meta.url);\nconst n = Number(readFileSync(counter, 'utf8'));\nwriteFileSync(counter, String(n + 1));\ntest.each([1, 2])('pick %i', () => expect(pick(n)).toBe(n % 2 ? 1 : 2));\ntest.each([3, 4])('pick %i', () => expect(pick(n)).toBe(n % 2 ? 1 : 2));\n";
+    const file = join(root, 'tests/branch.test.ts');
+    writeFileSync(file, body);
+    const first = await collectVitest({ root, files: ['tests/branch.test.ts'], runs: 3 });
+    assert.deepEqual(new Set(first.tests.map((row) => row.unit)), new Set(['tests/branch.test.ts::pick %i', 'tests/branch.test.ts::pick %i #2']));
+    assert.match(first.coverage.unstable['src/branch.ts'], /3/);
+    assert.match(first.coverage.unstable['src/branch.ts'], /5/);
+    writeFileSync(file, `\n\n\n${body}`);
+    writeFileSync(join(root, '.scratch/count'), '0');
+    const shifted = await collectVitest({ root, files: ['tests/branch.test.ts'], runs: 3 });
+    assert.deepEqual(shifted.tests.map((row) => row.unit), first.tests.map((row) => row.unit));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('CLI selects a Vite test config and keeps node:test as the plain Node default', async () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const root = mkdtempSync(join(repo, '.scratch/vitest-detect-'));
@@ -53,8 +76,8 @@ for (const [version, modules] of versions) {
       for (const t of input.tests) assert.equal(t.durationsMs.length, 2);
       assert.equal(input.sources['src/math.ts'].hash, `sha256:${createHash('sha256').update(readFileSync(join(root, 'src/math.ts'))).digest('hex')}`);
       assert.equal(input.sources['src/math.ts'].coverable, '7-9,11-15');
-      assert.ok(input.shapes['tests/math.test.ts::@13']?.length > 0);
-      const unit = 'tests/math.test.ts::@13';
+      assert.ok(input.shapes['tests/math.test.ts::cap > maps %i to %i']?.length > 0);
+      const unit = 'tests/math.test.ts::cap > maps %i to %i';
       const rechecked = await collectVitest({ root, runs: 1, recheck: [unit] });
       assert.deepEqual(rechecked.coverage.rechecked, [unit]);
       assert.deepEqual(match(expected, rechecked), []);

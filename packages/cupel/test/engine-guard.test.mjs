@@ -28,6 +28,7 @@ test('guard passes on identical inputs and lists the seven checks once, in order
   assert.equal(r.report.guard.pass, true);
   assert.deepEqual(r.report.guard.checks.map((c) => c.id), IDS);
   assert.deepEqual(r.report.guard.removed, []);
+  assert.deepEqual(r.report.guard.renamed, []);
   assert.deepEqual(check(r, 'coverage-ratio'), {
     id: 'coverage-ratio', pass: true,
     base: { covered: 19, coverable: 30, pct: 63.33 }, head: { covered: 19, coverable: 30, pct: 63.33 },
@@ -77,6 +78,33 @@ test('G4 coverage-ratio is compared exactly: more coverable lines can lower the 
   assert.equal(check(r, 'coverage-lines').pass, true);
   // 19/30 > 19/31, though both show as a similar pct.
   assert.equal(check(r, 'coverage-ratio').pass, false);
+});
+
+test('G4 and G5 omit unstable lines from covered and coverable on both sides', () => {
+  const base = doc(), head = doc();
+  head.coverage.byTest.crit = { 'src/auth.mjs': '1-6' };
+  base.coverage.unstable = { 'src/auth.mjs': '7' };
+  head.coverage.unstable = { 'src/auth.mjs': '8' };
+  const result = guard(base, head);
+  assert.deepEqual(check(result, 'coverage-lines').lost.lines, {});
+  assert.equal(check(result, 'coverage-ratio').pass, true);
+  assert.equal(check(result, 'critical-coverage').pass, true);
+  assert.deepEqual(check(result, 'coverage-ratio').base, { covered: 17, coverable: 28, pct: 60.71 });
+});
+
+test('G7 and G9 match same-file renames greedily and retain an unapproved critical downgrade', () => {
+  const base = input({ tests: [t('old-a', { tags: ['critical'] }), t('old-b')],
+    cov: { 'old-a': { 'src/a.mjs': '1' }, 'old-b': { 'src/a.mjs': '2' } },
+    shapes: { 'old-a': [1, 2, 3], 'old-b': [1, 2, 4] } });
+  const head = input({ tests: [t('new-a', { tags: ['critical'] }), t('new-b')],
+    cov: { 'new-a': { 'src/a.mjs': '1' }, 'new-b': { 'src/a.mjs': '2' } },
+    shapes: { 'new-a': [1, 2, 3], 'new-b': [1, 2, 4] } });
+  const result = guard(base, head, { advice: { duplicateShape: 0.5 } });
+  assert.deepEqual(result.report.guard.renamed, [{ from: 'old-a', to: 'new-a' }, { from: 'old-b', to: 'new-b' }]);
+  assert.deepEqual(result.report.guard.removed, []);
+  assert.deepEqual(check(result, 'critical-removed').units, []);
+  head.tests[0].tags = [];
+  assert.deepEqual(check(guard(base, head, { advice: { duplicateShape: 0.5 } }), 'critical-removed').units, ['old-a']);
 });
 
 test('G5 critical-coverage: ratchet per critical source, and an optional floor', () => {

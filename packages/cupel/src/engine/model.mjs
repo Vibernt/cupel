@@ -67,6 +67,7 @@ export function buildModel(input, cfg, label) {
 
   // Every covered line: rows' coverage, file coverage and setup (G4, R3).
   const covered = mapUnionAll([...byTest.values(), ...byFile.values(), allSetup]);
+  const unstable = mapFrom(input.coverage.unstable);
 
   // Tests and units.
   const tests = new Map();
@@ -171,7 +172,7 @@ export function buildModel(input, cfg, label) {
   }
 
   return {
-    input, granularity, fileLevel, sources, critical, setup, allSetup, byFile, byTest, covered,
+    input, granularity, fileLevel, sources, critical, setup, allSetup, byFile, byTest, covered, unstable,
     tests, units: list, unitById: byId, rowUnit, mutation, mutants, diagnostics,
   };
 }

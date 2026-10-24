@@ -151,6 +151,33 @@ class FixtureTests(unittest.TestCase):
         self.assertTrue(all(len(row['durationsMs']) == 1 for row in actual['tests']))
         self.assertEqual(set(actual['shapes']), {r.get('unit', r['id']) for r in actual['tests']})
 
+    def test_parametrized_unit_survives_shift_and_three_runs_mark_unstable_branch(self):
+        scratch = ROOT / '.scratch'
+        scratch.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as tmp:
+            root = Path(tmp)
+            (root / 'src').mkdir()
+            (root / 'tests').mkdir()
+            (root / '.scratch').mkdir()
+            (root / '.scratch/count').write_text('0')
+            (root / 'src/branch.py').write_text(
+                'def pick(n):\n    if n % 2:\n        return 1\n    return 2\n')
+            test_file = root / 'tests/test_branch.py'
+            body = ('from pathlib import Path\nimport pytest\nfrom src.branch import pick\n'
+                    'counter = Path(__file__).parents[1] / ".scratch/count"\n'
+                    'n = int(counter.read_text())\ncounter.write_text(str(n + 1))\n'
+                    '@pytest.mark.parametrize("value", [1, 2])\n'
+                    'def test_pick(value):\n    assert pick(n) == (1 if n % 2 else 2)\n')
+            test_file.write_text(body)
+            first = self.run_adapter('collect', '--root', str(root), '--runs', '3', '--', '-q')
+            self.assertEqual({row['unit'] for row in first['tests']}, {'tests/test_branch.py::test_pick'})
+            self.assertIn('3', first['coverage']['unstable']['src/branch.py'])
+            self.assertIn('4', first['coverage']['unstable']['src/branch.py'])
+            test_file.write_text('\n\n\n' + body)
+            (root / '.scratch/count').write_text('0')
+            shifted = self.run_adapter('collect', '--root', str(root), '--runs', '3', '--', '-q')
+            self.assertEqual([row['unit'] for row in first['tests']], [row['unit'] for row in shifted['tests']])
+
     def test_inherited_method_uses_defining_module_for_unit_and_static_signals(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -160,7 +187,7 @@ class FixtureTests(unittest.TestCase):
             (root / 'tests/test_child.py').write_text('from tests.shared import Shared\nclass TestChild(Shared):\n    pass\n')
             output = self.run_adapter('collect', '--root', str(root), '--runs', '1', '--', '-q')
             test = output['tests'][0]
-            self.assertEqual(test['unit'], 'tests/test_child.py::@tests/shared.py:2')
+            self.assertEqual(test['unit'], 'tests/test_child.py::@tests/shared.py::Shared > test_pin')
             self.assertIn(test['unit'], output['shapes'])
             self.assertIn({'test': test['id'], 'kind': 'css-class', 'line': 3}, output['brittleness'])
 
@@ -290,8 +317,8 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual([r['id'] for r in selected['tests']], ['tests/test_math.py::TestGrouped > test_add'])
         repeated = self.run_adapter('collect', '--root', str(FIXTURE), '--runs', '2', '--', '-q')
         self.assertTrue(all(len(row['durationsMs']) == 2 for row in repeated['tests']))
-        checked = self.run_adapter('collect', '--root', str(FIXTURE), '--runs', '1', '--recheck', 'tests/test_math.py::@18', '--', '-q')
-        self.assertEqual(checked['coverage']['rechecked'], ['tests/test_math.py::@18'])
+        checked = self.run_adapter('collect', '--root', str(FIXTURE), '--runs', '1', '--recheck', 'tests/test_math.py::test_classify', '--', '-q')
+        self.assertEqual(checked['coverage']['rechecked'], ['tests/test_math.py::test_classify'])
         self.assertEqual(checked['coverage']['byTest']['tests/test_math.py::test_classify[-1-low]'], {'src/math.py': '8-9'})
 
 

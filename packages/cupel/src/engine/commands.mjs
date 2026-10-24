@@ -1,9 +1,10 @@
 // Report sections: suite (R3), units, plan (P1-P3), check (C1-C4) and guard (G3-G9). Pure.
 
 import { cmp, sortedUnique } from './order.mjs';
-import { parse, mapDiff, mapIntersect, mapIsEmpty, mapSize, mapToObject, mapFilter } from './lines.mjs';
+import { parse, diff, intersect, union, size, mapDiff, mapIntersect, mapIsEmpty, mapSize, mapToObject, mapFilter } from './lines.mjs';
 import { coverageCounts } from './model.mjs';
-import { coverageRatio, mutationScore, fracAtLeast, decimal } from './rational.mjs';
+import { coverageRatio, mutationScore, fracAtLeast, decimal, ratioAtLeast } from './rational.mjs';
+import { shapeSimilarity } from './advice.mjs';
 
 const ADVICE = ['keep', 'consolidate', 'rewrite', 'move-to-check', 'none'];
 
@@ -195,17 +196,29 @@ export function guardSection(base, head, cfg, approvals = []) {
   checks.push({ id: 'head-passes', pass: newFailures.length === 0, units: newFailures, preexisting: headFailed.filter((id) => baseFailed.has(id)) });
 
   // G4
+  const excluded = new Map(base.unstable);
+  for (const [src, set] of head.unstable) excluded.set(src, union(excluded.get(src) ?? [], set));
+  const stable = (model) => mapDiff(model.covered, excluded);
+  const baseCovered = stable(base);
+  const headCovered = stable(head);
   const lost = new Map();
   for (const [src, s] of base.sources) {
     const h = head.sources.get(src);
     if (!h || s.hash === undefined || h.hash === undefined || s.hash !== h.hash) continue;
-    const gone = mapDiff(mapFilter(base.covered, (p) => p === src), head.covered);
+    const gone = mapDiff(mapFilter(baseCovered, (p) => p === src), headCovered);
     for (const [p, set] of gone) lost.set(p, set);
   }
   checks.push({ id: 'coverage-lines', pass: lost.size === 0, lost: { lines: mapToObject(lost) } });
-  const ratio = (m, keep) => {
-    const c = coverageCounts(m, keep);
-    return coverageRatio(c.covered, c.coverable);
+  const ratio = (m, keep = () => true) => {
+    let covered = 0, coverable = 0;
+    const stableCovered = m === base ? baseCovered : headCovered;
+    for (const [src, source] of m.sources) {
+      if (!keep(src)) continue;
+      const available = diff(source.coverable, excluded.get(src) ?? []);
+      coverable += size(available);
+      covered += size(intersect(stableCovered.get(src) ?? [], available));
+    }
+    return coverageRatio(covered, coverable);
   };
   const baseAll = ratio(base);
   const headAll = ratio(head);
@@ -237,14 +250,33 @@ export function guardSection(base, head, cfg, approvals = []) {
     checks.push({ id: 'critical-mutation', pass: gone.length === 0, lost: { mutants: sortedUnique(gone) } });
   }
 
-  // G7, G8
+  // G7, G8: greedily pair only units unique to each side.
+  const candidates = [];
+  for (const b of base.units.filter((u) => !head.unitById.has(u.id))) {
+    for (const h of head.units.filter((u) => !base.unitById.has(u.id) && u.file === b.file)) {
+      const shape = shapeSimilarity(b, h);
+      if (ratioAtLeast(shape.num, shape.den, cfg.advice.duplicateShape)) candidates.push({ b, h, shape });
+    }
+  }
+  candidates.sort((a, b) => {
+    const first = BigInt(b.shape.num) * BigInt(a.shape.den);
+    const second = BigInt(a.shape.num) * BigInt(b.shape.den);
+    return (first > second ? 1 : first < second ? -1 : 0) || cmp(a.b.id, b.b.id) || cmp(a.h.id, b.h.id);
+  });
+  const matchedBase = new Map(), matchedHead = new Set();
+  for (const { b, h } of candidates) {
+    if (matchedBase.has(b.id) || matchedHead.has(h.id)) continue;
+    matchedBase.set(b.id, h);
+    matchedHead.add(h.id);
+  }
+  const renamed = [...matchedBase].map(([from, h]) => ({ from, to: h.id })).sort((a, b) => cmp(a.from, b.from));
   const removedCritical = [];
   const downgraded = [];
   for (const u of base.units) {
     if (!u.critical) continue;
     const h = head.unitById.get(u.id);
     if (!h) {
-      if (!approved('remove', u.id)) removedCritical.push(u.id);
+      if (!matchedBase.get(u.id)?.critical && !approved('remove', u.id)) removedCritical.push(u.id);
     } else if (!h.critical && !approved('downgrade', u.id)) {
       downgraded.push(u.id);
     }
@@ -254,10 +286,10 @@ export function guardSection(base, head, cfg, approvals = []) {
 
   // G9
   const removed = base.units
-    .filter((u) => !head.unitById.has(u.id))
+    .filter((u) => !head.unitById.has(u.id) && !matchedBase.has(u.id))
     .map((u) => ({ id: u.id, tier: u.tier, uniqueLines: u.uniqueLines, uniqueKills: u.uniqueKills }));
 
   const pass = checks.every((c) => c.pass);
-  return { section: { pass, checks, removed }, exit: pass ? 0 : 1 };
+  return { section: { pass, checks, removed, renamed }, exit: pass ? 0 : 1 };
 }
 

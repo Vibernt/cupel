@@ -30,12 +30,12 @@ collectNode({ root, config, files, runs = 2, recheck = [], log }) -> Promise<inp
 ```
 
 - `root`: the absolute repository root. `config`: the effective config, with defaults applied. `files`: test files to run (default: `config.runners.node.tests`, or `tests/**/*.test.mjs`).
-- **Running.** Runs the suite with one ordinary `node --test` per repeat, with the per-test coverage preload from spike S2 (method B). `runs` repeats give `durationsMs`; coverage comes from the first repeat. If `runners.node.prepare` is set, run it once before the tests.
+- **Running.** Runs the suite with one ordinary `node --test` per repeat, with the per-test coverage preload from spike S2 (method B). Every repeat records coverage (K13), so collection pays the coverage cost on every run. The union goes into `byTest` and `setup`; lines that vary per test or setup go into `coverage.unstable`. `runs` repeats also give `durationsMs`. If `runners.node.prepare` is set, run it once before the tests.
 - **Output.** Returns a complete `cupel-spec/1` input:
   - `runtime`
   - `sources` with `coverable` (K1) and `hash` (sha256 of the file), over the whole repository minus test directories, `node_modules` and dot-directories, narrowed by `config.scope` (K2)
   - `tests` with ids, units and tags (K10, title tags such as `[critical]`), status, `durationsMs`, and `spawnsInterpreter` (K11)
-  - `coverage` with `byTest`, `setup` and `rechecked` (K3, K4)
+  - `coverage` with `byTest`, `setup`, `unstable` and `rechecked` (K3, K4, K13)
   - `brittleness` from the strict detector of spike S6, plus `config.brittleness.patterns`
   - `shapes` (K12)
 - **Re-check (K4).** `recheck` lists unit ids. Each is run in its own process with `--test-name-pattern`, its coverage replaces the shared-process coverage, and it is listed in `coverage.rechecked`.

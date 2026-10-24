@@ -133,7 +133,7 @@ const config = {
     ],
   },
 };
-const ROWS = `${F}::@${lineOf(SUITE, 'test(`double')}`;
+const ROWS = `${F}::double ${'${x}'}`;
 const shared = collectNode({ root, config, runs: 2 });
 const rechecked = collectNode({ root, config, runs: 1, recheck: [id('second lookup [fault:x] [minor]'), id('spawns node'), id('parent > child one'), ROWS, 'tests/nope.test.mjs::x'] });
 

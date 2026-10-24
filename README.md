@@ -15,6 +15,8 @@ Coding agents now write most new tests, and suites grow faster than anyone revie
 - **Guards** every change that removes or rewrites tests: coverage never falls, the mutation score on critical code never falls, and no critical test is removed without a person's approval.
 - **Prioritises** runs: critical tests first, then tests affected by the change, then the rest.
 
+When collecting with `--runs N`, each run records coverage. This costs roughly N coverage runs and lets Cupel report timing-dependent lines in `coverage.unstable` while retaining their union as evidence.
+
 It ships as a CLI (`cupel`), a local MCP server (stdio) and a GitHub Action.
 
 It has no UI, no hosted service, no analytics, no telemetry and no model calls. It is deterministic: the same inputs always give the same report.

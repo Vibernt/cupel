@@ -7,7 +7,7 @@ Run `python -m vibernt_cupel collect --root . --runs 1 -- -q` here, or run the a
 | `OFFSET` and function declarations in `src/math.py` | Module loading enters `setup` (K3) |
 | `module_value` | Module-scoped fixture enters `setup` (K3) |
 | `function_value` | Function-scoped fixture enters its test's `byTest` (K3) |
-| Three `test_classify` parameter rows | Distinct IDs, shared definition unit (K10) |
+| Three `test_classify` parameter rows | Distinct IDs, shared `tests/test_math.py::test_classify` unit without a line number (K10) |
 | `TestGrouped.test_add` | Class name uses ` > ` in ID (K10) |
 | `cupel_critical` | Marker maps to critical tag, including strict-marker pytest runs |
 | `uncalled`, comment and blank lines | Coverable source lines include uncalled code; comments and blanks do not (K1) |

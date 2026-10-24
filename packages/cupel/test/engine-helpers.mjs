@@ -42,6 +42,7 @@ export function input({
   granularity = 'test',
   byFile,
   setup,
+  unstable,
   rechecked,
   mutants,
   targeted,
@@ -53,6 +54,7 @@ export function input({
   if (granularity === 'test') coverage.byTest = cov;
   if (byFile) coverage.byFile = byFile;
   if (setup) coverage.setup = setup;
+  if (unstable) coverage.unstable = unstable;
   if (rechecked) coverage.rechecked = rechecked;
   const doc = { spec: 'cupel-spec/1', kind: 'input', runtime, sources, tests, coverage };
   if (mutants) doc.mutation = { mutants, ...(targeted ? { targeted } : {}) };
