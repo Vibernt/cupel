@@ -38,11 +38,57 @@ class CollectorTest < Minitest::Test
 
   def test_recheck_runs_each_row_alone
     with_fixture do |root|
-      unit = 'test/math_test.rb::@11'
+      unit = 'test/math_test.rb::MathTest > "test_classify_#{value}"'
       input = Cupel::Runner.collect(root, 1, [unit], [])
       assert_equal [unit], input.dig('coverage', 'rechecked')
       assert_equal '10-11', input.dig('coverage', 'byTest', 'test/math_test.rb::MathTest > test_classify_-1', 'lib/math.rb')
       assert_equal '10,13', input.dig('coverage', 'byTest', 'test/math_test.rb::MathTest > test_classify_0', 'lib/math.rb')
+    end
+  end
+
+  def test_loop_unit_survives_shift_and_three_runs_mark_unstable_branch
+    scratch = File.join(REPO, '.scratch')
+    FileUtils.mkdir_p(scratch)
+    Dir.mktmpdir('cupel-ruby-k10-k13-', scratch) do |root|
+      FileUtils.mkdir_p(File.join(root, 'lib'))
+      FileUtils.mkdir_p(File.join(root, 'test'))
+      FileUtils.mkdir_p(File.join(root, '.scratch'))
+      File.write(File.join(root, '.scratch/count'), '0')
+      File.write(File.join(root, 'lib/branch.rb'), <<~RUBY)
+        module Branch
+          def self.pick(n)
+            if n.odd?
+              1
+            else
+              2
+            end
+          end
+        end
+      RUBY
+      body = <<~RUBY
+        require 'minitest/autorun'
+        require_relative '../lib/branch'
+        class BranchTest < Minitest::Test
+          counter = File.expand_path('../.scratch/count', __dir__)
+          n = File.read(counter).to_i
+          File.write(counter, (n + 1).to_s)
+          [1, 2].each do |value|
+            define_method("test_pick_\#{value}") do
+              assert_equal(n.odd? ? 1 : 2, Branch.pick(n))
+            end
+          end
+        end
+      RUBY
+      file = File.join(root, 'test/branch_test.rb')
+      File.write(file, body)
+      first = Cupel::Runner.collect(root, 3, [], [])
+      assert_equal ['test/branch_test.rb::BranchTest > "test_pick_#{value}"'], first['tests'].map { |row| row['unit'] }.uniq
+      assert_match(/4/, first.dig('coverage', 'unstable', 'lib/branch.rb'))
+      assert_match(/6/, first.dig('coverage', 'unstable', 'lib/branch.rb'))
+      File.write(file, "\n\n\n#{body}")
+      File.write(File.join(root, '.scratch/count'), '0')
+      shifted = Cupel::Runner.collect(root, 3, [], [])
+      assert_equal first['tests'].map { |row| row['unit'] }, shifted['tests'].map { |row| row['unit'] }
     end
   end
 

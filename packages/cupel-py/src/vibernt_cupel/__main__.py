@@ -54,11 +54,37 @@ def _rows(raw):
     for row in rows:
         if 'line' in row and 'unit' not in row:
             groups.setdefault((row['file'], row['line']), []).append(row)
-    for group in groups.values():
+    counts = {}
+    for group in sorted(groups.values(), key=lambda rows: (rows[0]['file'], rows[0]['line'])):
         if len(group) > 1:
+            title = group[0]['name'].split(' > ')
+            title[-1] = title[-1].split('[', 1)[0]
+            key = f'{group[0]["file"]}::{" > ".join(title)}'
+            counts[key] = counts.get(key, 0) + 1
+            unit = key + (f' #{counts[key]}' if counts[key] > 1 else '')
             for row in group:
-                row['unit'] = f'{row["file"]}::@{row["line"]}'
+                row['unit'] = unit
     return rows
+
+
+def _combine(runs, unstable):
+    expanded = [{source: set(_expand(spec)) for source, spec in run.items()} for run in runs]
+    combined = {}
+    for source in sorted(set().union(*(run.keys() for run in expanded))):
+        union = set().union(*(run.get(source, set()) for run in expanded))
+        combined[source] = line_set(union)
+        if len(runs) > 1:
+            varying = {line for line in union if any(line not in run.get(source, set()) for run in expanded)}
+            unstable.setdefault(source, set()).update(varying)
+    return combined
+
+
+def _setup(raw, rows, sources):
+    buckets = raw['buckets']
+    shared = buckets.get('setup', []) + buckets.get('between', [])
+    return {file: _lines(shared + buckets.get('collect:' + file, []) +
+                         buckets.get('fixture:global', []) + buckets.get('fixture:' + file, []), sources)
+            for file in sorted({row['file'] for row in rows})}
 
 
 def collect(root, runs, recheck, pytest_args, mode='run'):
@@ -68,12 +94,14 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
     config = json.loads(config_path.read_text(encoding='utf-8')) if config_path.exists() else {}
     sources = scan(root, config.get('scope'))
     first = _run(root, sources, pytest_args, mode)
+    all_runs = [first]
     rows = _rows(first)
     ids = {r['id'] for r in rows}
     statuses = {row['id']: [row['status']] for row in rows}
     spawned = set(first['spawns'])
     for repeat in range(1, runs):
         again = _run(root, sources, pytest_args)
+        all_runs.append(again)
         if {r['id'] for r in again['tests']} != ids:
             raise RuntimeError('test ids changed between runs')
         by_id = {r['id']: r for r in again['tests']}
@@ -81,7 +109,8 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
         for row in rows:
             row.setdefault('durationsMs', [max(0, round(row['duration'] * 1000))]).append(max(0, round(by_id[row['id']]['duration'] * 1000)))
             statuses[row['id']].append(by_id[row['id']]['status'])
-    by_test = {r['id']: _lines(first['buckets'].get(r['id'], []), sources) for r in rows}
+    unstable = {}
+    by_test = {r['id']: _combine([_lines(run['buckets'].get(r['id'], []), sources) for run in all_runs], unstable) for r in rows}
     checked = []
     for unit in dict.fromkeys(recheck):
         selected = [r for r in rows if r.get('unit', r['id']) == unit]
@@ -94,8 +123,8 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
         for row in selected:
             by_test[row['id']] = _lines(isolated['buckets'].get(row['id'], []), sources)
         checked.append(unit)
-    setup_lines = first['buckets'].get('setup', []) + first['buckets'].get('between', [])
-    setup = {file: _lines(setup_lines + first['buckets'].get('collect:' + file, []) + first['buckets'].get('fixture:global', []) + first['buckets'].get('fixture:' + file, []), sources) for file in sorted({r['file'] for r in rows})}
+    setup_by_run = [_setup(run, rows, sources) for run in all_runs]
+    setup = {file: _combine([run[file] for run in setup_by_run], unstable) for file in setup_by_run[0]}
     shapes, brittle = inspect(root, rows, config.get('brittleness', {}).get('patterns', []))
     tests = []
     for r in sorted(rows, key=lambda x: x['id']):
@@ -110,7 +139,9 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
         tests.append(test)
     return {'spec': 'cupel-spec/1', 'kind': 'input', 'runtime': {'name': 'python', 'version': sys.version.split()[0]},
             'sources': sources, 'tests': tests,
-            'coverage': {'granularity': 'test', 'byTest': by_test, 'setup': setup, 'rechecked': sorted(checked)},
+            'coverage': {'granularity': 'test', 'byTest': by_test, 'setup': setup,
+                         **({'unstable': {source: line_set(lines) for source, lines in sorted(unstable.items()) if lines}} if runs > 1 else {}),
+                         'rechecked': sorted(checked)},
             'shapes': shapes, 'brittleness': brittle}
 
 

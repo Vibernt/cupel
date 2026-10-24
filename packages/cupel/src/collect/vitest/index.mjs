@@ -16,6 +16,7 @@ import { collectorError } from '../error-detail.mjs';
 import { findVitestWorkspace } from './projects.mjs';
 import { copyInjectedVitestModules } from './injected.mjs';
 import { posix, scanSources, sourceMapLines, TEST, walk } from './sources.mjs';
+import { foldRuns, unstableObject } from '../coverage-runs.mjs';
 
 const sort = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const object = (entries) => Object.fromEntries([...entries].sort((a, b) => sort(a[0], b[0])));
@@ -201,6 +202,13 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     const repeats = [];
     for (let i = 0; i < Math.max(1, runs); i++) repeats.push(await execute(`run${i}`));
     const first = repeats[0];
+    const unstable = new Map();
+    const combinedCoverage = new Map();
+    for (const t of first.tests) {
+      if (repeats.some((r) => r.coverage.has(t.taskId))) combinedCoverage.set(t.taskId, foldRuns(repeats.map((r) => r.coverage.get(t.taskId)), unstable));
+    }
+    const combinedSetup = new Map();
+    for (const file of new Set(repeats.flatMap((r) => [...r.setup.keys()]))) combinedSetup.set(file, foldRuns(repeats.map((r) => r.setup.get(file)), unstable));
     const tests = new Map();
     const names = new Map();
     for (const t of first.tests) {
@@ -222,40 +230,11 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(t);
     }
-    const occupiedUnits = new Set();
-    for (const group of groups.values()) {
-      if (group.length < 2) continue;
-      const first = group[0];
-      let unit = `${first.file}::@${first.line}`;
-      if (occupiedUnits.has(unit)) unit += `:${first.column}`;
-      occupiedUnits.add(unit);
-      for (const t of group) t.unit = unit;
-    }
-    const rechecked = [];
-    for (const unit of recheck) {
-      const rows = [...tests.values()].filter((t) => (t.unit ?? t.id) === unit && t.status !== 'skipped');
-      if (!rows.length) continue;
-      if (rows.some((t) => !first.coverage.has(t.taskId))) {
-        log(`recheck skipped ${unit}: suite coverage is missing`);
-        continue;
-      }
-      const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const pattern = `^(?:${rows.map((t) => t.name.split(' > ').map(escape).join('(?:\\s*>\\s*|\\s+)')).join('|')})$`;
-      const checked = await execute(`recheck${rechecked.length}`, [rows[0].file], pattern);
-      if (rows.some((t) => !checked.tests.some((u) => u.taskId === t.taskId && u.status === t.status && checked.coverage.has(u.taskId)))) {
-        log(`recheck skipped ${unit}: selected rows did not match (${JSON.stringify(checked.tests.map((t) => [t.taskId, t.name, t.status, checked.coverage.has(t.taskId)]))})`); continue;
-      }
-      for (const t of rows) first.coverage.set(t.taskId, checked.coverage.get(t.taskId));
-      rechecked.push(unit);
-    }
-    const lineObject = (lines) => object([...lines].filter(([file]) => !mappingFailed.has(file)).map(([file, values]) => [file, formatLines(values)]));
-    const shapes = new Map(), brittleness = [];
-    const patterns = (config.brittleness?.patterns ?? []).filter((p) => !p.language || /^(?:ts|typescript|js|javascript)$/i.test(p.language)).map((p) => ({ kind: p.kind, re: new RegExp(p.pattern, 'm'), deliberate: p.deliberate }));
-    for (const file of new Set([...tests.values()].map((t) => t.file))) {
-      try {
+    const analysisCache = new Map();
+    const analyseFile = (file) => {
+      if (!analysisCache.has(file)) {
         const text = readFileSync(join(root, file), 'utf8');
-        let analysisText = text;
-        let definitions;
+        let analysisText = text, definitions;
         if (/\.[jt]sx$/.test(file)) {
           const ts = projectTypeScript(root);
           if (!ts) throw new Error('typescript is not resolvable from the project root');
@@ -265,6 +244,50 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
           analysisText = classified.text;
           definitions = analyseTestFile(analysisText, classified.tokens);
         } else definitions = analyseTestFile(text);
+        analysisCache.set(file, { analysisText, definitions });
+      }
+      return analysisCache.get(file);
+    };
+    const titleCounts = new Map();
+    for (const group of [...groups.values()].sort((a, b) => sort(a[0].file, b[0].file) || a[0].line - b[0].line || a[0].column - b[0].column)) {
+      const first = group[0];
+      if (group.length < 2) {
+        const key = `${first.file}::${first.name}`;
+        titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
+        continue;
+      }
+      const def = analyseFile(first.file).definitions.filter((d) => d.line === first.line && d.column <= (first.column ?? Infinity)).at(-1);
+      if (def?.title == null) throw new VitestCollectorError(`cannot find source title for ${first.file}:${first.line}:${first.column}`);
+      const path = first.name.split(' > ').slice(0, -1);
+      const key = `${first.file}::${[...path, def.title].join(' > ')}`;
+      const n = (titleCounts.get(key) ?? 0) + 1;
+      titleCounts.set(key, n);
+      const unit = `${key}${n > 1 ? ` #${n}` : ''}`;
+      for (const t of group) t.unit = unit;
+    }
+    const rechecked = [];
+    for (const unit of recheck) {
+      const rows = [...tests.values()].filter((t) => (t.unit ?? t.id) === unit && t.status !== 'skipped');
+      if (!rows.length) continue;
+      if (rows.some((t) => !combinedCoverage.has(t.taskId))) {
+        log(`recheck skipped ${unit}: suite coverage is missing`);
+        continue;
+      }
+      const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = `^(?:${rows.map((t) => t.name.split(' > ').map(escape).join('(?:\\s*>\\s*|\\s+)')).join('|')})$`;
+      const checked = await execute(`recheck${rechecked.length}`, [rows[0].file], pattern);
+      if (rows.some((t) => !checked.tests.some((u) => u.taskId === t.taskId && u.status === t.status && checked.coverage.has(u.taskId)))) {
+        log(`recheck skipped ${unit}: selected rows did not match (${JSON.stringify(checked.tests.map((t) => [t.taskId, t.name, t.status, checked.coverage.has(t.taskId)]))})`); continue;
+      }
+      for (const t of rows) combinedCoverage.set(t.taskId, checked.coverage.get(t.taskId));
+      rechecked.push(unit);
+    }
+    const lineObject = (lines) => object([...lines].filter(([file]) => !mappingFailed.has(file)).map(([file, values]) => [file, formatLines(values)]));
+    const shapes = new Map(), brittleness = [];
+    const patterns = (config.brittleness?.patterns ?? []).filter((p) => !p.language || /^(?:ts|typescript|js|javascript)$/i.test(p.language)).map((p) => ({ kind: p.kind, re: new RegExp(p.pattern, 'm'), deliberate: p.deliberate }));
+    for (const file of new Set([...tests.values()].map((t) => t.file))) {
+      try {
+        const { analysisText, definitions } = analyseFile(file);
         for (const t of tests.values()) {
           if (t.file !== file) continue;
           const def = definitions.filter((d) => d.line === t.line && d.column <= (t.column ?? Infinity)).at(-1);
@@ -282,7 +305,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
         const tags = [...new Set([...t.name.matchAll(/\[(critical|standard|minor)\]/g)].map((m) => m[1]))].sort(sort);
         return { id: t.id, file: t.file, name: t.name, ...(t.unit ? { unit: t.unit } : {}), ...(tags.length ? { tags } : {}), status: t.status, durationsMs: t.durationsMs, ...(first.spawns.has(t.taskId) ? { spawnsInterpreter: true } : {}) };
       }),
-      coverage: { granularity: 'test', byTest: object(ordered.filter((t) => first.coverage.has(t.taskId)).map((t) => [t.id, lineObject(first.coverage.get(t.taskId))])), setup: object([...new Set(ordered.map((t) => t.file))].map((file) => [file, lineObject(first.setup.get(file) ?? new Map())])), ...(rechecked.length ? { rechecked: rechecked.sort(sort) } : {}) },
+      coverage: { granularity: 'test', byTest: object(ordered.filter((t) => combinedCoverage.has(t.taskId)).map((t) => [t.id, lineObject(combinedCoverage.get(t.taskId))])), setup: object([...new Set(ordered.map((t) => t.file))].map((file) => [file, lineObject(combinedSetup.get(file) ?? new Map())])), ...(runs > 1 ? { unstable: unstableObject(unstable) } : {}), ...(rechecked.length ? { rechecked: rechecked.sort(sort) } : {}) },
       brittleness: brittleness.sort((a, b) => sort(a.test, b.test) || sort(a.kind, b.kind) || a.line - b.line),
       shapes: object(shapes),
     };

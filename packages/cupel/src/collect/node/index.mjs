@@ -9,10 +9,10 @@ import { writeAssertions } from '../assertions/sidecar.mjs';
 //     directories and dot-directories, narrowed by config `scope`. Each gets its coverable lines (the line
 //     rule, with the shared lexer) and a sha256 hash.
 //  2. Runs: `runs` ordinary `node --test` runs over the test files, each with the preload hook.mjs and the
-//     reporter reporter.mjs. The first run takes per-test coverage (spike S2, method B); later runs only time
-//     the tests and watch for child interpreters. Each process's coverage arrives already reduced to character
+//     reporter reporter.mjs. Every run takes per-test coverage (K13), so repeated collection costs a coverage
+//     run each time. Each process's coverage arrives already reduced to character
 //     intervals and is turned into lines and dropped file by file.
-//  3. Tests (K10): ids are `file::full name`, rows of one definition share `unit` = `file::@line`, tags come
+//  3. Tests (K10): ids are `file::full name`, rows share a source-title unit, tags come
 //     from `[critical]`, `[standard]` and `[minor]` in titles, durations from every run, `spawnsInterpreter`
 //     from the hook (K11).
 //  4. Re-check (K4): each listed unit runs alone in its own process with `--test-name-pattern`; its rows'
@@ -37,6 +37,7 @@ import { analyseTestFile, patternFindings } from './testfile.mjs';
 import { collectorError } from '../error-detail.mjs';
 import { skipFile } from '../skipped.mjs';
 import { readWorkerJson } from '../read-json.mjs';
+import { foldRuns, unstableObject } from '../coverage-runs.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = pathToFileURL(join(HERE, 'hook.mjs')).href;
@@ -341,16 +342,17 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       return idx;
     };
 
-    // Runs: the first with coverage, the others for timing and child interpreters.
+    // Coverage on every run is required to identify timing-dependent lines.
     const all = [];
     for (let i = 0; i < runs; i++) {
-      const mode = i === 0 ? 'coverage' : 'spawns';
+      const mode = 'coverage';
       const r = await suiteRun(`run${i}`, { mode });
       const leaves = leafTests(r.results);
       log(`run ${i + 1}/${runs} (${mode}): ${leaves.length} tests, ${leaves.filter((t) => t.status === 'passed').length} passed, ${(r.ms / 1000).toFixed(1)} s`);
       all.push({ ...r, leaves, index: hookIndex(r.hook) });
     }
     const first = all[0];
+    const unstable = new Map();
 
     // Tests (K10, K11) and coverage.
     const tests = new Map(); // id -> test
@@ -366,16 +368,23 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         if (r !== first && t.status === 'failed') rec.status = 'failed';
         const h = t.hookKey ? r.index.get(`${t.file}\u0000${t.hookKey}`) : null;
         if (h?.interp) rec.interp = true;
-        if (r === first && h) { rec.lines = h.lines; rec.assertions = h.assertions; }
+        if (r === first && h) rec.assertions = h.assertions;
       }
     }
+    for (const rec of tests.values()) {
+      const runLines = all.map((r) => rec.hookKey ? r.index.get(`${rec.file}\u0000${rec.hookKey}`)?.lines : null);
+      rec.lines = runLines.some(Boolean) ? foldRuns(runLines, unstable) : null;
+    }
     const setup = new Map(); // test file -> Map rel -> lines
-    for (const h of first.hook) {
-      if (!setup.has(h.file)) setup.set(h.file, new Map());
-      addLines(setup.get(h.file), h.setup);
+    for (const file of new Set(all.flatMap((run) => run.hook.map((h) => h.file)))) {
+      setup.set(file, foldRuns(all.map((run) => {
+        const lines = new Map();
+        for (const h of run.hook.filter((item) => item.file === file)) addLines(lines, h.setup);
+        return lines;
+      }), unstable));
     }
 
-    // Units (K10): rows of one definition share `file::@line`.
+    // Units (K10): rows of one definition share its source title.
     const groups = new Map();
     for (const t of tests.values()) {
       if (!t.callFile || !t.line) continue;
@@ -383,13 +392,23 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(t);
     }
-    const unitIds = new Set();
-    for (const rows of [...groups.values()].sort((a, b) => cmp(a[0].id, b[0].id))) {
-      if (rows.length < 2) continue;
+    const titles = new Map();
+    const titleCounts = new Map();
+    for (const rows of [...groups.values()].sort((a, b) => cmp(a[0].file, b[0].file) || a[0].line - b[0].line || a[0].column - b[0].column)) {
       const t = rows[0];
-      let unit = t.callFile === t.file ? `${t.file}::@${t.line}` : `${t.file}::@${t.callFile}:${t.line}`;
-      if (unitIds.has(unit)) unit = `${unit}:${t.column}`;
-      unitIds.add(unit);
+      if (rows.length < 2) {
+        const key = `${t.file}::${[...t.path, t.leaf].join(' > ')}`;
+        titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
+        continue;
+      }
+      let unit;
+      if (!titles.has(t.callFileAbs)) titles.set(t.callFileAbs, new Map(analyseTestFile(readFileSync(t.callFileAbs, 'utf8')).map((d) => [`${d.line}:${d.column}`, d.title])));
+      const title = titles.get(t.callFileAbs).get(`${t.line}:${t.column}`);
+      if (title == null) throw new CollectorError(`cannot find source title for ${t.file}:${t.line}:${t.column}`);
+      const key = `${t.file}::${t.callFile === t.file ? '' : `@${t.callFile}::`}${[...t.path, title].join(' > ')}`;
+      const n = (titleCounts.get(key) ?? 0) + 1;
+      titleCounts.set(key, n);
+      unit = `${key}${n > 1 ? ` #${n}` : ''}`;
       for (const r of rows) r.unit = unit;
     }
 
@@ -501,6 +520,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       setup: sortedObject([...setup].map(([f, m]) => [f, lineObject(m)])),
     };
     if (rechecked.length) coverage.rechecked = rechecked.sort(cmp);
+    if (runs > 1) coverage.unstable = unstableObject(unstable);
     const input = {
       spec: SPEC,
       kind: 'input',

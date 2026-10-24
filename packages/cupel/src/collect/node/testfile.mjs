@@ -61,6 +61,18 @@ export function shapeOf(tokens) {
   return [...hashes].sort((a, b) => a - b);
 }
 
+function sourceTitle(src, tokens, open, comma) {
+  if (comma <= open + 1) return null;
+  const first = tokens[open + 1];
+  const raw = src.slice(first.start, tokens[comma - 1].end).trim();
+  if (raw.startsWith('`') && raw.endsWith('`')) return raw.slice(1, -1);
+  if (first.type !== 'string') return null;
+  return first.value.slice(1, -1).replace(/\\(?:x([0-9a-fA-F]{2})|u\{([0-9a-fA-F]+)\}|u([0-9a-fA-F]{4})|([\s\S]))/g,
+    (_, hex, codepoint, unicode, escaped) => hex ? String.fromCodePoint(parseInt(hex, 16)) :
+      codepoint ? String.fromCodePoint(parseInt(codepoint, 16)) : unicode ? String.fromCodePoint(parseInt(unicode, 16)) :
+        ({ n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', '0': '\0', '\n': '', '\r': '' }[escaped] ?? escaped));
+}
+
 /**
  * Analyses one test file. Returns [{ line, column, start, end, flags: [{ kind, line }], shape }], one per
  * definition; `line` and `column` (1-based) locate the callee name, `start` and `end` are source offsets.
@@ -326,6 +338,7 @@ export function analyseTestFile(src, scannedTokens = null) {
       end: toks[d.close].end,
       flags,
       shape: shapeOf(toks.slice(bodyStart, d.close)),
+      title: sourceTitle(src, toks, d.open, bodyStart - 1),
     });
   }
   return out;

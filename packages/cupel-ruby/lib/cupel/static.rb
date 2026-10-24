@@ -6,6 +6,26 @@ module Cupel
   module Static
     IGNORED = %i[on_sp on_ignored_nl on_nl on_comment].freeze
 
+    def self.definition_title(file, line)
+      tokens = Ripper.lex(File.read(file))
+      method = tokens.index { |token| token[0][0] == line && token[1] == :on_ident && token[2] == 'define_method' }
+      raise "cannot find define_method at #{file}:#{line}" unless method
+      opening = ((method + 1)...tokens.length).find { |index| !IGNORED.include?(tokens[index][1]) }
+      raise "define_method has no parenthesized name at #{file}:#{line}" unless tokens[opening]&.[](2) == '('
+      depth = 0
+      name = []
+      tokens[(opening + 1)..].each do |token|
+        value = token[2]
+        if value == ')' && depth.zero?
+          return name.join.strip
+        end
+        depth += 1 if value == '('
+        depth -= 1 if value == ')'
+        name << value
+      end
+      raise "unterminated define_method name at #{file}:#{line}"
+    end
+
     def self.fnv(text)
       text.b.each_byte.reduce(0x811c9dc5) { |hash, byte| ((hash ^ byte) * 0x01000193) & 0xffff_ffff }
     end

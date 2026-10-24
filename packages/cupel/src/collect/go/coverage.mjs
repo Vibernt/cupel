@@ -67,3 +67,22 @@ export function subtract(actual, setup) {
     return [p, lineSet(lines)];
   }).filter(([, v]) => v));
 }
+
+export function combineRuns(records, unstable) {
+  const expanded = records.map((record) => new Map(Object.entries(record).map(([source, spec]) => [source, new Set(spec.split(',').filter(Boolean).flatMap((part) => {
+    const [start, end = start] = part.split('-').map(Number);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }))])));
+  const result = {};
+  for (const source of new Set(expanded.flatMap((record) => [...record.keys()]))) {
+    const union = new Set(expanded.flatMap((record) => [...(record.get(source) ?? [])]));
+    result[source] = lineSet(union);
+    if (records.length > 1) for (const line of union) {
+      if (expanded.some((record) => !record.get(source)?.has(line))) {
+        if (!unstable.has(source)) unstable.set(source, new Set());
+        unstable.get(source).add(line);
+      }
+    }
+  }
+  return result;
+}

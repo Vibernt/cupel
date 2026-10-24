@@ -3,6 +3,7 @@
 require 'json'
 require 'open3'
 require 'tmpdir'
+require 'set'
 require_relative 'lines'
 require_relative 'static'
 
@@ -81,7 +82,9 @@ module Cupel
 
       sources = Lines.scan(root)
       all = []
-      Dir.mktmpdir('cupel-ruby-') do |scratch|
+      scratch_root = File.join(root, '.scratch')
+      Dir.mkdir(scratch_root) unless Dir.exist?(scratch_root)
+      Dir.mktmpdir('cupel-ruby-', scratch_root) do |scratch|
         runs.times do |index|
           dir = File.join(scratch, "run#{index}")
           Dir.mkdir(dir)
@@ -93,16 +96,27 @@ module Cupel
         raise 'duplicate Minitest test ids' unless ids.uniq.length == ids.length
 
         grouped = rows.group_by { |r| [r['file'], r['locationLine']] }
-        grouped.each_value do |group|
+        counts = Hash.new(0)
+        grouped.sort_by { |(file, line), _| [file, line] }.each do |_, group|
           next unless group.length > 1
-          group.each { |r| r['unit'] = "#{r['file']}::@#{r['locationLine']}" }
+          sample = group.first
+          title = Static.definition_title(File.join(root, sample['file']), sample['locationLine'])
+          key = "#{sample['file']}::#{sample['name'].split(' > ').first} > #{title}"
+          counts[key] += 1
+          unit = key + (counts[key] > 1 ? " ##{counts[key]}" : '')
+          group.each { |r| r['unit'] = unit }
         end
         by_test = {}
+        unstable = {}
         shapes = {}
         brittle = []
         rows.each_with_index do |r, i|
           raw = first.flat_map { |record| record['tests'] }[i]
-          by_test[r['id']] = Lines.covered(raw['coverage'], root, sources)
+          by_test[r['id']] = Lines.combine(all.map { |run|
+            found = run.flatten.flat_map { |record| record['tests'] }.find { |test| row(test, root)['id'] == r['id'] }
+            raise "test ids changed between runs: #{r['id']}" unless found
+            Lines.covered(found['coverage'], root, sources)
+          }, unstable)
           begin
             absolute = File.join(root, r['file'])
             tags, findings = Static.flags(absolute, r['locationLine'], r['id'])
@@ -129,8 +143,9 @@ module Cupel
             r['status'] = 'passed' if r['status'] == 'skipped' && second['status'] == 'passed'
           end
         end
-        setup = {}
-        first.each do |record|
+        setup_runs = all.map do |run|
+          setup = {}
+          run.flatten.each do |record|
           test_files = record['tests'].map { |raw| row(raw, root)['file'] }.uniq
           record['setup'].each do |test_file, delta|
             relative = File.expand_path(test_file, root).delete_prefix("#{root}/").tr(File::SEPARATOR, '/')
@@ -138,13 +153,15 @@ module Cupel
             targets.each do |path|
               setup[path] ||= {}
               Lines.covered(delta, root, sources).each do |source, set|
-                setup[path][source] = Lines.encode((setup[path][source].to_s + ',' + set).scan(/\d+(?:-\d+)?/).flat_map do |part|
-                  a, b = part.split('-').map(&:to_i)
-                  (a..(b || a)).to_a
-                end)
+                setup[path][source] = Lines.encode(Lines.expand(setup[path][source]) + Lines.expand(set))
               end
             end
           end
+          end
+          setup
+        end
+        setup = setup_runs.flat_map(&:keys).uniq.sort.to_h do |file|
+          [file, Lines.combine(setup_runs.map { |run| run.fetch(file, {}) }, unstable)]
         end
         checked = []
         recheck.each do |unit|
@@ -165,7 +182,8 @@ module Cupel
                  'runtime' => { 'name' => 'ruby', 'version' => RUBY_VERSION },
                  'sources' => sources, 'tests' => rows.sort_by { |r| r['id'] },
                  'coverage' => { 'granularity' => 'test', 'byTest' => by_test,
-                                 'setup' => setup, 'rechecked' => checked.sort },
+                                 'setup' => setup, 'unstable' => unstable.sort.to_h.transform_values { |lines| Lines.encode(lines.to_a) },
+                                 'rechecked' => checked.sort },
                  'shapes' => shapes, 'brittleness' => brittle }
       end
     end

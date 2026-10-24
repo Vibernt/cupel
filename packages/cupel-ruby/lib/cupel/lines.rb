@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'coverage'
+require 'set'
 
 module Cupel
   module Lines
@@ -36,6 +37,25 @@ module Cupel
         end
       end
       groups.map { |a, b| a == b ? a.to_s : "#{a}-#{b}" }.join(',')
+    end
+
+    def self.expand(spec)
+      spec.to_s.split(',').flat_map do |part|
+        first, last = part.split('-').map(&:to_i)
+        (first..(last || first)).to_a
+      end
+    end
+
+    def self.combine(records, unstable)
+      records = records.map { |record| record.transform_values { |spec| expand(spec).to_set } }
+      records.flat_map(&:keys).uniq.sort.each_with_object({}) do |source, out|
+        union = records.reduce(Set.new) { |lines, record| lines | (record[source] || Set.new) }
+        out[source] = encode(union.to_a)
+        if records.length > 1
+          varying = union.select { |line| records.any? { |record| !record.fetch(source, Set.new).include?(line) } }
+          (unstable[source] ||= Set.new).merge(varying) unless varying.empty?
+        end
+      end
     end
 
     def self.covered(raw, root, sources)

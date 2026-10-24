@@ -194,7 +194,8 @@ def _record(item):
         row['line'] = fn.lineno
         row['definitionFile'] = definition
         if definition != path:
-            row['unit'] = f'{path}::@{definition}:{fn.lineno}'
+            qualified = code.co_qualname.replace('.<locals>.', ' > ').replace('.', ' > ')
+            row['unit'] = f'{path}::@{definition}::{qualified}'
     except Exception as error:
         _warn(item.nodeid, error)
     return row

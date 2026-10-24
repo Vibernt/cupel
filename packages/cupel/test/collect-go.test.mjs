@@ -32,6 +32,41 @@ test('Go fixture matches hand-written expected input, schema, and report', { ski
   assert.ok(Object.values(input.shapes).every((hashes) => hashes.length > 0));
 });
 
+test('Go K13 unions three runs and marks a branch that changes per run', { skip: !hasGo && 'go unavailable' }, async () => {
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const root = mkdtempSync(join(repo, '.scratch/go-k13-'));
+  try {
+    cpSync(fixture, root, { recursive: true, filter: (path) => !path.startsWith(join(fixture, '.scratch')) });
+    mkdirSync(join(root, '.scratch'), { recursive: true });
+    writeFileSync(join(root, 'branch.go'), 'package fixture\nfunc Pick(n int) int {\n if n%2 == 0 {\n  return 1\n }\n return 2\n}\n');
+    writeFileSync(join(root, 'branch_test.go'), `package fixture
+import (
+ "os"
+ "strconv"
+ "testing"
+)
+func TestBranch(t *testing.T) {
+ for n := 0; ; n++ {
+  file, err := os.OpenFile(".scratch/seen-"+strconv.Itoa(n), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+  if os.IsExist(err) { continue }
+  if err != nil { t.Fatal(err) }
+  file.Close()
+  want := 2
+  if n%2 == 0 { want = 1 }
+  if got := Pick(n); got != want { t.Fatalf("got %d", got) }
+  break
+ }
+}
+`);
+    const input = await collectGo({ root, runs: 3, tests: 'branch_test.go' });
+    assert.deepEqual(input.tests.map((row) => row.id), ['branch_test.go::TestBranch']);
+    assert.match(input.coverage.unstable['branch.go'], /4/);
+    assert.match(input.coverage.unstable['branch.go'], /6/);
+    assert.match(input.coverage.byTest['branch_test.go::TestBranch']['branch.go'], /4/);
+    assert.match(input.coverage.byTest['branch_test.go::TestBranch']['branch.go'], /6/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('Go collector CLI and automatic external selection work', { skip: !hasGo && 'go unavailable' }, async () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const root = mkdtempSync(join(repo, '.scratch/go-cli-'));
