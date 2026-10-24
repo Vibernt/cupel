@@ -5,7 +5,8 @@ from functools import lru_cache
 from pathlib import Path
 from .lines import source_record
 
-SKIP_DIRS = {'tests', 'test', '__tests__', '__test__', '.venv', 'venv', 'env', 'site-packages'}
+# K2: test, dependency and virtual-environment directories. A mixed repository's node_modules can hold .py files.
+SKIP_DIRS = {'tests', 'test', '__tests__', '__test__', '.venv', 'venv', 'env', 'site-packages', 'node_modules', 'bower_components', 'jspm_packages', 'vendor'}
 
 
 def glob_match(path, glob):

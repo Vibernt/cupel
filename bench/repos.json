@@ -121,9 +121,14 @@
       "mutation": {
         "maxMutants": 300,
         "maxSeconds": 1200
+      },
+      "scope": {
+        "exclude": [
+          "plugin/dist/**"
+        ]
       }
     },
-    "notes": "README uses pytest and release CI ignores test_lifespan.py. Dev extra supplies pytest and optional packages. Excludes live Zotero integration plan and test_lifespan; no Zotero service in container. Node 24 is installed into the cache volume in the Python image; report uses that binary and Cupel Python collector via PYTHONPATH. tiktoken downloads its encoding on first use, so the install step pre-fetches cl100k_base into the cache volume while the network is on. plugin/package.json runs node:test on TypeScript and requires Node 24; its tests are configured as a second runner. TypeScript source coverage uses the native Node collector."
+    "notes": "README uses pytest and release CI ignores test_lifespan.py. Dev extra supplies pytest and optional packages. Excludes live Zotero integration plan and test_lifespan; no Zotero service in container. Node 24 is installed into the cache volume in the Python image; report uses that binary and Cupel Python collector via PYTHONPATH. tiktoken downloads its encoding on first use, so the install step pre-fetches cl100k_base into the cache volume while the network is on. plugin/package.json runs node:test on TypeScript and requires Node 24; its tests are configured as a second runner. TypeScript source coverage uses the native Node collector. Scope excludes the built plugin bundle (plugin/dist)."
   },
   {
     "name": "Skill_Seekers",

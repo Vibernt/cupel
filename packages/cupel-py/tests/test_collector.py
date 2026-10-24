@@ -55,7 +55,8 @@ class StaticTests(unittest.TestCase):
     def test_source_scope_and_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for rel in ('src/a.py', 'tests/no.py', 'test/no.py', '.venv/no.py', 'src/test_x.py', 'src/x_test.py', 'src/conftest.py'):
+            for rel in ('src/a.py', 'tests/no.py', 'test/no.py', '.venv/no.py', 'src/test_x.py', 'src/x_test.py', 'src/conftest.py',
+                        'plugin/node_modules/katex/no.py', 'vendor/no.py'):
                 path = root / rel
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('X = 1\n')
