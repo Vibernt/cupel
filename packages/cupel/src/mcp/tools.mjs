@@ -94,6 +94,7 @@ function pageReport(report, p) {
   const page = p.page ?? 1;
   const size = p.pageSize ?? 50;
   return {
+    ...(report.runtimes ? { runtime: report.runtime, runtimes: report.runtimes } : {}),
     suite: report.suite,
     units: report.units.slice((page - 1) * size, page * size),
     groups: report.groups,

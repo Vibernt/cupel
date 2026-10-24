@@ -4,7 +4,6 @@
 
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { CliError, EXIT_ENV, EXIT_USAGE } from './errors.mjs';
 import { cmp } from '../engine/order.mjs';
@@ -39,14 +38,16 @@ function resolveCommit(root, ref) {
 }
 
 /**
- * Unpacks the tree of `ref` into a new directory under os.tmpdir() (`git archive <ref> | tar -x`).
+ * Unpacks the tree of `ref` into a new directory under the repository's .scratch/.
  * Returns { dir, cleanup }. The caller must call cleanup().
  */
 export function extractRef(root, ref) {
   if (!root) throw new CliError(EXIT_ENV, 'git: not inside a git repository');
   const commit = resolveCommit(root, ref);
   // The real path, so coverage URLs the runtime reports (symlinks resolved) match the root.
-  const parent = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-base-')));
+  const scratch = join(root, '.scratch');
+  mkdirSync(scratch, { recursive: true });
+  const parent = realpathSync(mkdtempSync(join(scratch, 'cupel-base-')));
   const cleanup = () => rmSync(parent, { recursive: true, force: true });
   try {
     const tar = join(parent, 'base.tar');

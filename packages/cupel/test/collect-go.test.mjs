@@ -19,9 +19,16 @@ const expected = JSON.parse(readFileSync(join(fixture, 'expected.json'), 'utf8')
 const schemas = Object.fromEntries(['input', 'config', 'report'].map((name) => [name,
   JSON.parse(readFileSync(join(repo, `spec/schemas/${name}.schema.json`), 'utf8'))]));
 const hasGo = spawnSync('go', ['version'], { encoding: 'utf8' }).status === 0;
+mkdirSync(join(repo, '.scratch/go-test-cache'), { recursive: true });
+process.env.GOCACHE = join(repo, '.scratch/go-test-cache');
 
 test('Go fixture matches hand-written expected input, schema, and report', { skip: !hasGo && 'go unavailable' }, async () => {
-  const input = await collectGo({ root: fixture, runs: 2 });
+  const root = mkdtempSync(join(repo, '.scratch/go-fixture-'));
+  let input;
+  try {
+    cpSync(fixture, root, { recursive: true, filter: (path) => !path.startsWith(join(fixture, '.scratch')) });
+    input = await collectGo({ root, runs: 2 });
+  } finally { rmSync(root, { recursive: true, force: true }); }
   assert.deepEqual(match(expected, input), []);
   assert.deepEqual(validate(schemas.input, input), []);
   const { report, exit } = run('report', { input }, {}, {}, schemas);

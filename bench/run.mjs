@@ -2,7 +2,7 @@
 // Benchmark orchestrator. It never runs candidate source on the host.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, mkdtempSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
-import { dockerRun, cupelCommand, shellQuote } from './docker.mjs';
+import { dockerRun, cupelCommand, shellQuote, runProcess, dockerBuildArgs } from './docker.mjs';
 import { median, peakKb, reportMetrics, guardMetrics, planMetrics } from './parse.mjs';
 import { baselineRun, capturedError, reportCommandCompleted } from './baseline.mjs';
 import { recentCommits, commitChangedLines, testFile } from './git.mjs';
@@ -65,6 +65,10 @@ const reportOptions = (out = '/work/.cupel/input.json', mutation = true) =>
   `--config /work/.cupel-bench.json --json --runs 2 ${mutation ? '' : '--no-mutation '}--out ${out}`;
 
 async function install() {
+  if (repo.imageBuild) {
+    const built = await runProcess('docker', dockerBuildArgs(repo, benchDir));
+    if (built.exitCode !== 0) return save('install', { status: 'failed', wallMs: built.wallMs, exitCode: built.exitCode, reason: tail(built) });
+  }
   const hydrate = "git -c safe.directory=/work -C /work fetch --refetch --no-filter origin HEAD && GIT_NO_LAZY_FETCH=1 git -c safe.directory=/work -C /work rev-list --objects --missing=print HEAD > /tmp/cupel-objects && if grep -q '^?' /tmp/cupel-objects; then echo 'missing Git objects after hydration' >&2; exit 1; fi";
   const command = `set -eu; apt-get update && apt-get install -y --no-install-recommends git; ${repo.install}; ${hydrate}`;
   const result = await dockerRun(repo, 'bridge', command);

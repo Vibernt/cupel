@@ -6,7 +6,7 @@
 // that replace the real modules. A path that does not exist means "not available". Outside
 // NODE_ENV=test both variables are ignored.
 
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -14,6 +14,8 @@ import { environment, usage } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
+import { mergeRunners, runnerParts } from './merge-runners.mjs';
+import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject } from './runner-discovery.mjs';
 
 const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
@@ -26,36 +28,10 @@ const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url))
 const CUPEL_BIN = fileURLToPath(new URL('../../bin/cupel.mjs', import.meta.url));
 const RUBY_BIN = fileURLToPath(new URL('../../../cupel-ruby/bin/cupel-ruby', import.meta.url));
 const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
-
-function hasNodeTests(root) {
-  const visit = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || ['node_modules', 'venv', '.venv', 'env', 'site-packages'].includes(entry.name)) continue;
-      const path = join(dir, entry.name);
-      if (entry.isDirectory() && visit(path)) return true;
-      if (entry.isFile() && /\.(test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) return true;
-    }
-    return false;
-  };
-  return visit(root);
-}
-
-function hasPytestTests(root) {
-  const visit = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || ['node_modules', 'vendor', 'testdata', 'venv', 'env', 'site-packages'].includes(entry.name)) continue;
-      const path = join(dir, entry.name);
-      if (entry.isDirectory() && visit(path)) return true;
-      if (entry.isFile() && /^(test_.*|.*_test)\.py$/.test(entry.name)) return true;
-    }
-    return false;
-  };
-  return visit(root);
-}
+const mutationOwners = new WeakMap();
 
 function externalRunner(root, cfg) {
   const named = Object.entries(cfg.runners ?? {});
-  if (named.length > 1) throw usage(`multiple runners configured (${named.map(([name]) => name).join(', ')}); collection supports one runner`);
   if (named.length) {
     const [name, runner] = named[0];
     if (runner.collector) return { name, ...runner };
@@ -66,43 +42,7 @@ function externalRunner(root, cfg) {
     if (name === 'node' || name === 'vitest') return null;
     throw usage(`runner ${name} needs a collector command`);
   }
-  if (existsSync(join(root, 'go.mod')) && !hasNodeTests(root) && !hasPytestTests(root)) {
-    return { name: 'go', collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-go` };
-  }
-  const setupCfg = join(root, 'setup.cfg');
-  const pythonProject = existsSync(join(root, 'pyproject.toml')) || existsSync(join(root, 'pytest.ini')) ||
-    (existsSync(setupCfg) && /\[tool:pytest\]|\[pytest\]/.test(readFileSync(setupCfg, 'utf8')));
-  if (root && !hasNodeTests(root) && existsSync(join(root, 'Gemfile')) &&
-      existsSync(join(root, 'test')) && hasRubyTests(join(root, 'test')) && !hasPytestTests(root)) {
-    return { name: 'minitest', collector: `ruby ${quote(RUBY_BIN)} collect`, env: {} };
-  }
-  if (root && !hasNodeTests(root) && pythonProject) {
-    return { name: 'pytest', collector: 'python3 -m vibernt_cupel collect', env: {} };
-  }
   return null;
-}
-
-function hasRubyTests(dir) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith('.')) continue;
-    const path = join(dir, entry.name);
-    if (entry.isDirectory() && hasRubyTests(path)) return true;
-    if (entry.isFile() && /_test\.rb$/.test(entry.name)) return true;
-  }
-  return false;
-}
-
-function isVitestProject(root, cfg) {
-  if (cfg.runners?.vitest) return true;
-  const packageFile = join(root, 'package.json');
-  if (existsSync(packageFile)) {
-    const pkg = JSON.parse(readFileSync(packageFile, 'utf8'));
-    if (pkg.dependencies?.vitest || pkg.devDependencies?.vitest || pkg.optionalDependencies?.vitest) return true;
-  }
-  return readdirSync(root).some((name) => {
-    if (/^vitest\.config\.[cm]?[jt]s$/.test(name)) return true;
-    return /^vite\.config\.[cm]?[jt]s$/.test(name) && /\btest\s*:/.test(readFileSync(join(root, name), 'utf8'));
-  });
 }
 
 function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
@@ -123,8 +63,10 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
         throw environment(collectorError(`external collector prepare failed (${ready.error?.message ?? `exit ${ready.status}`}): ${cause}`, detail, dir));
       }
     }
-    const tests = runner.tests && ['go', 'minitest', 'cargo'].includes(runner.name) ? ` --tests ${quote(runner.tests)}` : '';
-    const command = `${runner.collector} --root ${quote(root)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(u)}`).join(' ')} --out ${quote(output)}${tests}`;
+    const subroot = runner.name === 'cargo' && typeof runner.project === 'string' ? join(root, runner.project) : root;
+    const prefix = subroot === root ? '' : `${runner.project.replace(/\\/g, '/').replace(/\/$/, '')}/`;
+    const tests = runner.tests && ['go', 'minitest', 'cargo'].includes(runner.name) ? ` --tests ${quote(prefix && runner.name === 'cargo' && runner.tests.startsWith(prefix) ? runner.tests.slice(prefix.length) : runner.tests)}` : '';
+    const command = `${runner.collector} --root ${quote(subroot)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(prefix && u.startsWith(prefix) ? u.slice(prefix.length) : u)}`).join(' ')} --out ${quote(output)}${tests}`;
     log(`external collector: ${runner.name}`);
     const child = spawnSync(command, { cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 28 });
     if (child.error || child.status !== 0) {
@@ -138,7 +80,10 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
       preserveDir = true;
       throw environment(collectorError('external collector did not write --out file', `stderr:\n${child.stderr ?? ''}\nstdout:\n${child.stdout ?? ''}`, dir));
     }
-    try { return JSON.parse(readFileSync(output, 'utf8')); }
+    try {
+      const input = JSON.parse(readFileSync(output, 'utf8'));
+      return prefix ? prefixInput(input, prefix) : input;
+    }
     catch (error) {
       preserveDir = true;
       throw environment(collectorError(`external collector output is not JSON: ${error.message}`, readFileSync(output, 'utf8'), dir));
@@ -146,6 +91,23 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
   } finally {
     if (!preserveDir) rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function prefixInput(input, prefix) {
+  const id = (value) => `${prefix}${value}`;
+  const paths = (entries) => Object.fromEntries(Object.entries(entries ?? {}).map(([key, value]) => [id(key), value]));
+  const lineMaps = (entries) => Object.fromEntries(Object.entries(entries ?? {}).map(([key, value]) => [key, paths(value)]));
+  input.sources = paths(input.sources);
+  input.tests = input.tests.map((test) => ({ ...test, id: id(test.id), file: id(test.file), ...(test.unit ? { unit: id(test.unit) } : {}) }));
+  const cov = input.coverage;
+  if (cov.byTest) cov.byTest = Object.fromEntries(Object.entries(lineMaps(cov.byTest)).map(([key, value]) => [id(key), value]));
+  if (cov.byFile) cov.byFile = Object.fromEntries(Object.entries(lineMaps(cov.byFile)).map(([key, value]) => [id(key), value]));
+  if (cov.setup) cov.setup = Object.fromEntries(Object.entries(lineMaps(cov.setup)).map(([key, value]) => [id(key), value]));
+  if (cov.unstable) cov.unstable = paths(cov.unstable);
+  if (cov.rechecked) cov.rechecked = cov.rechecked.map(id);
+  if (input.shapes) input.shapes = paths(input.shapes);
+  if (input.brittleness) input.brittleness = input.brittleness.map((b) => ({ ...b, test: id(b.test) }));
+  return input;
 }
 
 /** The pytest collector's interpreter and environment also run its mutation command. */
@@ -226,6 +188,42 @@ export async function loadModule(kind, env = process.env) {
 }
 
 export async function requireCollector(env, root, cfg) {
+  const configured = Object.keys(cfg.runners ?? {});
+  const selected = configured.length ? configured : detectRunners(root, cfg);
+  if (selected.length > 1) {
+    const runners = [];
+    for (const name of selected) {
+      const config = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? detectedConfig(root, name) } };
+      runners.push({ name, config, files: !configured.length && name === 'node' ? detectedNodeFiles(root) : undefined,
+        collector: await requireCollector(env, root, config) });
+    }
+    let lastParts = null;
+    return {
+      kind: 'merged', runners,
+      async collectNode(opts) {
+        const parts = [];
+        for (const runner of runners) {
+          try {
+            const previous = lastParts?.find((part) => part.name === runner.name);
+            const allowed = previous?.input.tests;
+            const recheck = allowed ? (opts.recheck ?? []).filter((id) => allowed.some((test) => (test.unit ?? test.id) === id)) : (opts.recheck ?? []);
+            const input = (opts.recheck?.length && previous && !recheck.length)
+              ? previous.input
+              : await runner.collector.collectNode({ ...opts, recheck, config: runner.config,
+                ...(runner.files && !opts.files ? { files: runner.files } : {}) });
+            parts.push({ name: runner.name, input });
+          } catch (error) {
+            throw environment(`runner ${runner.name} collection failed: ${error.message}`);
+          }
+        }
+        lastParts = parts;
+        return mergeRunners(parts);
+      },
+    };
+  }
+  if (!configured.length && selected.length === 1) {
+    return requireCollector(env, root, { ...cfg, runners: { [selected[0]]: selected[0] === 'node' ? {} : detectedConfig(root, selected[0]) } });
+  }
   const external = externalRunner(root, cfg);
   if (external) return { collectNode: (opts) => collectExternal(external, opts) };
   if (env.NODE_ENV === 'test' && env.CUPEL_TEST_COLLECTOR) {
@@ -289,12 +287,14 @@ export function collectTree(collector, { root, cfg, runs, recheck, log, diagnost
  * directory under os.tmpdir(), `prepare` there, collect, then `after(dir, input)` (for mutation),
  * and always clean up.
  */
-export async function collectRef(collector, { root, ref, cfg, runs, log }, after) {
+export async function collectRef({ root, ref, cfg, runs, log, env = process.env }, after) {
   const { dir, commit, cleanup } = extractRef(root, ref);
   try {
     log(`collecting ${ref} (${commit.slice(0, 12)}) in ${dir}`);
     runPrepare(dir, cfg, log);
-    const input = await collect(collector, { root: dir, config: withoutPrepare(cfg), runs, recheck: [], log });
+    const refConfig = withoutPrepare(cfg);
+    const refCollector = await requireCollector(env, dir, refConfig);
+    const input = await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log });
     return after ? await after(dir, input) : input;
   } finally {
     cleanup();
@@ -307,6 +307,34 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
   if (empty) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
+    const parts = runnerParts(input);
+    if (parts) {
+      const mutations = [];
+      const owners = new Map();
+      for (const { name, input: part } of parts) {
+        if (!['node', 'vitest', 'pytest'].includes(name)) {
+          log(`runner ${name}: mutation is not implemented`);
+          continue;
+        }
+        const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
+        const selected = { ...scope,
+          changed: scope.changed && Object.fromEntries(Object.entries(scope.changed).filter(([path]) => Object.hasOwn(part.sources, path))),
+          targeted: (scope.targeted ?? []).filter((id) => part.tests.some((t) => (t.unit ?? t.id) === id)),
+        };
+        const result = await mutate(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: name === 'vitest' ? 'vitest' : undefined, diagnostics });
+        if (result) {
+          mutations.push(result);
+          for (const mutant of result.mutants) {
+            if (owners.has(mutant.id)) throw environment(`duplicate mutant id across runners: ${mutant.id}`);
+            owners.set(mutant.id, name);
+          }
+        }
+      }
+      if (!mutations.length) return null;
+      const merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
+      mutationOwners.set(merged, owners);
+      return merged;
+    }
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
     return await mutator.mutateNode({ root, config: cfg, input, scope: { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
   } catch (e) {
@@ -319,8 +347,24 @@ export async function confirm(mutator, { root, cfg, input, mutation, ids, log, c
   if (!ids.length) return mutation;
   log(`confirming ${ids.length} survivors`);
   try {
+    const parts = runnerParts(input);
+    if (parts) {
+      const confirmed = [];
+      const owners = mutationOwners.get(mutation);
+      if (!owners) throw environment('merged mutation has no runner ownership for confirmation');
+      for (const { name, input: part } of parts) {
+        const relevant = mutation.mutants.filter((m) => owners.get(m.id) === name);
+        const selectedIds = ids.filter((id) => relevant.some((m) => m.id === id));
+        const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
+        if (selectedIds.length) {
+          const result = await confirm(mutator, { root, cfg: partCfg, input: part, mutation: { ...mutation, mutants: relevant }, ids: selectedIds, log, collectorKind: name === 'vitest' ? 'vitest' : undefined });
+          confirmed.push(...result.mutants);
+        } else confirmed.push(...relevant);
+      }
+      return { ...mutation, mutants: confirmed };
+    }
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, mutation, ids });
-    if (typeof mutator.confirmSurvivors !== 'function') return mutation;
+    if (typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation is not available');
     const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids, collectorKind });
     return out && Array.isArray(out.mutants) ? out : mutation;
   } catch (e) {

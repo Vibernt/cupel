@@ -86,10 +86,16 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   // G1
   if (command === 'guard') {
     const [b, h] = [inputs.base.runtime, inputs.head.runtime];
-    if (b.name !== h.name || b.version !== h.version) {
+    const baseRuntimes = inputs.base.runtimes;
+    const headRuntimes = inputs.head.runtimes;
+    const mismatch = baseRuntimes && headRuntimes
+      ? headRuntimes.map((r) => [baseRuntimes.find((x) => x.runner === r.runner), r]).find(([x, y]) => x && (x.name !== y.name || x.version !== y.version))
+      : (b.name !== h.name || b.version !== h.version ? [b, h] : null);
+    if (mismatch) {
+      const [before, after] = mismatch;
       return stop([{
         code: 'runtime-mismatch', severity: 'error',
-        message: `base ran on ${b.name} ${b.version}, head on ${h.name} ${h.version}; guard never compares across runtimes`,
+        message: `${after.runner ? `runner ${after.runner}: ` : ''}base ran on ${before.name} ${before.version}, head on ${after.name} ${after.version}; guard never compares across runtimes`,
       }], EXIT_ENVIRONMENT);
     }
   }
@@ -106,6 +112,7 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   const out = {};
   if (args.generatedAt !== undefined) out.generatedAt = args.generatedAt;
   out.runtime = { name: head.input.runtime.name, version: head.input.runtime.version };
+  if (head.input.runtimes) out.runtimes = head.input.runtimes.map(({ runner, name, version }) => ({ runner, name, version }));
   const analysis = () => {
     out.suite = suiteSection(head);
     out.units = head.units.map(unitEntry);

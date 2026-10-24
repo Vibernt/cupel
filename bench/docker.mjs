@@ -23,13 +23,14 @@ export function runProcess(program, args, { cwd, env = process.env, maxBytes = 6
   });
 }
 
-export function cacheEnv(repo) {
+export function cacheEnv(repo, workdir = '/work') {
   const common = { HOME: '/cache/home', TMPDIR: '/tmp', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '/bin/false' };
+  if (repo.name === 'locally-uncensored') return { ...common, PATH: '/cache/cargo/bin:/usr/local/bin:/usr/bin:/bin', CARGO_HOME: '/cache/cargo', RUSTUP_HOME: '/cache/rustup', CARGO_TARGET_DIR: '/cache/target', npm_config_cache: '/cache/npm' };
   if (repo.runner === 'pytest') return { ...common, PATH: '/cache/node/node_modules/node/bin:/cache/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', PYTHONPATH: '/cupel/packages/cupel-py/src', PIP_CACHE_DIR: '/cache/pip' };
   if (repo.runner === 'go') return { ...common, PATH: '/cache/node/node_modules/node/bin:/cache/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', GOPATH: '/cache/go', GOCACHE: '/cache/go-build', GOTOOLCHAIN: 'auto' };
   if (repo.runner === 'cargo') return { ...common, PATH: '/cache/node/node_modules/node/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', CARGO_HOME: '/cache/cargo', CARGO_TARGET_DIR: '/cache/target', RUSTUP_HOME: '/cache/rustup' };
   if (repo.runner === 'dotnet') return { ...common, PATH: '/cache/node/node_modules/node/bin:/usr/share/dotnet:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', NUGET_PACKAGES: '/cache/nuget', DOTNET_CLI_HOME: '/cache/home' };
-  if (repo.runner === 'minitest') return { ...common, PATH: '/cache/node/node_modules/node/bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', BUNDLE_PATH: '/cache/bundle', BUNDLE_GEMFILE: '/work/gemfiles/rails8.gemfile', RAILS_ENV: 'test', CI: 'true' };
+  if (repo.runner === 'minitest') return { ...common, PATH: '/cache/node/node_modules/node/bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', BUNDLE_PATH: '/cache/bundle', BUNDLE_GEMFILE: `${workdir}/gemfiles/rails8.gemfile`, RAILS_ENV: 'test', CI: 'true' };
   return { ...common, npm_config_cache: '/cache/npm', COREPACK_HOME: '/cache/corepack', HUSKY: '0' };
 }
 
@@ -37,13 +38,18 @@ export function dockerArgs(repo, network, command, workdir = '/work') {
   if (!['bridge', 'none'].includes(network)) throw new Error('network must be bridge or none');
   const args = ['run', '--rm', '--platform', 'linux/arm64', '--network', network,
     '-v', `${repo.dir}:/work`, '-v', `${cupelRoot}:/cupel:ro`, '-v', `cupel-bench-${repo.name.toLowerCase().replaceAll('_', '-')}-cache:/cache`, '-w', workdir];
-  for (const [key, value] of Object.entries(cacheEnv(repo))) args.push('-e', `${key}=${value}`);
+  for (const [key, value] of Object.entries(cacheEnv(repo, workdir))) args.push('-e', `${key}=${value}`);
   args.push(repo.image, 'sh', '-c', `mkdir -p /cache/home && ${command}`);
   return args;
 }
 
 export function dockerRun(repo, network, command, workdir) {
   return runProcess('docker', dockerArgs(repo, network, command, workdir));
+}
+
+export function dockerBuildArgs(repo, benchDir) {
+  if (!repo.imageBuild) throw new Error(`${repo.name} has no benchmark image recipe`);
+  return ['build', '--platform', 'linux/arm64', '-t', repo.image, '-f', resolve(benchDir, repo.imageBuild), benchDir];
 }
 
 export function cupelCommand(repo, verb, options = '', timed = false) {

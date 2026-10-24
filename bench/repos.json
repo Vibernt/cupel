@@ -73,19 +73,24 @@
     "dir": "/Users/vid/cupel/.scratch/bench/repos/locally-uncensored",
     "language": "TypeScript",
     "runner": "vitest",
-    "image": "node:22-bookworm",
-    "install": "npm ci --cache /cache/npm",
+    "image": "cupel-bench-locally-uncensored:local",
+    "install": "npm ci --cache /cache/npm && curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && /cache/cargo/bin/rustup component add llvm-tools-preview && (cd src-tauri && /cache/cargo/bin/cargo fetch --locked) && triple=$(/cache/cargo/bin/rustc -vV | awk '/^host:/{print $2}') && mkdir -p src-tauri/bin src-tauri/resources/llama/$triple dist && touch src-tauri/bin/lu-llama-server-$triple src-tauri/resources/llama/$triple/ggml-cpu-x64.so && printf '<!doctype html><title>benchmark placeholder</title>' > dist/index.html",
     "test": "npm test",
     "cupelConfig": {
       "runners": {
-        "vitest": {}
+        "vitest": {},
+        "cargo": {
+          "project": "src-tauri",
+          "tests": "src/**/*.rs"
+        }
       },
       "mutation": {
         "maxMutants": 300,
         "maxSeconds": 1200
       }
     },
-    "notes": "vitest.config.ts includes only src and dev-server tests. Excludes Playwright e2e, Tauri/Rust, voice sidecar and GPU or desktop workloads. Cupel uses the repo vitest.config.ts include list (its own globs have no brace expansion)."
+    "notes": "Vitest keeps the existing unit scope; Playwright, voice sidecar and GPU workloads remain excluded. Cargo collects the Tauri crate under src-tauri. The benchmark builds a Node 22 image with GTK/WebKit libraries during install, and caches rustup, llvm-tools-preview and crates for network-isolated collection. This image and the Tauri suite have not been exercised in Docker here. Install also stages the same sidecar and dist placeholders required by its Linux CI before cargo test.",
+    "imageBuild": "images/locally-uncensored.Dockerfile"
   },
   {
     "name": "zotero-mcp",
@@ -94,7 +99,7 @@
     "runner": "pytest",
     "image": "python:3.13-bookworm",
     "firstRunEnvironmentFailure": "tests/test_webdav.py:102",
-    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@22.19.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -e '.[dev]' && TIKTOKEN_CACHE_DIR=/cache/tiktoken /cache/venv/bin/python -c \"import tiktoken; tiktoken.get_encoding('cl100k_base')\"",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm git && npm install --prefix /cache/node node@24.0.0 && python -m venv /cache/venv && /cache/venv/bin/pip install -e '.[dev]' && TIKTOKEN_CACHE_DIR=/cache/tiktoken /cache/venv/bin/python -c \"import tiktoken; tiktoken.get_encoding('cl100k_base')\" && cd plugin && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm",
     "test": "TIKTOKEN_CACHE_DIR=/cache/tiktoken /cache/venv/bin/python -m pytest tests --ignore=tests/test_lifespan.py -q",
     "cupelConfig": {
       "runners": {
@@ -105,6 +110,12 @@
             "PYTEST_ADDOPTS": "--ignore=tests/test_lifespan.py",
             "TIKTOKEN_CACHE_DIR": "/cache/tiktoken"
           }
+        },
+        "node": {
+          "tests": "plugin/test/**/*.test.ts",
+          "env": {
+            "PATH": "/cache/node/node_modules/node/bin:/usr/local/bin:/usr/bin:/bin"
+          }
         }
       },
       "mutation": {
@@ -112,7 +123,7 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "README uses pytest and release CI ignores test_lifespan.py. Dev extra supplies pytest and optional packages. Excludes live Zotero integration plan and test_lifespan; no Zotero service in container. Node 22 is installed into the cache volume in the Python image; report uses that binary and Cupel Python collector via PYTHONPATH. tiktoken downloads its encoding on first use, so the install step pre-fetches cl100k_base into the cache volume while the network is on."
+    "notes": "README uses pytest and release CI ignores test_lifespan.py. Dev extra supplies pytest and optional packages. Excludes live Zotero integration plan and test_lifespan; no Zotero service in container. Node 24 is installed into the cache volume in the Python image; report uses that binary and Cupel Python collector via PYTHONPATH. tiktoken downloads its encoding on first use, so the install step pre-fetches cl100k_base into the cache volume while the network is on. plugin/package.json runs node:test on TypeScript and requires Node 24; its tests are configured as a second runner. TypeScript source coverage uses the native Node collector."
   },
   {
     "name": "Skill_Seekers",
@@ -145,12 +156,18 @@
     "language": "Go",
     "runner": "go",
     "image": "golang:1-bookworm",
-    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && go mod download && go list -deps -test ./... > /dev/null && cd ui && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm && PATH=/cache/node/node_modules/node/bin:$PATH npm run build",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@26.0.0 && go mod download && go list -deps -test ./... > /dev/null && cd ui && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm && PATH=/cache/node/node_modules/node/bin:$PATH npm run build",
     "test": "go test -race -json ./...",
     "cupelConfig": {
       "runners": {
         "go": {
           "tests": "**/*_test.go"
+        },
+        "node": {
+          "tests": "ui/src/lib/*.test.ts",
+          "env": {
+            "PATH": "/cache/node/node_modules/node/bin:/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin"
+          }
         }
       },
       "mutation": {
@@ -158,7 +175,7 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 22 and builds UI. Build-tagged live GitHub e2e with token is excluded. The install also runs go list -deps -test ./... so every module the packages and their tests import is cached before the offline stages."
+    "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 26 and builds UI. Build-tagged live GitHub e2e with token is excluded. The install also runs go list -deps -test ./... so every module the packages and their tests import is cached before the offline stages. script/build-ui runs ui/package.json node:test on TypeScript under Node 26; configure that suite as node alongside Go. TypeScript UI source coverage uses the native Node collector."
   },
   {
     "name": "zeron",
@@ -208,12 +225,18 @@
     "language": "Ruby",
     "runner": "minitest",
     "image": "ruby:3-bookworm",
-    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate",
+    "install": "bundle_file=$PWD/gemfiles/rails8.gemfile && apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && BUNDLE_GEMFILE=$bundle_file BUNDLE_PATH=/cache/bundle bundle install && cd test/dummy && BUNDLE_GEMFILE=$bundle_file BUNDLE_PATH=/cache/bundle RAILS_ENV=test bundle exec rails db:create db:migrate && cd ../.. && cd actionagent/frontend && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm",
     "test": "BUNDLE_GEMFILE=/work/gemfiles/rails8.gemfile BUNDLE_PATH=/cache/bundle RAILS_ENV=test bin/test",
     "cupelConfig": {
       "runners": {
         "minitest": {
           "tests": "test/{*_test.rb,providers/common/**/*_test.rb}"
+        },
+        "node": {
+          "tests": "actionagent/frontend/test/*.test.mjs",
+          "env": {
+            "PATH": "/cache/node/node_modules/node/bin:/usr/local/bin:/usr/bin:/bin"
+          }
         }
       },
       "mutation": {
@@ -221,6 +244,6 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "Mirrors the CI test lane with gemfiles/rails8.gemfile, including the local Rails SQLite database setup, and runs bin/test. The benchmark container has no provider credentials or external services, so network-dependent tests may still fail."
+    "notes": "Mirrors the CI test lane with gemfiles/rails8.gemfile, including the local Rails SQLite database setup, and runs bin/test. The benchmark container has no provider credentials or external services, so network-dependent tests may still fail. Dashboard frontend has a Node 22 npm test CI lane and is configured as node. The browser-sidecar lane needs a browser and sandbox setup, so remains excluded."
   }
 ]

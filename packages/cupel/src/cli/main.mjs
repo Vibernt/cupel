@@ -21,6 +21,7 @@ import { junitToInput } from './junit.mjs';
 import { XmlError } from './xml.mjs';
 import { bodySitesPytest } from './collect.mjs';
 import { sourceMutants } from '../mutate/sites.mjs';
+import { inheritRunnerParts, splitRunnerInput, runnerParts, mergeRunners } from './merge-runners.mjs';
 import { analyzePseudo } from '../analysis/pseudo.mjs';
 
 export const FIXTURES_DIR = fileURLToPath(new URL('../../../../spec/conformance/adapters/', import.meta.url));
@@ -241,20 +242,20 @@ class Context {
 /** Collects the working tree with mutation per config. */
 async function collectHead(ctx, { collector, mutator, cfg, changed }) {
   let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped });
-  if (mutator && ['node', 'python'].includes(input.runtime.name)) {
+  if (mutator && (input.runtimes || ['node', 'python'].includes(input.runtime.name))) {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
     const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
-    if (m) input = { ...input, mutation: m };
+    if (m) input = inheritRunnerParts(input, { ...input, mutation: m });
   }
   return input;
 }
 
 /** Collects a git ref in a temporary directory, with critical mutation per config. */
-function collectBase(ctx, { collector, mutator, cfg, ref }) {
-  return collectRef(collector, { root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log }, async (dir, input) => {
-    if (!mutator || !['node', 'python'].includes(input.runtime.name)) return input;
+function collectBase(ctx, { mutator, cfg, ref }) {
+  return collectRef({ root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log, env: ctx.env }, async (dir, input) => {
+    if (!mutator || (!input.runtimes && !['node', 'python'].includes(input.runtime.name))) return input;
     const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log, collectorKind: collector.kind });
-    return m ? { ...input, mutation: m } : input;
+    return m ? inheritRunnerParts(input, { ...input, mutation: m }) : input;
   });
 }
 
@@ -269,7 +270,7 @@ async function baseAndHead(ctx, headOption) {
   const collector = needCollector ? await requireCollector(ctx.env, ctx.root, cfg) : null;
   const mutator = needCollector ? await ctx.mutator() : null;
   let base = o['base-input'] !== undefined ? ctx.readInput(o['base-input']) : undefined;
-  if (o.base !== undefined) base = await collectBase(ctx, { collector, mutator, cfg, ref: o.base });
+  if (o.base !== undefined) base = await collectBase(ctx, { mutator, cfg, ref: o.base });
   let head;
   if (headFile !== undefined) head = ctx.readInput(headFile);
   else {
@@ -278,7 +279,7 @@ async function baseAndHead(ctx, headOption) {
     if (mutator && base && head.mutation) {
       const ids = lostSurvivors(base, head);
       const mutation = await confirm(mutator, { root: ctx.root, cfg, input: head, mutation: head.mutation, ids, log: ctx.log, collectorKind: collector.kind });
-      head = { ...head, mutation };
+      head = inheritRunnerParts(head, { ...head, mutation });
     }
     ctx.writeCollected(head, null);
   }
@@ -297,6 +298,16 @@ async function singleInput(ctx, { mutation }) {
 
 /** Replaces the shared-process coverage of re-checked units with their own-process coverage (K4). */
 function mergeRecheck(first, second) {
+  if (runnerParts(first) && runnerParts(second)) {
+    const previous = runnerParts(first), refreshed = runnerParts(second);
+    const parts = previous.map((part) => {
+      const next = refreshed.find((item) => item.name === part.name);
+      if (!next) throw environment(`recheck omitted runner ${part.name}`);
+      return { name: part.name, input: mergeRecheck(part.input, next.input) };
+    });
+    const merged = mergeRunners(parts);
+    return first.mutation ? inheritRunnerParts(merged, { ...merged, mutation: first.mutation }) : merged;
+  }
   const ids = (x) => x.tests.map((t) => t.id).sort(cmp).join('\n');
   if (ids(first) !== ids(second)) throw environment('the suite changed between the two collection passes');
   const rechecked = [...(second.coverage.rechecked ?? [])].sort(cmp);
@@ -307,7 +318,7 @@ function mergeRecheck(first, second) {
     if (second.coverage.byTest?.[t.id] !== undefined) byTest[t.id] = second.coverage.byTest[t.id];
     else delete byTest[t.id];
   }
-  return { ...first, coverage: { ...first.coverage, byTest, rechecked } };
+  return inheritRunnerParts(first, { ...first, coverage: { ...first.coverage, byTest, rechecked } });
 }
 
 const commands = {
@@ -318,32 +329,41 @@ const commands = {
     let input = collected ? await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped }) : ctx.readInput(ctx.o.input);
     const errors = inputErrors(ctx, input);
     if (errors.length) throw usage(`pseudo input is invalid: ${errors[0].path}: ${errors[0].message}`);
-    if (!['node', 'python'].includes(input.runtime?.name)) throw environment(`pseudo does not support runtime ${input.runtime?.name ?? 'unknown'}`);
+    const parts = splitRunnerInput(input).filter(({ input: part }) => ['node', 'python'].includes(part.runtime.name));
+    if (!parts.length) throw environment(`pseudo does not support runtimes in this input`);
     const mutator = await loadModule('mutator', ctx.env);
     if (!mutator) throw environment('mutation module not available');
-    if (input.runtime.name === 'node' && typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation not available');
-    let mutation;
-    if (!input.mutation) {
-      mutation = await mutate(mutator, { root: ctx.root, cfg, input, scope: { functions: true }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
-    } else if (input.mutation.mutants.some((m) => m.operator !== 'body-replace')) {
-      throw usage('pseudo --input needs function-scope body-replace mutation data');
-    } else {
-      mutation = input.mutation;
-    }
-    const survivors = mutation.mutants.filter((m) => m.status === 'survived').map((m) => m.id);
-    mutation = await confirm(mutator, { root: ctx.root, cfg, input, mutation, ids: survivors, log: ctx.log, collectorKind: collector.kind });
-    input = { ...input, mutation };
-    const sites = input.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg, input }) :
-      Object.keys(input.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
+    const results = [];
+    for (const { name, input: part } of parts) {
+      if (part.runtime.name === 'node' && typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation not available');
+      const partCfg = name ? { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } } : cfg;
+      let mutation;
+      if (!part.mutation) {
+        mutation = await mutate(mutator, { root: ctx.root, cfg: partCfg, input: part, scope: { functions: true }, log: ctx.log, collectorKind: name === 'vitest' ? 'vitest' : collector.kind, diagnostics: ctx.skipped });
+      } else if (part.mutation.mutants.some((m) => m.operator !== 'body-replace')) {
+        throw usage('pseudo --input needs function-scope body-replace mutation data');
+      } else mutation = part.mutation;
+      const survivors = mutation.mutants.filter((m) => m.status === 'survived').map((m) => m.id);
+      mutation = await confirm(mutator, { root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: name === 'vitest' ? 'vitest' : collector.kind });
+      const measured = { ...part, mutation };
+      const sites = part.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg: partCfg, input: measured }) :
+      Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
         .flatMap((source) => {
           const found = sourceMutants(ctx.root, source, readFileSync(join(ctx.root, source), 'utf8'), undefined, true);
           if (found === null) throw environment(`body sites cannot parse ${source}: TypeScript is not resolvable`);
           return found;
         });
-    const siteIds = new Set(sites.map((site) => site.id));
-    const missing = mutation.mutants.find((mutant) => !siteIds.has(mutant.id));
-    if (missing) throw environment(`body-replace site ${missing.id} is missing from the current source`);
-    const result = analyzePseudo(input, sites);
+      const siteIds = new Set(sites.map((site) => site.id));
+      const missing = mutation.mutants.find((mutant) => !siteIds.has(mutant.id));
+      if (missing) throw environment(`body-replace site ${missing.id} is missing from the current source`);
+      results.push(analyzePseudo(measured, sites));
+    }
+    const result = results.length === 1 ? results[0] : {
+      functions: results.flatMap((r) => r.functions), pseudoTestedFunctions: results.flatMap((r) => r.pseudoTestedFunctions),
+      testedFunctions: results.flatMap((r) => r.testedFunctions), units: results.flatMap((r) => r.units), pseudoTests: results.flatMap((r) => r.pseudoTests),
+    };
+    if (input.runtimes) result.skippedRunners = input.runtimes.filter((r) => !['node', 'python'].includes(r.name)).map((r) => r.runner);
+    if (result.skippedRunners?.length) ctx.log(`pseudo skipped unsupported runners: ${result.skippedRunners.join(', ')}`);
     if (ctx.o.json) ctx.io.out(`${JSON.stringify(result, null, 2)}\n`);
     else {
       ctx.io.out(`Pseudo-tested functions (${result.pseudoTestedFunctions.length}):\n`);
@@ -361,7 +381,7 @@ const commands = {
     let { input } = got;
     let result = ctx.engine('report', { input });
     const { collector, mutator, cfg } = got;
-    if (got.collected && ctx.o.evidence && mutator && ['node', 'python'].includes(input.runtime.name) && result.exit === EXIT_OK) {
+    if (got.collected && ctx.o.evidence && mutator && (input.runtimes || ['node', 'python'].includes(input.runtime.name)) && result.exit === EXIT_OK) {
       // Optional evidence pass: re-check units whose unique coverage is unverified.
       const candidates = result.report.units
         .filter((u) => u.hints.includes('no-unique-coverage-unverified'))
@@ -376,7 +396,7 @@ const commands = {
           if (m) {
             const survivors = m.mutants.filter((x) => x.status === 'survived').map((x) => x.id);
             m = await confirm(mutator, { root: ctx.root, cfg, input, mutation: m, ids: survivors, log: ctx.log, collectorKind: collector.kind });
-            input = { ...input, mutation: mergeMutation(input.mutation, m) };
+            input = inheritRunnerParts(input, { ...input, mutation: mergeMutation(input.mutation, m) });
           }
         }
         result = ctx.engine('report', { input });

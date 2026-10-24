@@ -32,16 +32,29 @@ writeFileSync(process.argv[process.argv.indexOf('--out') + 1], ${JSON.stringify(
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('several configured runners are a usage error', async () => {
+test('several configured runners merge into one valid input', async () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const root = mkdtempSync(join(repo, '.scratch/multiple-runners-'));
   try {
     writeFileSync(join(root, 'package.json'), '{"private":true,"type":"module"}');
-    writeFileSync(join(root, 'cupel.json'), '{"runners":{"node":{},"go":{}}}');
-    let error = '';
-    const exit = await main(['label'], { cwd: root, env: process.env, colour: false,
-      out: () => {}, err: (line) => { error += line; } });
-    assert.equal(exit, 2);
-    assert.match(error, /multiple runners configured \(node, go\)/);
+    const input = JSON.parse(sample);
+    const stub = join(root, 'collector.mjs');
+    writeFileSync(stub, `import { writeFileSync } from 'node:fs';
+const name = process.argv[2];
+const input = ${JSON.stringify(input)};
+input.tests = input.tests.map(t => ({...t, id: name + '/' + t.id}));
+input.coverage.byTest = Object.fromEntries(Object.entries(input.coverage.byTest ?? {}).map(([id, value]) => [name + '/' + id, value]));
+writeFileSync(process.argv[process.argv.indexOf('--out') + 1], JSON.stringify(input));
+`);
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: {
+      alpha: { collector: `"${process.execPath}" "${stub}" alpha` },
+      beta: { collector: `"${process.execPath}" "${stub}" beta` },
+    } }));
+    const out = join(root, 'input.json');
+    const exit = await main(['label', '--runs', '1', '--out', out], { cwd: root, env: process.env, colour: false, out: () => {}, err: () => {} });
+    assert.equal(exit, 0);
+    const merged = JSON.parse(readFileSync(out, 'utf8'));
+    assert.deepEqual(merged.runtimes.map(r => r.runner), ['alpha', 'beta']);
+    assert.deepEqual([...new Set(merged.tests.map(t => t.runner))], ['alpha', 'beta']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

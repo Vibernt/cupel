@@ -5,7 +5,7 @@ import { writeAssertions } from '../assertions/sidecar.mjs';
 //
 // See packages/cupel/DESIGN-M3.md ("Collector") and spec/SPEC.md sections 3, 14 (K1-K12) and 15.
 //
-//  1. Sources (K1, K2): every .js, .mjs and .cjs file of the repository minus test directories, dependency
+//  1. Sources (K1, K2): JavaScript and erasable TypeScript files minus test directories, dependency
 //     directories and dot-directories, narrowed by config `scope`. Each gets its coverable lines (the line
 //     rule, with the shared lexer) and a sha256 hash.
 //  2. Runs: `runs` ordinary `node --test` runs over the test files, each with the preload hook.mjs and the
@@ -44,8 +44,8 @@ const HOOK = pathToFileURL(join(HERE, 'hook.mjs')).href;
 const REPORTER = pathToFileURL(join(HERE, 'reporter.mjs')).href;
 const SPEC = 'cupel-spec/1';
 const DEFAULT_TESTS = 'tests/**/*.test.mjs';
-const SOURCE_EXT = /\.(mjs|cjs|js)$/;
-const TEST_FILE = /\.(test|spec)\.[cm]?js$/;
+const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|tsx)$/;
+const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__test__']);
 const DEPENDENCY_DIRS = new Set(['node_modules', 'bower_components', 'jspm_packages']);
 const TIER_TAG = /\[(critical|standard|minor)\]/g;

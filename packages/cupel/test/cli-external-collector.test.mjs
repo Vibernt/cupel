@@ -1,16 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, realpathSync, cpSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
 const sample = fileURLToPath(new URL('../../../spec/conformance/cases/001-report-minimal/input.json', import.meta.url));
+const scratch = join(fileURLToPath(new URL('../../../', import.meta.url)), '.scratch');
+const tempRoot = (name) => { mkdirSync(scratch, { recursive: true }); return realpathSync(mkdtempSync(join(scratch, name))); };
 
 test('configured external collector runs at root and supplies its --out input', () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-external-test-')));
+  const root = tempRoot('cupel-external-test-');
   try {
     const stub = join(root, 'collector.mjs');
     writeFileSync(stub, `import { writeFileSync } from 'node:fs';\nimport { argv, cwd } from 'node:process';\nif (cwd() !== ${JSON.stringify(root)}) process.exit(9);\nwriteFileSync(argv[argv.indexOf('--out') + 1], ${JSON.stringify(readFileSync(sample, 'utf8'))});\n`);
@@ -28,7 +29,7 @@ test('Python project without node tests selects the bundled pytest collector', (
   const python = '/Users/vid/codecrystal/.venv/bin/python';
   const available = spawnSync(python, ['-c', 'import pytest'], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   if (available.status !== 0) { t.skip('pytest unavailable in read-only CodeCrystal Python 3.14 environment'); return; }
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-auto-pytest-')));
+  const root = tempRoot('cupel-auto-pytest-');
   try {
     const fixture = fileURLToPath(new URL('../../../spec/conformance/adapters/pytest/', import.meta.url));
     cpSync(join(fixture, 'src'), join(root, 'src'), { recursive: true });
@@ -57,7 +58,7 @@ test('Python project without node tests selects the bundled pytest collector', (
 test('Gemfile with Minitest tests selects the external Ruby collector', (t) => {
   const ruby = spawnSync('ruby', ['-e', 'require "minitest"'], { encoding: 'utf8' });
   if (ruby.status !== 0) { t.skip('Ruby and Minitest unavailable'); return; }
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-auto-ruby-')));
+  const root = tempRoot('cupel-auto-ruby-');
   try {
     const fixture = fileURLToPath(new URL('../../../spec/conformance/adapters/minitest/', import.meta.url));
     cpSync(join(fixture, 'lib'), join(root, 'lib'), { recursive: true });
@@ -72,12 +73,11 @@ test('Gemfile with Minitest tests selects the external Ruby collector', (t) => {
     assert.equal(input.runtime.name, 'ruby');
     assert.equal(input.tests.length, 3);
     assert.equal(input.coverage.granularity, 'test');
-    writeFileSync(join(root, 'widget.test.ts'), 'export {};\n');
+    writeFileSync(join(root, 'widget.test.ts'), "import { test } from 'node:test'; test('frontend', () => {});\n");
     const mixed = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1'], {
       cwd: root, encoding: 'utf8', env: process.env,
     });
-    assert.equal(mixed.status, 3);
-    assert.match(mixed.stderr, /no test files match/);
+    assert.equal(mixed.status, 0, mixed.stderr);
     writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { minitest: { tests: 'test/{math,other}_test.rb' } } }));
     const configured = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1', '--out', out], {
       cwd: root, encoding: 'utf8', env: process.env,

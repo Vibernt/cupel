@@ -26,9 +26,15 @@ export function integrityDiagnostics(input, label) {
   const testIds = new Set();
   const unitIds = new Set();
   const unitFile = new Map();
+  const runners = input.runtimes && new Set();
+  input.runtimes?.forEach((runtime, i) => {
+    if (runners.has(runtime.runner)) out.push(diag('unknown-runner', { path: ptr('runtimes', i, 'runner'), message: say(label, `runner "${runtime.runner}" is listed more than once`) }));
+    runners.add(runtime.runner);
+  });
 
   // I2: unique ids, rows of a unit share a file.
   input.tests.forEach((t, i) => {
+    if (runners && !runners.has(t.runner)) out.push(diag('unknown-runner', { path: ptr('tests', i, 'runner'), test: t.id, message: say(label, `test runner "${t.runner ?? ''}" is not in runtimes`) }));
     if (testIds.has(t.id)) {
       out.push(diag('duplicate-test', { path: ptr('tests', i, 'id'), test: t.id, message: say(label, `test id "${t.id}" is listed more than once`) }));
     }
