@@ -145,7 +145,7 @@
     "language": "Go",
     "runner": "go",
     "image": "golang:1-bookworm",
-    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && go mod download && cd ui && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm && PATH=/cache/node/node_modules/node/bin:$PATH npm run build",
+    "install": "apt-get update && apt-get install -y --no-install-recommends nodejs npm && npm install --prefix /cache/node node@22.19.0 && go mod download && go list -deps -test ./... > /dev/null && cd ui && PATH=/cache/node/node_modules/node/bin:$PATH npm ci --cache /cache/npm && PATH=/cache/node/node_modules/node/bin:$PATH npm run build",
     "test": "go test -race -json ./...",
     "cupelConfig": {
       "runners": {
@@ -158,7 +158,7 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 22 and builds UI. Build-tagged live GitHub e2e with token is excluded."
+    "notes": "go.mod requires Go 1.27.3; go mod download must cache the selected toolchain as well as modules. CONTRIBUTING.md and CI require ui npm ci/build before script/test, so install caches Node 22 and builds UI. Build-tagged live GitHub e2e with token is excluded. The install also runs go list -deps -test ./... so every module the packages and their tests import is cached before the offline stages."
   },
   {
     "name": "zeron",
