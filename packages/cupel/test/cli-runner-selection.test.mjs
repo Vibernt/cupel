@@ -27,7 +27,8 @@ writeFileSync(process.argv[process.argv.indexOf('--out') + 1], ${JSON.stringify(
     writeFileSync(join(root, 'vite.config.mjs'), 'export default { test: {} };\n');
     assert.equal((await requireCollector(process.env, root, { runners: { node: {} } })).kind, undefined);
     assert.equal((await requireCollector(process.env, root, { runners: { vitest: {} } })).kind, 'vitest');
-    await assert.rejects(requireCollector(process.env, root, { runners: { cargo: {} } }), /runner cargo needs a collector command/);
+    assert.equal(typeof (await requireCollector(process.env, root, { runners: { cargo: {} } })).collectNode, 'function');
+    await assert.rejects(requireCollector(process.env, root, { runners: { dotnet: {} } }), /runner dotnet needs a collector command/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

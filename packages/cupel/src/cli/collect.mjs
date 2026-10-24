@@ -60,6 +60,7 @@ function externalRunner(root, cfg) {
     const [name, runner] = named[0];
     if (runner.collector) return { name, ...runner };
     if (name === 'go') return { name, ...runner, collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-go` };
+    if (name === 'cargo') return { name, ...runner, collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-cargo` };
     if (name === 'minitest') return { name, ...runner, collector: `ruby ${quote(RUBY_BIN)} collect` };
     if (name === 'pytest') return { name, ...runner, collector: 'python3 -m vibernt_cupel collect' };
     if (name === 'node' || name === 'vitest') return null;
@@ -122,7 +123,7 @@ function collectExternal(runner, { root, runs, recheck = [], log = () => {} }) {
         throw environment(collectorError(`external collector prepare failed (${ready.error?.message ?? `exit ${ready.status}`}): ${cause}`, detail, dir));
       }
     }
-    const tests = runner.tests && ['go', 'minitest'].includes(runner.name) ? ` --tests ${quote(runner.tests)}` : '';
+    const tests = runner.tests && ['go', 'minitest', 'cargo'].includes(runner.name) ? ` --tests ${quote(runner.tests)}` : '';
     const command = `${runner.collector} --root ${quote(root)} --runs ${runs} ${recheck.map((u) => `--recheck ${quote(u)}`).join(' ')} --out ${quote(output)}${tests}`;
     log(`external collector: ${runner.name}`);
     const child = spawnSync(command, { cwd: root, env, shell: true, encoding: 'utf8', maxBuffer: 1 << 28 });
