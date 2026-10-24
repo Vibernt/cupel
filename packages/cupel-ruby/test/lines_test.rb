@@ -20,4 +20,17 @@ class LinesTest < Minitest::Test
       FileUtils.rm_f(outside) if outside
     end
   end
+
+  def test_covered_accepts_compact_and_full_line_data
+    Dir.mktmpdir('cupel-ruby-lines-') do |root|
+      FileUtils.mkdir_p(File.join(root, 'lib'))
+      path = File.join(root, 'lib/a.rb')
+      File.write(path, "module A\n  X = 1\n  Y = 2\nend\n")
+      sources = { 'lib/a.rb' => { 'coverable' => '1-3' } }
+      full = Cupel::Lines.covered({ path => { 'lines' => [1, 0, 2, nil] } }, root, sources)
+      compact = Cupel::Lines.covered({ path => { 'covered' => [1, 3] } }, root, sources)
+      assert_equal({ 'lib/a.rb' => '1,3' }, full)
+      assert_equal(full, compact)
+    end
+  end
 end

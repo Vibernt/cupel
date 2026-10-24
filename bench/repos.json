@@ -74,7 +74,7 @@
     "language": "TypeScript",
     "runner": "vitest",
     "image": "cupel-bench-locally-uncensored:local",
-    "install": "npm ci --cache /cache/npm && curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && /cache/cargo/bin/rustup component add llvm-tools-preview && (cd src-tauri && /cache/cargo/bin/cargo fetch --locked) && triple=$(/cache/cargo/bin/rustc -vV | awk '/^host:/{print $2}') && mkdir -p src-tauri/bin src-tauri/resources/llama/$triple dist && touch src-tauri/bin/lu-llama-server-$triple src-tauri/resources/llama/$triple/ggml-cpu-x64.so && printf '<!doctype html><title>benchmark placeholder</title>' > dist/index.html",
+    "install": "npm ci --cache /cache/npm && curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && /cache/cargo/bin/rustup component add llvm-tools-preview && (cd src-tauri && /cache/cargo/bin/cargo fetch --locked) && triple=$(/cache/cargo/bin/rustc -vV | awk '/^host:/{print $2}') && mkdir -p src-tauri/bin src-tauri/resources/llama/$triple dist && mkdir -p src-tauri/resources/llama/x86_64-unknown-linux-gnu && touch src-tauri/bin/lu-llama-server-$triple src-tauri/resources/llama/$triple/ggml-cpu-x64.so src-tauri/resources/llama/x86_64-unknown-linux-gnu/ggml-cpu-x64.so && printf '<!doctype html><title>benchmark placeholder</title>' > dist/index.html",
     "test": "npm test",
     "cupelConfig": {
       "runners": {
@@ -89,7 +89,7 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "Vitest keeps the existing unit scope; Playwright, voice sidecar and GPU workloads remain excluded. Cargo collects the Tauri crate under src-tauri. The benchmark builds a Node 22 image with GTK/WebKit libraries during install, and caches rustup, llvm-tools-preview and crates for network-isolated collection. This image and the Tauri suite have not been exercised in Docker here. Install also stages the same sidecar and dist placeholders required by its Linux CI before cargo test.",
+    "notes": "Vitest keeps the existing unit scope; Playwright, voice sidecar and GPU workloads remain excluded. Cargo collects the Tauri crate under src-tauri. The benchmark builds a Node 22 image with GTK/WebKit libraries during install, and caches rustup, llvm-tools-preview and crates for network-isolated collection. This image and the Tauri suite have not been exercised in Docker here. Install also stages the same sidecar and dist placeholders required by its Linux CI before cargo test. tauri.linux.conf.json names the x86_64 llama resource directory on every host, so install stages that placeholder too.",
     "imageBuild": "images/locally-uncensored.Dockerfile"
   },
   {

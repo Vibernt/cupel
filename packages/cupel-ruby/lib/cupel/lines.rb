@@ -60,12 +60,12 @@ module Cupel
 
     def self.covered(raw, root, sources)
       raw.each_with_object({}) do |(path, data), found|
-        next unless data.is_a?(Hash) && data['lines'] && source?(root, path)
+        next unless data.is_a?(Hash) && (data['covered'] || data['lines']) && source?(root, path)
 
         relative = File.realpath(path).delete_prefix("#{File.realpath(root)}/").tr(File::SEPARATOR, '/')
         next unless sources.key?(relative)
 
-        lines = data['lines'].each_index.filter_map { |i| i + 1 if data['lines'][i].to_i.positive? }
+        lines = data['covered'] || data['lines'].each_index.filter_map { |i| i + 1 if data['lines'][i].to_i.positive? }
         found[relative] = encode(lines) unless lines.empty?
       end.sort.to_h
     end

@@ -14,9 +14,19 @@ module Cupel
       warn "cupel-ruby: analysis warning: #{error.class}: #{error.message}"
     end
 
+    # Only the covered line numbers of each project file: the full per-line arrays of a large app, kept for
+    # thousands of tests, exhausted memory (activeagent: about 4,100 tests killed at 16 GB).
     def self.take
       root = ENV.fetch('CUPEL_RUBY_ROOT')
-      Coverage.result(stop: false, clear: true).select { |path, _| path.start_with?("#{root}/") }
+      Coverage.result(stop: false, clear: true).each_with_object({}) do |(path, data), found|
+        next unless path.start_with?("#{root}/")
+
+        counts = data.is_a?(Hash) ? data[:lines] : data
+        next unless counts
+
+        covered = counts.each_index.filter_map { |i| i + 1 if counts[i].to_i.positive? }
+        found[path] = { 'covered' => covered } unless covered.empty?
+      end
     end
 
     def self.record_file_setup(file)
