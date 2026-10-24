@@ -403,8 +403,12 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       }
       let unit;
       if (!titles.has(t.callFileAbs)) titles.set(t.callFileAbs, new Map(analyseTestFile(readFileSync(t.callFileAbs, 'utf8')).map((d) => [`${d.line}:${d.column}`, d.title])));
-      const title = titles.get(t.callFileAbs).get(`${t.line}:${t.column}`);
-      if (title == null) throw new CollectorError(`cannot find source title for ${t.file}:${t.line}:${t.column}`);
+      let title = titles.get(t.callFileAbs).get(`${t.line}:${t.column}`);
+      if (title == null) {
+        // Never fail collection over a missing title: fall back to the first row's name, stable in source order.
+        title = t.leaf;
+        log(`warning: no source title found for ${t.file}:${t.line}:${t.column}; unit named after its first row`);
+      }
       const key = `${t.file}::${t.callFile === t.file ? '' : `@${t.callFile}::`}${[...t.path, title].join(' > ')}`;
       const n = (titleCounts.get(key) ?? 0) + 1;
       titleCounts.set(key, n);

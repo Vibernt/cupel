@@ -257,9 +257,15 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
         continue;
       }
       const def = analyseFile(first.file).definitions.filter((d) => d.line === first.line && d.column <= (first.column ?? Infinity)).at(-1);
-      if (def?.title == null) throw new VitestCollectorError(`cannot find source title for ${first.file}:${first.line}:${first.column}`);
       const path = first.name.split(' > ').slice(0, -1);
-      const key = `${first.file}::${[...path, def.title].join(' > ')}`;
+      // A multi-line definition (for example test.each([...])('title')) can report a location inside the call, so the
+      // exact lookup can miss. Never fail collection over it: fall back to the first row's name, stable in source order.
+      let title = def?.title;
+      if (title == null) {
+        title = first.name.split(' > ').at(-1);
+        log(`warning: no source title found for ${first.file}:${first.line}:${first.column}; unit named after its first row`);
+      }
+      const key = `${first.file}::${[...path, title].join(' > ')}`;
       const n = (titleCounts.get(key) ?? 0) + 1;
       titleCounts.set(key, n);
       const unit = `${key}${n > 1 ? ` #${n}` : ''}`;
