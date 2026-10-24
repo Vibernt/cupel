@@ -3,15 +3,11 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function goEnvironment(root) {
-  const scratch = join(root, '.scratch', 'cupel-go');
-  const dirs = {
-    GOCACHE: join(scratch, 'cache'),
-    GOMODCACHE: join(scratch, 'modcache'),
-    GOPATH: join(scratch, 'gopath'),
-    TMPDIR: join(scratch, 'tmp'),
-  };
-  for (const path of Object.values(dirs)) mkdirSync(path, { recursive: true });
-  return { ...process.env, ...dirs, GOPROXY: 'off', GOSUMDB: 'off', GOTOOLCHAIN: 'local' };
+  // Use the user's own Go environment (GOPATH, GOMODCACHE, GOCACHE, GOTOOLCHAIN): their module and build caches
+  // are what make collection work offline. Cupel only forbids network fetches, as it never makes network calls.
+  const tmp = join(root, '.scratch', 'cupel-go', 'tmp');
+  mkdirSync(tmp, { recursive: true });
+  return { ...process.env, TMPDIR: process.env.TMPDIR ?? tmp, GOPROXY: 'off', GOSUMDB: 'off' };
 }
 
 export function execute(command, args, { root, env, allowFailure = false }) {
