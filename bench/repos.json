@@ -230,7 +230,7 @@
     "cupelConfig": {
       "runners": {
         "minitest": {
-          "tests": "test/{*_test.rb,providers/common/**/*_test.rb}"
+          "tests": "{test,actionagent/test}/**/*_test.rb"
         },
         "node": {
           "tests": "actionagent/frontend/test/*.test.mjs",
@@ -244,6 +244,6 @@
         "maxSeconds": 1200
       }
     },
-    "notes": "Mirrors the CI test lane with gemfiles/rails8.gemfile, including the local Rails SQLite database setup, and runs bin/test. The benchmark container has no provider credentials or external services, so network-dependent tests may still fail. Dashboard frontend has a Node 22 npm test CI lane and is configured as node. The browser-sidecar lane needs a browser and sandbox setup, so remains excluded."
+    "notes": "Mirrors the CI test lane with gemfiles/rails8.gemfile; Cupel collects the same files bin/test loads (test/** and actionagent/test/**), including the local Rails SQLite database setup, and runs bin/test. The benchmark container has no provider credentials or external services, so network-dependent tests may still fail. Dashboard frontend has a Node 22 npm test CI lane and is configured as node. The browser-sidecar lane needs a browser and sandbox setup, so remains excluded."
   }
 ]
