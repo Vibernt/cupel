@@ -1,0 +1,15 @@
+{
+  "description": "One input from two runners: the engine scores them together and the report lists both runtimes.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I2",
+      "polarity": "positive"
+    },
+    {
+      "id": "R1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

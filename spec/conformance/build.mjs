@@ -20,7 +20,7 @@ const NODE22 = { name: 'node', version: '22.23.3' };
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
 /** Builds an input. `cov` maps test id to a line set of `src` (default src/a.mjs) or to { source: lines }. */
-function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, runtime = NODE22, spec = 'cupel-spec/1' }) {
+function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, runtime = NODE22, runtimes, spec = 'cupel-spec/1' }) {
   const coverage = { granularity };
   if (granularity === 'test') {
     coverage.byTest = Object.fromEntries(Object.entries(cov).map(([id, v]) => [id, typeof v === 'string' ? { 'src/a.mjs': v } : v]));
@@ -30,7 +30,7 @@ function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = 
   if (setup) coverage.setup = setup;
   if (rechecked) coverage.rechecked = rechecked;
   if (unstable) coverage.unstable = unstable;
-  const out = { spec, kind: 'input', runtime, sources, tests, coverage };
+  const out = { spec, kind: 'input', runtime, ...(runtimes ? { runtimes } : {}), sources, tests, coverage };
   if (mutation) out.mutation = mutation;
   if (brittleness) out.brittleness = brittleness;
   if (shapes) out.shapes = shapes;
@@ -1035,6 +1035,54 @@ kase('059-guard-rename-too-different', {
       renamed: [],
     },
   },
+});
+
+const MR_SOURCES = { 'src/a.mjs': { coverable: '1-10', hash: 'ha' }, 'pkg/b.py': { coverable: '1-10', hash: 'hb' } };
+const MR_TESTS = [t('tests/a.test.mjs::a', 'tests/a.test.mjs', 'a', { runner: 'vitest' }), t('tests/test_b.py::test_b', 'tests/test_b.py', 'test_b', { runner: 'pytest' })];
+const MR_COV = { 'tests/a.test.mjs::a': { 'src/a.mjs': '1-4' }, 'tests/test_b.py::test_b': { 'pkg/b.py': '1-3' } };
+const mrRuntimes = (py) => [{ runner: 'vitest', name: 'node', version: '22.23.3' }, { runner: 'pytest', name: 'python', version: py }];
+const mrInput = (py, tests = MR_TESTS) => input({ sources: MR_SOURCES, tests, cov: MR_COV, runtimes: mrRuntimes(py) });
+
+kase('060-report-several-runners', {
+  description: 'One input from two runners: the engine scores them together and the report lists both runtimes.',
+  command: 'report',
+  rules: rules('+I2 -R1'),
+  input: mrInput('3.13.1'),
+  expectExit: 0,
+  expected: {
+    runtime: NODE22,
+    runtimes: mrRuntimes('3.13.1'),
+    suite: { tests: 2, units: 2, coverage: { covered: 7, coverable: 20, pct: 35 } },
+  },
+});
+
+kase('061-guard-several-runners', {
+  description: 'Guard across two runners with the same runtimes passes.',
+  command: 'guard',
+  rules: rules('+G1'),
+  base: mrInput('3.13.1'),
+  head: mrInput('3.13.1'),
+  expectExit: 0,
+  expected: { guard: { pass: true } },
+});
+
+kase('062-guard-runner-version-mismatch', {
+  description: 'One runner changed version between base and head: guard refuses to compare.',
+  command: 'guard',
+  rules: rules('-G1 +E1'),
+  base: mrInput('3.13.1'),
+  head: mrInput('3.13.2'),
+  expectExit: 3,
+  expected: { diagnostics: [{ code: 'runtime-mismatch', severity: 'error' }], guard: '$absent' },
+});
+
+kase('063-unknown-runner', {
+  description: 'With runtimes listed, a test naming an unlisted runner is refused.',
+  command: 'report',
+  rules: rules('-I2'),
+  input: mrInput('3.13.1', [MR_TESTS[0], { ...MR_TESTS[1], runner: 'cargo' }]),
+  expectExit: 2,
+  expected: { diagnostics: [{ code: 'unknown-runner', severity: 'error' }], units: '$absent' },
 });
 
 kase('050-guard-critical-coverage-target', {

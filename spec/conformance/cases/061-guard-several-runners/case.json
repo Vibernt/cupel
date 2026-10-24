@@ -1,0 +1,11 @@
+{
+  "description": "Guard across two runners with the same runtimes passes.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -45,7 +45,8 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 - Each test belongs to a **unit**, which is its `unit` field or, when that is absent, its own id. A unit is one test definition. All test ids of a unit are its **rows**.
 - **The unit of advice is the unit, never a single row.** Rows of a unit MUST share `file`.
 - A test's `status` is `passed`, `failed` or `skipped`. A unit is **failed** if any row failed; otherwise **skipped** if every row was skipped; otherwise **passed**.
-- `kind` is `unit` (default) or `e2e`. `e2e` marks end-to-end or browser tests whose coverage cannot be attributed reliably.
+- `kind` is `unit` (default) or `e2e`.
+- `runner` optionally names the runner that produced the test (for example `vitest`, `pytest`, `go`). It is required when the input lists `runtimes`. `e2e` marks end-to-end or browser tests whose coverage cannot be attributed reliably.
 - `spawnsInterpreter: true` marks a test that starts another interpreter, whose coverage the per-test method cannot see (spike S2).
 
 ### 3.4 Coverage
@@ -55,6 +56,12 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 - `coverage.setup` maps each test file to lines covered outside any test: module loading and file-level `before`/`after` hooks.
 - `coverage.rechecked` lists the units whose coverage was confirmed by running each in its own process (K4).
 - `coverage.unstable` maps sources to lines that were covered in some collection runs and not in others (K13). Such lines are timing-dependent and never count as lost (G4).
+
+### 3.4a Several runners
+
+A repository may hold tests in several languages or runners. Their collectors' inputs merge into one: sources, tests, coverage, mutants, findings and shapes are united, and `runtimes` lists one `{ runner, name, version }` per runner. `runtime` stays required and names the first runner's runtime, so single-runner inputs are unchanged.
+
+Coverage is attributed within a runner only. A test in one language that drives code in another, through a process or the network, gets no credit for that code (as for end-to-end tests). Merging rules for collectors are K14.
 
 ### 3.5 Mutation
 
@@ -86,7 +93,7 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 ## 4. Input integrity
 
 - **I1** The input MUST validate against `input.schema.json`, and every config against `config.schema.json`. Otherwise the engine reports the diagnostic `invalid-input` (or `invalid-config`) with the JSON path, and exits 2.
-- **I2** Every test id referenced in `coverage`, `mutation.mutants[].killedBy`, `brittleness`, and argument `tests` MUST exist in `tests`. Every unit id in `coverage.rechecked`, `mutation.targeted` and `shapes` MUST be a unit. Rows of a unit MUST share `file`, and test ids MUST be unique. Otherwise the diagnostic is `unknown-test`, `unknown-unit`, `unit-spans-files` or `duplicate-test`, and the exit code is 2.
+- **I2** Every test id referenced in `coverage`, `mutation.mutants[].killedBy`, `brittleness`, and argument `tests` MUST exist in `tests`. Every unit id in `coverage.rechecked`, `mutation.targeted` and `shapes` MUST be a unit. Rows of a unit MUST share `file`, and test ids MUST be unique. When `runtimes` is present, every test MUST name a `runner` listed there, and runners MUST be unique in `runtimes`. Otherwise the diagnostic is `unknown-test`, `unknown-unit`, `unit-spans-files`, `duplicate-test` or `unknown-runner`, and the exit code is 2.
 - **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range (in `sources`, coverage, mutation and argument `changed`) MUST have start ≤ end. Otherwise the diagnostic is `line-not-coverable`, `unknown-source` or `bad-range`, and the exit code is 2.
 
 **Diagnostics.**
@@ -220,7 +227,7 @@ Verdicts are listed once per unit, in ascending unit id order. Each entry lists 
 
 `guard` compares a `base` input with a `head` input under one config. There is no rule G2. Approvals match unit ids exactly.
 
-- **G1** **Runtime.** If `runtime.name` or `runtime.version` differs between base and head, the engine reports the diagnostic `runtime-mismatch` and exits 3. Coverage differs slightly between runtime versions (spike S2), so guard never compares across them.
+- **G1** **Runtime.** Guard compares runtimes per runner. When both inputs list `runtimes`, every runner present in both must have the same `name` and `version`. Otherwise the inputs' `runtime` values must match. On a mismatch the engine reports the diagnostic `runtime-mismatch` naming the runner, and exits 3. Coverage differs slightly between runtime versions (spike S2), so guard never compares across them. A runner present in only one input is not a mismatch: its tests are new or removed.
 - **G3** **No new failures.** The check `head-passes` fails when a unit is failed at head and was not failed at base (a unit new at head counts as not failed at base). `units` lists those new failures, sorted. Units failed at both base and head are listed as `preexisting`, sorted: the change did not cause them, so they don't fail the guard (found in the benchmark, where repositories carry environment-dependent failures).
 - **G4** **Coverage never falls.** Covered lines are every line in any row's coverage (failed rows included), any file's coverage, and every setup line. Lines in `coverage.unstable` at base or at head are left out of both checks below, from covered and from coverable alike (found in the benchmark: the same 26 timing-dependent lines were reported lost in two unrelated commits).
   - Check `coverage-lines`: for each source present in both inputs with equal, present `hash`, the head's covered lines must include the base's. `lost` lists the missing lines.
@@ -255,7 +262,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - Object keys appear in the order the report schema lists them.
   - `generatedAt` appears only when passed as an argument, and never after exit 2 or 3.
   - Report `spec` is always `cupel-spec/1`, whatever minor version the input names.
-  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `guard` emits `runtime` and `guard`; `guard.renamed` is always present. With two inputs, `runtime` is the head's.
+  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `guard` emits `runtime` and `guard`; `guard.renamed` is always present. With two inputs, `runtime` is the head's. When the input lists `runtimes`, the report lists them too, after `runtime`.
   - Every list whose order this spec does not state (rows, `skipped`, map keys such as `lost.lines`) is sorted by code point.
 - **R2** **Ratios.**
   - Coverage is reported as `{ covered, coverable, pct }`.
@@ -303,6 +310,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - When the definition sits in another module (a helper that registers tests), `unit` is `<file>::@<helper path>:<line>`, with `:<column>` added if two definitions share a line.
   - Only leaf tests appear in `tests`. A parent's own coverage goes to each of its leaves, and a failed parent marks its leaves failed, so advice about a parent never silently covers its children.
 - **K13** **Unstable lines.** When a collector runs the suite more than once, it reports in `coverage.unstable` every line covered in some runs but not all, for any test or setup, and uses the union of the runs for `byTest` and `setup`.
+- **K14** **Merging runners.** When several runners are configured, or detected, the CLI runs each runner's collector and merges the inputs. Test ids must be unique across runners (a duplicate is an environment error, exit 3). A source seen by two collectors keeps one entry, with the union of its coverable lines; its hashes must agree. Mutant ids must be unique. Every test carries `runner`.
 - **K11** **Interpreters.** `spawnsInterpreter` is set when a test starts another interpreter of the same language.
 - **K12** **Shapes.**
   - The unit's body is every token of the test call after its first argument (the options and the callback). It is tokenised. Strings, numbers and regular expressions are replaced by the placeholders `S`, `N` and `R`.

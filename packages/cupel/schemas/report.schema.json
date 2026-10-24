@@ -17,6 +17,15 @@
       "additionalProperties": false,
       "properties": { "name": { "type": "string" }, "version": { "type": "string" } }
     },
+    "runtimes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["runner", "name", "version"],
+        "additionalProperties": false,
+        "properties": { "runner": { "type": "string" }, "name": { "type": "string" }, "version": { "type": "string" } }
+      }
+    },
     "diagnostics": {
       "type": "array",
       "items": {

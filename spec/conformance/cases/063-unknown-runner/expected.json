@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "unknown-runner",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

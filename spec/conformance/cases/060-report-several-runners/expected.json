@@ -1,0 +1,27 @@
+{
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "runtimes": [
+    {
+      "runner": "vitest",
+      "name": "node",
+      "version": "22.23.3"
+    },
+    {
+      "runner": "pytest",
+      "name": "python",
+      "version": "3.13.1"
+    }
+  ],
+  "suite": {
+    "tests": 2,
+    "units": 2,
+    "coverage": {
+      "covered": 7,
+      "coverable": 20,
+      "pct": 35
+    }
+  }
+}
