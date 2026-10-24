@@ -73,5 +73,8 @@ const flush = () => {
     writeFileSync(`${cfg.out}/${process.pid}.error`, String(e.stack ?? e));
   }
 };
-vitest.afterAll(() => { take(); flush(); });
-process.on('exit', flush);
+// The exit flush is a fallback for a file whose afterAll never ran (for example, it failed to load). Writing again
+// after afterAll raced with Vitest stopping the worker, leaving a partial write and nondeterministic exit coverage.
+let flushedFile;
+vitest.afterAll(() => { take(); flush(); flushedFile = currentFile; });
+process.on('exit', () => { if (flushedFile !== currentFile) flush(); });
