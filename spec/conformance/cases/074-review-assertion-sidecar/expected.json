@@ -1,0 +1,25 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "u",
+        "evidence": {
+          "assertions": {
+            "assertionCount": 1,
+            "fingerprints": [
+              "[\"equal\",\"x\",\"1\"]"
+            ],
+            "uniqueFingerprints": [
+              "[\"equal\",\"x\",\"1\"]"
+            ],
+            "incomplete": false,
+            "capHit": false,
+            "assertionFree": false,
+            "subsumedBy": [],
+            "cloneOf": []
+          }
+        }
+      }
+    ]
+  }
+}

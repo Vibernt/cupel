@@ -133,7 +133,7 @@ def collect(root, runs, recheck, pytest_args, mode='run'):
             test['unit'] = r['unit']
         outcomes = statuses[r['id']]
         status = 'failed' if 'failed' in outcomes else 'skipped' if all(x == 'skipped' for x in outcomes) else 'passed'
-        test.update(tags=r['tags'], status=status,
+        test.update(tags=r['tags'], status=status, runStatuses=outcomes,
                     durationsMs=r.get('durationsMs', [max(0, round(r['duration'] * 1000))]),
                     spawnsInterpreter=r['id'] in spawned)
         tests.append(test)

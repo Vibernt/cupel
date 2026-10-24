@@ -1,0 +1,11 @@
+{
+  "description": "A covered function whose body replacement survives marks an otherwise unlisted pseudo-test.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V3",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "invalid-function-site",
+      "severity": "error",
+      "path": "/functionSites/0"
+    }
+  ],
+  "review": "$absent"
+}

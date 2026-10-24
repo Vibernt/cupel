@@ -1,0 +1,13 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "n",
+        "reasons": [
+          "no-unique-evidence"
+        ]
+      }
+    ],
+    "critical": 0
+  }
+}

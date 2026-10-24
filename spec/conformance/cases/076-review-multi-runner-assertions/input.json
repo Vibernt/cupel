@@ -1,0 +1,65 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "runtimes": [
+    {
+      "runner": "node",
+      "name": "node",
+      "version": "22.23.3"
+    },
+    {
+      "runner": "py",
+      "name": "python",
+      "version": "3.12"
+    }
+  ],
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1"
+    },
+    "src/b.py": {
+      "coverable": "1"
+    }
+  },
+  "tests": [
+    {
+      "id": "n",
+      "file": "tests/n.test.mjs",
+      "name": "n",
+      "status": "passed",
+      "runner": "node"
+    },
+    {
+      "id": "p",
+      "file": "tests/test_p.py",
+      "name": "p",
+      "status": "passed",
+      "runner": "py"
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "n": {
+        "src/a.mjs": "1"
+      },
+      "p": {
+        "src/b.py": "1"
+      }
+    }
+  },
+  "brittleness": [
+    {
+      "test": "n",
+      "kind": "source-text"
+    },
+    {
+      "test": "p",
+      "kind": "source-text"
+    }
+  ]
+}

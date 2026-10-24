@@ -1,0 +1,15 @@
+{
+  "description": "A killed body replacement is tested and does not create a pseudo-test candidate.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V3",
+      "polarity": "negative"
+    },
+    {
+      "id": "V1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

@@ -217,11 +217,11 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       const n = (names.get(key) ?? 0) + 1;
       names.set(key, n);
       const id = `${key}${n > 1 ? ` #${n}` : ''}`;
-      tests.set(t.taskId, { ...t, id, file, durationsMs: [] });
+      tests.set(t.taskId, { ...t, id, file, durationsMs: [], runStatuses: [] });
     }
     for (const repeat of repeats) for (const t of repeat.tests) {
       const record = tests.get(t.taskId);
-      if (record) { record.durationsMs.push(Math.max(0, Math.round(t.duration))); if (t.status === 'failed') record.status = 'failed'; }
+      if (record) { record.durationsMs.push(Math.max(0, Math.round(t.duration))); record.runStatuses.push(t.status); if (t.status === 'failed') record.status = 'failed'; }
     }
     const groups = new Map();
     for (const t of tests.values()) {
@@ -309,7 +309,7 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
       sources: object([...sources].filter(([file]) => !mappingFailed.has(file)).map(([file, source]) => [file, { coverable: formatLines(source.an.coverable), hash: source.hash }])),
       tests: ordered.map((t) => {
         const tags = [...new Set([...t.name.matchAll(/\[(critical|standard|minor)\]/g)].map((m) => m[1]))].sort(sort);
-        return { id: t.id, file: t.file, name: t.name, ...(t.unit ? { unit: t.unit } : {}), ...(tags.length ? { tags } : {}), status: t.status, durationsMs: t.durationsMs, ...(first.spawns.has(t.taskId) ? { spawnsInterpreter: true } : {}) };
+        return { id: t.id, file: t.file, name: t.name, ...(t.unit ? { unit: t.unit } : {}), ...(tags.length ? { tags } : {}), status: t.status, durationsMs: t.durationsMs, ...(t.runStatuses.length === repeats.length ? { runStatuses: t.runStatuses } : {}), ...(first.spawns.has(t.taskId) ? { spawnsInterpreter: true } : {}) };
       }),
       coverage: { granularity: 'test', byTest: object(ordered.filter((t) => combinedCoverage.has(t.taskId)).map((t) => [t.id, lineObject(combinedCoverage.get(t.taskId))])), setup: object([...new Set(ordered.map((t) => t.file))].map((file) => [file, lineObject(combinedSetup.get(file) ?? new Map())])), ...(runs > 1 ? { unstable: unstableObject(unstable) } : {}), ...(rechecked.length ? { rechecked: rechecked.sort(sort) } : {}) },
       brittleness: brittleness.sort((a, b) => sort(a.test, b.test) || sort(a.kind, b.kind) || a.line - b.line),

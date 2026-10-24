@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "unknown-unit",
+      "severity": "error",
+      "path": "/units/0"
+    }
+  ],
+  "review": "$absent"
+}

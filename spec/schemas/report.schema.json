@@ -9,7 +9,7 @@
   "properties": {
     "spec": { "type": "string", "pattern": "^cupel-spec/1(\\.[0-9]+)?$" },
     "kind": { "const": "report" },
-    "command": { "enum": ["report", "plan", "check", "guard", "label", "validate"] },
+    "command": { "enum": ["report", "plan", "check", "guard", "label", "validate", "review"] },
     "generatedAt": { "type": "string" },
     "runtime": {
       "type": "object",
@@ -176,6 +176,65 @@
             }
           }
         }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["notice", "candidates", "critical"],
+      "additionalProperties": false,
+      "properties": {
+        "notice": { "const": "No unique evidence is not proof that a test is redundant. Read each candidate's assertions; a proposed removal or merge must pass guard before it is committed. Cupel never advises removal." },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["unit", "file", "tier", "tierReason", "status", "reasons", "evidence", "guardRequired"],
+            "additionalProperties": false,
+            "properties": {
+              "unit": { "type": "string" },
+              "file": { "type": "string" },
+              "tier": { "$ref": "#/$defs/tier" },
+              "tierReason": { "enum": ["tag", "path-rule", "critical-word", "unique-critical-lines", "default"] },
+              "status": { "enum": ["passed", "failed", "skipped"] },
+              "reasons": { "type": "array", "minItems": 1, "items": { "enum": ["same-shape-group", "no-unique-evidence", "brittle", "pseudo-test", "never-passes"] } },
+              "evidence": {
+                "type": "object",
+                "required": ["ownLines", "uniqueLines", "kills", "uniqueKills", "overlaps", "group", "brittle"],
+                "additionalProperties": false,
+                "properties": {
+                  "ownLines": { "type": "object", "additionalProperties": { "$ref": "#/$defs/lineSet" } },
+                  "uniqueLines": { "anyOf": [{ "type": "object", "additionalProperties": { "$ref": "#/$defs/lineSet" } }, { "type": "null" }] },
+                  "kills": { "type": "integer", "minimum": 0 },
+                  "uniqueKills": { "type": ["integer", "null"], "minimum": 0 },
+                  "overlaps": {
+                    "type": "array", "maxItems": 5,
+                    "items": {
+                      "type": "object", "required": ["unit", "sharedLines", "sharedKills", "coversAllOf"], "additionalProperties": false,
+                      "properties": { "unit": { "type": "string" }, "sharedLines": { "type": "integer", "minimum": 0 }, "sharedKills": { "type": "integer", "minimum": 0 }, "coversAllOf": { "type": "boolean" } }
+                    }
+                  },
+                  "group": { "anyOf": [{ "type": "object", "required": ["id", "members"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "members": { "type": "array", "items": { "type": "string" } } } }, { "type": "null" }] },
+                  "brittle": { "type": "array", "items": { "$ref": "#/$defs/brittleKind" } },
+                  "pseudoTestedFunctions": { "type": "array", "items": { "type": "string" } },
+                  "assertions": { "type": "object", "required": ["assertionCount", "fingerprints", "uniqueFingerprints", "incomplete", "capHit", "assertionFree", "subsumedBy", "cloneOf"], "additionalProperties": false,
+                    "properties": {
+                      "assertionCount": { "type": "integer", "minimum": 0 },
+                      "fingerprints": { "type": "array", "items": { "type": "string" } },
+                      "uniqueFingerprints": { "type": "array", "items": { "type": "string" } },
+                      "incomplete": { "type": "boolean" },
+                      "capHit": { "type": "boolean" },
+                      "assertionFree": { "type": ["boolean", "null"] },
+                      "subsumedBy": { "type": "array", "items": { "type": "string" } },
+                      "cloneOf": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                }
+              },
+              "guardRequired": { "const": true }
+            }
+          }
+        },
+        "critical": { "type": "integer", "minimum": 0 }
       }
     },
     "guard": {

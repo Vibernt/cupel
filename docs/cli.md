@@ -11,6 +11,7 @@ Cupel never uses the network and never modifies your working tree. Every command
 | Command | Does |
 |---|---|
 | `cupel report [--input <file>] [--evidence] [--no-mutation] [--runs N] [--out <file>]` | Scores every test and gives advice. Without `--input` it collects the suite, runs mutation per config, and writes the input to `.cupel/input.json` (or `--out`). `--evidence` also re-checks and targets units needing more evidence |
+| `cupel review [--input <file>] [--units <id-or-file> ...] [--limit N] [--assertions <file>] [--json]` | Builds a deterministic evidence pack for an agent to inspect before changing tests. Without `--input`, collects like `report`. Default limit 50; repeat `--units` to select units, rows or test files |
 | `cupel check <test ids or files…> [--base <ref> \| --base-input <file>] [--input <file>]` | Reviews evidence for a new or changed test. A file argument expands to the units of the tests in that file. With a base, also reports tests that got weaker |
 | `cupel guard --base <ref> [--approvals <file>]` | Fails if coverage or critical mutation fell between the base and the working tree. `--base-input <file>` and `--head-input <file>` replace either side with a saved input |
 | `cupel plan [--changed <ref> \| --changed-lines <file>] [--input <file>]` | Priority order for a run: critical first, then tests affected by the change, then the rest |
@@ -38,17 +39,19 @@ Per command:
 
 | Option | Commands | Meaning |
 |---|---|---|
-| `--input <file>` | report, check, plan, label | Read the input instead of collecting. `report --input` replays a saved input as is: no collection, no mutation, no second pass |
-| `--out <file>` | report, check, plan, label, import | Where to write the collected (or imported) input. `report` writes `.cupel/input.json` by default; the others write it only when asked |
-| `--runs N` | report, check, guard, plan, label | Collection repeats, for durations. Default 2 |
-| `--no-mutation` | report, check, guard | Skip mutation and the optional evidence pass |
+| `--input <file>` | report, review, check, plan, label | Read the input instead of collecting. `report --input` and `review --input` replay a saved input as is: no collection, no mutation, no second pass |
+| `--out <file>` | report, review, check, plan, label, import | Where to write the collected (or imported) input. `report` and `review` write `.cupel/input.json` by default; the others write it only when asked |
+| `--runs N` | report, review, check, guard, plan, label | Collection repeats, for durations. Default 2 |
+| `--no-mutation` | report, review, check, guard | Skip mutation and the optional evidence pass |
+| `--units <id-or-file>`, `--limit N` | review | Select candidates and cap the pack after sorting; default cap 50 |
+| `--assertions <file>` | review | Read an S10b sidecar. With `--input`, Cupel also reads `<input>.assertions.json` when present. A supplied or present sidecar with a mismatched identity is an error |
 | `--evidence` | report | Re-check units with `no-unique-coverage-unverified` and run targeted mutation; needs collection and mutation |
 | `--base <ref>` | check, guard | Collect the base from a git ref |
 | `--base-input <file>`, `--head-input <file>` | check, guard | Saved inputs for either side (`check` also takes the head as `--input`) |
 | `--approvals <file>` | guard | A JSON list of `{ "action": "remove" \| "downgrade", "id", "by" }`, or an object with that list as `approvals` |
 | `--changed <ref>` | plan | Changed lines from `git diff --unified=0 <ref>` |
 | `--changed-lines <file>` | plan | Changed lines as JSON: `{ "path": "line set" }`, `""` for a whole file |
-| `--generated-at <text>` | report, check, guard, plan, label | Copied into the report as `generatedAt`. Cupel never reads the clock for a report |
+| `--generated-at <text>` | report, review, check, guard, plan, label | Copied into the report as `generatedAt`. Cupel never reads the clock for a report |
 | `--format cupel\|junit` | import | Default `cupel` |
 | `--runtime-name <n>`, `--runtime-version <v>` | import | The runtime recorded by a JUnit import (default `unknown`) |
 | `--adapter "<command>"`, `--fixtures <dir>` | conformance | The adapter command (run through the shell), and the fixtures directory |
@@ -68,6 +71,7 @@ Per command:
 - **Mutation** follows config `mutation` for node:test and Vitest: critical sources, and for `check` and `guard` with `--base`, changed lines. Vitest serves mutants through an in-memory Vite plugin and runs selected tests in forked processes. When the mutation module is missing, Cupel says so and continues without mutation data (missing data is never "no kill").
 - **`--base <ref>`** runs `git archive <ref>` and unpacks it into a fresh directory under the system temp directory, runs the selected runner's `prepare` command there if configured, collects, and removes the directory. It never checks out, stashes or writes anything in your repository. Mutants detected at base that survive at head are re-run (K7).
 - **Optional review evidence.** With `--evidence`, `report` runs the engine once, takes the units that end with hint `no-unique-coverage-unverified` (at most `mutation.maxMutants` of them, by id), re-checks each in its own process, runs targeted mutation on their own lines, and runs the engine again. This needs both the collector and the mutation module. It is skipped with `--no-mutation`. Without `--evidence`, report collects and runs mutation per config once.
+- **Review evidence.** `review` uses the report's existing groups, `no-unique-evidence` hint and brittleness. The `never-passes` reason needs per-run `runStatuses` for every row; an aggregate failure alone is insufficient. Node, Vitest and pytest collection record these statuses. Assertion fingerprints appear only when an S10b sidecar is supplied; merged inputs accept the multi-runner sidecar from `cupel assertions`, and runners without recordings have no assertion field. Pseudo-test reasons appear only when the input contains both function-scope `body-replace` mutation results and matching `functionSites`; ordinary collection does not create those sites. When either optional observation is absent, its field and reason are omitted. Missing observations are never counted as zero evidence. Collection without `--no-mutation` stops with exit 3 if the mutation module is unavailable.
 - **Changed lines** (`--changed`): added or modified lines count by their line numbers in the new file. A hunk that only deletes lines marks the line before it. New, untracked (not ignored) and binary files count as changed in full. Deleted files are left out. Renames count as a new file.
 
 ## Importing JUnit XML
@@ -93,6 +97,7 @@ Per command:
 
 Human output is short:
 - `report`: a summary line (tests, units, coverage, mutation score), the units whose advice is not `keep` grouped by advice, then a count of each hint.
+- `review`: the fixed caution, candidate counts, source line sets, overlaps, groups and available observations.
 - `guard`: each check with `pass` or `FAIL`, the removed units, and the verdict.
 - `check`: one line per verdict.
 - `plan`: the order with buckets and durations; `label`: each unit's tier and reason.

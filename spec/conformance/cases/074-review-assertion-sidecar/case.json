@@ -1,0 +1,15 @@
+{
+  "description": "A matching S10b sidecar supplies a fingerprint summary without changing candidate selection.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V3",
+      "polarity": "positive"
+    },
+    {
+      "id": "I4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

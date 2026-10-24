@@ -1,0 +1,11 @@
+{
+  "description": "A function site without a matching mutant is rejected before the review section is built.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "I4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

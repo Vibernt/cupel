@@ -154,6 +154,13 @@ export function argumentDiagnostics(command, args) {
       args.tests.forEach((t, i) => nonEmptyString(t) || bad(ptr('tests', i), 'must be a non-empty string'));
     }
   }
+  if (command === 'review') {
+    if (args.units !== undefined) {
+      if (!Array.isArray(args.units)) bad('/units', 'must be an array of unit ids, row ids or test files');
+      else args.units.forEach((u, i) => nonEmptyString(u) || bad(ptr('units', i), 'must be a non-empty string'));
+    }
+    if (args.limit !== undefined && (!Number.isSafeInteger(args.limit) || args.limit < 0)) bad('/limit', 'must be a nonnegative safe integer');
+  }
   if (command === 'guard' && args.approvals !== undefined) {
     if (!Array.isArray(args.approvals)) bad('/approvals', 'must be an array');
     else {

@@ -45,6 +45,7 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 - Each test belongs to a **unit**, which is its `unit` field or, when that is absent, its own id. A unit is one test definition. All test ids of a unit are its **rows**.
 - **The unit of advice is the unit, never a single row.** Rows of a unit MUST share `file`.
 - A test's `status` is `passed`, `failed` or `skipped`. A unit is **failed** if any row failed; otherwise **skipped** if every row was skipped; otherwise **passed**.
+- Optional `runStatuses` on a test is the ordered, nonempty list of statuses observed in its collection runs. It is review evidence. The aggregate `status` alone cannot prove that the test failed in every run.
 - `kind` is `unit` (default) or `e2e`.
 - `runner` optionally names the runner that produced the test (for example `vitest`, `pytest`, `go`). It is required when the input lists `runtimes`. `e2e` marks end-to-end or browser tests whose coverage cannot be attributed reliably.
 - `spawnsInterpreter: true` marks a test that starts another interpreter, whose coverage the per-test method cannot see (spike S2).
@@ -80,6 +81,7 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 
 - `brittleness` lists findings `{ test, kind, line?, deliberate? }`. `kind` is `source-text`, `css-class`, `doc-wording` or `file-snapshot`. `deliberate: true` marks a pin that is intended, such as a freshness check of a generated file or a provenance hash (spike S6).
 - `shapes` maps a unit id to its **shape**: a set of integer shingle hashes of the unit's body (K12).
+- Optional `functionSites` lists function-scope `body-replace` sites `{ id, source, operator, functionKey, functionName, startLine, endLine, variant }` corresponding to mutation results. It is only review evidence. Every site source must exist, every site range must have start ≤ end and contain its matching mutant's line, and duplicate site ids are invalid. The range can include non-coverable syntax lines.
 
 ### 3.7 Arguments
 
@@ -87,14 +89,19 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 |---|---|---|
 | `changed` | plan | Changed lines per path, as line sets. A path with the empty line set counts as changed in full |
 | `tests` | check | The units or test ids to check |
+| `units` | review | Unit ids, row ids, or test files to include; omitted means all eligible units |
+| `limit` | review | Maximum candidates, default 50; nonnegative integer |
 | `approvals` | guard | A list of `{ action: "remove" \| "downgrade", id, by }`. Approvals come from a person, outside the agent's write scope (L5) |
 | `generatedAt` | all | When present, copied into the report. The engine never reads a clock |
+
+`review` may receive an optional S10b assertion sidecar as `inputs.assertions` alongside `inputs.input`. A single-runner sidecar has version `cupel-assertions/1`, the exact `inputIdentity` and per-test recordings used by `cupel assertions`. For a merged input, the sidecar has version `cupel-assertions-multi/1` with `runners` keyed by runner name, each holding a single-runner sidecar. Only runners present in the sidecar gain assertion observations. A mismatched or malformed sidecar is an integrity error (exit 2). Incomplete recordings are reported as incomplete. Absence is not evidence of zero assertions.
 
 ## 4. Input integrity
 
 - **I1** The input MUST validate against `input.schema.json`, and every config against `config.schema.json`. Otherwise the engine reports the diagnostic `invalid-input` (or `invalid-config`) with the JSON path, and exits 2.
 - **I2** Every test id referenced in `coverage`, `mutation.mutants[].killedBy`, `brittleness`, and argument `tests` MUST exist in `tests`. Every unit id in `coverage.rechecked`, `mutation.targeted` and `shapes` MUST be a unit. Rows of a unit MUST share `file`, and test ids MUST be unique. When `runtimes` is present, every test MUST name a `runner` listed there, and runners MUST be unique in `runtimes`. Otherwise the diagnostic is `unknown-test`, `unknown-unit`, `unit-spans-files`, `duplicate-test` or `unknown-runner`, and the exit code is 2.
 - **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range (in `sources`, coverage, mutation and argument `changed`) MUST have start ≤ end. Otherwise the diagnostic is `line-not-coverable`, `unknown-source` or `bad-range`, and the exit code is 2.
+- **I4** Review's `units` must resolve to at least one unit, row or test file for each name; unknown names produce `unknown-unit`. The optional assertion sidecar must match the input identity and have structurally valid recordings; otherwise `invalid-assertions` exits 2. Optional function sites must match their mutants and source ranges; otherwise `invalid-function-site` exits 2.
 
 **Diagnostics.**
 - There is one diagnostic per problem, with `path` as a JSON pointer into the document when there is one.
@@ -254,6 +261,14 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
 
 - **L1** `label` reports, for each unit, `tier`, `tierReason` and `protected`. It exits 1 when any `unknown-tag` diagnostic exists (T2), and 0 otherwise.
 
+## 11a. Review
+
+- **V1 Selection.** `review` builds a cleanup review pack from existing signals. Include a unit when it belongs to a same-shape group, has hint `no-unique-evidence`, has any brittleness finding, is a pseudo-test under V3, or never passes. `never-passes` requires every row to have `runStatuses` and every recorded status in every row to be `failed` or `skipped`; aggregate `status` is insufficient. Reasons appear in that order as `same-shape-group`, `no-unique-evidence`, `brittle`, `pseudo-test`, `never-passes`. Do not infer no unique evidence from zero counts alone. Filter by `units` before sorting and limiting; a file selects all its units. Candidate count `critical` is counted after the filter and limit.
+- **V2 Order.** Noncritical candidates precede critical candidates. Within each tier partition, same-shape group candidates precede no-unique-evidence, then brittle, then pseudo-test, then never-passes candidates. A candidate with several reasons uses its first reason. Ties use code-point unit id order. `limit` takes the first N candidates; default 50.
+- **V3 Optional observations.** If `functionSites` exists, apply S10a's `analyzePseudo` to the input and sites. A unit is a pseudo-test only when all its own covered lines fall within pseudo-tested functions. List its touched pseudo-tested function ids in `evidence.pseudoTestedFunctions`, including for units that have other reasons. If sites are absent, omit this field and reason. If an assertion sidecar exists, use S10b's per-unit fingerprint summary in `evidence.assertions`: `assertionCount`, `fingerprints`, `uniqueFingerprints`, `incomplete`, `capHit`, `assertionFree`, `subsumedBy`, `cloneOf`. These are observations, never removal advice. Without a sidecar, omit `assertions`.
+- **V4 Evidence.** Each candidate has `unit`, `file`, `tier`, `tierReason`, `status`, `reasons`, `evidence`, and `guardRequired: true`. Evidence has canonical source-to-line-set maps `ownLines` and `uniqueLines` (`null` at file granularity), counts `kills` and `uniqueKills` (`null` at file granularity), `overlaps`, `group`, and `brittle`. `group` is the same-shape `{ id, members }`, or `null`. `overlaps` lists up to five other units with at least one shared own line or detected kill, sorted by shared line count descending, then shared kill count descending, then unit id. Each entry has `unit`, `sharedLines`, `sharedKills`, `coversAllOf`, where the boolean is true exactly when the other's own lines and detected kills both contain all of this candidate's. Include units of every status in overlaps; statuses are visible in the pack and failed coverage is not treated as proof.
+- **V5 Vocabulary and loop.** `review.notice` is exactly: "No unique evidence is not proof that a test is redundant. Read each candidate's assertions; a proposed removal or merge must pass guard before it is committed. Cupel never advises removal." This fixed notice is the sole exception to the vocabulary rule: no other review field name or string value may contain `retire`, `remove`, `delete`, or `redundant` (case insensitive). The agent reads the pack and test code, proposes a change, and runs `cupel guard` before committing. Cupel never advises a removal (D5).
+
 ## 12. Report
 
 - **R1** **Determinism.**
@@ -262,7 +277,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - Object keys appear in the order the report schema lists them.
   - `generatedAt` appears only when passed as an argument, and never after exit 2 or 3.
   - Report `spec` is always `cupel-spec/1`, whatever minor version the input names.
-  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `guard` emits `runtime` and `guard`; `guard.renamed` is always present. With two inputs, `runtime` is the head's. When the input lists `runtimes`, the report lists them too, after `runtime`.
+  - **Sections per command:** `report`, `label`, `plan` and `check` emit `runtime`, `suite`, `units` and `groups` (plus `files` at file granularity), then their own section. `review` emits `runtime` and `review` only. `guard` emits `runtime` and `guard`; `guard.renamed` is always present. With two inputs, `runtime` is the head's. When the input lists `runtimes`, the report lists them too, after `runtime`.
   - Every list whose order this spec does not state (rows, `skipped`, map keys such as `lost.lines`) is sorted by code point.
 - **R2** **Ratios.**
   - Coverage is reported as `{ covered, coverable, pct }`.

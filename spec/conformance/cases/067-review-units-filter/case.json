@@ -1,0 +1,20 @@
+{
+  "description": "A test file selects its candidates while the others remain outside the pack.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "I4",
+      "polarity": "positive"
+    },
+    {
+      "id": "V1",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "units": [
+      "tests/n.test.mjs"
+    ]
+  },
+  "expectExit": 0
+}

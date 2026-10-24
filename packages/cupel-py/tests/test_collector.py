@@ -150,6 +150,7 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(actual['sources']['src/math.py']['hash'], source_record(FIXTURE / 'src/math.py')['hash'])
         self.assertEqual(len(actual['tests']), 5)
         self.assertTrue(all(len(row['durationsMs']) == 1 for row in actual['tests']))
+        self.assertTrue(all(len(row['runStatuses']) == 1 for row in actual['tests']))
         self.assertEqual(set(actual['shapes']), {r.get('unit', r['id']) for r in actual['tests']})
 
     def test_parametrized_unit_survives_shift_and_three_runs_mark_unstable_branch(self):
@@ -318,6 +319,7 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual([r['id'] for r in selected['tests']], ['tests/test_math.py::TestGrouped > test_add'])
         repeated = self.run_adapter('collect', '--root', str(FIXTURE), '--runs', '2', '--', '-q')
         self.assertTrue(all(len(row['durationsMs']) == 2 for row in repeated['tests']))
+        self.assertTrue(all(len(row['runStatuses']) == 2 for row in repeated['tests']))
         checked = self.run_adapter('collect', '--root', str(FIXTURE), '--runs', '1', '--recheck', 'tests/test_math.py::test_classify', '--', '-q')
         self.assertEqual(checked['coverage']['rechecked'], ['tests/test_math.py::test_classify'])
         self.assertEqual(checked['coverage']['byTest']['tests/test_math.py::test_classify[-1-low]'], {'src/math.py': '8-9'})

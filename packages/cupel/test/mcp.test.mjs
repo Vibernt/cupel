@@ -13,7 +13,7 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const CASES = fileURLToPath(new URL('../../../spec/conformance/cases/', import.meta.url));
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const casePath = (number, file) => {
-  const names = { 9: '009-label-unknown-tag', 18: '018-consolidate-same-shape', 34: '034-plan-changed', 35: '035-check-no-unique-evidence', 40: '040-guard-pass', 41: '041-guard-coverage-lost', 46: '046-guard-critical-removed-approved', 48: '048-guard-runtime-mismatch' };
+  const names = { 9: '009-label-unknown-tag', 18: '018-consolidate-same-shape', 34: '034-plan-changed', 35: '035-check-no-unique-evidence', 40: '040-guard-pass', 41: '041-guard-coverage-lost', 46: '046-guard-critical-removed-approved', 48: '048-guard-runtime-mismatch', 64: '064-review-basic-pack', 74: '074-review-assertion-sidecar' };
   return `${CASES}${names[number]}/${file}.json`;
 };
 
@@ -104,16 +104,31 @@ test('without --root, mcp selects the enclosing git root', () => {
   assert.equal(report.suite.units, 4);
 });
 
-test('tools/list describes five tools with object input schemas', async () => {
+test('tools/list describes six tools with object input schemas', async () => {
   const { tools } = (await send('tools/list')).result;
-  assert.deepEqual(tools.map((tool) => tool.name), ['cupel_check', 'cupel_report', 'cupel_guard', 'cupel_plan', 'cupel_label']);
+  assert.deepEqual(tools.map((tool) => tool.name), ['cupel_check', 'cupel_report', 'cupel_review', 'cupel_guard', 'cupel_plan', 'cupel_label']);
   for (const tool of tools) {
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
-    assert.ok(tool.description.includes('Cupel never advises removing tests'));
-    assert.ok(tool.description.includes('no-unique-evidence means a person may review, never delete'));
+    if (tool.name === 'cupel_review') {
+      assert.match(tool.description, /read the test code.*cupel_guard.*never advises removal/);
+    } else {
+      assert.ok(tool.description.includes('Cupel never advises removing tests'));
+      assert.ok(tool.description.includes('no-unique-evidence means a person may review, never delete'));
+    }
     assert.ok(tool.inputSchema.properties);
   }
+});
+
+test('review returns the full filtered pack and assertion observations', async () => {
+  const args = { units: ['tests/n.test.mjs'], limit: 1 };
+  const expected = run('review', { input: read(casePath(64, 'input')) }, {}, args, loadSchemas());
+  const { json, result } = await call('cupel_review', { input: casePath(64, 'input'), ...args });
+  assert.equal(result.isError, false);
+  assert.deepEqual(json, expected.report);
+  const sidecar = read(casePath(74, 'assertions'));
+  const withAssertions = await call('cupel_review', { input: casePath(74, 'input'), assertions: casePath(74, 'assertions') });
+  assert.deepEqual(withAssertions.json, run('review', { input: read(casePath(74, 'input')), assertions: sidecar }, {}, {}, loadSchemas()).report);
 });
 
 test('report and label match run, including exit 1 as a normal result', async () => {
@@ -195,19 +210,21 @@ test('JSON-RPC errors, invalid inputs and stdout framing', async () => {
 });
 
 test('collection reports a missing mutator instead of using reduced evidence', () => {
-  const message = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'cupel_report', arguments: {} } };
-  const result = spawnSync(process.execPath, [BIN, 'mcp', '--root', ROOT], {
-    cwd: tmpdir(), input: `${JSON.stringify(message)}\n`, encoding: 'utf8', timeout: 5000,
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-      CUPEL_TEST_COLLECTOR: fileURLToPath(new URL('fixtures/stub-collector.mjs', import.meta.url)),
-      CUPEL_TEST_MUTATOR: `${ROOT}missing-mutator.mjs`,
-    },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  const response = JSON.parse(result.stdout.trim());
-  assert.equal(response.result.isError, true);
-  assert.match(response.result.content[0].text, /mutation not available/);
-  assert.equal(JSON.parse(response.result.content[1].text).exit, 3);
+  for (const name of ['cupel_report', 'cupel_review']) {
+    const message = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: {} } };
+    const result = spawnSync(process.execPath, [BIN, 'mcp', '--root', ROOT], {
+      cwd: tmpdir(), input: `${JSON.stringify(message)}\n`, encoding: 'utf8', timeout: 5000,
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        CUPEL_TEST_COLLECTOR: fileURLToPath(new URL('fixtures/stub-collector.mjs', import.meta.url)),
+        CUPEL_TEST_MUTATOR: `${ROOT}missing-mutator.mjs`,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const response = JSON.parse(result.stdout.trim());
+    assert.equal(response.result.isError, true);
+    assert.match(response.result.content[0].text, /mutation not available/);
+    assert.equal(JSON.parse(response.result.content[1].text).exit, 3);
+  }
 });

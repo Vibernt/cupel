@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "invalid-assertions",
+      "severity": "error"
+    }
+  ],
+  "review": "$absent"
+}

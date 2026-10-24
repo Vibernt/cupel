@@ -1,0 +1,11 @@
+{
+  "description": "Failed and skipped units get a never-passes reason without claiming unique evidence.",
+  "command": "review",
+  "rules": [
+    {
+      "id": "V4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

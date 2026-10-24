@@ -1,0 +1,33 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [
+    {
+      "id": "f",
+      "file": "tests/f.test.mjs",
+      "name": "f",
+      "status": "failed",
+      "runStatuses": [
+        "passed",
+        "failed"
+      ]
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "f": {
+        "src/a.mjs": "1"
+      }
+    }
+  }
+}

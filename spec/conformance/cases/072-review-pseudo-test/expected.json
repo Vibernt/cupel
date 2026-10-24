@@ -1,0 +1,24 @@
+{
+  "review": {
+    "candidates": [
+      {
+        "unit": "p",
+        "reasons": [
+          "pseudo-test"
+        ],
+        "evidence": {
+          "pseudoTestedFunctions": [
+            "f"
+          ],
+          "ownLines": {
+            "src/a.mjs": "1-2"
+          },
+          "uniqueLines": {
+            "src/a.mjs": "1-2"
+          },
+          "kills": 0
+        }
+      }
+    ]
+  }
+}

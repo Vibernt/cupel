@@ -39,7 +39,10 @@ test('runtime, hashes, durations and order', async () => {
   const src = readFileSync(new URL('src/math.mjs', `file://${FIXTURE}`));
   const { createHash } = await import('node:crypto');
   assert.equal(input.sources['src/math.mjs'].hash, `sha256:${createHash('sha256').update(src).digest('hex')}`);
-  for (const t of input.tests) assert.equal(t.durationsMs.length, 2);
+  for (const t of input.tests) {
+    assert.equal(t.durationsMs.length, 2);
+    assert.equal(t.runStatuses.length, 2);
+  }
   const ids = input.tests.map((t) => t.id);
   assert.deepEqual(ids, [...ids].sort());
   // Rows share one shape, keyed by the unit; single tests by their id.

@@ -73,7 +73,10 @@ for (const [version, modules] of versions) {
       assert.deepEqual(validate(schemas.input, input), []);
       assert.equal(run('report', { input }, {}, {}, schemas).exit, 0);
       assert.equal(input.tests.length, 4);
-      for (const t of input.tests) assert.equal(t.durationsMs.length, 2);
+      for (const t of input.tests) {
+        assert.equal(t.durationsMs.length, 2);
+        assert.equal(t.runStatuses.length, 2);
+      }
       assert.equal(input.sources['src/math.ts'].hash, `sha256:${createHash('sha256').update(readFileSync(join(root, 'src/math.ts'))).digest('hex')}`);
       assert.equal(input.sources['src/math.ts'].coverable, '7-9,11-15');
       assert.ok(input.shapes['tests/math.test.ts::cap > maps %i to %i']?.length > 0);
