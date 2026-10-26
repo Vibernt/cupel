@@ -30,8 +30,6 @@ experimental selection outside the supported first release.
 
 ## Developer evidence
 
-- [LinkedIn launch copy](announcements/linkedin.md): prepared copy; posting is a separate action.
-
 - [Contributing](../CONTRIBUTING.md) and [development checks](development.md): targeted tests, required tools, optional fixture skips and artifact gates.
 - [Spec](../spec/SPEC.md) and [locked decisions](../plans/DECISIONS.md): normative behavior and constraints.
 - [First-release checklist](../plans/FIRST-RELEASE-CHECKLIST.md) and [release readiness](../plans/RELEASE-READINESS.md): source/artifact gates, named handoffs and pending work.

@@ -50,9 +50,6 @@ and code review, especially when changing assertions or critical-path tests.
    and after a change. Lost coverage, lost critical kills and unapproved protected
    test removal can fail the guard even when the ordinary tests still pass.
 
-The [launch post](docs/announcements/linkedin.md) explains the motivation and a
-real-project example in a copy-ready format for LinkedIn.
-
 ## What is supported
 
 The [support matrix](docs/support.md) is the authoritative version and scope contract.

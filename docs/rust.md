@@ -5,6 +5,18 @@ profile has source and installed fixture acceptance; **real-repository
 acceptance is unrun**. It is not core first-release language support. Native
 selective PR execution is unsupported and outside the supported first release.
 
+**Known timeout concern (2026-10-26): do not rely on the Rust preview guard as
+a protection gate until this is resolved.** A full verification run classified
+an equivalent mutant as `timeout` instead of `survived`. The Rust backend times
+the whole Cargo invocation, while the engine counts a mutation timeout as
+detected; execution contention can therefore look like retained protection.
+The same run's lost-kill CLI control unexpectedly passed. Its exact head input
+was not retained, so the link between those two failures is an inference.
+All 16 focused Rust checks and a subsequent full verification passed unchanged;
+those retries do not resolve the classification concern. The original logs are
+retained locally under `.scratch/remove-linkedin-draft/`. No timeout limit,
+assertion, runtime or guard rule was relaxed.
+
 Run `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]`. Configure `runners.cargo` in `cupel.json` to select it for `report`, `check`, `guard`, `plan`, and `label`. A configured `runners.cargo.tests` glob selects Cargo packages and test files and accepts brace alternatives. The direct CLI also accepts `--tests GLOB`. It uses the user's Cargo and rustup environment without changing `CARGO_HOME` or `RUSTUP_HOME`. When `CARGO_TARGET_DIR` is set, builds use a repository-specific subdirectory inside it, preventing cached LLVM binaries from another checkout from attributing coverage to stale paths. Cargo is forced offline with `CARGO_NET_OFFLINE=true` and `--offline`. Install dependencies locally first. The collector needs `llvm-profdata` and `llvm-cov` from the matching `llvm-tools-preview` component; install it with `rustup component add llvm-tools-preview`.
 
 The collector appends `-C instrument-coverage` to `RUSTFLAGS`, builds test binaries once with `cargo test --no-run --message-format=json`, and lists each binary's harness tests. Every test runs alone, across tests at half the available cores, with its own `LLVM_PROFILE_FILE`. Raw profiles are merged with `llvm-profdata merge -sparse`, then exported with `llvm-cov export -format=text`. `--runs` repeats the per-test coverage run; line coverage is united across runs, and `coverage.unstable` holds lines present on some runs only. Each run contributes a duration. `--recheck` validates unit ids; every collected test is already rechecked in its own process.

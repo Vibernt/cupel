@@ -122,7 +122,6 @@ test('support freeze retains unpublished package guards, refusals and unverified
 
 const currentDocs = [
   'README.md', 'CONTRIBUTING.md', 'docs/README.md', 'docs/install.md',
-  'docs/announcements/linkedin.md',
   'docs/private-use.md', 'docs/support.md', 'docs/development.md',
   'docs/cli.md', 'docs/mcp.md', 'docs/python.md', 'docs/vitest.md',
 ];
@@ -163,7 +162,6 @@ test('owner GitHub source authorization preserves separate package and posting d
   assert.match(authorization, /npm and PyPI remain unpublished/);
   assert.match(authorization, /L1–L7 remain locked/);
   assert.match(normalized(read('CONTRIBUTING.md')), /authorized public GitHub source publication/);
-  assert.ok(read('docs/README.md').includes('](announcements/linkedin.md)'));
 });
 
 test('documentation index exposes usage, runner, extension and verification routes', () => {
