@@ -1,4 +1,8 @@
-# Cupel
+<p align="center">
+  <img src="docs/assets/cupel-logo.png" alt="Cupel logo: a code-bracket assay cup holding a fault marker" width="96" height="96">
+</p>
+
+<h1 align="center">Cupel</h1>
 
 **See which tests catch faults, then check that a test change keeps that protection.**
 
@@ -7,6 +11,11 @@ introduces small source faults (mutants) to see which tests fail. It turns those
 observations into a report and a bounded review pack. Its `guard` compares a Git
 baseline with a proposed change and fails on lost coverage, lost critical
 mutation protection, or a protected test removal without human approval.
+
+![An agent weakens an assertion while tests stay green. Cupel collects per-test evidence, introduces small faults and compares with the Git baseline. In the scoped Jest example, 51 tests still pass and coverage stays at 92.75%, but critical mutants caught drop from 11 to 10, so guard fails.](docs/assets/agentic-test-protection.png)
+
+*Illustrative workflow; measured numbers from the [real-project Jest validation](plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls).
+The example covers 11 tested mutations across two declared critical API paths.*
 
 **Open-source under MIT · version `0.1.0`.** Get the source from
 [GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
