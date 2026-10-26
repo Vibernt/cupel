@@ -1,31 +1,34 @@
-# Private release readiness
+# Source release readiness
 
 ## Frozen first-release scope (2026-10-26)
 
 The owner selected **JS/TS/Python core full guard**, **bounded Go/Ruby/Rust
-preview**, and **private experimental selective PR outside the supported first
+preview**, and **experimental selective PR outside the supported first
 release**. The authoritative [support matrix](../docs/support.md) defines exact
 versions and evidence. This scopes the first release; it does not erase the
 seven-runner work queue or promote a failed profile. [Real-repository ordinary
 Jest acceptance](results/2026-10-26-jest-acceptance.md) passed on the complete
 original 51-test / 4-file jest-junit lane; native real-repository acceptance is
 unrun. Hosted required-check enforcement is unverified. No generic CI speedup
-or publication approval is claimed. Private experimental commands and warnings
-remain intact.
+is claimed. Experimental commands and warnings remain intact. Public GitHub
+source publication for **Vibernt/cupel**, **0.1.0 / MIT**, was explicitly authorized
+by the owner on **2026-10-26**. npm and PyPI remain unpublished; registry uploads,
+publishing tags/releases and social posting require separate explicit approval.
 
-The current private **0.1.0 / MIT** artifact handoff is
+The accepted **0.1.0 / MIT** artifact handoff, verified while private, is
 `.scratch/private-candidate/release-0.1.0/handoff.json`. Full Node 26 verification
 and Node 22 tests passed **630 Node tests each, zero skips**; Python passed
 **45 tests**, and Ruby passed **35 tests / 148 assertions**, with zero skips.
 The same npm archive passed installed CLI/MCP and runner positive/negative
-checks on both runtimes. The stable private installation is updated with rollback
+checks on both runtimes. The stable local installation is updated with rollback
 retained. See [the versioned candidate record](results/2026-10-26-private-candidate.md)
 for artifact hashes and the final reviewed scope.
 
-Next best action: review the verified private candidate and decide whether to
-authorize publication. The reviewed release files are committed with this record.
-Explicit owner approval remains required before any publication. Earlier counts and hashes below remain
-historical evidence for their named handoffs.
+The reviewed release files are committed. Next best action: verify the authorized
+public GitHub source and source-install workflow, then review the launch copy.
+Public source approval does not authorize registry uploads, publishing tags/releases
+or social posting. Earlier counts and hashes below remain historical evidence for
+their named private handoffs.
 
 ## Historical planning and handoff evidence (2026-10-25)
 

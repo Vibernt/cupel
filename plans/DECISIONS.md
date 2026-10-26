@@ -146,3 +146,20 @@ now requires **3.12+**, matching the collector's existing `sys.monitoring` check
 |---|---|---|
 | D3 | Coverage target wording | 100% line and branch on critical modules, a ratchet elsewhere |
 | D9 | Report schema versioning | `cupel-spec/1`, semver-style, breaking changes bump the major |
+
+## Owner public GitHub launch authorization (2026-10-26)
+
+The owner explicitly approved making **Vibernt/cupel public on GitHub** with
+first-party **MIT** licensing at version **0.1.0**, and requested a developer
+README plus LinkedIn launch copy. This fulfills the repository-launch condition
+in L6; L1–L7 remain locked. It supersedes earlier pending-approval statements for
+GitHub source visibility only. Historical private handoffs, hashes and acceptance
+records retain their original status and provenance.
+
+**npm and PyPI remain unpublished.** npm packages keep `"private": true` and the
+Python package keeps `Private :: Do Not Upload`. Registry uploads, publishing
+tags/releases and posting the launch copy require separate explicit approval;
+preparing copy does not authorize posting. The support contract remains
+JS/TS/Python ordinary full guard with bounded Go/Ruby/Rust previews. Selective
+PR commands remain experimental and outside the supported first release; public
+source visibility does not promote their capabilities or weaken any refusal.

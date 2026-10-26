@@ -1,8 +1,10 @@
 # Install Cupel locally
 
-Cupel is a private **0.1.0 candidate**, unpublished on npm and PyPI. The
+Cupel **0.1.0** source is [MIT-licensed](../LICENSE) at
+[Vibernt/cupel](https://github.com/Vibernt/cupel). Public GitHub source publication
+was authorized by the owner on **2026-10-26**; npm and PyPI remain unpublished. The
 [support matrix](support.md) defines JS/TS/Python core ordinary full guard,
-bounded Go/Ruby/Rust preview and private experimental selective PR commands
+bounded Go/Ruby/Rust preview and experimental selective PR commands
 outside the supported first release. Installing a package does not expand that
 contract.
 
@@ -95,4 +97,4 @@ gate flags make the relevant missing tools fail.
 Each smoke invocation preserves its artifacts and results in a fresh
 `.scratch/package-smoke/run-*/`. Manual `.scratch/local-package` builds are
 separate. Accepted handoffs under `.scratch/private-candidate/` record exact
-hashes, tool versions and provenance; see [private usage](private-use.md).
+hashes, tool versions and provenance; see [installed usage](private-use.md).

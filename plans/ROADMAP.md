@@ -3,27 +3,27 @@
 ## Frozen first-release scope (2026-10-26)
 
 The owner selected **JS/TS/Python core full guard**, **bounded Go/Ruby/Rust
-preview**, and **private experimental selective PR outside the supported first
-release**. The authoritative [support matrix](../docs/support.md) defines exact
-versions and evidence. This scopes the first release; it does not erase the
-seven-runner work queue or promote a failed profile. [Real-repository ordinary
-Jest acceptance](results/2026-10-26-jest-acceptance.md) passed on the complete
-original 51-test / 4-file jest-junit lane; native real-repository acceptance is
-unrun. Hosted required-check enforcement is unverified. No generic CI speedup
-or publication approval is claimed. Private experimental commands and warnings
-remain intact.
+preview**, and **experimental selective PR outside the supported first release**.
+The authoritative [support matrix](../docs/support.md) defines exact versions
+and evidence. Native real-repository acceptance and hosted required-check
+enforcement remain unverified; no generic CI speedup is claimed.
 
-The active private handoff is
-`.scratch/private-candidate/handoff-scope-ALquxx/handoff.json`. Its final gates
-passed: **615 Node outcomes on each of Node 26 and Node 22**, **45 Python tests**
-with no skips, and **35 Ruby tests / 148 assertions**. The same npm archive
-passed both runtimes; the stable private installation is updated and its
-predecessor retained. Version remains private `0.0.0`, with uncommitted source.
+The current source version is **0.1.0 / MIT**. The owner authorized public GitHub
+source publication for **Vibernt/cupel** on **2026-10-26**, satisfying L6's source
+visibility condition. npm and PyPI remain unpublished; their private publishing
+guards stay enabled. Registry uploads, publishing tags/releases and social
+posting still require separate explicit owner approval.
 
-Next best action: review the intended release paths and choose the actual release
-version, then verify and commit that versioned candidate before requesting
-explicit publication approval. Prior counts and hashes below remain historical
-evidence for their named handoffs.
+The [versioned candidate record](results/2026-10-26-private-candidate.md) preserves
+its private artifact acceptance: **630 Node tests on each of Node 26 and Node 22**,
+**45 Python tests**, **35 Ruby tests / 148 assertions**, all without skips, plus
+fresh real-Jest CLI/MCP positive and negative controls. Its local handoff is
+`.scratch/private-candidate/release-0.1.0/handoff.json`. The stable local install
+and its rollback are recorded there. Historical 0.0.0 handoffs are preserved.
+
+Next best action: verify the authorized public GitHub source and documented
+source-install workflow, then review the launch copy. Source visibility does not
+promote experimental support or approve package uploads.
 
 ## Historical acceptance snapshot (2026-10-25)
 

@@ -1,7 +1,7 @@
 # CLI reference
 
 The [support matrix](support.md) defines **JS/TS/Python core full guard**,
-**bounded Go/Ruby/Rust preview**, and **private experimental selective PR**
+**bounded Go/Ruby/Rust preview**, and **experimental selective PR**
 commands outside the supported first release. Exact runtime limits and pending
 acceptance gates apply equally to source and installed entry points.
 
@@ -169,9 +169,9 @@ Diagnostics follow, one per line. Colour is used only when standard output is a 
 
 With `NODE_ENV=test` only, `CUPEL_TEST_COLLECTOR` and `CUPEL_TEST_MUTATOR` name module paths that replace the collector (`collectNode`) and the mutation module (`mutateNode`, `confirmSurvivors`). A path that does not exist counts as not available. Both variables are ignored otherwise.
 
-## Private experimental selective PR commands
+## Experimental selective PR commands
 
-Outside the supported first release, `pr-producer`, `pr-prepare` and `pr` retain the explicit private experimental Node 26.7.0 profile.
+Outside the supported first release, `pr-producer`, `pr-prepare` and `pr` retain the explicit experimental Node 26.7.0 profile.
 They require independent trust pins and return scoped evidence, with
 `wholeGuardPass: false`. See [selective PR checks](selective-pr.md) for commands,
 trust boundaries, costs, refusals and the separate full guard requirement.

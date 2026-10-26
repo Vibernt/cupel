@@ -1,7 +1,7 @@
 # Local MCP server
 
 The [support matrix](support.md) defines **JS/TS/Python core full guard**,
-**bounded Go/Ruby/Rust preview**, and **private experimental selective PR**
+**bounded Go/Ruby/Rust preview**, and **experimental selective PR**
 commands outside the supported first release. Exact runtime limits and pending
 acceptance gates apply equally to source and installed entry points.
 
@@ -67,16 +67,17 @@ command = "node"
 args = ["/path/to/packages/cupel/bin/cupel.mjs", "mcp", "--root", "/path/to/repo"]
 ```
 
-The package is private and is not published to npm. Use the local `node /path/to/packages/cupel/bin/cupel.mjs mcp` entry point in these configurations.
+The source is MIT-licensed; the npm package remains unpublished and retains its
+private publishing guard. Use the local `node /path/to/packages/cupel/bin/cupel.mjs mcp` entry point in these configurations.
 
 ### Codex in non-interactive mode
 
 `codex exec` cannot ask you to approve tool calls, so by default it refuses them ("MCP approval required"). Pass `--approve-for-me` to route each approval to Codex's automatic reviewer instead. This was verified with Codex CLI 0.163: an agent called `cupel_check` and `cupel_guard` and reported the same verdicts as the conformance cases.
 
-## Private experimental selective PR tools
+## Experimental selective PR tools
 
 Outside the supported first release, `cupel_pr_producer`, `cupel_pr_prepare` and
-`cupel_pr` retain the private experimental Node 26.7.0 selective profile. They return distinct scoped data and require
+`cupel_pr` retain the experimental Node 26.7.0 selective profile. They return distinct scoped data and require
 independently trusted pins; they never claim a whole-suite guard pass. See
 [selective PR checks](selective-pr.md) for the exact preparation and request
 contract. Node 22 selective execution refuses.

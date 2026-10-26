@@ -8,9 +8,10 @@ observations into a report and a bounded review pack. Its `guard` compares a Git
 baseline with a proposed change and fails on lost coverage, lost critical
 mutation protection, or a protected test removal without human approval.
 
-**Status: private `0.1.0` candidate.** npm and PyPI publication are disabled.
-The source version does not certify a packaged artifact: older `0.0.0` handoffs
-are [historical evidence](docs/private-use.md#artifact-provenance).
+**Open-source under MIT · version `0.1.0`.** Get the source from
+[GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
+use the local installation below. See the [verified candidate record](plans/results/2026-10-26-private-candidate.md)
+for artifact checks and [historical evidence](docs/private-use.md#artifact-provenance).
 
 Cupel supplies a Node CLI, a local stdio MCP server, and a pure JavaScript engine.
 It makes no model calls and has no telemetry or analytics. The engine produces
@@ -18,6 +19,39 @@ the same report for the same inputs. Collection executes your project's tests
 and configured preparation commands; their timings, side effects and network
 behavior belong to that project. Cupel's own shipped runtime makes no network
 calls and does not install project dependencies.
+
+## Why add Cupel to your workflow?
+
+A passing test suite can become less protective while staying green. An assertion
+can get weaker, a refactor can stop checking a boundary, or an AI-generated test
+can execute the right lines without detecting the wrong behavior. Coverage shows
+which code ran; mutation testing checks whether tests notice particular faults.
+
+Cupel gives you evidence to review those changes:
+
+- **Understand existing tests.** See per-test coverage, mutation kills, timing,
+  and gaps before deciding what to improve.
+- **Protect test refactors.** Compare the proposed suite with a Git baseline
+  and detect lost coverage or critical fault detection within the measured scope.
+- **Review agent-written tests.** Give your coding agent a local CLI/MCP feedback
+  loop, then inspect the evidence before accepting its changes.
+
+Make protection review part of the workflow: **run tests → inspect Cupel evidence
+→ edit → run full guard → review the diff**. Use it alongside your normal tests
+and code review, especially when changing assertions or critical-path tests.
+
+## How it works
+
+1. **Collect:** run the supported test runner and attribute source coverage to
+   individual tests.
+2. **Challenge:** introduce small faults in the configured mutation scope and
+   record which tests fail. A detected fault is called a killed mutant.
+3. **Compare:** use `guard --base <ref>` to compare measured protection before
+   and after a change. Lost coverage, lost critical kills and unapproved protected
+   test removal can fail the guard even when the ordinary tests still pass.
+
+The [launch post](docs/announcements/linkedin.md) explains the motivation and a
+real-project example in a copy-ready format for LinkedIn.
 
 ## What is supported
 
@@ -27,7 +61,7 @@ The [support matrix](docs/support.md) is the authoritative version and scope con
 | --- | --- | --- |
 | Core ordinary full guard | `node:test`, Vitest, narrow Jest, pytest | Source and installed acceptance; exact runtime, loader and transform limits apply. |
 | Bounded preview | Go, Ruby/Minitest, Rust/Cargo | Installed fixture acceptance; real-repository acceptance is unrun. |
-| Private experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
+| Experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
 | Local integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted Action required checks and branch protection remain unverified. |
 
 Real-repository Jest acceptance retained the original **51 tests / 4 files** and
@@ -47,9 +81,11 @@ dependencies already installed. Use the project's supported Vitest/Jest version;
 pytest also needs Python **3.12+** and the separate Python collector. See
 [installation](docs/install.md) for the Python wheel and exact tested versions.
 
-From the Cupel repository root, run directly from source:
+Clone the repository, then run directly from source:
 
 ```sh
+git clone https://github.com/Vibernt/cupel.git
+cd cupel
 CUPEL_REPO="$PWD"
 node "$CUPEL_REPO/packages/cupel/bin/cupel.mjs" --help
 ```
@@ -142,5 +178,5 @@ groups usage, runners, extension contracts and acceptance evidence.
 ## Licence
 
 First-party Cupel code is licensed under [MIT](LICENSE). See [NOTICE](NOTICE)
-for attribution and third-party material. Repository access, package publication
-and release approval remain private decisions.
+for attribution and third-party material. The source repository is public;
+package registry publication is managed separately.

@@ -44,7 +44,7 @@ CUPEL_PR_NODE=/opt/homebrew/bin/node \
 ```
 
 Check that the selected executables have the required versions. This verifies
-the Node 22 host with the explicit Node 26 private experiment executable; it
+the Node 22 host with the explicit Node 26 experiment executable; it
 does not enable selective execution on Node 22.
 
 ## Runner fixtures
@@ -75,7 +75,7 @@ node --test scripts/package-smoke.test.mjs
 The Node 26 path above is specific to the maintainer's setup. The npm smoke packs
 and installs offline, checks version/MIT/private metadata and packaged assets,
 and runs CLI/MCP plus runner positive/negative controls. Rust requires the exact
-restricted native profile. The private selective checks remain outside the
+restricted native profile. The experimental selective checks remain outside the
 supported first release despite being included in local regression testing.
 
 `CUPEL_REQUIRE_PACKAGE_SMOKE=1` requires both prepared Python package tools and
@@ -103,7 +103,7 @@ node --test packages/cupel/test/release-support.test.mjs \
   packages/cupel/test/release-support-source.test.mjs
 ```
 
-These check support tiers, accepted evidence, current candidate/licence guidance,
+These check support tiers, accepted evidence, current source/licence guidance,
 local documentation links and CLI/MCP scope wording. Package smoke tests cover
 the documented local install path. Documentation checks do not establish a
 new real-repository runner acceptance or live GitHub enforcement.

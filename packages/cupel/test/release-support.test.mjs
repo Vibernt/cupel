@@ -89,15 +89,15 @@ test('native support remains bounded preview with fixture evidence and unrun rea
   }
 });
 
-test('private experimental selection is retained outside supported first-release claims', () => {
-  const selection = rows.find((row) => /Private experimental.*selective PR/.test(row));
+test('experimental selection is retained outside supported first-release claims', () => {
+  const selection = rows.find((row) => /Experimental.*selective PR/.test(row));
   assert.ok(selection);
   assert.match(selection, /26\.7\.0/);
   assert.match(selection, /Outside the supported first release/);
   assert.match(selection, /Node 22 selective execution refuses/);
   for (const path of ['README.md', 'docs/selective-pr.md', 'docs/cli.md', 'docs/mcp.md']) {
     const text = normalized(read(path));
-    assert.match(text, /private experimental/i, path);
+    assert.match(text, /experimental/i, path);
     assert.match(text, /outside the supported first release/i, path);
   }
   const cli = read('docs/cli.md');
@@ -108,24 +108,26 @@ test('private experimental selection is retained outside supported first-release
   assert.doesNotMatch(read('README.md'), /Selective PR execution is not shipped/);
 });
 
-test('support freeze retains privacy, explicit refusals and unverified hosted enforcement', () => {
+test('support freeze retains unpublished package guards, refusals and unverified hosted enforcement', () => {
   const text = normalized(support);
-  assert.match(text, /private, pre-release/);
+  assert.match(text, /public GitHub source publication is authorized/);
+  assert.match(text, /npm and PyPI remain unpublished/);
   assert.match(text, /Hosted required-check enforcement and branch protection remain unverified/);
   assert.match(text, /No automatic fallback/);
   assert.match(text, /no generic CI speedup is claimed/);
-  assert.match(text, /No public release.*authorized/);
+  assert.match(text, /Registry uploads.*publishing tags\/releases.*social posting.*separate explicit owner approval/);
   assert.equal(JSON.parse(read('packages/cupel/package.json')).private, true);
   assert.match(read('packages/cupel-py/pyproject.toml'), /Private :: Do Not Upload/);
 });
 
 const currentDocs = [
   'README.md', 'CONTRIBUTING.md', 'docs/README.md', 'docs/install.md',
+  'docs/announcements/linkedin.md',
   'docs/private-use.md', 'docs/support.md', 'docs/development.md',
   'docs/cli.md', 'docs/mcp.md', 'docs/python.md', 'docs/vitest.md',
 ];
 
-test('current documentation distinguishes the versioned MIT candidate from historical artifacts', () => {
+test('current documentation distinguishes the versioned MIT source from historical artifacts', () => {
   const manifest = JSON.parse(read('packages/cupel/package.json'));
   const rootManifest = JSON.parse(read('package.json'));
   const readme = read('README.md');
@@ -146,6 +148,22 @@ test('current documentation distinguishes the versioned MIT candidate from histo
   assert.doesNotMatch(readme, /^\s*(?:npm|pnpm|yarn) (?:install|add).*@vibernt\/cupel\s*$/m);
   assert.match(readme, /Node \*\*22\+/);
   assert.match(readme, /Python \*\*3\.12\+/);
+});
+
+test('owner GitHub source authorization preserves separate package and posting decisions', () => {
+  const agents = normalized(read('AGENTS.md'));
+  assert.match(agents, /Public GitHub source authorized.*2026-10-26/);
+  assert.match(agents, /Vibernt\/cupel.*public under MIT/);
+  assert.match(agents, /Registry uploads.*publishing releases\/tags.*social posting.*separate explicit owner approval/);
+  assert.doesNotMatch(agents, /The repo stays PRIVATE/);
+  const decisions = read('plans/DECISIONS.md');
+  const authorization = normalized(decisions.split('## Owner public GitHub launch authorization')[1]);
+  assert.match(authorization, /Vibernt\/cupel public on GitHub/);
+  assert.match(authorization, /0\.1\.0/);
+  assert.match(authorization, /npm and PyPI remain unpublished/);
+  assert.match(authorization, /L1–L7 remain locked/);
+  assert.match(normalized(read('CONTRIBUTING.md')), /authorized public GitHub source publication/);
+  assert.ok(read('docs/README.md').includes('](announcements/linkedin.md)'));
 });
 
 test('documentation index exposes usage, runner, extension and verification routes', () => {

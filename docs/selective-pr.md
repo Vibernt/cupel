@@ -1,6 +1,6 @@
-# Private experimental selective PR checks
+# Experimental selective PR checks
 
-**Outside the supported first release.** These private experimental commands
+**Outside the supported first release.** These experimental commands
 remain available with their warnings and refusal paths. The [support
 matrix](support.md) separates core full guard, bounded native preview and this
 experimental capability; no promotion is implied by installed fixture evidence.

@@ -1,14 +1,18 @@
-# Use the private candidate
+# Use Cupel from the source checkout
+
+The owner authorized public GitHub source publication under MIT on **2026-10-26**.
+npm and PyPI remain unpublished; use the local source or artifact workflow below.
+The historical filename of this page preserves existing links.
 
 The [support matrix](support.md) defines JS/TS/Python core ordinary full guard
-and bounded Go/Ruby/Rust preview. Private experimental selective PR commands
+and bounded Go/Ruby/Rust preview. Experimental selective PR commands
 remain outside the supported first release; their scoped results always have
 `wholeGuardPass: false`, and Node 22 selective execution refuses. Full `guard`
 is the whole-suite protection path. No generic CI speedup is claimed.
 
 ## Choose an executable
 
-Build/install the current **0.1.0 candidate** using [the local installation
+Build/install the current **0.1.0 source release** using [the local installation
 guide](install.md). Its examples set an absolute `CUPEL` executable in
 `.scratch/local-install`. To use the maintainer's retained accepted installation:
 
@@ -73,13 +77,13 @@ still exists. See [installation](install.md) and [Python limits](python.md).
 
 ## Artifact provenance
 
-The current source candidate is **0.1.0**. Its verified handoff is
+The current source version is **0.1.0**. Its verified handoff is
 `.scratch/private-candidate/release-0.1.0/handoff.json`; the stable executable
 above now contains that version, with the prior installation retained for rollback.
 See [the candidate record](../plans/results/2026-10-26-private-candidate.md) for
 archive hashes and fresh checks.
 
-The current source candidate is **0.1.0**. A source version and the tests of an
+The current source version is **0.1.0**. A source version and the tests of an
 older artifact do not certify a newly packed archive. Use its actual handoff and
 SHA-256 to identify an accepted installation.
 
@@ -91,7 +95,7 @@ no skips**, and **35 Ruby tests / 148 assertions**. Its predecessor is retained
 in that handoff's `previous-install/`; the preceding grid handoff is
 `.scratch/private-candidate/handoff-grid-IGHL17/handoff.json`.
 These records remain historical after the source version/licence changes.
-Current candidate gates belong in the [release checklist](../plans/FIRST-RELEASE-CHECKLIST.md).
+Current source and artifact gates belong in the [release checklist](../plans/FIRST-RELEASE-CHECKLIST.md).
 
 The [real-repository ordinary Jest acceptance](../plans/results/2026-10-26-jest-acceptance.md)
 passed on the complete original **51 tests / 4 files**, with **11 valid unsampled
@@ -99,4 +103,4 @@ critical mutants killed**, a weakened-assertion negative control and exact live
 CLI/MCP parity. Native preview fixture acceptance does not establish native
 real-repository acceptance. Hosted Action checks/branch protection remain
 unverified. [Selective PR evidence](selective-pr.md) belongs to the separate
-private experiment and does not expand first-release support.
+experiment and does not expand first-release support.

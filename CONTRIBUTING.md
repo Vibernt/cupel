@@ -56,10 +56,11 @@ keep secrets, scratch output and unrelated personal material out of Git.
 Do not modify `/Users/vid/cri-ci` or `/Users/vid/codecrystal`; those repositories
 are read-only references. Use an ignored `.scratch/` copy for experiments.
 
-The repository and packages remain private until explicit owner approval.
-Do not publish packages, create publishing releases/tags or make the repository
-public. Keep npm `private: true` and Python `Private :: Do Not Upload`.
-First-party code is [MIT](LICENSE); preserve the [NOTICE](NOTICE) and applicable
-third-party licences. The MIT licence does not authorize publication work.
+The owner authorized public GitHub source publication for `Vibernt/cupel` on
+**2026-10-26**, under [MIT](LICENSE). Source version is **0.1.0**; npm and PyPI
+remain unpublished. Keep npm `private: true` and Python `Private :: Do Not Upload`.
+Registry uploads, publishing releases/tags and social posting still require
+separate explicit owner approval. Preserve the [NOTICE](NOTICE) and applicable
+third-party licences. See the recorded authorization in [AGENTS.md](AGENTS.md).
 Commit messages and PR descriptions must use the trailers specified in
 [AGENTS.md](AGENTS.md).
