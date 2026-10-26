@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .mutation_scope import EnvironmentError, source_path, lines, own_lines, scope_lines, whole_units
 from .mutation_sites import apply, generate
+from .mutation_source import SourceChangedError, SourceFacts
 
 
 def _draw(items, amount, seed):
@@ -55,13 +56,24 @@ def _run(root, nodeids, env, tmp, timeout, deadline, spec=None):
 
 
 class Session:
-    def __init__(self, root, input_data, config, tmp, deadline, floor_ms=1000):
+    def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000):
         self.root, self.input, self.config, self.tmp, self.deadline = root, input_data, config, tmp, deadline
+        self.facts = facts
         self.floor_ms = floor_ms
         self.tests = {t['id']: t for t in input_data['tests']}
         self.baselines = {}
         self.counter = 0
         self.env = config.get('runners', {}).get('pytest', {}).get('env', {})
+
+    def run(self, ids, timeout, spec=None):
+        self.facts.assert_all_fresh()
+        try:
+            result = _run(self.root, ids, self.env, self.tmp, timeout, self.deadline, spec)
+        finally:
+            self.facts.assert_all_fresh()
+        if any(row.get('event') == 'source-changed' for row in result.get('reports', [])):
+            raise SourceChangedError('pytest loader', 'source changed before mutant import')
+        return result
 
     def select(self, site):
         cov = self.input['coverage']
@@ -78,7 +90,7 @@ class Session:
         if key not in self.baselines:
             ids = [t['id'].replace(' > ', '::') for t in selected]
             for attempt in range(2):
-                run = _run(self.root, ids, self.env, self.tmp, 600, self.deadline)
+                run = self.run(ids, 600)
                 if run['cut']:
                     return None
                 ended = {r['nodeid'] for r in run['reports'] if r.get('when') == 'teardown'}
@@ -95,10 +107,14 @@ class Session:
             return None
         self.counter += 1
         tag = f'{self.counter}-{time.monotonic_ns()}'
-        source_file = source_path(self.root, site.source)
+        fact = self.facts.assert_fresh(site.source)
         spec_path = Path(self.tmp, tag + '.json')
         seen_path = Path(self.tmp, tag + '.seen')
-        spec_path.write_text(json.dumps({'source': str(source_file), 'edits': site.edits, 'seen': str(seen_path)}), encoding='utf-8')
+        spec_path.write_text(json.dumps({'source': site.source, 'root': str(self.root),
+                                         'hash': fact.raw_hash, 'real': fact.path.real,
+                                         'root_real': fact.path.root_real,
+                                         'device': fact.path.device, 'inode': fact.path.inode,
+                                         'edits': site.edits, 'seen': str(seen_path)}), encoding='utf-8')
         ids = [t['id'].replace(' > ', '::') for t in selected]
         passing = {t['id'].replace(' > ', '::'): t['id'] for t in selected}
         def classify(run):
@@ -118,19 +134,19 @@ class Session:
             return ('survived' if seen_path.exists() else 'error'), []
         try:
             limit = max(3 * base['wall'] / 1000, self.floor_ms / 1000)
-            run = _run(self.root, ids, self.env, self.tmp, limit, self.deadline, spec_path)
+            run = self.run(ids, limit, spec_path)
             result = classify(run)
             if result and result[0] == 'timeout':
-                fresh = _run(self.root, ids, self.env, self.tmp, 600, self.deadline)
+                fresh = self.run(ids, 600)
                 if fresh['cut']:
                     return None
                 fresh_ended = {r['nodeid'] for r in fresh['reports'] if r.get('when') == 'teardown'}
                 if not set(ids) <= fresh_ended or fresh['code'] != base['code']:
                     return ('error', [])
-                run = _run(self.root, ids, self.env, self.tmp, 3 * max(limit, 3 * fresh['wall'] / 1000), self.deadline, spec_path)
+                run = self.run(ids, 3 * max(limit, 3 * fresh['wall'] / 1000), spec_path)
                 result = classify(run)
             if result and result[0] == 'crash':
-                result = classify(_run(self.root, ids, self.env, self.tmp, limit, self.deadline, spec_path))
+                result = classify(self.run(ids, limit, spec_path))
                 if result and result[0] == 'crash':
                     result = ('error', [])
             return result
@@ -155,18 +171,20 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
         raise ValueError('mutation maxMutants and maxSeconds must be positive')
     deadline = time.monotonic() + seconds
     wanted, own = scope_lines(input_data, scope, config)
+    facts = SourceFacts(root, input_data)
     candidates, texts = [], {}
     for path, wanted_lines in wanted.items():
         if not path.endswith('.py'):
             raise EnvironmentError(f'cannot mutate non-Python source {path}')
-        source = source_path(root, path)
+        fact = facts.retain(path)
         try:
-            text = source.read_text(encoding='utf-8')
-            compile(text, str(source), 'exec')
+            text = fact.text
+            compile(text, fact.path.real, 'exec')
             texts[path] = text
             candidates.extend(s for s in generate(path, text, functions_only=bool(scope.get('functions'))) if s.line in wanted_lines)
         except (OSError, SyntaxError, UnicodeError) as error:
             raise EnvironmentError(f'cannot mutate {path}: {error}') from error
+        facts.assert_fresh(path)
     targeted = [s for s in candidates if any(s.line in paths.get(s.source, set()) for paths in own.values())]
     other = [s for s in candidates if s not in targeted]
     primary_by_function = {s.function_key: s.id for s in candidates if s.variant == 0}
@@ -194,7 +212,7 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
-        session = Session(root, input_data, config, tmp, deadline, timeout_floor_ms)
+        session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms)
         cursor = 0
         while cursor < len(ordered) and len(results) < cap and time.monotonic() < deadline:
             phase_end = next((i for i in range(cursor, len(ordered)) if scope.get('functions') and
@@ -215,6 +233,7 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
                     valid.append((site, text))
             def check(item):
                 site, text = item
+                facts.assert_fresh(site.source)
                 selected = session.select(site)
                 if not selected:
                     return ('no-coverage', [])
@@ -224,6 +243,7 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
             for (site, _), result in zip(valid, done):
                 if result is not None:
                     results[site.id] = result
+        facts.assert_all_fresh()
     mutants = [_entry(site, results[site.id]) for site in candidates if site.id in results]
     eligible = ([s for s in candidates if s.variant == 0 or
                  results.get(primary_by_function.get(s.function_key), (None,))[0] == 'survived']
@@ -244,19 +264,21 @@ def confirm(root, input_data, mutation, ids, config=None, jobs=None, timeout_flo
             raise ValueError(f'confirm: unknown mutant {mid}')
     out = {**mutation, 'mutants': [dict(m) for m in mutation['mutants']]}
     changed = {m['id']: m for m in out['mutants']}
+    facts = SourceFacts(root, input_data, require_hash=True)
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pyconfirm-', dir=scratch) as tmp:
-        session = Session(root, input_data, config or {}, tmp, float('inf'), timeout_floor_ms)
+        session = Session(root, input_data, config or {}, tmp, float('inf'), facts, timeout_floor_ms)
         cache = {}
         for mid in sorted(set(ids)):
             if index[mid]['status'] != 'survived':
                 continue
             path = index[mid]['source']
             if path not in cache:
-                text = source_path(root, path).read_text(encoding='utf-8')
+                text = facts.retain(path).text
                 cache[path] = (text, {s.id: s for s in generate(path, text)})
             text, sites = cache[path]
+            facts.assert_fresh(path)
             if mid not in sites:
                 raise ValueError(f'confirm: {mid} cannot be regenerated; source changed')
             site = sites[mid]
@@ -266,6 +288,7 @@ def confirm(root, input_data, mutation, ids, config=None, jobs=None, timeout_flo
                 if result[0] != 'survived':
                     changed[mid] = _entry(site, result)
                     break
+        facts.assert_all_fresh()
     if out.get('targeted'):
         own = own_lines(input_data, out['targeted'])
         errors = [m for m in changed.values() if m['status'] == 'error']

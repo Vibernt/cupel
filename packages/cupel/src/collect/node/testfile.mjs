@@ -40,7 +40,7 @@ const SNAPSHOT_API = /^(snapshot|toMatchSnapshot|fileSnapshot|toMatchFileSnapsho
 const DATA_WRAPPER = /^(parse|load|safeLoad)/i;
 const PATH_BUILDERS = new Set(['path', 'posix', 'win32', 'join', 'resolve', 'normalize', 'URL', 'new', 'fileURLToPath', 'pathToFileURL', 'String', 'await']);
 const TEST_CALLEES = new Set(['test', 'it']);
-const MODIFIERS = new Set(['only', 'skip', 'todo']);
+const MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'failing']);
 const DECLARE = new Set(['const', 'let', 'var']);
 
 /** 32-bit FNV-1a over the UTF-8 bytes of a string. */

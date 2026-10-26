@@ -92,6 +92,33 @@ class CollectorTest < Minitest::Test
     end
   end
 
+  def test_generated_minitest_dsl_tests_share_their_source_declaration_unit
+    with_fixture do |root|
+      File.write(File.join(root, 'test/generated_test.rb'), <<~RUBY)
+        require 'minitest/autorun'
+        class GeneratedTest < Minitest::Test
+          def self.test(name, &block)
+            define_method("test_\#{name.gsub(/\\W+/, '_')}", &block)
+          end
+
+          [false, true].each do |enabled|
+            test "generated\#{" in enabled mode" if enabled}" do
+              assert_equal enabled, !!enabled
+            end
+          end
+        end
+      RUBY
+
+      input = Cupel::Runner.collect(root, 1, [], [])
+      generated = input['tests'].select { |row| row['file'] == 'test/generated_test.rb' }
+      assert_equal 2, generated.length, input['tests'].map { |row| [row['id'], row['file']] }.inspect
+      assert_equal ['passed', 'passed'], generated.map { |row| row['status'] }
+      declaration = File.readlines(File.join(root, 'test/generated_test.rb'))[7]
+      title = declaration.split('test ', 2).last.split(' do', 2).first
+      assert_equal ["test/generated_test.rb::GeneratedTest > #{title}"], generated.map { |row| row['unit'] }.uniq
+    end
+  end
+
   def test_failed_and_skipped_tests_keep_outcomes_and_setup_teardown_coverage
     Dir.mktmpdir('cupel-ruby-test-') do |root|
       FileUtils.mkdir_p(File.join(root, 'lib'))

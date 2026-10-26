@@ -1,0 +1,32 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "node" },
+  "sources": {
+    "src/math.cjs": { "coverable": "1-6" },
+    "src/typed.ts": { "coverable": "1-4" }
+  },
+  "tests": [
+    { "id": "tests/math.test.cjs::math > concurrent one", "file": "tests/math.test.cjs", "name": "math > concurrent one", "status": "passed", "unit": "$absent" },
+    { "id": "tests/math.test.cjs::math > concurrent two", "file": "tests/math.test.cjs", "name": "math > concurrent two", "status": "passed", "unit": "$absent" },
+    { "id": "tests/math.test.cjs::math > duplicate", "file": "tests/math.test.cjs", "name": "math > duplicate", "status": "passed", "unit": "$absent" },
+    { "id": "tests/math.test.cjs::math > duplicate #2", "file": "tests/math.test.cjs", "name": "math > duplicate #2", "status": "passed", "unit": "$absent" },
+    { "id": "tests/math.test.cjs::math > step 1", "file": "tests/math.test.cjs", "name": "math > step 1", "status": "passed", "unit": "tests/math.test.cjs::math > step %i" },
+    { "id": "tests/math.test.cjs::math > step 2", "file": "tests/math.test.cjs", "name": "math > step 2", "status": "passed", "unit": "tests/math.test.cjs::math > step %i" },
+    { "id": "tests/typed.test.ts::source text pin", "file": "tests/typed.test.ts", "name": "source text pin", "status": "passed", "unit": "$absent" },
+    { "id": "tests/typed.test.ts::transformed source map", "file": "tests/typed.test.ts", "name": "transformed source map", "status": "passed", "unit": "$absent" }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "tests/math.test.cjs::math > concurrent one": { "src/math.cjs": "1-6" },
+      "tests/math.test.cjs::math > concurrent two": { "src/math.cjs": "1-6" },
+      "tests/typed.test.ts::source text pin": {},
+      "tests/typed.test.ts::transformed source map": { "src/typed.ts": "1-4" }
+    },
+    "setup": {
+      "tests/math.test.cjs": { "src/math.cjs": "1,3-4,6" },
+      "tests/typed.test.ts": { "src/typed.ts": "1,4" }
+    }
+  }
+}

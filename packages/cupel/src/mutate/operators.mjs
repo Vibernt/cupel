@@ -130,9 +130,9 @@ function statementStart(tokens, pairs, k) {
  * { id, source, operator, line, col, start, original, replacement, edits, filtered }.
  * Throws the lexer's LexError when the source cannot be tokenised.
  */
-export function generateMutants(source, text, scannedTokens = null) {
+export function generateMutants(source, text, scannedTokens = null, scannedPairs = null) {
   const tokens = scannedTokens ?? tokenize(text);
-  const pairs = matchBrackets(tokens);
+  const pairs = scannedPairs ?? matchBrackets(tokens);
   const logging = loggingRanges(tokens, pairs);
   const inLogging = (pos) => logging.some(([s, e]) => pos >= s && pos < e);
   const out = [];

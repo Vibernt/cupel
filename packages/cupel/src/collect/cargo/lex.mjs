@@ -1,6 +1,6 @@
 // Keeps byte offsets and source lines while masking Rust comments and literal values.
-export function scanRust(source) {
-  const tokens = []; const codeLines = new Set(); const code = Array(source.length).fill(false);
+export function scanRust(source, { tokens: includeTokens = true } = {}) {
+  const tokens = []; const codeLines = new Set(); const code = new Uint8Array(source.length);
   let i = 0; let line = 1;
   function take(end, value, kind = 'code') {
     const start = i; const firstLine = line;
@@ -8,7 +8,7 @@ export function scanRust(source) {
       if (kind !== 'comment' && !/\s/u.test(source[i])) { codeLines.add(line); code[i] = true; }
       if (source[i] === '\n') line++;
     }
-    if (value !== null) tokens.push({ value, raw: source.slice(start, end), start, end, line: firstLine });
+    if (includeTokens && value !== null) tokens.push({ value, raw: source.slice(start, end), start, end, line: firstLine });
   }
   while (i < source.length) {
     const c = source[i];

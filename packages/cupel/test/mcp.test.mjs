@@ -104,14 +104,17 @@ test('without --root, mcp selects the enclosing git root', () => {
   assert.equal(report.suite.units, 4);
 });
 
-test('tools/list describes six tools with object input schemas', async () => {
+test('tools/list describes all tools with object input schemas', async () => {
   const { tools } = (await send('tools/list')).result;
-  assert.deepEqual(tools.map((tool) => tool.name), ['cupel_check', 'cupel_report', 'cupel_review', 'cupel_guard', 'cupel_plan', 'cupel_label']);
+  assert.deepEqual(tools.map((tool) => tool.name), ['cupel_check', 'cupel_report', 'cupel_review', 'cupel_guard', 'cupel_plan', 'cupel_label', 'cupel_pr_producer', 'cupel_pr_prepare', 'cupel_pr']);
   for (const tool of tools) {
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
     if (tool.name === 'cupel_review') {
       assert.match(tool.description, /read the test code.*cupel_guard.*never advises removal/);
+    } else if (tool.name.startsWith('cupel_pr')) {
+      assert.ok(tool.description.includes('Cupel never advises removing tests'));
+      assert.match(tool.description, /pin|pinned/);
     } else {
       assert.ok(tool.description.includes('Cupel never advises removing tests'));
       assert.ok(tool.description.includes('no-unique-evidence means a person may review, never delete'));

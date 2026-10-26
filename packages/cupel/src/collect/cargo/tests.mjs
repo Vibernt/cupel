@@ -12,10 +12,11 @@ function rustFiles(dir, out = []) {
   return out;
 }
 
-export function definitions(root) {
+export function definitions(root, sourceBytes) {
   const found = [];
-  for (const file of rustFiles(root)) {
-    const source = readFileSync(file, 'utf8'); const lines = source.split('\n');
+  for (const file of sourceBytes ? [...sourceBytes.keys()].map((name) => join(root,name)) : rustFiles(root)) {
+    const name = relative(root,file).split(sep).join('/');
+    const source = sourceBytes ? sourceBytes.get(name).toString('utf8') : readFileSync(file, 'utf8'); const lines = source.split('\n');
     const tokens = scanRust(source).tokens;
     const scopes = []; let depth = 0;
     for (let i = 0; i < tokens.length; i++) {

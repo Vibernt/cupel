@@ -2,17 +2,19 @@
 
 require 'coverage'
 require 'set'
+require 'digest'
 
 module Cupel
   module Lines
     EXCLUDED = %w[test tests spec specs vendor node_modules gems .bundle].freeze
+    PRIVATE = /\A(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.ssh|\.aws|\.git|\.scratch|id_rsa|id_ed25519|credentials(?:[._-].*)?|secrets(?:[._-].*)?|private-keys(?:[._-].*)?)\z/i
 
     def self.source?(root, path)
       absolute = File.realpath(path)
       relative = absolute.delete_prefix("#{File.realpath(root)}/")
       return false if relative == absolute || !relative.end_with?('.rb')
 
-      relative.split('/').none? { |part| part.start_with?('.') || EXCLUDED.include?(part) }
+      relative.split('/').none? { |part| part.start_with?('.') || EXCLUDED.include?(part) || part.match?(PRIVATE) }
     rescue Errno::ENOENT
       false
     end
@@ -22,8 +24,22 @@ module Cupel
         absolute = File.join(root, relative)
         next unless File.file?(absolute) && !File.symlink?(absolute) && source?(root, absolute)
 
+        stat = File.lstat(absolute)
+        raise "unsafe Ruby source: #{relative}" unless stat.file? && stat.nlink == 1
+        raw = File.open(absolute, File::RDONLY | File::NOFOLLOW) do |file|
+          opened = file.stat
+          raise "Ruby source changed during open: #{relative}" unless [opened.dev, opened.ino] == [stat.dev, stat.ino]
+          file.read
+        end
+        hash = "sha256:#{Digest::SHA256.hexdigest(raw)}"
         stub = Coverage.line_stub(absolute)
-        sources[relative.tr(File::SEPARATOR, '/')] = { 'coverable' => encode(stub.each_index.filter_map { |i| i + 1 unless stub[i].nil? }) }
+        current = File.lstat(absolute)
+        raise "Ruby source changed during scan: #{relative}" unless [current.dev, current.ino, current.nlink] == [stat.dev, stat.ino, 1] &&
+          "sha256:#{Digest::SHA256.file(absolute).hexdigest}" == hash
+        sources[relative.tr(File::SEPARATOR, '/')] = {
+          'coverable' => encode(stub.each_index.filter_map { |i| i + 1 unless stub[i].nil? }),
+          'hash' => hash
+        }
       end
     end
 

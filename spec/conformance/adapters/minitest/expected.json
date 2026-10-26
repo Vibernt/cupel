@@ -3,7 +3,7 @@
   "kind": "input",
   "runtime": { "name": "ruby" },
   "sources": {
-    "lib/math.rb": { "coverable": "2-3,5-6,9-11,13,17-18" }
+    "lib/math.rb": { "coverable": "2-3,5-6,9-11,13,17-18", "hash": "sha256:b711cdbc7202baca97e6bfcc89352fe49f5d8063aff348d546fb2d4b0733ec9d" }
   },
   "tests": [
     { "id": "test/math_test.rb::MathTest > test_add", "file": "test/math_test.rb", "name": "MathTest > test_add", "unit": "$absent", "tags": ["critical"], "status": "passed" },

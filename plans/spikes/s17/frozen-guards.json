@@ -1,0 +1,7 @@
+{
+  "version": "cupel-s17-mutation-source/1",
+  "status": "approved",
+  "digest": "sha256:a1ea90eafa525a45eff14a7e34cb83788edab0f7061f42b1ea223ece1271d463",
+  "method": "SHA-256 of sorted relative-path\\0file-sha256\\n rows over guards-only packages/cupel/src/mutate",
+  "transform": ".scratch/s17/guards-only-runtime/transform.json"
+}

@@ -44,9 +44,9 @@ function topStatements(tokens, pairs, open, close) {
   return count;
 }
 
-export function bodySites(source, text, scannedTokens = null) {
+export function bodySites(source, text, scannedTokens = null, scannedPairs = null) {
   const tokens = scannedTokens ?? tokenize(text);
-  const pairs = matchBrackets(tokens);
+  const pairs = scannedPairs ?? matchBrackets(tokens);
   const out = [];
   for (let open = 0; open < tokens.length; open++) {
     if (tokens[open].value !== '{' || !pairs.has(open)) continue;

@@ -2,7 +2,7 @@
   "name": "cupel-repo",
   "private": true,
   "type": "module",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "engines": {
     "node": ">=22"
   },

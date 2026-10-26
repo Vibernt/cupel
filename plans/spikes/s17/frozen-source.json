@@ -1,0 +1,6 @@
+{
+  "version": "cupel-s17-mutation-source/1",
+  "status": "approved",
+  "digest": "sha256:9e24423e3e5f3674d5608dcd7b84d31bf278b26e16bb79820b6e9caf9b12646f",
+  "method": "SHA-256 of sorted relative-path\\0file-sha256\\n rows over packages/cupel/src/mutate"
+}

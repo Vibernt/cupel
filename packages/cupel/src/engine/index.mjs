@@ -119,7 +119,9 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   const cfg = effectiveConfig(config ?? {}, schemas.config);
   const models = docs.map(([label, doc]) => {
     const m = buildModel(doc, cfg, label);
-    m.groups = advise(m, cfg).groups;
+    // Guard reads model signals and shape similarity, and validate reads diagnostics.
+    // Neither command emits units, advice, groups or review candidates.
+    if (command !== 'guard' && command !== 'validate') m.groups = advise(m, cfg).groups;
     return m;
   });
   for (const m of models) diagnostics.push(...m.diagnostics);

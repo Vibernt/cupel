@@ -1,50 +1,146 @@
 # Cupel
 
-**Know which tests protect you.**
+**See which tests catch faults, then check that a test change keeps that protection.**
 
-> Status: **pre-release, private.** Nothing here is published yet. Interfaces will change.
+Cupel runs a project's tests, attributes source coverage to individual tests, and
+introduces small source faults (mutants) to see which tests fail. It turns those
+observations into a report and a bounded review pack. Its `guard` compares a Git
+baseline with a proposed change and fails on lost coverage, lost critical
+mutation protection, or a protected test removal without human approval.
 
-A cupel is the dish assayers use in cupellation: it shows what a sample is really made of. Cupel assays a test suite: which tests actually catch faults, where the gaps are, and whether a change has weakened it.
+**Status: private `0.1.0` candidate.** npm and PyPI publication are disabled.
+The source version does not certify a packaged artifact: older `0.0.0` handoffs
+are [historical evidence](docs/private-use.md#artifact-provenance).
 
-Coding agents now write most new tests, and suites grow faster than anyone reviews them. Cupel is an open-source, local-first tool for people and coding agents that:
+Cupel supplies a Node CLI, a local stdio MCP server, and a pure JavaScript engine.
+It makes no model calls and has no telemetry or analytics. The engine produces
+the same report for the same inputs. Collection executes your project's tests
+and configured preparation commands; their timings, side effects and network
+behavior belong to that project. Cupel's own shipped runtime makes no network
+calls and does not install project dependencies.
 
-- **Measures** each test's worth: unique coverage, unique mutation kills, redundancy, cost and brittleness.
-- **Labels** tests `critical`, `standard` or `minor`, using path rules and in-test tags.
-- **Finds the gaps**: mutation testing on critical code shows which faults no test catches.
-- **Advises** keep, consolidate near-identical tests, or rewrite brittle pins, with the evidence for each. It never advises removing a test; people decide that, and the guard checks it.
-- **Guards** every change that removes or rewrites tests: coverage never falls, the mutation score on critical code never falls, and no critical test is removed without a person's approval.
-- **Prioritises** runs: critical tests first, then tests affected by the change, then the rest.
+## What is supported
 
-When collecting with `--runs N`, each run records coverage. This costs roughly N coverage runs and lets Cupel report timing-dependent lines in `coverage.unstable` while retaining their union as evidence.
+The [support matrix](docs/support.md) is the authoritative version and scope contract.
 
-It ships as a CLI (`cupel`), a local MCP server (stdio) and a GitHub Action.
+| Scope | Runners | Evidence and limits |
+| --- | --- | --- |
+| Core ordinary full guard | `node:test`, Vitest, narrow Jest, pytest | Source and installed acceptance; exact runtime, loader and transform limits apply. |
+| Bounded preview | Go, Ruby/Minitest, Rust/Cargo | Installed fixture acceptance; real-repository acceptance is unrun. |
+| Private experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
+| Local integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted Action required checks and branch protection remain unverified. |
 
-It has no UI, no hosted service, no analytics, no telemetry and no model calls. It is deterministic: the same inputs always give the same report.
+Real-repository Jest acceptance retained the original **51 tests / 4 files** and
+killed all **11 valid unsampled critical mutants**. Weakening one assertion kept
+the tests passing but made live CLI/MCP guard fail. See the
+[pinned evidence](plans/results/2026-10-26-jest-acceptance.md).
 
-## Planned commands
+A lack of unique coverage or kills does **not** prove a test is redundant.
+Cupel never advises deleting a test. Review results do not establish cleanup
+savings, and no generic CI speedup is claimed. `plan` orders tests; experimental
+selective results cannot approve the whole suite.
 
-| Command | Does |
-|---|---|
-| `cupel report` | Scores every test and gives advice |
-| `cupel check <tests>` | Says whether a new or changed test adds unique evidence, or weakens the suite |
-| `cupel guard --base <ref>` | Fails if coverage or the critical mutation score falls, or a critical test is removed |
-| `cupel plan` | Gives the order to run tests in |
-| `cupel label` | Shows and checks tiers |
-| `cupel mcp` | Starts the local MCP server |
+## Run locally
 
-All commands take `--json`. Exit codes: `0` ok, `1` guardrail or check failed, `2` usage error, `3` environment error.
+You need Node **22+**, Git for baseline comparisons, and the assessed project's
+dependencies already installed. Use the project's supported Vitest/Jest version;
+pytest also needs Python **3.12+** and the separate Python collector. See
+[installation](docs/install.md) for the Python wheel and exact tested versions.
 
-## Layout
+From the Cupel repository root, run directly from source:
 
+```sh
+CUPEL_REPO="$PWD"
+node "$CUPEL_REPO/packages/cupel/bin/cupel.mjs" --help
 ```
-spec/               the spec (cupel-spec/1) and conformance cases
-packages/cupel/     JS engine, collectors, CLI and MCP server (Node 22+)
-packages/cupel-py/  pytest collector, later the Python engine
-action/             the GitHub Action
-docs/               user docs
-plans/              product, architecture, spikes, roadmap and decisions
+
+Or pack and install this checkout into a local directory, entirely offline:
+
+```sh
+mkdir -p .scratch/local-package
+npm pack --offline --ignore-scripts ./packages/cupel \
+  --pack-destination .scratch/local-package
+npm install --offline --ignore-scripts --no-audit --no-fund \
+  --prefix .scratch/local-install \
+  .scratch/local-package/vibernt-cupel-0.1.0.tgz
+CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
+"$CUPEL" --version
 ```
+
+This installs a local tarball; there is no published registry installation.
+No build step is needed for the JavaScript package. The
+[artifact smoke tests](docs/development.md#installed-artifact-gates) check the
+actual tarball, wheel, CLI and MCP entry points.
+
+## Review a test change
+
+Set `CUPEL` with the installation above, then enter the Git root of the project
+you want to assess (replace the example path):
+
+```sh
+cd /absolute/path/to/your/project
+"$CUPEL" report --runs 2
+"$CUPEL" review --input .cupel/input.json --limit 10 --json
+```
+
+`report` collects the suite, runs configured mutation, and saves its input to
+`.cupel/input.json`. `review --input` reads that saved evidence. Read the named
+tests and their assertions before changing them. Configure `cupel.json` to mark
+critical paths and select runners when needed; see the
+[config guide](docs/extending/config.md) and [CLI reference](docs/cli.md).
+
+After an uncommitted test change, compare against the commit containing the
+original tests:
+
+```sh
+"$CUPEL" guard --base HEAD --runs 2
+```
+
+For an already committed change, use its actual earlier baseline ref. The
+baseline runs in a fresh Git archive; prepare its project dependencies and build
+steps as described in [baseline collection](docs/cli.md#baseline-dependencies).
+Keep mutation enabled for a protection check. Unsupported collection or mutation
+stops with a reason; Cupel does not silently switch to coverage-only collection.
+Exit codes are `0` OK, `1` a guardrail/check failed, `2` invalid usage/input, and
+`3` an environment failure. A passing guard covers its measured scope and rules.
+
+| Command | Purpose |
+| --- | --- |
+| `report`, `review` | Inspect measured coverage, mutation, timings and review hints. |
+| `check <tests>` | Inspect evidence added or lost by named tests. |
+| `guard --base <ref>` | Compare protection with an earlier commit. |
+| `label`, `plan` | Inspect tiers and test execution order. |
+| `import`, `validate` | Read JUnit/Cupel data and validate spec documents. |
+
+## Use with an agent
+
+Start the installed MCP server over stdio with an explicit target root:
+
+```sh
+"$CUPEL" mcp --root /absolute/path/to/your/project
+```
+
+Configure your MCP client to start that executable with the same arguments.
+[MCP setup](docs/mcp.md) covers Claude Code, Cursor and Codex, available tools,
+pagination and retained report snapshots. Agents can inspect evidence through
+`cupel_review` and run a fresh `cupel_guard`; Cupel does not create human approvals.
+
+## Develop and extend
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) for checks, repository rules and
+[development tooling](docs/development.md). The [docs index](docs/README.md)
+groups usage, runners, extension contracts and acceptance evidence.
+
+| Path | Contains |
+| --- | --- |
+| `packages/cupel/` | JavaScript engine, collectors, mutation backends, CLI and MCP. |
+| `packages/cupel-py/`, `packages/cupel-ruby/` | Python and Ruby collector runtimes. |
+| `spec/` | `cupel-spec/1`, schemas and positive/negative conformance cases. |
+| `action/`, `scripts/`, `bench/` | Action wrapper, local verification and audited benchmarks. |
+| `docs/`, `plans/` | User/developer docs; decisions, plans and historical evidence. |
 
 ## Licence
 
-[Apache-2.0](LICENSE).
+First-party Cupel code is licensed under [MIT](LICENSE). See [NOTICE](NOTICE)
+for attribution and third-party material. Repository access, package publication
+and release approval remain private decisions.

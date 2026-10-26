@@ -27,6 +27,8 @@ import { candidateValidity, enumerateSites, sourceMutants } from './sites.mjs';
 import { mutationModel } from './model.mjs';
 import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure } from './runner.mjs';
 import { VitestMutantRunner } from './vitest.mjs';
+import { JestMutantRunner } from './jest/index.mjs';
+import { SourceFacts } from './source-facts.mjs';
 
 export { EnvironmentError } from './runner.mjs';
 export { generateMutants, applyMutant, sample, OPERATORS } from './operators.mjs';
@@ -102,7 +104,8 @@ function scopeLines({ input, cfg, model, scope }) {
 
 /** Shared machinery of one mutation session: test selection, baselines and the kill check. */
 class Session {
-  constructor({ root, input, cfg, model, targetedUnits, jobs, timeoutFloorMs, log, collectorKind }) {
+  constructor({ root, input, cfg, model, targetedUnits, jobs, timeoutFloorMs, log,
+    collectorKind, sourceFacts }) {
     this.root = realpathSync(root);
     this.input = input;
     this.model = model;
@@ -110,10 +113,12 @@ class Session {
     this.jobs = jobs ?? defaultJobs();
     this.timeoutFloorMs = timeoutFloorMs ?? 1000;
     this.log = log;
+    this.sourceFacts = sourceFacts;
     const scratch = join(this.root, '.scratch');
     mkdirSync(scratch, { recursive: true });
     this.tmp = mkdtempSync(join(scratch, 'cupel-mutate-'));
-    try { this.runner = collectorKind === 'vitest' ? new VitestMutantRunner(this.root, cfg, this.tmp) : null; }
+    try { this.runner = collectorKind === 'vitest' ? new VitestMutantRunner(this.root, cfg, this.tmp) :
+      collectorKind === 'jest' ? new JestMutantRunner(this.root, cfg, this.tmp) : null; }
     catch (error) { rmSync(this.tmp, { recursive: true, force: true }); throw error; }
     this.env = { ...(this.runner?.env ?? testEnv(cfg.runners?.node?.env ?? {})), TMPDIR: this.tmp, XDG_CACHE_HOME: this.tmp };
     this.tests = new Map(input.tests.map((t) => [t.id, t]));
@@ -133,8 +138,14 @@ class Session {
     rmSync(this.tmp, { recursive: true, force: true });
   }
 
-  run(options) {
-    return this.runner ? this.runner.runTestFile(options) : runTestFile(options);
+  async run(options) {
+    const { source, ...runOptions } = options;
+    if (source) this.sourceFacts?.assertFresh(source);
+    else this.sourceFacts?.assertAllFresh();
+    const result = await (this.runner ? this.runner.runTestFile(runOptions) : runTestFile(runOptions));
+    if (source) this.sourceFacts?.assertFresh(source);
+    else this.sourceFacts?.assertAllFresh();
+    return result;
   }
 
   /** The covering passed tests of a mutant's line, and the test files to run (coverage selection). */
@@ -232,10 +243,10 @@ class Session {
     const path = join(this.tmp, `mutant-${k}.json`);
     const sourcePath = join(this.tmp, `source-${k}`);
     const seen = join(this.tmp, `seen-${k}`);
-    writeFileSync(sourcePath, text);
-    writeFileSync(path, JSON.stringify({ url: this.url(m.source), sourcePath, seen }));
-    const spec = { path, sourcePath, seen };
-    this.runner?.spec(spec);
+    if (!(this.runner instanceof JestMutantRunner)) writeFileSync(sourcePath, text);
+    writeFileSync(path, JSON.stringify({ url: this.url(m.source), ...(this.runner instanceof JestMutantRunner ? {} : { sourcePath }), seen }));
+    const spec = { path, sourcePath: this.runner instanceof JestMutantRunner ? null : sourcePath, seen };
+    this.runner?.spec(spec, text);
     return spec;
   }
 
@@ -296,7 +307,8 @@ class Session {
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
     const go = async (timeoutMs) => {
-      const r = await this.run({ root: this.root, file, env: this.env, tmp: this.tmp, mutantSpec: spec.path, timeoutMs, stopAt: deadline });
+      const r = await this.run({ root: this.root, file, env: this.env, tmp: this.tmp,
+        mutantSpec: spec.path, timeoutMs, stopAt: deadline, source: m.source });
       return r.cut ? CUT : this.classify(file, r, base, covering);
     };
     let out = await go(limit);
@@ -342,7 +354,7 @@ class Session {
       return { status, killedBy };
     } finally {
       rmSync(spec.path, { force: true });
-      rmSync(spec.sourcePath, { force: true });
+      if (spec.sourcePath) rmSync(spec.sourcePath, { force: true });
       rmSync(spec.seen, { force: true });
     }
   }
@@ -404,8 +416,15 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
   const deadline = started + maxSeconds * 1000;
   const model = mutationModel(input, cfg, scope?.targeted ?? []);
   const { lines, own } = scopeLines({ input, cfg, model, scope });
-  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log, diagnostics, functions: !!scope.functions });
-  if (metrics) Object.assign(metrics, { generated: stats.generated, sites: candidates.length, textBuilds: 0, valid: 0, invalid: 0, run: 0 });
+  if (metrics) Object.assign(metrics, { sourceReads: 0, sourceBytesHashed: 0,
+    sourceChecks: 0, factSources: 0, factBytes: 0, factHits: 0,
+    lexScans: 0, bracketScans: 0, typescriptScans: 0,
+    validityCalls: 0, validityItems: 0 });
+  const facts = new SourceFacts(root, input, metrics);
+  const { candidates, skipped, stats } = await enumerateSites({ root, lines, log,
+    diagnostics, functions: !!scope.functions, facts, metrics });
+  if (metrics) Object.assign(metrics, { generated: stats.generated, sites: candidates.length,
+    textBuilds: 0, valid: 0, invalid: 0, run: 0 });
 
   // Sampling: mutants on targeted units' own lines first, so those units can be complete; the rest fill the cap.
   const onTargeted = (m) => [...own.values()].some((o) => o.has(m.source) && hasLine(o.get(m.source), m.line));
@@ -439,7 +458,8 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     ];
   }
 
-  const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()), jobs, timeoutFloorMs, log, collectorKind });
+  const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()),
+    jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts });
   session.deadline = deadline;
   try {
     const invalid = new Set();
@@ -453,9 +473,15 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
       const batch = ordered.slice(cursor, cursor + batchSize);
       cursor += batch.length;
       const ready = scope.functions ? batch.filter((m) => m.variant === 0 || byId.get(primaryByFunction.get(m.functionKey))?.status === 'survived') : batch;
+      const texts = new Map();
+      for (const m of ready) if (!skipped.has(m.source) && !texts.has(m.source))
+        texts.set(m.source, facts.assertFresh(m.source));
       const built = ready.flatMap((m) => {
         if (skipped.has(m.source)) return [];
-        try { return [{ m, text: applyMutant(readFileSync(join(root, m.source), 'utf8'), m) }]; }
+        try {
+          if (metrics) metrics.factHits++;
+          return [{ m, text: applyMutant(texts.get(m.source), m) }];
+        }
         catch (error) {
           skipped.add(m.source);
           skipFile(diagnostics, log, 'mutate', m.source, error);
@@ -464,7 +490,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
       });
       if (!built.length) continue;
       if (metrics) metrics.textBuilds += built.length;
-      const validity = await candidateValidity(root, built);
+      const validity = await candidateValidity(root, built, metrics);
       const valid = built.filter(({ m }, k) => {
         if (validity.errors[k] === null) return true;
         invalid.add(m.id);
@@ -475,16 +501,19 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
       const files = new Set();
       for (const { m } of valid) for (const f of session.select(m).counts.keys()) files.add(f);
       await session.baseline([...files]);
+      facts.assertAllFresh();
       const results = await pool(valid, session.jobs, async ({ m, text }) => {
         if (performance.now() > deadline) return null;
         return session.killCheck(m, text);
       });
+      facts.assertAllFresh();
       valid.forEach(({ m }, k) => {
         if (results[k]) byId.set(m.id, results[k]);
       });
       if (metrics) metrics.run = byId.size;
       if (byId.size && byId.size % 25 === 0) log(`mutate: ${byId.size}/${maxMutants}`);
     }
+    facts.assertAllFresh();
     const mutants = candidates.filter((m) => byId.has(m.id)).map((m) => entry(m, byId.get(m.id)));
     const eligible = scope.functions ? candidates.filter((m) => m.variant === 0 ||
       byId.get(primaryByFunction.get(m.functionKey))?.status === 'survived') : candidates;
@@ -506,7 +535,8 @@ export const mutateVitest = (options) => mutateNode({ ...options, collectorKind:
  * A detection in a re-run replaces the status and `killedBy`; a re-run that ends in `error` makes the mutant `error`
  * and drops the targeted units whose own lines hold it. Mutants not `survived` are left as they are.
  */
-export async function confirmSurvivors({ root, input, mutation, ids, config = {}, log = noop, jobs, timeoutFloorMs, collectorKind }) {
+export async function confirmSurvivors({ root, input, mutation, ids, config = {}, log = noop,
+  jobs, timeoutFloorMs, collectorKind, metrics }) {
   const cfg = effectiveConfig(config ?? {}, CONFIG_SCHEMA);
   const model = mutationModel(input, cfg, mutation.targeted ?? []);
   const index = new Map(mutation.mutants.map((m, k) => [m.id, k]));
@@ -515,13 +545,19 @@ export async function confirmSurvivors({ root, input, mutation, ids, config = {}
   const out = { ...mutation, mutants: mutation.mutants.map((m) => ({ ...m })) };
   if (todo.length === 0) return out;
 
-  // Regenerate each mutant from the current source; a changed source no longer has the same ids.
+  // Confirmation is a new request: read current source bytes and regenerate ids.
+  if (metrics) Object.assign(metrics, { sourceReads: 0, sourceBytesHashed: 0,
+    sourceChecks: 0, factSources: 0, factBytes: 0, factHits: 0,
+    lexScans: 0, bracketScans: 0, typescriptScans: 0 });
+  const facts = new SourceFacts(root, input, metrics);
   const generated = new Map();
   const mutants = todo.map((id) => {
     const source = mutation.mutants[index.get(id)].source;
     if (!generated.has(source)) {
-      const text = readFileSync(join(root, source), 'utf8');
-      generated.set(source, new Map(sourceMutants(root, source, text).map((m) => [m.id, { ...m, text }])));
+      const initial = facts.readInitial(source);
+      generated.set(source, new Map(sourceMutants(root, source, initial.text,
+        undefined, false, metrics).map((m) => [m.id, m])));
+      facts.retain(source, initial);
     }
     const m = generated.get(source).get(id);
     if (!m) throw new Error(`confirmSurvivors: ${id} cannot be regenerated; ${source} changed since the mutation run`);
@@ -529,19 +565,25 @@ export async function confirmSurvivors({ root, input, mutation, ids, config = {}
   });
 
   const targetedIds = new Set(mutation.targeted ?? []);
-  const session = new Session({ root, input, cfg, model, targetedUnits: targetedIds, jobs, timeoutFloorMs, log, collectorKind });
+  const session = new Session({ root, input, cfg, model, targetedUnits: targetedIds,
+    jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts });
   try {
     const files = new Set();
     for (const m of mutants) for (const f of session.select(m).counts.keys()) files.add(f);
     await session.baseline([...files]);
+    facts.assertAllFresh();
     const results = await pool(mutants, session.jobs, async (m) => {
       let last = { status: 'survived', killedBy: [] };
       for (let rep = 0; rep < 2; rep++) {
-        last = await session.killCheck(m, applyMutant(m.text, m));
+        const text = facts.assertFresh(m.source);
+        if (metrics) metrics.factHits++;
+        last = await session.killCheck(m, applyMutant(text, m));
+        facts.assertFresh(m.source);
         if (last.status !== 'survived') break;
       }
       return last;
     });
+    facts.assertAllFresh();
     const errored = [];
     mutants.forEach((m, k) => {
       const r = results[k];

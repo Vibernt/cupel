@@ -1,6 +1,6 @@
 # Python and pytest
 
-Cupel's Python adapter is `vibernt-cupel` in `packages/cupel-py`. It uses only the Python standard library. Python 3.10+ can import the package; collection needs Python 3.12+ because it uses `sys.monitoring`. pytest is supplied by your project and is imported only inside the pytest process. The adapter never installs anything or sends data to a network service.
+Cupel's Python adapter is `vibernt-cupel` in `packages/cupel-py`. It uses only the Python standard library and requires Python **3.12+** because collection uses `sys.monitoring`. pytest is supplied by your project and is imported only inside the pytest process. This is core ordinary full guard within the [support matrix](support.md); current installed evidence is Python **3.14.8** / pytest **9.1.1**. The adapter never installs anything or sends data to a network service. Project tests execute normally with their own side effects.
 
 From a Python project root, with `packages/cupel-py/src` on `PYTHONPATH` (or the package installed locally):
 
@@ -19,7 +19,7 @@ Sources include repository `*.py` files outside test directories, virtual enviro
 
 Shapes use the test definition from the `def` line through its end, masking string and number tokens before 4-token FNV-1a shingles. Brittleness findings use the S6 strict Python detector plus `cupel.json` patterns whose language is `python` (or have no language field).
 
-Cupel CLI selects this collector automatically for a Python project with no node test files and a `pyproject.toml`, `pytest.ini`, or pytest section in `setup.cfg`. It adds the bundled package source to `PYTHONPATH` and runs `python3 -m vibernt_cupel collect`; `python3` must have pytest available. To choose an explicit interpreter, set a collector command in `cupel.json`:
+Cupel CLI detects `test_*.py` and `*_test.py` files and can collect Python alongside other detected runners. It runs `python3 -m vibernt_cupel collect`; `python3` must resolve both pytest and the collector. The npm artifact does not bundle the Python package: install the separate local wheel, or expose `packages/cupel-py/src` on `PYTHONPATH` for source development. See [installation](install.md). To choose an explicit interpreter, set a collector command in `cupel.json`:
 
 ```json
 { "runners": { "pytest": { "collector": "/path/to/python -m vibernt_cupel collect" } } }

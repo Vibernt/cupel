@@ -6,20 +6,43 @@ require 'optparse'
 require_relative '../lib/cupel/runner'
 
 command = ARGV.shift
-abort 'usage: cupel-ruby collect --root DIR [--runs N] [--recheck UNIT] [--out FILE] [-- test files or rake args]' unless command == 'collect'
+abort 'usage: cupel-ruby collect|mutate|confirm --root DIR [options]' unless %w[collect mutate confirm].include?(command)
 options = { root: '.', runs: 2, recheck: [] }
 parser = OptionParser.new do |opts|
   opts.on('--root DIR') { |value| options[:root] = value }
   opts.on('--runs N', Integer) { |value| options[:runs] = value }
   opts.on('--tests GLOB') { |value| options[:tests] = value }
   opts.on('--recheck UNIT') { |value| options[:recheck] << value }
+  opts.on('--input FILE') { |value| options[:input] = value }
+  opts.on('--scope FILE') { |value| options[:scope] = value }
+  opts.on('--config FILE') { |value| options[:config] = value }
+  opts.on('--mutation FILE') { |value| options[:mutation] = value }
+  opts.on('--ids IDS') { |value| options[:ids] = value.split(',') }
   opts.on('--out FILE') { |value| options[:out] = value }
 end
 begin
   parser.order!(ARGV)
-  abort '--runs must be positive' if options[:runs] < 1
-  ARGV.shift if ARGV.first == '--'
-  result = Cupel::Runner.collect(options[:root], options[:runs], options[:recheck], ARGV, tests: options[:tests])
+  result = if command == 'collect'
+             abort '--runs must be positive' if options[:runs] < 1
+             ARGV.shift if ARGV.first == '--'
+             Cupel::Runner.collect(options[:root], options[:runs], options[:recheck], ARGV, tests: options[:tests])
+           else
+             abort "#{command} needs --input and no test command" unless options[:input] && ARGV.empty?
+             require 'minitest'
+             require_relative '../lib/cupel/mutation/run'
+             input = JSON.parse(File.read(options[:input]))
+             config = options[:config] ? JSON.parse(File.read(options[:config])) : {}
+             if command == 'mutate'
+               abort 'mutate needs --scope' unless options[:scope]
+               scope = JSON.parse(File.read(options[:scope]))
+               Cupel::Mutation::Run.mutate(options[:root], input, scope, config)
+             else
+               abort 'confirm needs --mutation and --ids' unless options[:mutation] && options[:ids]&.any?
+               previous = JSON.parse(File.read(options[:mutation]))
+               mutation = previous.fetch('mutation', previous)
+               Cupel::Mutation::Run.confirm(options[:root], input, mutation, options[:ids], config)
+             end
+           end
   json = JSON.pretty_generate(result) + "\n"
   options[:out] ? File.write(options[:out], json) : puts(json)
 rescue StandardError => e

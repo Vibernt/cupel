@@ -19,8 +19,9 @@ function jsTestFiles(root) {
 
 export function detectedNodeFiles(root) {
   const vitest = isVitestProject(root, {});
+  const jest = isJestProject(root, {});
   return jsTestFiles(root).filter(({ text }) => /\bnode:test\b/.test(text) ||
-    (!vitest && !/\b(?:vitest|@playwright\/test|@jest\/globals|mocha)\b/.test(text))).map((file) => file.path);
+    (!vitest && !jest && !/\b(?:vitest|@playwright\/test|@jest\/globals|mocha)\b/.test(text))).map((file) => file.path);
 }
 
 function hasPytestTests(root) {
@@ -59,12 +60,24 @@ export function isVitestProject(root, cfg) {
   });
 }
 
+export function isJestProject(root, cfg) {
+  if (cfg.runners?.jest) return true;
+  const packageFile = join(root, 'package.json');
+  if (existsSync(packageFile)) {
+    const pkg = JSON.parse(readFileSync(packageFile, 'utf8'));
+    if (pkg.dependencies?.jest || pkg.devDependencies?.jest || pkg.optionalDependencies?.jest) return true;
+  }
+  return readdirSync(root).some(name => /^jest\.config\.[cm]?[jt]s$/.test(name));
+}
+
 export function detectRunners(root, cfg) {
   const names = [];
   const vitest = isVitestProject(root, cfg);
+  const jest = isJestProject(root, cfg);
   const javascript = jsTestFiles(root);
   if (vitest && javascript.some(({ text }) => !/\bnode:test\b/.test(text) && !/@playwright\/test/.test(text))) names.push('vitest');
-  if (javascript.some(({ text }) => /\bnode:test\b/.test(text) || (!vitest && !/\b(?:vitest|@playwright\/test|@jest\/globals|mocha)\b/.test(text)))) names.push('node');
+  if (jest && javascript.some(({ text }) => !/\bnode:test\b/.test(text) && !/@playwright\/test/.test(text))) names.push('jest');
+  if (javascript.some(({ text }) => /\bnode:test\b/.test(text) || (!vitest && !jest && !/\b(?:vitest|@playwright\/test|@jest\/globals|mocha)\b/.test(text)))) names.push('node');
   if (hasPytestTests(root)) names.push('pytest');
   if (existsSync(join(root, 'go.mod')) && hasGoTests(root)) names.push('go');
   if (existsSync(join(root, 'Gemfile')) && existsSync(join(root, 'test')) && hasRubyTests(join(root, 'test'))) names.push('minitest');

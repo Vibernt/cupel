@@ -1,0 +1,8 @@
+{
+  "spec": "cupel-spec/1",
+  "runners": {
+    "unittest": {
+      "collector": "python3 ../../adapter.py"
+    }
+  }
+}

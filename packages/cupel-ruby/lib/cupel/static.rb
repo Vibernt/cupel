@@ -8,8 +8,20 @@ module Cupel
 
     def self.definition_title(file, line)
       tokens = Ripper.lex(File.read(file))
-      method = tokens.index { |token| token[0][0] == line && token[1] == :on_ident && token[2] == 'define_method' }
-      raise "cannot find define_method at #{file}:#{line}" unless method
+      declarations = tokens.each_index.select do |index|
+        position, kind, value, = tokens[index]
+        position[0] == line && kind == :on_ident && %w[define_method test].include?(value)
+      end
+      if declarations.length > 1
+        raise "ambiguous test declaration at #{file}:#{line}"
+      end
+      raise "cannot find test declaration at #{file}:#{line}" if declarations.empty?
+
+      method = declarations.first
+      if tokens[method][2] == 'test'
+        return test_declaration_title(tokens, method, file, line)
+      end
+
       opening = ((method + 1)...tokens.length).find { |index| !IGNORED.include?(tokens[index][1]) }
       raise "define_method has no parenthesized name at #{file}:#{line}" unless tokens[opening]&.[](2) == '('
       depth = 0
@@ -24,6 +36,29 @@ module Cupel
         name << value
       end
       raise "unterminated define_method name at #{file}:#{line}"
+    end
+
+    def self.test_declaration_title(tokens, declaration, file, line)
+      first = ((declaration + 1)...tokens.length).find { |index| !IGNORED.include?(tokens[index][1]) }
+      raise "test declaration has no test name at #{file}:#{line}" unless first
+
+      depth = 0
+      block = nil
+      tokens[first..].each_with_index do |token, offset|
+        kind, value = token[1], token[2]
+        if kind == :on_kw && value == 'do' && depth.zero?
+          block = first + offset
+          break
+        end
+        depth += 1 if %i[on_lparen on_lbracket on_lbrace on_embexpr_beg].include?(kind)
+        depth -= 1 if %i[on_rparen on_rbracket on_rbrace on_embexpr_end].include?(kind)
+      end
+      raise "test declaration has no block at #{file}:#{line}" unless block
+
+      title = tokens[first...block].map { |token| token[2] }.join.strip
+      raise "test declaration has no test name at #{file}:#{line}" if title.empty?
+
+      title
     end
 
     def self.fnv(text)

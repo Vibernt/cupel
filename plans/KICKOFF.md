@@ -1,5 +1,10 @@
 # Kickoff prompt
 
+Historical record of the original build prompt. Its licence, publication and
+workflow instructions are superseded by [DECISIONS.md](DECISIONS.md),
+[release readiness](RELEASE-READINESS.md) and the repository's current AGENTS.md.
+Do not replay this prompt as current instructions.
+
 Open a new Claude Code session with `/Users/vid/cupel` as the working folder and paste the prompt below.
 
 ---

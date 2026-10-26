@@ -1,0 +1,11 @@
+Cupel
+Copyright 2026 Vibernt
+
+This product includes software developed at Vibernt.
+
+First-party Cupel code is licensed under the MIT License in LICENSE.
+Third-party dependencies retain their own licenses and notices.
+
+Historical research in plans/spikes/s4/ includes copied Assay test material
+and patches. That material retains its upstream provenance and rights;
+the Cupel MIT license does not relicense it.

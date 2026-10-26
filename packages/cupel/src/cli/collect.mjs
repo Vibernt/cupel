@@ -15,23 +15,33 @@ import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
 import { mergeRunners, runnerParts } from './merge-runners.mjs';
-import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject } from './runner-discovery.mjs';
+import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
+import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
+import { mutateRuby } from './native-mutation.mjs';
 
 const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
   vitest: { url: new URL('../collect/vitest/index.mjs', import.meta.url), env: 'CUPEL_TEST_VITEST_COLLECTOR', exports: ['collectVitest'] },
+  jest: { url: new URL('../collect/jest/index.mjs', import.meta.url), env: 'CUPEL_TEST_JEST_COLLECTOR', exports: ['collectJest'] },
   mutator: { url: new URL('../mutate/index.mjs', import.meta.url), env: 'CUPEL_TEST_MUTATOR', exports: ['mutateNode'] },
+  goMutator: { url: new URL('../mutate-go/index.mjs', import.meta.url), env: 'CUPEL_TEST_GO_MUTATOR', exports: ['mutateGo', 'confirmGo'] },
+  rustMutator: { url: new URL('../mutate-rust/index.mjs', import.meta.url), env: 'CUPEL_TEST_RUST_MUTATOR', exports: ['mutateRust', 'confirmRust'] },
 };
 
 
 const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url));
 const CUPEL_BIN = fileURLToPath(new URL('../../bin/cupel.mjs', import.meta.url));
-const RUBY_BIN = fileURLToPath(new URL('../../../cupel-ruby/bin/cupel-ruby', import.meta.url));
+const RUBY_BIN = fileURLToPath(new URL('../../ruby/bin/cupel-ruby', import.meta.url));
 const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 const mutationOwners = new WeakMap();
 
 function externalRunner(root, cfg) {
   const named = Object.entries(cfg.runners ?? {});
+  if (!named.length) {
+    const selected = detectRunners(root, cfg);
+    if (selected.length === 1 && ['pytest', 'go', 'minitest', 'cargo'].includes(selected[0]))
+      return externalRunner(root, { ...cfg, runners: { [selected[0]]: detectedConfig(root, selected[0]) } });
+  }
   if (named.length) {
     const [name, runner] = named[0];
     if (runner.collector) return { name, ...runner };
@@ -39,7 +49,7 @@ function externalRunner(root, cfg) {
     if (name === 'cargo') return { name, ...runner, collector: `${quote(process.execPath)} ${quote(CUPEL_BIN)} collect-cargo` };
     if (name === 'minitest') return { name, ...runner, collector: `ruby ${quote(RUBY_BIN)} collect` };
     if (name === 'pytest') return { name, ...runner, collector: 'python3 -m vibernt_cupel collect' };
-    if (name === 'node' || name === 'vitest') return null;
+    if (name === 'node' || name === 'vitest' || name === 'jest') return null;
     throw usage(`runner ${name} needs a collector command`);
   }
   return null;
@@ -236,6 +246,11 @@ export async function requireCollector(env, root, cfg) {
     if (!mod) throw environment('collector not available');
     return mod;
   }
+  if (cfg.runners?.jest || (!cfg.runners?.vitest && isJestProject(root, cfg))) {
+    const mod = await loadModule('jest', env);
+    if (!mod) throw environment('Jest collector not available');
+    return { kind: 'jest', collectNode: mod.collectJest };
+  }
   if (isVitestProject(root, cfg)) {
     const mod = await loadModule('vitest', env);
     if (!mod) throw environment('Vitest collector not available');
@@ -295,7 +310,7 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
     const refConfig = withoutPrepare(cfg);
     const refCollector = await requireCollector(env, dir, refConfig);
     const input = await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log });
-    return after ? await after(dir, input) : input;
+    return after ? await after(dir, input, refCollector) : input;
   } finally {
     cleanup();
   }
@@ -303,25 +318,29 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
 
 /** Runs mutateNode for a scope; returns the mutation object, or null when the scope is empty. */
 export async function mutate(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
-  const empty = !scope.functions && !scope.critical && !(scope.changed && Object.keys(scope.changed).length) && !(scope.targeted ?? []).length;
-  if (empty) return null;
+  if (!mutationRequested(scope)) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
     const parts = runnerParts(input);
     if (parts) {
       const mutations = [];
       const owners = new Map();
-      for (const { name, input: part } of parts) {
-        if (!['node', 'vitest', 'pytest'].includes(name)) {
-          log(`runner ${name}: mutation is not implemented`);
-          continue;
-        }
-        const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
+      const plans = parts.map(({ name, input: part }) => {
         const selected = { ...scope,
           changed: scope.changed && Object.fromEntries(Object.entries(scope.changed).filter(([path]) => Object.hasOwn(part.sources, path))),
           targeted: (scope.targeted ?? []).filter((id) => part.tests.some((t) => (t.unit ?? t.id) === id)),
         };
-        const result = await mutate(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: name === 'vitest' ? 'vitest' : undefined, diagnostics });
+        if (mutationRequested(selected)) {
+          assertLiveMutationRunner(part, cfg, undefined, name);
+          if (selected.functions && ['go', 'cargo', 'minitest'].includes(name))
+            throw environment(`runner ${name}: function-scope mutation is not implemented`);
+        }
+        return { name, part, selected };
+      });
+      for (const { name, part, selected } of plans) {
+        if (!mutationRequested(selected)) continue;
+        const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
+        const result = await mutate(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
         if (result) {
           mutations.push(result);
           for (const mutant of result.mutants) {
@@ -332,10 +351,30 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
       }
       if (!mutations.length) return null;
       const merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
+      if (mutations.some((m) => m.sampled !== undefined)) merged.sampled = mutations.some((m) => m.sampled);
+      const seeds = [...new Set(mutations.map((m) => m.seed).filter((n) => n !== undefined))];
+      if (seeds.length === 1) merged.seed = seeds[0];
       mutationOwners.set(merged, owners);
       return merged;
     }
+    assertLiveMutationRunner(input, cfg, collectorKind);
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
+    if (input.runtime.name === 'go') {
+      const go = await loadModule('goMutator');
+      if (!go) throw environment('Go mutation module is not available');
+      return await go.mutateGo({ root, config: cfg, input, scope, log });
+    }
+    if (input.runtime.name === 'rust') {
+      const rust = await loadModule('rustMutator');
+      if (!rust) throw environment('Rust mutation module is not available');
+      return await rust.mutateRust({ root, config: cfg, input, scope, log });
+    }
+    if (input.runtime.name === 'ruby') {
+      const nativeScope = { ...scope,
+        changed: Object.fromEntries(Object.entries(scope.changed ?? {}).filter(([path]) => Object.hasOwn(input.sources, path))),
+        targeted: scope.targeted ?? [] };
+      return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
+    }
     return await mutator.mutateNode({ root, config: cfg, input, scope: { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
@@ -350,20 +389,38 @@ export async function confirm(mutator, { root, cfg, input, mutation, ids, log, c
     const parts = runnerParts(input);
     if (parts) {
       const confirmed = [];
+      const targeted = [];
       const owners = mutationOwners.get(mutation);
       if (!owners) throw environment('merged mutation has no runner ownership for confirmation');
       for (const { name, input: part } of parts) {
         const relevant = mutation.mutants.filter((m) => owners.get(m.id) === name);
         const selectedIds = ids.filter((id) => relevant.some((m) => m.id === id));
+        const unitIds = new Set(part.tests.map((test) => test.unit ?? test.id));
+        const partTargeted = (mutation.targeted ?? []).filter((id) => unitIds.has(id));
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
         if (selectedIds.length) {
-          const result = await confirm(mutator, { root, cfg: partCfg, input: part, mutation: { ...mutation, mutants: relevant }, ids: selectedIds, log, collectorKind: name === 'vitest' ? 'vitest' : undefined });
+          const result = await confirm(mutator, { root, cfg: partCfg, input: part,
+            mutation: { ...mutation, mutants: relevant, targeted: partTargeted },
+            ids: selectedIds, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined });
           confirmed.push(...result.mutants);
-        } else confirmed.push(...relevant);
+          targeted.push(...(result.targeted ?? []));
+        } else { confirmed.push(...relevant); targeted.push(...partTargeted); }
       }
-      return { ...mutation, mutants: confirmed };
+      return { ...mutation, mutants: confirmed, targeted: [...new Set(targeted)].sort(cmp) };
     }
+    assertLiveMutationRunner(input, cfg, collectorKind);
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, mutation, ids });
+    if (input.runtime.name === 'go') {
+      const go = await loadModule('goMutator');
+      if (!go) throw environment('Go mutation module is not available');
+      return await go.confirmGo({ root, config: cfg, input, mutation, ids, log });
+    }
+    if (input.runtime.name === 'rust') {
+      const rust = await loadModule('rustMutator');
+      if (!rust) throw environment('Rust mutation module is not available');
+      return await rust.confirmRust({ root, config: cfg, input, mutation, ids, log });
+    }
+    if (input.runtime.name === 'ruby') return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, mutation, ids });
     if (typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation is not available');
     const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids, collectorKind });
     return out && Array.isArray(out.mutants) ? out : mutation;

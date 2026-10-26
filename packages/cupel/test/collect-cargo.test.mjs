@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -88,6 +89,8 @@ test('missing matching LLVM tools gives the exact installation remedy', { skip: 
 test('Cargo fixture matches hand-written expected input, schema, and report', { skip: skipReason }, async () => {
   const input = await collectCargo({ root: fixture, runs: 2, environment: { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-target-fixture') } });
   assert.deepEqual(match(expected, input), []);
+  for (const file of ['src/lib.rs', 'tests/integration.rs']) assert.equal(input.sources[file].hash, `sha256:${createHash('sha256').update(readFileSync(join(fixture,file))).digest('hex')}`);
+  assert.equal(input.sources['tests/integration.rs'].coverable, '');
   assert.deepEqual(validate(schemas.input, input), []);
   const { report, exit } = run('report', { input }, {}, {}, schemas);
   assert.equal(exit, 0, JSON.stringify(report.diagnostics));

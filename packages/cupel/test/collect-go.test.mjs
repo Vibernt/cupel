@@ -86,7 +86,7 @@ test('Go collector CLI and automatic external selection work', { skip: !hasGo &&
     const direct = spawnSync(process.execPath, [bin, 'collect-go', '--root', root, '--runs', '1', '--out', join(root, '.scratch/direct.json')], { cwd: root, env, encoding: 'utf8' });
     assert.equal(direct.status, 0, direct.stderr);
     assert.deepEqual(match(expected, JSON.parse(readFileSync(join(root, '.scratch/direct.json'), 'utf8'))), []);
-    const report = spawnSync(process.execPath, [bin, 'report', '--runs', '1', '--out', join(root, '.scratch/report-input.json'), '--json'], { cwd: root, env, encoding: 'utf8' });
+    const report = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1', '--out', join(root, '.scratch/report-input.json'), '--json'], { cwd: root, env, encoding: 'utf8' });
     assert.equal(report.status, 0, report.stderr);
     assert.deepEqual(match(expected, JSON.parse(readFileSync(join(root, '.scratch/report-input.json'), 'utf8'))), []);
     assert.equal(JSON.parse(report.stdout).kind, 'report');
@@ -95,7 +95,7 @@ test('Go collector CLI and automatic external selection work', { skip: !hasGo &&
     assert.equal(withSubtest.status, 0, withSubtest.stderr);
     assert.match(withSubtest.stderr, /math_test\.go::TestSub: subtests TestSub\/child/);
     assert.ok(JSON.parse(readFileSync(join(root, '.scratch/subtest.json'), 'utf8')).tests.some((item) => item.name === 'TestSub'));
-    const autoSubtest = spawnSync(process.execPath, [bin, 'report', '--runs', '1', '--out', join(root, '.scratch/subtest-report.json'), '--json'], { cwd: root, env, encoding: 'utf8' });
+    const autoSubtest = spawnSync(process.execPath, [bin, 'report', '--no-mutation', '--runs', '1', '--out', join(root, '.scratch/subtest-report.json'), '--json'], { cwd: root, env, encoding: 'utf8' });
     assert.equal(autoSubtest.status, 0, autoSubtest.stderr);
     assert.match(autoSubtest.stderr, /math_test\.go::TestSub: subtests TestSub\/child/);
     writeFileSync(join(root, 'widget.test.mjs'), "import { test } from 'node:test'; test('frontend', () => {});\n");

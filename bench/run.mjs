@@ -6,7 +6,9 @@ import { dockerRun, cupelCommand, shellQuote, runProcess, dockerBuildArgs } from
 import { median, peakKb, reportMetrics, guardMetrics, planMetrics } from './parse.mjs';
 import { baselineRun, capturedError, reportCommandCompleted } from './baseline.mjs';
 import { recentCommits, commitChangedLines, testFile } from './git.mjs';
-import { runtimeFor } from './runtime.mjs';
+import { inputAt, parseJson, reportOptions } from './stage-input.mjs';
+import { reportInventory, goBaselineInventory, mutationEvidence, auditComparison } from './evidence.mjs';
+import { measurementIdentity } from './identity.mjs';
 
 const benchDir = import.meta.dirname;
 const repos = JSON.parse(readFileSync(join(benchDir, 'repos.json'), 'utf8'));
@@ -48,39 +50,26 @@ function config() {
   writeFileSync(path, JSON.stringify(repo.cupelConfig, null, 2) + '\n');
   return path;
 }
-function parseJson(result, label) {
-  try { return JSON.parse(result.stdout); }
-  catch { throw new Error(`${label} did not produce JSON (exit ${result.exitCode}): ${tail(result)}`); }
-}
-function inputAt(path = join(repo.dir, '.cupel', 'input.json')) {
-  if (!existsSync(path)) throw new Error(`Cupel input is missing: ${path}`);
-  const input = JSON.parse(readFileSync(path, 'utf8'));
-  if (!input.tests?.length) throw new Error('Cupel collected zero tests; collector selection must be fixed');
-  // The input names the runtime, not the runner: Vitest and node:test report node, pytest reports python.
-  const want = runtimeFor[repo.runner];
-  if (want && input.runtime?.name !== want) throw new Error(`expected a ${want} runtime from the ${repo.runner} collector, got ${input.runtime?.name ?? 'unknown'}`);
-  return input;
-}
-const reportOptions = (out = '/work/.cupel/input.json', mutation = true) =>
-  `--config /work/.cupel-bench.json --json --runs 2 ${mutation ? '' : '--no-mutation '}--out ${out}`;
-
 async function install() {
   if (repo.imageBuild) {
     const built = await runProcess('docker', dockerBuildArgs(repo, benchDir));
     if (built.exitCode !== 0) return save('install', { status: 'failed', wallMs: built.wallMs, exitCode: built.exitCode, reason: tail(built) });
   }
   const hydrate = "git -c safe.directory=/work -C /work fetch --refetch --no-filter origin HEAD && GIT_NO_LAZY_FETCH=1 git -c safe.directory=/work -C /work rev-list --objects --missing=print HEAD > /tmp/cupel-objects && if grep -q '^?' /tmp/cupel-objects; then echo 'missing Git objects after hydration' >&2; exit 1; fi";
-  const command = `set -eu; apt-get update && apt-get install -y --no-install-recommends git; ${repo.install}; ${hydrate}`;
+  const command = `set -eu; apt-get update && apt-get install -y --no-install-recommends git time; ${repo.install}; ${hydrate}`;
   const result = await dockerRun(repo, 'bridge', command);
   return save('install', { status: result.exitCode === 0 ? 'ok' : 'failed', wallMs: result.wallMs, exitCode: result.exitCode,
     reason: result.exitCode ? tail(result) : null });
 }
 async function baseline() {
   load('install');
+  const identity = await measurementIdentity(repo);
   const runs = [];
   for (let i = 0; i < 3; i++) {
     const result = await dockerRun(repo, 'none', repo.test);
-    runs.push(baselineRun(repo.runner, result));
+    const run = baselineRun(repo.runner, result);
+    if (repo.runner === 'go') run.inventory = goBaselineInventory(`${result.stdout}\n${result.stderr}`);
+    runs.push(run);
     if (!runs.at(-1).complete) break;
   }
   const failed = [...new Set(runs.flatMap((r) => r.failingTests))].slice(0, 50);
@@ -91,34 +80,48 @@ async function baseline() {
     flakyCheck = { run: rerun, repeatedFailures: failed.filter((name) => rerun.failingTests.includes(name)) };
   }
   const complete = runs.length === 3 && runs.every((r) => r.complete);
-  return save('baseline', { status: complete ? 'ok' : 'failed', runs, flakyCheck,
+  return save('baseline', { status: complete ? 'ok' : 'failed', identity,
+    runnerSet: repo.runner === 'go' && runs.every((run) => run.inventory?.runnerSet?.length) ? ['go'] : null,
+    runs, flakyCheck,
     failedCounts: runs.map((r) => r.counts.failed), failingTests: failed,
     medianMs: median(runs.map((r) => r.wallMs)), reason: complete ? null : `test command did not report counts or timed out: ${runs.find((r) => !r.complete)?.reason ?? ''}` });
 }
 async function report() {
   load('baseline');
   if (pendingRunners.has(repo.runner)) return save('report', { status: 'pending: collector', reason: `${repo.runner} collector is not available` });
+  const identity = await measurementIdentity(repo);
   config();
+  rmSync(join(repo.dir, '.cupel', 'collection-input.json'), { force: true });
   const collectionCommand = cupelCommand(repo, 'report', reportOptions('/work/.cupel/collection-input.json', false));
   const collection = await dockerRun(repo, 'none', collectionCommand);
   if (!reportCommandCompleted(collection)) checked(collection, 'collection-only report');
-  parseJson(collection, 'collection-only report');
-  const collectionInput = inputAt(join(repo.dir, '.cupel', 'collection-input.json'));
+  const collectedReport = parseJson(collection, 'collection-only report');
+  const collectionInput = inputAt(repo, join(repo.dir, '.cupel', 'collection-input.json'));
+  const collectionInventory = reportInventory(collectionInput);
+  if (collectedReport.suite?.tests !== collectionInventory.count) throw new Error(`collection suite count ${collectedReport.suite?.tests} differs from input inventory ${collectionInventory.count}`);
   const collectionRunDurationSumsMs = [0, 1].map((index) => collectionInput.tests.reduce((total, test) => total + (test.durationsMs?.[index] ?? 0), 0));
+  rmSync(join(repo.dir, '.cupel', 'input.json'), { force: true });
   const full = await dockerRun(repo, 'none', cupelCommand(repo, 'report', reportOptions(), true));
   if (!reportCommandCompleted(full)) checked(full, 'Cupel report');
   const parsed = parseJson(full, 'Cupel report');
-  const input = inputAt();
+  const input = inputAt(repo);
+  const fullInventory = reportInventory(input);
+  if (collectionInventory.idHash !== fullInventory.idHash) throw new Error('collection and full report test-ID inventories differ');
+  if (parsed.suite.tests !== fullInventory.count) throw new Error(`report suite count ${parsed.suite.tests} differs from input inventory ${fullInventory.count}`);
   const metrics = reportMetrics(parsed, input);
-  return save('report', { status: 'ok', collectionMs: collection.wallMs, collectionRunDurationSumsMs, wallMs: full.wallMs, peakKb: peakKb(full.stderr),
-    overheadRatio: load('baseline').medianMs ? collection.wallMs / load('baseline').medianMs : null,
-    collectedTests: input.tests.length, inputRuntime: input.runtime, pending: parsed.suite.criticalMutation == null ? ['mutation'] : [], ...metrics });
+  const value = { status: 'ok', identity, collectionInventory, fullInventory,
+    collectionMs: collection.wallMs, collectionRunDurationSumsMs, wallMs: full.wallMs, peakKb: peakKb(full.stderr),
+    collectedTests: input.tests.length, inputRuntime: input.runtime,
+    mutationEvidence: mutationEvidence(input),
+    pending: parsed.suite.criticalMutation == null || parsed.suite.criticalMutation.score == null ? ['mutation evidence'] : [], ...metrics };
+  value.comparison = auditComparison(load('baseline'), value);
+  return save('report', value);
 }
 
 async function archivedInstall(commit, side, target) {
   const tree = `/work/${target}`;
   const ref = side === 'base' ? `${commit}^` : commit;
-  const bootstrapGit = 'apt-get update && apt-get install -y --no-install-recommends git && ';
+  const bootstrapGit = 'apt-get update && apt-get install -y --no-install-recommends git time && ';
   const command = `set -eu; ${bootstrapGit}mkdir -p ${shellQuote(tree)}; GIT_NO_LAZY_FETCH=1 git -c safe.directory=/work -C /work archive --format=tar --output=/tmp/cupel-archive.tar ${shellQuote(ref)}; tar -xf /tmp/cupel-archive.tar -C ${shellQuote(tree)}; git init -q ${shellQuote(tree)}; cp /work/.cupel-bench.json ${shellQuote(tree)}/.cupel-bench.json; cd ${shellQuote(tree)}; ${repo.install}`;
   return checked(await dockerRun(repo, 'bridge', command), `archive/install ${commit} ${side}`);
 }
@@ -126,7 +129,7 @@ async function archivedReport(target) {
   const tree = `/work/${target}`;
   const result = checked(await dockerRun(repo, 'none', cupelCommand(repo, 'report', `--config ${tree}/.cupel-bench.json --json --runs 2 --out ${tree}/.cupel/input.json`), tree), `replay collection ${target}`);
   parseJson(result, `replay collection ${target}`);
-  const input = inputAt(join(repo.dir, target, '.cupel', 'input.json'));
+  const input = inputAt(repo, join(repo.dir, target, '.cupel', 'input.json'));
   return { wallMs: result.wallMs, tests: input.tests.length };
 }
 async function guardReplay() {
@@ -159,7 +162,7 @@ async function guardReplay() {
 async function planReplay() {
   load('report');
   if (pendingRunners.has(repo.runner)) return save('plan-replay', { status: 'pending: collector', reason: `${repo.runner} collector is not available` });
-  const input = inputAt();
+  const input = inputAt(repo);
   const commits = await recentCommits(repo, 'source', 10);
   if (commits.length < 10) throw new Error(`only ${commits.length} source-changing non-merge commits found; need 10`);
   const outcomes = [];

@@ -58,6 +58,8 @@ test('plan metrics use unit buckets and include touched tests', () => {
   const report = { kind: 'report', command: 'plan', plan: { expectedMs: 35, order: [{ id: 'u1', bucket: 'affected', durationMs: 15 }], skipped: ['u2'] } };
   const value = planMetrics(report, input, ['tests/x.test.ts']);
   assert.equal(value.selectedShare, 0.5);
+  assert.equal(value.selectedDurationMs, 15);
+  assert.equal(value.expectedMs, 35);
   assert.equal(value.fullMs, 50);
   assert.deepEqual(value.touched, [{ id: 't1', bucket: 'affected' }]);
 });

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gitRoot } from '../cli/git.mjs';
 import { TOOLS, callTool, validateCall } from './tools.mjs';
+import { ReportSnapshots } from './report-snapshots.mjs';
 
 const SUPPORTED = new Set(['2025-06-18', '2025-03-26']);
 const NEWEST = '2025-06-18';
@@ -59,7 +60,7 @@ export async function startServer({ cwd, env, rootOption, err }) {
     err(`cupel mcp: --root must name the git repository root (${root})\n`);
     return 2;
   }
-  const context = { root, env };
+  const context = { root, env, reportSnapshots: new ReportSnapshots(root) };
   const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
   for await (const line of lines) {
     let message;

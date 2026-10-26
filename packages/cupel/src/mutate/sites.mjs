@@ -8,14 +8,20 @@ import { bodySites } from './body-sites.mjs';
 import { checkValidity } from './validity.mjs';
 import { parseTypeScript, projectTypeScript, scanJsx } from '../lang/js/project-typescript.mjs';
 import { skipFile } from '../collect/skipped.mjs';
+import { lexFacts } from './lex-facts.mjs';
+import { SourceChangedError } from './source-facts.mjs';
 
 const JS_EXTENSIONS = new Set(['.mjs', '.js', '.cjs']);
 const TS_EXTENSIONS = new Set(['.ts', '.mts', '.cts']);
 const JSX_EXTENSIONS = new Set(['.jsx', '.tsx']);
 
-export function sourceMutants(root, source, text, ts, functions = false) {
-  const generate = (value, scanned) => functions ? bodySites(source, value, scanned) :
-    [...generateMutants(source, value, scanned), ...bodySites(source, value, scanned)];
+export function sourceMutants(root, source, text, ts, functions = false, metrics) {
+  const generate = (value, scanned) => {
+    const { tokens, pairs } = lexFacts(value, scanned, metrics);
+    return functions ? bodySites(source, value, tokens, pairs) :
+      [...generateMutants(source, value, tokens, pairs),
+        ...bodySites(source, value, tokens, pairs)];
+  };
   const ext = extname(source);
   if (TS_EXTENSIONS.has(ext)) {
     let stripped;
@@ -24,23 +30,36 @@ export function sourceMutants(root, source, text, ts, functions = false) {
       ts ??= projectTypeScript(root);
       if (!ts) throw new Error(`${stripError.message}; typescript is not resolvable from the project root`);
       const scanned = scanJsx(ts, source, text).tokens;
-      const all = functions ? bodySites(source, text, scanned) :
-        [...generateMutants(source, text, scanned), ...bodySites(source, text, scanned)];
+      if (metrics) metrics.typescriptScans = (metrics.typescriptScans ?? 0) + 1;
+      const all = generate(text, scanned);
       return all.map((m) => ({ ...m, mode: 'typescript-scanned' }));
     }
-    const all = functions ? bodySites(source, text) :
-      [...generateMutants(source, stripped), ...bodySites(source, text)];
+    let all;
+    if (functions) all = generate(text);
+    else {
+      // Stripping shifts offsets: operator and body edits need distinct token views.
+      const operators = lexFacts(stripped, null, metrics);
+      const bodies = lexFacts(text, null, metrics);
+      all = [...generateMutants(source, stripped, operators.tokens, operators.pairs),
+        ...bodySites(source, text, bodies.tokens, bodies.pairs)];
+    }
     return all.map((m) => ({ ...m, mode: 'typescript' }));
   }
   if (JSX_EXTENSIONS.has(ext)) {
     ts ??= projectTypeScript(root);
     if (!ts) return null;
-    return generate(text, scanJsx(ts, source, text).tokens).map((m) => ({ ...m, mode: 'jsx' }));
+    const scanned = scanJsx(ts, source, text).tokens;
+    if (metrics) metrics.typescriptScans = (metrics.typescriptScans ?? 0) + 1;
+    return generate(text, scanned).map((m) => ({ ...m, mode: 'jsx' }));
   }
   return generate(text);
 }
 
-export async function candidateValidity(root, items) {
+export async function candidateValidity(root, items, metrics) {
+  if (metrics) {
+    metrics.validityCalls = (metrics.validityCalls ?? 0) + 1;
+    metrics.validityItems = (metrics.validityItems ?? 0) + items.length;
+  }
   const ts = items.some(({ m }) => m.mode === 'jsx' || m.mode === 'typescript-scanned') ? projectTypeScript(root) : null;
   const errors = new Array(items.length);
   const js = [];
@@ -61,7 +80,8 @@ export async function candidateValidity(root, items) {
   return { errors };
 }
 
-export async function enumerateSites({ root, lines, log, diagnostics = [], functions = false }) {
+export async function enumerateSites({ root, lines, log, diagnostics = [], functions = false,
+  facts = null, metrics }) {
   const skipped = new Map();
   const candidates = [];
   const stats = { generated: 0, logging: 0, outOfScope: 0 };
@@ -71,13 +91,15 @@ export async function enumerateSites({ root, lines, log, diagnostics = [], funct
       skipped.set(source, 'not a JavaScript or TypeScript source');
       continue;
     }
-    let text, all;
+    let text, all, initial;
     try {
       const ts = JSX_EXTENSIONS.has(ext) ? projectTypeScript(root) : null;
       if (JSX_EXTENSIONS.has(ext) && !ts) throw new Error('typescript is not resolvable from the project root');
-      text = readFileSync(join(root, source), 'utf8');
-      all = sourceMutants(root, source, text, ts, functions);
+      initial = facts?.readInitial(source);
+      text = initial ? initial.text : readFileSync(join(root, source), 'utf8');
+      all = sourceMutants(root, source, text, ts, functions, metrics);
     } catch (error) {
+      if (error instanceof SourceChangedError) throw error;
       skipped.set(source, String(error?.message ?? error));
       continue;
     }
@@ -89,13 +111,15 @@ export async function enumerateSites({ root, lines, log, diagnostics = [], funct
     const modes = TS_EXTENSIONS.has(ext) ? [tsMode] : ext === '.mjs' ? ['module'] : ext === '.cjs' ? ['commonjs'] :
       JSX_EXTENSIONS.has(ext) ? ['jsx'] : ['module', 'commonjs'];
     let probe;
-    try { probe = await candidateValidity(root, modes.map((mode) => ({ m: { mode, source }, text }))); }
+    try { probe = await candidateValidity(root, modes.map((mode) => ({ m: { mode, source }, text })), metrics); }
     catch (error) { skipped.set(source, String(error?.message ?? error)); continue; }
     const mode = modes.find((_, k) => probe.errors[k] === null);
     if (!mode) {
       skipped.set(source, 'the unmutated source does not parse');
       continue;
     }
+    if (facts && all.some((m) => wanted.has(m.line) && !m.filtered))
+      facts.retain(source, initial);
     for (const m of all) {
       stats.generated++;
       if (!wanted.has(m.line)) stats.outOfScope++;

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vibernt.com/cupel/pr-result.schema.json",
+  "title": "Cupel scoped PR result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec", "kind", "profile", "wholeGuardPass", "complete", "exit", "baseCommit", "headCommit", "baselineHash", "producerHash", "runtime", "privacyPolicy", "route", "reason", "changed", "executedFiles", "unexecutedFiles", "headIdentity", "comparison", "mutationScope", "mutation", "costs"],
+  "properties": {
+    "spec": { "const": "cupel-pr-result/1" },
+    "kind": { "const": "scoped-pr" },
+    "profile": { "const": "node-readonly-files-v2" },
+    "wholeGuardPass": { "const": false },
+    "complete": { "type": "boolean" },
+    "exit": { "enum": [0, 1, 3] },
+    "baseCommit": { "$ref": "#/$defs/commit" },
+    "headCommit": { "$ref": "#/$defs/commit" },
+    "baselineHash": { "$ref": "#/$defs/hash" },
+    "producerHash": { "$ref": "#/$defs/hash" },
+    "runtime": { "type": "object", "required": ["version", "path", "sha256"] },
+    "privacyPolicy": { "enum": ["strict-v1", "express-root-npmrc-opaque-v1"] },
+    "route": { "enum": ["selected", "profile-full"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "changed": { "$ref": "#/$defs/paths" },
+    "executedFiles": { "$ref": "#/$defs/paths" },
+    "unexecutedFiles": { "$ref": "#/$defs/paths" },
+    "headIdentity": { "type": "object", "required": ["inputManifestHash", "dependencyLockHash", "profileRuntimeHash", "producerHash", "configHash", "environmentPolicyHash"] },
+    "comparison": { "type": "object", "required": ["exit", "tests", "mutation"] },
+    "mutationScope": { "type": "object", "required": ["kind", "sites", "filtered", "invalid", "lineSides"] },
+    "mutation": { "type": ["object", "null"] },
+    "costs": { "type": "object", "required": ["requestMs", "collectionExecutionMs", "mutation"] }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "commit": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

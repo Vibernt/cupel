@@ -15,22 +15,31 @@ export function lineSet(lines) {
 
 export function exportLines(exportJson, root) {
   const files = new Map();
-  for (const block of exportJson.data ?? []) for (const file of block.files ?? []) {
+  for (const block of exportJson.data ?? []) for (const file of block.files ?? []) mapExportFile(files, file, root);
+  return files;
+}
+
+export function mapExportFile(files, file, root) {
     const abs = isAbsolute(file.filename) ? file.filename : resolve(root, file.filename);
     const path = relative(root, abs).split(sep).join('/');
-    if (path.startsWith('../') || path.startsWith('/') || !existsSync(abs)) continue;
+    if (path.startsWith('../') || path.startsWith('/') || !existsSync(abs)) return;
     const parts = path.split('/');
-    if (!parts.includes('src') || parts.some((part) => part.startsWith('.') || ['target', 'tests', 'benches', 'examples', 'vendor'].includes(part))) continue;
-    if (!path.endsWith('.rs')) continue;
+    if (!parts.includes('src') || parts.some((part) => part.startsWith('.') || ['target', 'tests', 'benches', 'examples', 'vendor'].includes(part))) return;
+    if (!path.endsWith('.rs')) return;
     const source = readFileSync(abs, 'utf8');
-    const code = scanRust(source).code;
+    const code = scanRust(source, { tokens: false }).code;
     const starts = [0];
     for (let i = 0; i < source.length; i++) if (source[i] === '\n') starts.push(i + 1);
+    let cachedLine = -1; let cachedBytes;
     const position = (line, column) => {
       const start = starts[line - 1];
       if (start === undefined) return source.length;
-      const text = source.slice(start).split('\n', 1)[0];
-      return start + Buffer.from(text).subarray(0, column - 1).toString().length;
+      if (line !== cachedLine) {
+        const end = line < starts.length ? starts[line] - 1 : source.length;
+        cachedBytes = Buffer.from(source.slice(start, end));
+        cachedLine = line;
+      }
+      return start + cachedBytes.subarray(0, column - 1).toString().length;
     };
     const record = files.get(path) ?? { all: new Set(), covered: new Set() };
     const segments = file.segments ?? [];
@@ -47,8 +56,6 @@ export function exportLines(exportJson, root) {
       }
     }
     files.set(path, record);
-  }
-  return files;
 }
 
 export function covered(files) {

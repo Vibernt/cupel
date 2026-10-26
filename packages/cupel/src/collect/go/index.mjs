@@ -1,5 +1,6 @@
 import { availableParallelism } from 'node:os';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { execute, goEnvironment, jsonObjects, parallel } from './process.mjs';
 import { covered, lineSet, profile, subtract, combineRuns } from './coverage.mjs';
@@ -82,7 +83,9 @@ export async function collectGo({ root, runs = 2, recheck = [], packages: patter
   for (const id of recheck) if (!ids.has(id)) throw new Error(`unknown Go recheck unit: ${id}`);
   return {
     spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'go', version },
-    sources: Object.fromEntries(Object.entries(sources).sort(([a], [b]) => (a > b) - (a < b)).map(([path, lines]) => [path, { coverable: lineSet(lines) }])),
+    sources: Object.fromEntries(Object.entries(sources).sort(([a], [b]) => (a > b) - (a < b)).map(([path, lines]) => [path, {
+      coverable: lineSet(lines), hash: `sha256:${createHash('sha256').update(readFileSync(join(root, path))).digest('hex')}`,
+    }])),
     tests, coverage: { granularity: 'test', byTest, setup: setupByFile, ...(runs > 1 ? { unstable: Object.fromEntries([...unstable].sort(([a], [b]) => (a > b) - (a < b)).map(([source, lines]) => [source, lineSet(lines)])) } : {}), rechecked: tests.map((t) => t.id) },
     brittleness, shapes,
   };

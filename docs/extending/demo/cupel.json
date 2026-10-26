@@ -1,0 +1,6 @@
+{
+  "spec": "cupel-spec/1",
+  "runners": {
+    "demo": { "collector": "node docs/extending/demo/collector.mjs" }
+  }
+}

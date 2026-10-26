@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from .mutation_sites import apply
+from .mutation_source import SourceChangedError, SourceFacts
 
 _SPEC = json.loads(Path(os.environ['CUPEL_MUTANT_SPEC']).read_text(encoding='utf-8')) if os.environ.get('CUPEL_MUTANT_SPEC') else None
 _REPORT = os.environ.get('CUPEL_MUTANT_REPORT')
@@ -27,10 +28,19 @@ class _Loader(importlib.abc.Loader):
         return None
 
     def exec_module(self, module):
+        try:
+            facts = SourceFacts(self.spec['root'], {'sources': {self.spec['source']: {'hash': self.spec['hash']}}}, require_hash=True)
+            fact = facts.retain(self.spec['source'])
+            if (fact.path.real != self.spec['real'] or fact.path.root_real != self.spec['root_real'] or
+                    fact.path.device != self.spec['device'] or fact.path.inode != self.spec['inode']):
+                raise SourceChangedError(self.spec['source'], 'path differs from parent source fact')
+            facts.assert_fresh(self.spec['source'])
+        except SourceChangedError:
+            _write_report({'event': 'source-changed'})
+            raise
+        text = apply(fact.text, SimpleNamespace(edits=self.spec['edits']))
+        code = compile(text, fact.path.real, 'exec')
         Path(self.spec['seen']).touch()
-        original = Path(self.spec['source']).read_text(encoding='utf-8')
-        text = apply(original, SimpleNamespace(edits=self.spec['edits']))
-        code = compile(text, self.spec['source'], 'exec')
         exec(code, module.__dict__)
 
 
@@ -40,7 +50,7 @@ class _Finder(importlib.abc.MetaPathFinder):
 
     def find_spec(self, fullname, path=None, target=None):
         found = importlib.machinery.PathFinder.find_spec(fullname, path, target)
-        if found and found.origin and os.path.realpath(found.origin) == os.path.realpath(self.spec['source']):
+        if found and found.origin and os.path.realpath(found.origin) == self.spec['real']:
             found.loader = _Loader(found.loader, self.spec)
             return found
         return None

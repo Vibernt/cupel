@@ -54,5 +54,5 @@ export function dockerBuildArgs(repo, benchDir) {
 
 export function cupelCommand(repo, verb, options = '', timed = false) {
   const base = `node /cupel/packages/cupel/bin/cupel.mjs ${verb} ${options}`;
-  return timed ? `if [ -x /usr/bin/time ]; then /usr/bin/time -v ${base}; else ${base}; fi` : base;
+  return timed ? `if [ ! -x /usr/bin/time ]; then echo '/usr/bin/time is required for benchmark RSS' >&2; exit 127; fi; /usr/bin/time -v ${base}` : base;
 }

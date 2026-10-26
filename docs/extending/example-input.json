@@ -1,0 +1,20 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": { "name": "node", "version": "22.0.0" },
+  "sources": { "src/math.mjs": { "coverable": "1" } },
+  "tests": [
+    {
+      "id": "tests/math.test.mjs::adds [critical]",
+      "file": "tests/math.test.mjs",
+      "name": "adds [critical]",
+      "status": "passed",
+      "tags": ["critical"]
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": { "tests/math.test.mjs::adds [critical]": { "src/math.mjs": "1" } },
+    "setup": {}
+  }
+}

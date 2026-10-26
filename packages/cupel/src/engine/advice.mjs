@@ -18,6 +18,15 @@ export function consolidationGroups(model, cfg) {
   if (model.fileLevel || !cfg.advice.consolidate) return [];
   const eligible = model.units.filter((u) => u.status === 'passed' && u.findings.length === 0);
   const parent = new Map(eligible.map((u) => [u.id, u.id]));
+  // Only units in the same file and with the same criticality can ever link.
+  // Nested maps keep file names distinct without inventing a separator key.
+  const buckets = new Map();
+  for (const u of eligible) {
+    if (!buckets.has(u.file)) buckets.set(u.file, new Map());
+    const byCritical = buckets.get(u.file);
+    if (!byCritical.has(u.critical)) byCritical.set(u.critical, []);
+    byCritical.get(u.critical).push(u);
+  }
   const find = (x) => {
     while (parent.get(x) !== x) {
       parent.set(x, parent.get(parent.get(x)));
@@ -25,16 +34,19 @@ export function consolidationGroups(model, cfg) {
     }
     return x;
   };
-  for (let i = 0; i < eligible.length; i++) {
-    for (let j = i + 1; j < eligible.length; j++) {
-      const u = eligible[i];
-      const v = eligible[j];
-      if (u.file !== v.file || u.critical !== v.critical) continue;
-      if (!atLeast(shapeSimilarity(u, v), cfg.advice.shapeSimilarity)) continue;
-      if (!atLeast(lineJaccard(u.own, v.own), cfg.advice.lineJaccard)) continue;
-      const a = find(u.id);
-      const b = find(v.id);
-      if (a !== b) parent.set(cmp(a, b) < 0 ? b : a, cmp(a, b) < 0 ? a : b);
+  for (const byCritical of buckets.values()) {
+    for (const peers of byCritical.values()) {
+      for (let i = 0; i < peers.length; i++) {
+        for (let j = i + 1; j < peers.length; j++) {
+          const u = peers[i];
+          const v = peers[j];
+          if (!atLeast(shapeSimilarity(u, v), cfg.advice.shapeSimilarity)) continue;
+          if (!atLeast(lineJaccard(u.own, v.own), cfg.advice.lineJaccard)) continue;
+          const a = find(u.id);
+          const b = find(v.id);
+          if (a !== b) parent.set(cmp(a, b) < 0 ? b : a, cmp(a, b) < 0 ? a : b);
+        }
+      }
     }
   }
   const comps = new Map();
@@ -102,37 +114,44 @@ export function advise(model, cfg) {
 
   for (const u of reachA10) {
     u.advice = 'keep';
-    if (isReviewCandidate(u, model, cfg)) {
+    const review = reviewCandidate(u, model, cfg);
+    if (review.candidate) {
       u.hints.push('no-unique-evidence'); // A10
-      const duplicate = duplicatesOf(u, model, cfg)[0];
-      if (duplicate) u.duplicateOf = duplicate.id;
+      if (review.duplicate) u.duplicateOf = review.duplicate.id;
     } else u.hints.push('no-unique-coverage-unverified'); // A11
   }
   for (const u of model.units) u.hints = sortedUnique(u.hints);
   return { groups };
 }
 
-/** Duplicate-path partners of u (A10): other passed units v with shape >= duplicateShape and own(v) ⊇ own(u). */
-function duplicatesOf(u, model, cfg) {
-  return model.units.filter(
-    (v) => v !== u && v.status === 'passed' && atLeast(shapeSimilarity(u, v), cfg.advice.duplicateShape) && mapSubset(u.own, v.own),
-  );
+/** First duplicate-path partner in unit-id order (A10). */
+function firstDuplicate(u, model, cfg) {
+  for (const v of model.units) {
+    if (v !== u && v.status === 'passed' && atLeast(shapeSimilarity(u, v), cfg.advice.duplicateShape) && mapSubset(u.own, v.own)) return v;
+  }
+  return undefined;
 }
 
-function isReviewCandidate(u, model, cfg) {
-  if (u.protected || u.e2e || u.spawnsInterpreter || !u.rechecked || u.uniqueLines !== 0) return false;
+function reviewCandidate(u, model, cfg) {
+  if (u.protected || u.e2e || u.spawnsInterpreter || !u.rechecked || u.uniqueLines !== 0) return { candidate: false };
   const passedOthers = model.units.filter((v) => v !== u && v.status === 'passed');
   const covered = mapUnion(mapUnionAll(passedOthers.map((v) => v.own)), model.allSetup);
-  if (!mapSubset(u.own, covered)) return false;
-  return (model.mutation !== null && u.targeted && u.uniqueKills === 0) || duplicatesOf(u, model, cfg).length > 0;
+  if (!mapSubset(u.own, covered)) return { candidate: false };
+  const duplicate = firstDuplicate(u, model, cfg);
+  return { candidate: (model.mutation !== null && u.targeted && u.uniqueKills === 0) || duplicate !== undefined, duplicate };
 }
 
 /** Per-file unique lines at file granularity (A12): [{ file, uniqueLines, hints }]. */
 export function fileSummaries(model) {
   if (!model.fileLevel) return undefined;
-  const files = sortedUnique([...model.units.map((u) => u.file), ...model.byFile.keys()]);
+  const rowsByFile = new Map();
+  for (const u of model.units) {
+    if (!rowsByFile.has(u.file)) rowsByFile.set(u.file, []);
+    rowsByFile.get(u.file).push(...u.rows);
+  }
+  const files = sortedUnique([...rowsByFile.keys(), ...model.byFile.keys()]);
   const own = files.map((f) => {
-    const rows = model.units.filter((u) => u.file === f).flatMap((u) => u.rows);
+    const rows = rowsByFile.get(f) ?? [];
     const raw = mapUnionAll([model.byFile.get(f) ?? new Map(), ...rows.map((r) => model.byTest.get(r) ?? new Map())]);
     return mapDiff(raw, model.setup.get(f) ?? new Map());
   });

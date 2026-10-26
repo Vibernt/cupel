@@ -1,22 +1,6 @@
 """Mutation scope, own-line accounting, and whole-unit selection."""
-from pathlib import Path
-
 from .match import critical_source, glob_matches
-
-
-class EnvironmentError(RuntimeError):
-    pass
-
-
-def source_path(root, path):
-    relative = Path(path)
-    if relative.is_absolute() or any(part in ('..', '.') or part.startswith('.') for part in relative.parts):
-        raise EnvironmentError(f'source path is outside Python scope: {path}')
-    base = Path(root).resolve()
-    resolved = (base / relative).resolve()
-    if not resolved.is_relative_to(base):
-        raise EnvironmentError(f'source path escapes root: {path}')
-    return resolved
+from .mutation_source import EnvironmentError, source_path
 
 
 def lines(value):

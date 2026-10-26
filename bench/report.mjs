@@ -2,109 +2,52 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { auditComparison } from './evidence.mjs';
+import { renderDetails } from './report-details.mjs';
 
 const here = import.meta.dirname;
 const candidatePath = '/Users/vid/cupel/.scratch/bench/candidates.json';
-const percent = (value) => value == null ? '—' : `${(value * 100).toFixed(1)}%`;
-const ms = (value) => value == null ? '—' : `${(value / 1000).toFixed(2)} s`;
-const ratio = (value) => value == null ? '—' : `${value.toFixed(2)}×`;
-const pct = (value) => value == null ? '—' : `${value.toFixed(2)}%`;
+const stages = ['install', 'baseline', 'report', 'guard-replay', 'plan-replay', 'all'];
 const safe = (value) => String(value ?? '—').replaceAll('|', '\\|').replaceAll('\n', ' ');
-const lineCount = (set) => String(set ?? '').split(',').filter(Boolean).reduce((total, span) => {
-  const [start, end = start] = span.split('-').map(Number);
-  return total + end - start + 1;
-}, 0);
-
-function criticalMutations(repo) {
-  const path = join(repo.dir, '.cupel', 'input.json');
-  if (!existsSync(path)) return null;
-  const mutants = JSON.parse(readFileSync(path, 'utf8')).mutation?.mutants;
-  if (!mutants) return null;
-  const counts = { killed: 0, timeout: 0, survived: 0, 'no-coverage': 0, error: 0 };
-  for (const mutant of mutants) {
-    if (!(mutant.status in counts)) throw new Error(`unknown mutation status ${mutant.status} in ${path}`);
-    counts[mutant.status]++;
-  }
-  const survivors = mutants.filter((m) => m.status === 'survived')
-    .sort((a, b) => a.source.localeCompare(b.source) || a.line - b.line || a.operator.localeCompare(b.operator))
-    .slice(0, 15);
-  return { counts, survivors };
-}
-
+const ms = (value) => Number.isFinite(value) ? `${(value / 1000).toFixed(2)} s` : '—';
+const pct = (value) => Number.isFinite(value) ? `${value.toFixed(2)}%` : '—';
+const share = (value) => Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '—';
+const ratio = (value) => Number.isFinite(value) ? `${value.toFixed(2)}×` : '—';
 const count = (mutation, status) => mutation ? mutation.counts[status] : '—';
 
 export function renderBenchmark(repos, candidates, results) {
-  const byName = new Map(candidates.map((c) => [c.repo.split('/').at(-1).toLowerCase(), c]));
+  const byName = new Map(candidates.map((candidate) => [candidate.repo.split('/').at(-1).toLowerCase(), candidate]));
   const lines = [
     '# Cupel benchmark: 10 public repositories', '',
-    'This document is generated from `bench/results/` and existing candidate `.cupel/input.json` files. Missing stage results are shown as pending; mutation counts can appear from a retained input even when its report stage is not recorded.', '',
+    'Generated from saved `bench/results/` artifacts. Historical timings remain raw measurements. Overhead is shown only after matching runner sets, test IDs, revision, Cupel, configuration and runtime provenance are verified. A test count alone does not prove test identity.', '',
     '## Cross-repository summary', '',
-    '| Repository | Size | Agent share | Runner | Baseline median | Cupel collection | Overhead | Critical score | Killed | Timeout | Survived | No coverage | Error | Guard replay | Plan replay | Status |',
-    '|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|',
+    '| Repository | Size | Agent share | Runner | Baseline median | Collection | Full report | Verified overhead | Comparison | Critical score | Killed | Timeout | Survived | No coverage | Error | Guard | Plan |',
+    '|---|---:|---:|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---|---|',
   ];
   for (const repo of repos) {
-    const c = byName.get(repo.name.toLowerCase());
-    if (!c) throw new Error(`candidate inventory has no entry for ${repo.name}`);
+    const candidate = byName.get(repo.name.toLowerCase());
+    if (!candidate) throw new Error(`candidate inventory has no entry for ${repo.name}`);
     const r = results[repo.name] ?? {};
-    const guard = r['guard-replay']; const plan = r['plan-replay']; const report = r.report;
-    const mutation = criticalMutations(repo);
-    const status = [r.install, r.baseline, report, guard, plan].some((s) => s?.status === 'failed') ? 'failed' :
-      report?.status === 'ok' ? `${guard && plan ? 'replays done' : 'report only'}${report.pending?.length ? `; ${report.pending.join(', ')} pending` : ''}` :
-      report?.status ?? (r.baseline?.status === 'ok' ? 'baseline only' : r.install?.status === 'ok' ? 'installed only' : 'not run');
-    lines.push(`| ${safe(repo.name)} | ${c ? `${(c.sizeKB / 1024).toFixed(1)} MiB` : '—'} | ${c ? percent(c.agentShare) : '—'} | ${repo.runner} | ${ms(r.baseline?.medianMs)} | ${ms(report?.collectionMs)} | ${ratio(report?.overheadRatio)} | ${pct(report?.suite?.criticalMutation?.score)} | ${count(mutation, 'killed')} | ${count(mutation, 'timeout')} | ${count(mutation, 'survived')} | ${count(mutation, 'no-coverage')} | ${count(mutation, 'error')} | ${guard?.outcomes?.length ?? '—'} | ${plan?.outcomes?.length ?? '—'} | ${safe(status)} |`);
+    const baseline = r.baseline; const report = r.report;
+    const audit = auditComparison(baseline, report);
+    const mutation = report?.status === 'ok' ? report.mutationEvidence : null;
+    const overhead = audit.verdict === 'verified' && baseline.medianMs > 0 ? report.collectionMs / baseline.medianMs : null;
+    const score = report?.suite?.criticalMutation;
+    const scoreLabel = report?.status !== 'ok' ? '—' : score?.score == null && score?.detected === 0 && score?.undetected === 0 ? 'empty' : pct(score?.score);
+    lines.push(`| ${safe(repo.name)} | ${(candidate.sizeKB / 1024).toFixed(1)} MiB | ${share(candidate.agentShare)} | ${safe(repo.runner)} | ${ms(baseline?.status === 'ok' ? baseline.medianMs : null)} | ${ms(report?.collectionMs)} | ${ms(report?.wallMs)} | ${ratio(overhead)} | ${audit.verdict} | ${scoreLabel} | ${count(mutation, 'killed')} | ${count(mutation, 'timeout')} | ${count(mutation, 'survived')} | ${count(mutation, 'no-coverage')} | ${count(mutation, 'error')} | ${r['guard-replay']?.status ?? 'not run'} | ${r['plan-replay']?.status ?? 'not run'} |`);
   }
   for (const repo of repos) {
-    const c = byName.get(repo.name.toLowerCase());
-    const r = results[repo.name] ?? {};
-    const report = r.report; const baseline = r.baseline;
-    const mutation = criticalMutations(repo);
-    lines.push('', `## ${repo.name}`, '',
-      `- **Size, language, runner, agent share:** ${c ? `${(c.sizeKB / 1024).toFixed(1)} MiB, ` : 'unknown size, '}${repo.language}, ${repo.runner}, ${c ? percent(c.agentShare) : 'unknown agent share'} (${c?.commitsSampled ?? 'unknown'} sampled commits).`,
-      `- **Baseline:** ${ms(baseline?.medianMs)} median of ${baseline?.runs?.length ?? 0} runs; counts ${baseline?.runs?.map((v) => `${v.counts.passed ?? '?'} passed/${v.counts.failed ?? '?'} failed/${v.counts.skipped ?? '?'} skipped`).join(', ') || 'not recorded'}.`,
-      `- **Environment failures:** ${baseline ? baseline.failingTests?.length ? `${baseline.failingTests.map(safe).join(', ')}${baseline.flakyCheck ? `; repeated on check: ${baseline.flakyCheck.repeatedFailures.map(safe).join(', ') || 'none'}` : ''}` : 'none recorded' : repo.firstRunEnvironmentFailure ? `${safe(repo.firstRunEnvironmentFailure)} (reported from first run; test name unavailable)` : 'not measured'}.`,
-      `- **Cupel:** collection ${ms(report?.collectionMs)}; two run test-duration sums ${report?.collectionRunDurationSumsMs?.map(ms).join(' / ') ?? '—'}; full report ${ms(report?.wallMs)}; collection overhead ${ratio(report?.overheadRatio)}; peak RSS ${report?.peakKb == null ? 'unavailable' : `${Math.round(report.peakKb / 1024)} MiB`}.`,
-      `- **Evidence:** line coverage ${pct(report?.suite?.coverage?.pct)}, critical line coverage ${pct(report?.suite?.criticalCoverage?.pct)}, critical mutation score ${pct(report?.suite?.criticalMutation?.score)}${report?.suite?.criticalMutation ? ` (${report.suite.criticalMutation.detected} detected, ${report.suite.criticalMutation.undetected} undetected)` : ''}.`,
-      `- **Critical mutants:** ${mutation ? `${count(mutation, 'killed')} killed; ${count(mutation, 'timeout')} timeout; ${count(mutation, 'survived')} survived (run but uncaught); ${count(mutation, 'no-coverage')} no coverage (never run); ${count(mutation, 'error')} error` : 'unavailable'}.`,
-      `- **Advice:** ${report?.rewritePins?.length ?? 0} rewrite pins listed${report?.suite ? ` (${report.suite.advice.rewrite} total)` : ''}; ${report?.groups?.length ?? 0} consolidation groups listed${report?.groupCount != null ? ` (${report.groupCount} total)` : ''}; ${report?.noUniqueEvidenceCount ?? 0} no-unique-evidence hints.`,
-      `- **Scope:** ${safe(repo.notes)}`);
-    if (mutation?.survivors.length) {
-      lines.push('', 'Top surviving mutants on critical code:', '', '| File | Line | Operator |', '|---|---:|---|');
-      for (const m of mutation.survivors) lines.push(`| ${safe(m.source)} | ${m.line} | ${safe(m.operator)} |`);
-    } else lines.push('', 'Top surviving mutants: unavailable.');
-    if (report?.rewritePins?.length) lines.push('', `Rewrite pins: ${report.rewritePins.map((p) => `${safe(p.file)} (${p.brittle.join(', ')})`).join('; ')}.`);
-    if (report?.groups?.length) lines.push('', `Consolidation groups: ${report.groups.map((g) => `${safe(g.file)} (${g.units.length} units)`).join('; ')}.`);
-    if (report?.noUniqueEvidence?.length) lines.push('', `No-unique-evidence examples: ${report.noUniqueEvidence.map(safe).join('; ')}.`);
-    lines.push('', '### Guard replay', '');
-    if (r['guard-replay']?.outcomes?.length) {
-      lines.push('| Commit | Verdict | Removed units | Lost lines | Critical mutants lost |', '|---|---|---:|---:|---:|');
-      for (const o of r['guard-replay'].outcomes) {
-        const lost = o.checks.flatMap((v) => Object.values(v.lostLines)).reduce((n, set) => n + lineCount(set), 0);
-        const mutants = o.checks.reduce((n, v) => n + v.criticalMutantsLost.length, 0);
-        const missing = o.checks.filter((x) => x.missing).map((x) => x.id);
-        lines.push(`| ${o.commit.slice(0, 12)} | ${o.pass ? 'pass' : 'FAIL'} (${o.checks.filter((x) => !x.pass).map((x) => x.id).join(', ') || 'all checks'}${missing.length ? `; missing: ${missing.join(', ')}` : ''}) | ${o.removed.length} | ${lost} line references | ${mutants} |`);
-      }
-    } else lines.push(r['guard-replay']?.status ?? 'Not run.');
-    lines.push('', '### Plan replay', '');
-    if (r['plan-replay']?.outcomes?.length) {
-      lines.push('| Commit | Selected share | Expected / full suite | Touched tests in critical or affected |', '|---|---:|---:|---:|');
-      for (const o of r['plan-replay'].outcomes) lines.push(`| ${o.commit.slice(0, 12)} | ${percent(o.selectedShare)} | ${ms(o.expectedMs)} / ${ms(o.fullMs)} | ${o.touched.filter((x) => ['critical', 'affected'].includes(x.bucket)).length}/${o.touched.length} |`);
-    } else lines.push(r['plan-replay']?.status ?? 'Not run.');
-    const problems = Object.values(r).filter((v) => v?.status === 'failed' || v?.status === 'pending: collector');
-    const pending = report?.pending?.map((item) => `report: ${item} pending`) ?? [];
-    const unrun = ['install', 'baseline', 'report', 'guard-replay', 'plan-replay'].filter((stage) => !r[stage]);
-    lines.push('', `**Pending or failed:** ${Object.keys(r).length === 0 ? 'all stages not run' : [...problems.map((v) => `${v.stage}: ${safe(v.reason ?? v.status)}`), ...pending, ...unrun.map((stage) => `${stage}: not run`)].join('; ') || 'none recorded'}.`);
+    const candidate = byName.get(repo.name.toLowerCase());
+    lines.push(...renderDetails(repo, candidate, results[repo.name] ?? {}, auditComparison, { safe, ms, pct, share, ratio, stages }));
   }
-  lines.push('', '## Method and caveats', '',
-    '- `install` and the install substeps of guard replay are the sole network-enabled Docker operations. The first install hydrates missing Git blobs from the public remote and verifies the object set. Baselines run three times with `--network none`; report collection uses two runs. Each candidate has a separate Docker cache volume and only its repository and read-only Cupel tree mounted.',
-    '- Guard replay selects the five newest non-merge commits that changed tests. Each parent and head is archived inside a container, installed, collected and compared. Plan replay uses the ten newest source-changing non-merge commits with their exact zero-context diff line sets against the report input.',
-    '- The plain baseline and Cupel collection may have different instrumentation and file scope; the overhead ratio is collection wall time divided by median plain wall time. Full report wall time includes mutation and is listed separately. Expected plan time is the sum of observed unit durations, not a measured shortened run.',
-    '- Mutation is capped at 300 mutants and 1,200 seconds per collection. A score from a capped sample is not whole-code mutation coverage. Cupel can mutate Node and Vitest tests on runtime `node`; Python has no mutation evidence. Missing mutation remains unavailable, not zero.',
-    '- Up to fifteen displayed critical survivors are ordered by file and line, not by severity. Critical mutation counts come from each repository’s `.cupel/input.json`; survived means run but uncaught, while no coverage means no test ran the mutant. A no-mutation report with `--runs 2` measures collection plus Cupel grading, so its wall time is an upper bound on collector time. The two run duration sums add each test\'s duration and are not wall time when tests run in parallel.',
-    '- Go, Rust, .NET and Ruby have no Cupel collector in this build. Their baseline is measured but Cupel report and replays remain `pending: collector`. Any install, baseline or collection failure is recorded as a failure without substitute commands.',
-    '- Agent share and size come from the candidate inventory, not from these benchmark runs. Agent share measures commit trailers and bot authors in a recent window; it does not prove the authorship of every test.',
-    '- Docker, registry access, install scripts, candidate tests, git archive replay and real benchmark timing were not run while building this harness. The orchestrator must run them on Colima linux/arm64 and inspect each stage JSON.',
-    '',
-    'Cleanup after review: remove each candidate’s `.cupel-bench.json`, `.cupel/`, `.cupel-bench-replay-*` and `.cupel-bench-changed-lines.json`; remove `bench/results/<name>/` and named `cupel-bench-<name>-cache` Docker volumes when measurements are no longer needed. `bench/results/.gitkeep` is committed; result JSON stays ignored.', '');
+  lines.push('', '## Method and limits', '',
+    '- Saved historical baseline and report stages do not contain revision, Cupel, config, runtime or exact test-ID provenance. Their ratios cannot be verified retrospectively. Count mismatches make Go and Zotero comparisons invalid. Raw wall times are retained.',
+    '- A report can cover multiple runners while the plain baseline command runs only one. Future measurements record the report runner inventory, but baseline runner IDs or sets must come from actual runner output; a configured runner name is not evidence that it executed.',
+    '- Full report time includes mutation; collection time is a separate no-mutation report with two test runs. Cold and warm sums add individual test durations and are not wall time when tests run in parallel.',
+    '- Historical plan replays saved full plan estimates but not selected-duration estimates. The selected estimate is unavailable for those outcomes; no speedup follows from selected share.',
+    '- Empty mutation evidence and unavailable mutation evidence are distinct. Scores from capped mutation samples do not describe whole-code mutation coverage. Retained candidate input files are not read by this report generator.',
+    '- Candidate size and agent share come from the candidate inventory, not these benchmark stages. Failed and missing stages remain visible; full error text is in the saved stage JSON.',
+    '- `all.json` records a separate all-stage invocation. Later individual-stage successes do not erase its earlier failure.', '');
   return lines.join('\n');
 }
 
@@ -112,7 +55,7 @@ export function readResults(repos, resultsDir) {
   const out = {};
   for (const repo of repos) {
     out[repo.name] = {};
-    for (const stage of ['install', 'baseline', 'report', 'guard-replay', 'plan-replay']) {
+    for (const stage of stages) {
       const path = join(resultsDir, repo.name, `${stage}.json`);
       if (existsSync(path)) out[repo.name][stage] = JSON.parse(readFileSync(path, 'utf8'));
     }

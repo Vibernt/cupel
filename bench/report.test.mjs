@@ -20,16 +20,17 @@ test('rendering fake measurements shows metrics, replay losses and caveats', () 
     'plan-replay': { status: 'ok', outcomes: [{ commit: 'b'.repeat(40), selectedShare: 0.5, expectedMs: 20, fullMs: 40, touched: [{ id: 'u', bucket: 'affected' }] }] },
   } });
   assert.match(markdown, /critical mutation score 60\.00%/);
-  assert.match(markdown, /Top surviving mutants: unavailable/);
+  assert.match(markdown, /Recorded top surviving mutants \(total statuses unavailable\)/);
   assert.match(markdown, /FAIL \(critical-mutation\)/);
-  assert.match(markdown, /50\.0% \| 0\.02 s \/ 0\.04 s/);
-  assert.match(markdown, /Method and caveats/);
+  assert.match(markdown, /50\.0% \| — \| 0\.02 s/);
+  assert.match(markdown, /Method and limits/);
+  assert.match(markdown, /No overhead ratio is claimed/);
 });
 
 test('unrun repositories stay visibly unrun', () => {
   const markdown = renderBenchmark([repo], [candidate], {});
   assert.match(markdown, /not run/);
-  assert.match(markdown, /all stages not run/);
+  assert.match(markdown, /baseline: not run/);
 });
 
 test('environment failures are listed without changing a completed baseline to failed', () => {
@@ -37,8 +38,17 @@ test('environment failures are listed without changing a completed baseline to f
     baseline: { status: 'ok', medianMs: 1000, runs: [{ counts: { passed: 9, failed: 1, skipped: 0 } }],
       failingTests: ['tests/webdav.py::test_connection'], flakyCheck: { repeatedFailures: ['tests/webdav.py::test_connection'] } },
   } });
-  assert.match(markdown, /baseline only/);
+  assert.match(markdown, /baseline: ok/);
   assert.match(markdown, /Environment failures:.*tests\/webdav\.py::test_connection.*repeated on check/);
+});
+
+test('separate failed all-stage invocation remains visible after later stage success', () => {
+  const markdown = renderBenchmark([repo], [candidate], { sample: {
+    report: { status: 'ok', suite: { advice: { rewrite: 0 } } },
+    all: { status: 'failed', reason: 'collector did not report tests' },
+  } });
+  assert.match(markdown, /- report: ok/);
+  assert.match(markdown, /- all: failed — collector did not report tests/);
 });
 
 test('Docker command only mounts candidate, read-only Cupel and cache', () => {
@@ -59,7 +69,7 @@ test('commit classifiers exclude test and configuration changes from source repl
   assert.equal(sourceFile('vitest.config.ts'), false);
 });
 
-test('critical mutation counts distinguish survivors from never-run mutants', () => {
+test('report uses saved mutation evidence and never reads retained candidate inputs', () => {
   mkdirSync('.scratch', { recursive: true });
   const dir = mkdtempSync('.scratch/bench-report-');
   try {
@@ -67,10 +77,15 @@ test('critical mutation counts distinguish survivors from never-run mutants', ()
     const statuses = ['killed', 'timeout', 'survived', 'survived', 'no-coverage', 'error'];
     writeFileSync(join(dir, '.cupel/input.json'), JSON.stringify({ mutation: { mutants: statuses.map((status, index) =>
       ({ status, source: 'src/a.ts', line: index + 1, operator: 'op' })) } }));
-    const markdown = renderBenchmark([{ ...repo, dir }], [candidate], { sample: { report: { status: 'ok', suite: { criticalMutation: { score: 50 }, advice: { rewrite: 0 } } } } });
-    assert.match(markdown, /50\.00% \| 1 \| 1 \| 2 \| 1 \| 1/);
-    assert.match(markdown, /2 survived \(run but uncaught\); 1 no coverage \(never run\)/);
-    assert.match(markdown, /src\/a\.ts \| 3 \| op/);
-    assert.match(markdown, /src\/a\.ts \| 4 \| op/);
+    const base = { report: { status: 'ok', suite: { criticalMutation: { score: 50 }, advice: { rewrite: 0 } } } };
+    const markdown = renderBenchmark([{ ...repo, dir }], [candidate], { sample: base });
+    assert.match(markdown, /50\.00% \| — \| — \| — \| — \| —/);
+    assert.doesNotMatch(markdown, /src\/a\.ts/);
+    base.report.mutationEvidence = { counts: { killed: 1, timeout: 1, survived: 2, 'no-coverage': 1, error: 1 },
+      survivors: [{ source: 'src/b.ts', line: 7, operator: 'op' }] };
+    const saved = renderBenchmark([{ ...repo, dir }], [candidate], { sample: base });
+    assert.match(saved, /50\.00% \| 1 \| 1 \| 2 \| 1 \| 1/);
+    assert.match(saved, /src\/b\.ts \| 7 \| op/);
+    assert.doesNotMatch(saved, /src\/a\.ts/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

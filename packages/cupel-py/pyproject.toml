@@ -4,10 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vibernt-cupel"
-version = "0.0.0"
+version = "0.1.0"
 description = "Know which tests protect you: the pytest collector for Cupel."
-license = "Apache-2.0"
-requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.12"
 dependencies = []
 classifiers = [
   # PyPI rejects uploads carrying this classifier. Remove only with the owner's approval (L6).

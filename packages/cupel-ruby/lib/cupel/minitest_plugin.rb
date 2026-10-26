@@ -4,6 +4,7 @@ require 'coverage'
 Coverage.start(lines: true) unless Coverage.running?
 require 'json'
 require 'minitest/test'
+require_relative 'mutation/loader' if ENV['CUPEL_RUBY_MUTATION_SPEC']
 
 module Cupel
   module MinitestPlugin

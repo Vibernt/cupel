@@ -13,10 +13,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from vibernt_cupel.match import tokens, word_matches, glob_matches, critical_source
 from vibernt_cupel.mutation_sites import apply, generate
 from vibernt_cupel.mutation_run import mutate, confirm, whole_units, source_path, EnvironmentError
+from vibernt_cupel.mutation_source import SourceChangedError, SourceFacts, SourceFactsLimitError
 from vibernt_cupel.__main__ import collect
 
 ROOT = Path(__file__).resolve().parents[3]
-PYTEST = Path('/Users/vid/codecrystal/.venv/bin/python')
+PYTEST = Path(sys.executable)
 
 
 class SitesTest(unittest.TestCase):
@@ -79,17 +80,18 @@ class SitesTest(unittest.TestCase):
         self.assertEqual([s.line for s in whole_units(sites, own, 1)], [2])
 
     def test_source_paths_stay_inside_scope(self):
-        for path in ('../secret.py', '/tmp/secret.py', '.env/secret.py'):
+        for path in ('../secret.py', '/tmp/secret.py', '.env/secret.py', 'credentials.py',
+                     'vendor/file.py', 'a//b.py', 'a/./b.py', 'a\\b.py'):
             with self.assertRaises(EnvironmentError):
                 source_path(ROOT, path)
 
 
-@unittest.skipUnless(PYTEST.exists(), 'read-only Python with pytest unavailable')
+@unittest.skipUnless(PYTEST.exists(), 'Python interpreter unavailable')
 class RunnerTest(unittest.TestCase):
     def setUp(self):
         import subprocess
         if subprocess.run([str(PYTEST), '-c', 'import pytest'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
-            self.skipTest('pytest unavailable in read-only CodeCrystal interpreter')
+            self.skipTest('pytest unavailable in the test interpreter')
         self.python_patch = patch('vibernt_cupel.mutation_run.sys.executable', str(PYTEST))
         self.python_patch.start()
         self.addCleanup(self.python_patch.stop)
@@ -109,7 +111,82 @@ class RunnerTest(unittest.TestCase):
         self.source.write_text(source)
         self.test.write_text(test)
         uid = 'tests/test_logic.py::test_value'
-        return {'sources': {'logic.py': {'coverable': covered}}, 'tests': [{'id': uid, 'file': 'tests/test_logic.py', 'name': 'test_value', 'status': 'passed', 'durationsMs': [1]}], 'coverage': {'granularity': 'test', 'byTest': {uid: {'logic.py': covered}}, 'setup': {'tests/test_logic.py': {}}}}
+        return {'sources': {'logic.py': {'coverable': covered, 'hash': 'sha256:' + hashlib.sha256(self.source.read_bytes()).hexdigest()}}, 'tests': [{'id': uid, 'file': 'tests/test_logic.py', 'name': 'test_value', 'status': 'passed', 'durationsMs': [1]}], 'coverage': {'granularity': 'test', 'byTest': {uid: {'logic.py': covered}}, 'setup': {'tests/test_logic.py': {}}}}
+
+    def test_source_pin_rejects_same_size_same_mtime_edit_with_same_site_id(self):
+        original = 'HEADER = 1\ndef value():\n    return True\n'
+        data = self.input(original, 'from logic import value\ndef test_value():\n    assert True\n', '1-3')
+        site = next(s for s in generate('logic.py', original) if s.operator == 'return-value')
+        before = self.source.stat()
+        changed = original.replace('HEADER = 1', 'HEADER = 2')
+        self.assertEqual(len(changed), len(original))
+        self.assertIn(site.id, {s.id for s in generate('logic.py', changed)})
+        self.source.write_text(changed)
+        os.utime(self.source, ns=(before.st_atime_ns, before.st_mtime_ns))
+        self.assertEqual(self.source.stat().st_size, before.st_size)
+        self.assertEqual(self.source.stat().st_mtime_ns, before.st_mtime_ns)
+        mutation = {'mutants': [{'id': site.id, 'source': site.source, 'line': site.line,
+                                 'operator': site.operator, 'status': 'survived'}], 'targeted': []}
+        with self.assertRaisesRegex(SourceChangedError, 'declared input hash differs'):
+            confirm(self.root, data, mutation, [site.id])
+
+    def test_source_paths_and_opaque_hash_refuse_before_read(self):
+        data = self.input('def value():\n    return True\n', 'def test_value():\n    assert True\n', '1-2')
+        (self.root / '.private.py').write_text('SECRET = 1\n')
+        (self.root / 'alias.py').symlink_to(self.root / '.private.py')
+        (self.root / 'linked.py').hardlink_to(self.source)
+        with patch('vibernt_cupel.mutation_source.os.open', side_effect=AssertionError('source bytes read')):
+            for path in ('.private.py', 'credentials.py', 'alias.py', 'linked.py'):
+                with self.subTest(path=path), self.assertRaises(SourceChangedError):
+                    SourceFacts(self.root, {'sources': {path: {'coverable': '1'}}}).retain(path)
+            data['sources']['logic.py']['hash'] = 'opaque-hash'
+            with self.assertRaisesRegex(SourceChangedError, 'opaque or noncanonical'):
+                SourceFacts(self.root, data)
+
+    def test_source_facts_are_bounded(self):
+        data = self.input('def value():\n    return True\n', 'def test_value():\n    assert True\n', '1-2')
+        with patch('vibernt_cupel.mutation_source.MAX_SOURCE_FACT_BYTES', 8):
+            with self.assertRaises(SourceFactsLimitError):
+                SourceFacts(self.root, data).retain('logic.py')
+
+    def test_confirmation_requires_declared_source_pin(self):
+        data = self.input('def value():\n    return True\n', 'def test_value():\n    assert True\n', '1-2')
+        del data['sources']['logic.py']['hash']
+        site = next(iter(generate('logic.py', self.source.read_text())))
+        mutation = {'mutants': [{'id': site.id, 'source': site.source, 'line': site.line,
+                                 'operator': site.operator, 'status': 'survived'}], 'targeted': []}
+        with self.assertRaisesRegex(SourceChangedError, 'requires a canonical declared input hash'):
+            confirm(self.root, data, mutation, [site.id])
+
+    def _writing_test(self, mutant_only):
+        condition = "if os.environ.get('CUPEL_MUTANT_SPEC'):\n" if mutant_only else 'if True:\n'
+        return ('import os\nfrom pathlib import Path\nfrom logic import value\n'
+                'def test_value():\n    source = Path(__file__).resolve().parents[1] / "logic.py"\n'
+                '    stamp = source.stat()\n    before = source.read_text()\n'
+                f'    {condition}'
+                '        source.write_text(before.replace("return True", "return False"))\n'
+                '        os.utime(source, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))\n'
+                '    assert value() is True\n')
+
+    def test_baseline_source_write_refuses_actual_pytest(self):
+        data = self.input('def value():\n    return True\n', self._writing_test(False), '1-2')
+        with self.assertRaisesRegex(SourceChangedError, 'bytes or path differ'):
+            mutate(self.root, data, {'changed': {'logic.py': '2'}},
+                   {'mutation': {'maxMutants': 1, 'maxSeconds': 20}}, jobs=1)
+
+    def test_mutant_source_write_refuses_actual_pytest(self):
+        data = self.input('def value():\n    return True\n', self._writing_test(True), '1-2')
+        with self.assertRaisesRegex(SourceChangedError, 'bytes or path differ'):
+            mutate(self.root, data, {'changed': {'logic.py': '2'}},
+                   {'mutation': {'maxMutants': 1, 'maxSeconds': 20}}, jobs=1)
+
+    def test_confirmation_source_write_refuses_actual_pytest(self):
+        data = self.input('def value():\n    return True\n', self._writing_test(True), '1-2')
+        site = next(s for s in generate('logic.py', self.source.read_text()) if s.operator == 'return-value')
+        mutation = {'mutants': [{'id': site.id, 'source': site.source, 'line': site.line,
+                                 'operator': site.operator, 'status': 'survived'}], 'targeted': []}
+        with self.assertRaisesRegex(SourceChangedError, 'bytes or path differ'):
+            confirm(self.root, data, mutation, [site.id])
 
     def test_function_scope_pseudo_and_checked(self):
         source = ('def ignored(x):\n    answer = x + 1\n    return answer\n\n'

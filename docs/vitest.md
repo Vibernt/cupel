@@ -1,6 +1,8 @@
 # Vitest collection
 
-Cupel uses the project's installed Vitest 3, 4 or 5. It detects Vitest from a `vitest` dependency, `vitest.config.*`, a `vite.config.*` with a `test` block, or `runners.vitest` in `cupel.json`. A plain Node project keeps node:test.
+Core ordinary full guard follows the [support matrix](support.md), with tested
+Vitest **4.1.11 / 5.0.1**. Cupel uses the project's installed Vitest; version 3 is
+recognized but has no local runtime acceptance. It detects Vitest from a `vitest` dependency, `vitest.config.*`, a `vite.config.*` with a `test` block, or `runners.vitest` in `cupel.json`. A plain Node project keeps node:test.
 
 `cupel report` runs `vitest run` with the `forks` pool, a setup hook and a reporter. Vitest's own coverage is disabled. The hook uses an in-process inspector session to take precise V8 coverage at test boundaries; the collector maps ranges from Vite's evaluated code through its inline source map to original lines. TypeScript-only lines do not count as coverable. The input holds individual tests, `test.each` rows sharing a unit, tags, durations, source hashes, per-test coverage, setup coverage, brittleness and shapes.
 

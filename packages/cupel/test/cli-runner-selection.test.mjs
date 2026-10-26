@@ -18,7 +18,7 @@ test('each named collector wins over node test discovery', async () => {
     writeFileSync(stub, `import { writeFileSync } from 'node:fs';
 writeFileSync(process.argv[process.argv.indexOf('--out') + 1], ${JSON.stringify(sample)});
 `);
-    for (const name of ['node', 'vitest', 'pytest', 'go', 'minitest', 'cargo', 'dotnet', 'custom']) {
+    for (const name of ['node', 'vitest', 'jest', 'pytest', 'go', 'minitest', 'cargo', 'dotnet', 'custom']) {
       const cfg = { runners: { [name]: { collector: `"${process.execPath}" "${stub}"` } } };
       const collector = await requireCollector(process.env, root, cfg);
       const input = await collector.collectNode({ root, runs: 1 });
@@ -27,6 +27,7 @@ writeFileSync(process.argv[process.argv.indexOf('--out') + 1], ${JSON.stringify(
     writeFileSync(join(root, 'vite.config.mjs'), 'export default { test: {} };\n');
     assert.equal((await requireCollector(process.env, root, { runners: { node: {} } })).kind, undefined);
     assert.equal((await requireCollector(process.env, root, { runners: { vitest: {} } })).kind, 'vitest');
+    assert.equal((await requireCollector(process.env, root, { runners: { jest: {} } })).kind, 'jest');
     assert.equal(typeof (await requireCollector(process.env, root, { runners: { cargo: {} } })).collectNode, 'function');
     await assert.rejects(requireCollector(process.env, root, { runners: { dotnet: {} } }), /runner dotnet needs a collector command/);
   } finally { rmSync(root, { recursive: true, force: true }); }

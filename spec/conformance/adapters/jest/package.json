@@ -1,0 +1,9 @@
+{
+  "name": "cupel-jest-adapter-fixture",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "jest": "30.2.0",
+    "typescript": "5.9.3"
+  }
+}

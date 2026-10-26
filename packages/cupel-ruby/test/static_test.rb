@@ -66,4 +66,32 @@ class StaticTest < Minitest::Test
       assert_equal Cupel::Static.shape(file, 2), Cupel::Static.shape(file, 5)
     end
   end
+
+  def test_definition_title_handles_generated_minitest_test_declarations
+    Dir.mktmpdir do |dir|
+      file = File.join(dir, 'test.rb')
+      File.write(file, <<~RUBY)
+        [false, true].each do |enabled|
+          test "with account\#{" in multi-tenant mode" if enabled}, the key is owned" do
+            assert true
+          end
+        end
+      RUBY
+      expected = File.readlines(file)[1].split('test ', 2).last.split(' do', 2).first
+      assert_equal expected, Cupel::Static.definition_title(file, 2)
+    end
+  end
+
+  def test_definition_title_rejects_ambiguous_or_malformed_declarations
+    Dir.mktmpdir do |dir|
+      file = File.join(dir, 'test.rb')
+      File.write(file, "test 'one' do; define_method('two') {}; end\n")
+      error = assert_raises(RuntimeError) { Cupel::Static.definition_title(file, 1) }
+      assert_match(/ambiguous test declaration/, error.message)
+
+      File.write(file, "test do\n  assert true\nend\n")
+      error = assert_raises(RuntimeError) { Cupel::Static.definition_title(file, 1) }
+      assert_match(/no test name/, error.message)
+    end
+  end
 end

@@ -2,9 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs
 import { createHash } from 'node:crypto';
 import { basename, delimiter, dirname, join, relative, sep } from 'node:path';
 import { execute, parallel } from './process.mjs';
-import { combineRuns, covered, exportLines, lineSet } from './coverage.mjs';
+import { combineRuns, covered, lineSet } from './coverage.mjs';
+import { exportLinesFromFile } from './export-stream.mjs';
 import { definitions, harnessName } from './tests.mjs';
 import { matchesTestFile } from './test-globs.mjs';
+import { CargoSourceFacts } from './source-facts.mjs';
 
 const remedy = 'rustup component add llvm-tools-preview';
 
@@ -74,8 +76,10 @@ async function profileFor({ binary, name, run, index, scratch, root, env, tools 
   }
   const profdata = join(scratch, `test-${index}-${run}.profdata`);
   await execute(tools.profdata, ['merge', '-sparse', ...raw, '-o', profdata], { root, env });
-  const exported = await execute(tools.cov, ['export', '-format=text', `-instr-profile=${profdata}`, binary, '--ignore-filename-regex=/.cargo/registry|/rustc/'], { root, env });
-  const files = exportLines(JSON.parse(exported.stdout), root);
+  const exportPath = join(scratch, `test-${index}-${run}.json`);
+  await execute(tools.cov, ['export', '-format=text', `-instr-profile=${profdata}`, binary, '--ignore-filename-regex=/.cargo/registry|/rustc/'], { root, env, stdoutPath: exportPath });
+  const files = await exportLinesFromFile(exportPath, root);
+  for (const path of [...raw, profdata, exportPath]) rmSync(path);
   return { status, duration: result.duration, coverage: covered(files), files };
 }
 
@@ -84,12 +88,13 @@ export async function collectCargo({ root, runs = 2, recheck = [], tests: testGl
   if (args.some((arg) => ['--no-run', '--message-format', '--offline', '--online', '--'].includes(arg) || arg.startsWith('--message-format='))) {
     throw new Error('cargo test arguments may not override collector build or offline options');
   }
+  const sourceFacts = new CargoSourceFacts(root);
   const env = { ...environment, ...targetEnvironment(root, environment), CARGO_NET_OFFLINE: 'true', RUSTFLAGS: [environment.RUSTFLAGS, '-C instrument-coverage'].filter(Boolean).join(' ') };
   const rustInfo = (await execute('rustc', ['-vV'], { root, env })).stdout;
   const version = /^release: (.+)$/m.exec(rustInfo)?.[1];
   if (!version) throw new Error('could not read exact Rust version');
   const tools = await llvmTools(root, env, rustInfo);
-  const sourceDefs = definitions(root);
+  const sourceDefs = definitions(root, sourceFacts.bytes);
   let packageArgs = [];
   if (testGlob) {
     const selected = sourceDefs.filter((item) => matchesTestFile(testGlob, item.file));
@@ -139,15 +144,18 @@ export async function collectCargo({ root, runs = 2, recheck = [], tests: testGl
     // preserves K13's temporal comparison and avoids racing stateful tests.
     const outputs = await parallel(jobs, async (job, index) => {
       const records = [];
-      for (let run = 0; run < runs; run++) records.push(await profileFor({ ...job, index, run, scratch, root, env, tools }));
+      for (let run = 0; run < runs; run++) {
+        const record = await profileFor({ ...job, index, run, scratch, root, env, tools });
+        for (const [path, lines] of record.files) {
+          if (!sources.has(path)) sources.set(path, new Set());
+          for (const line of lines.all) sources.get(path).add(line);
+        }
+        records.push({ status: record.status, duration: record.duration, coverage: record.coverage });
+      }
       return records;
-    });
+    }, 2);
     for (let index = 0; index < jobs.length; index++) {
       const job = jobs[index]; const records = outputs[index];
-      for (const record of records) for (const [path, lines] of record.files) {
-        if (!sources.has(path)) sources.set(path, new Set());
-        for (const line of lines.all) sources.get(path).add(line);
-      }
       tests.push({ id: job.id, file: job.file, name: job.name, ...(job.def?.tags ? { tags: job.def.tags } : {}),
         status: records.some((record) => record.status === 'failed') ? 'failed' : records.every((record) => record.status === 'skipped') ? 'skipped' : 'passed',
         durationsMs: records.map((record) => record.duration) });
@@ -155,9 +163,13 @@ export async function collectCargo({ root, runs = 2, recheck = [], tests: testGl
       if (job.def) { shapes[job.id] = job.def.shape; brittleness.push(...job.def.brittleness.map((finding) => ({ ...finding, test: job.id }))); }
     }
   } finally { rmSync(scratch, { recursive: true, force: true }); }
+  sourceFacts.assertFresh();
+  // Bind every inventoried source, including module-only/test-only files for
+  // which LLVM emitted no executable regions. Empty sets invent no coverage.
+  for (const file of sourceFacts.files) if (!sources.has(file)) sources.set(file, new Set());
   tests.sort((a, b) => a.id.localeCompare(b.id));
   return { spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'rust', version },
-    sources: Object.fromEntries([...sources].sort(([a], [b]) => a.localeCompare(b)).map(([path, lines]) => [path, { coverable: lineSet(lines) }])),
+    sources: Object.fromEntries([...sources].sort(([a], [b]) => a.localeCompare(b)).map(([path, lines]) => [path, { coverable: lineSet(lines), hash: sourceFacts.sourceHash(path) }])),
     tests, coverage: { granularity: 'test', byTest, setup: {}, ...(runs > 1 ? { unstable: Object.fromEntries([...unstable].sort(([a], [b]) => a.localeCompare(b)).map(([path, lines]) => [path, lineSet(lines)])) } : {}), rechecked: tests.map((test) => test.id) },
     brittleness, shapes };
 }

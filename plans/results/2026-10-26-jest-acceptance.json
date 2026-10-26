@@ -1,0 +1,362 @@
+{
+  "spec": "cupel-real-jest-acceptance/1",
+  "date": "2026-10-26",
+  "status": "passed",
+  "subject": {
+    "repository": "jest-community/jest-junit",
+    "commit": "f33e1f2c5bfb80e300cb5ed5734503d5d17f8ef0",
+    "tree": "85ebfcbeaac3f3c18fec50af4565de5bd1177ddd",
+    "originalTrackedFiles": 36,
+    "originalFilesUnchanged": true,
+    "manifestSha256": "2a0f74797647d82c98b5079b476e97b0c751895137a6ff22f8a7f18ea1fdffaf",
+    "lockSha256": "630b859874b1008cb66cd6fb4e64f956e0ec0a37688afd1f842f0ed46ba20237"
+  },
+  "artifact": {
+    "producerHash": "sha256:35d1ab98904e297eec616fec67b5f55ec38d55f294ee8be28760ffb3cf0ad5d9",
+    "sourceCount": 185,
+    "tarballSha256": "c17c2e3814015e277c882addeeb0e1416004fe78051b87360f6500594435c15f",
+    "bin": ".scratch/jest-real-acceptance/pinned-cupel-scope/bin/cupel.mjs",
+    "node": "26.7.0"
+  },
+  "setup": {
+    "installedExactLockEntries": 298,
+    "platformOptionalNotInstalled": 24,
+    "lockIntegrityChecks": 277,
+    "exactRegistryVersionIntegrityChecks": 21,
+    "lifecycleScripts": false,
+    "publicDependencySetupExplicitlyApproved": true
+  },
+  "originalLane": {
+    "files": [
+      "__tests__/buildJsonResults.test.js",
+      "__tests__/getOptions.test.js",
+      "__tests__/getTestSuitePropertiesPath.test.js",
+      "__tests__/testResultProcessor.test.js"
+    ],
+    "tests": 51,
+    "passed": 51,
+    "skipped": 0,
+    "configUnchanged": true,
+    "documentedNodeOptions": "--experimental-vm-modules",
+    "collectionRuns": 2,
+    "canonicalRowsMatch": true,
+    "sources": 10,
+    "coveredLines": 435,
+    "coverableLines": 469,
+    "coveragePercent": 92.75
+  },
+  "policy": {
+    "scope": {
+      "include": [
+        "**"
+      ],
+      "exclude": []
+    },
+    "runners": {
+      "jest": {
+        "env": {
+          "NODE_OPTIONS": "--experimental-vm-modules"
+        }
+      }
+    },
+    "tiers": {
+      "critical": [
+        "utils/replaceRootDirInPath.js",
+        "utils/getOutputPath.js"
+      ]
+    },
+    "mutation": {
+      "critical": true,
+      "changedLines": true,
+      "targeted": true,
+      "maxMutants": 200,
+      "maxSeconds": 300,
+      "seed": 20261021
+    },
+    "guard": {
+      "coverage": "ratchet",
+      "criticalCoverage": "ratchet",
+      "criticalMutation": "no-loss"
+    }
+  },
+  "mutation": {
+    "scope": "Two declared original public output-path API sources; complete original test lane; all ten sources analyzed.",
+    "generated": 11,
+    "valid": 11,
+    "invalid": 0,
+    "executed": 11,
+    "sampled": false,
+    "baselineKilled": 11,
+    "bodyReplaceKilled": 2,
+    "weakenedKilled": 10,
+    "weakenedSurvived": 1,
+    "lostMutant": "utils/replaceRootDirInPath.js:9:7:return-value:b74324dd",
+    "originalPerTestProductionCoverageUnchanged": true,
+    "sourceHashesUnchanged": true,
+    "cliConfirmationInvocationObserved": true,
+    "supplementalInstalledConfirmationIterations": 2
+  },
+  "guards": {
+    "unchanged": {
+      "exit": 0,
+      "pass": true
+    },
+    "weakened": {
+      "ordinaryTestsStillPassed": 51,
+      "exit": 1,
+      "pass": false,
+      "coverageLoss": false,
+      "criticalKillLoss": 1
+    }
+  },
+  "mcp": {
+    "status": "passed",
+    "kind": "fresh live Git guards via local stdio",
+    "unchanged": {
+      "isError": false,
+      "guardPass": true,
+      "wallMs": 16746
+    },
+    "weakened": {
+      "isError": false,
+      "guardPass": false,
+      "wallMs": 19261
+    },
+    "exactCliReportParity": true,
+    "savedInput": false,
+    "snapshotReplay": false,
+    "originalAssertionRestored": true
+  },
+  "sourcePinControl": {
+    "status": "passed",
+    "supplemental": true,
+    "originalTests": 51,
+    "addedPins": 2,
+    "totalTests": 53,
+    "files": 4,
+    "mutantsKilled": 11,
+    "pinsKillerCredit": 0,
+    "directMutantPinPasses": 2,
+    "ordinaryWallMs": 871,
+    "reportWallMs": 8401,
+    "directWallMs": 1756
+  },
+  "gates": {
+    "ordinary-full-lane": {
+      "status": "passed"
+    },
+    "installed-two-run-collection-parity": {
+      "status": "passed"
+    },
+    "critical-mutation-baseline": {
+      "status": "passed"
+    },
+    "unchanged-live-Git-guard": {
+      "status": "passed"
+    },
+    "passing-weakened-assertion-critical-kill-loss": {
+      "status": "passed"
+    },
+    "two-required-survivor-confirmations": {
+      "status": "passed"
+    },
+    "original-source-hash-preservation": {
+      "status": "passed"
+    },
+    "separate-pristine-source-pin-control": {
+      "status": "passed"
+    },
+    "installed-live-MCP-positive-negative-parity": {
+      "status": "passed"
+    }
+  },
+  "helperSmokes": {
+    "node26": {
+      "version": "26.7.0",
+      "tests": 3,
+      "exit": 0
+    },
+    "node22": {
+      "version": "22.23.3",
+      "tests": 3,
+      "exit": 0
+    }
+  },
+  "commands": {
+    "final-helper-node22": {
+      "exit": 0,
+      "wallMs": 268
+    },
+    "final-helper-node26": {
+      "exit": 0,
+      "wallMs": 168
+    },
+    "final-original-diff": {
+      "exit": 0,
+      "wallMs": 8
+    },
+    "final-producer": {
+      "exit": 0,
+      "wallMs": 68
+    },
+    "harness-tests": {
+      "exit": 0,
+      "wallMs": 156
+    },
+    "installed-baseline-report": {
+      "exit": 0,
+      "wallMs": 8414
+    },
+    "installed-confirmations": {
+      "exit": 0,
+      "wallMs": 2344
+    },
+    "installed-producer": {
+      "exit": 0,
+      "wallMs": 98
+    },
+    "installed-unchanged-guard": {
+      "exit": 0,
+      "wallMs": 16074
+    },
+    "installed-weakened-guard": {
+      "exit": 1,
+      "wallMs": 18055
+    },
+    "installed-weakened-report": {
+      "exit": 0,
+      "wallMs": 7946
+    },
+    "mcp-unchanged-live-guard": {
+      "exit": 0,
+      "wallMs": 16746
+    },
+    "mcp-weakened-live-guard": {
+      "exit": 0,
+      "wallMs": 19261
+    },
+    "npm-ci": {
+      "exit": 0,
+      "wallMs": 3164
+    },
+    "ordinary-list-files": {
+      "exit": 0,
+      "wallMs": 164
+    },
+    "ordinary-original": {
+      "exit": 0,
+      "wallMs": 1772
+    },
+    "ordinary-weakened": {
+      "exit": 0,
+      "wallMs": 804
+    },
+    "pinned-producer": {
+      "exit": 0,
+      "wallMs": 67
+    },
+    "scope-producer": {
+      "exit": 0,
+      "wallMs": 70
+    },
+    "source-checkout": {
+      "exit": 0,
+      "wallMs": 733
+    },
+    "source-fetch": {
+      "exit": 0,
+      "wallMs": 1015
+    },
+    "source-head": {
+      "exit": 0,
+      "wallMs": 6
+    },
+    "source-init": {
+      "exit": 0,
+      "wallMs": 13
+    },
+    "source-pin-direct": {
+      "exit": 0,
+      "wallMs": 1756
+    },
+    "source-pin-ordinary": {
+      "exit": 0,
+      "wallMs": 871
+    },
+    "source-pin-report": {
+      "exit": 0,
+      "wallMs": 8401
+    },
+    "source-tree": {
+      "exit": 0,
+      "wallMs": 7
+    },
+    "weak-assertion-diff": {
+      "exit": 0,
+      "wallMs": 9
+    }
+  },
+  "limitations": [
+    "Narrow Jest30.2.0/circus/Node environment only; original CJS tests plus documented VM-module dependency setup.",
+    "Mutation covers declared critical sources, not every function or every possible mutant in the project.",
+    "Two source-pin tests are supplemental and excluded from original51-test acceptance counts.",
+    "No hosted CI, publication, other versions, native ESM tests, selective execution, or broad third-party-transform acceptance established."
+  ],
+  "speedupClaim": false,
+  "memory": "not measured",
+  "productSourceChanged": false,
+  "originalAssertionRestored": true,
+  "evidence": {
+    "root": ".scratch/jest-real-acceptance/evidence",
+    "manifestSha256": "77d8e145b84918324e71ff1565439e94f642deead7cdc04ca399713c8252ba6a",
+    "acceptanceSha256": "eef749cb2b1934ddd8245c280bc5b765eb9a52e231e077b837eec4832465e5f6",
+    "fileCount": 190,
+    "keyCommandHashes": {
+      "installed-baseline-report": {
+        "commandSha256": "06aed0eedb1d010976b8b88b88a5dd719a01bbf1227b6795321714d9a1e07acc",
+        "stdoutSha256": "4c980eb56a97f49536530f8070fe763c25b13d599189bbe1acf825af84fdb150",
+        "stderrSha256": "e10a0516ce758f8613e1b4f7d690c35e956d09b6ad9cf4cca1255cb2318ff22f"
+      },
+      "installed-unchanged-guard": {
+        "commandSha256": "8ae4050fc757e762181c59f73b4121a7a650d280145674ce23dbbf520c19f691",
+        "stdoutSha256": "73ed5d8b165c5d29d3caa7c10bede4ae850013dc7765a60b30961850bed7147b",
+        "stderrSha256": "d0129eb157938f1b716ee16a4172dfdc4847803559fc29a29e48635f5eb4bb18"
+      },
+      "installed-weakened-guard": {
+        "commandSha256": "133aefa1a306fd60b7812a1a2b8be20a2e26d39ed4bd4cb53e1a2b714129eec8",
+        "stdoutSha256": "faec82f2319bc47e22537a7bc38cab54c32d93f75873f78e97ce0ec537da6e48",
+        "stderrSha256": "e63c61a101096e031e3a1ae4f907dbb9ff2fc501356f92b5ab2765f7528fc744"
+      },
+      "mcp-unchanged-live-guard": {
+        "commandSha256": "198d3b7df48fc3f78237f4bab6a1fadfdf17e4606aee83109a17756d5fd67424",
+        "stdoutSha256": "50034b2803087ce29bb7a32106f383de2dfb08b3051ac7958f15084af63bd2e2",
+        "stderrSha256": "7b85f3d7a58a347d892699cacf57bc18fca2ea32d1d26c6991767f2073eae49b"
+      },
+      "mcp-weakened-live-guard": {
+        "commandSha256": "b4fb4d337afd5f867d1f04e6bb245ac07ef75d85fbf17addb48a5b6ff3a23e91",
+        "stdoutSha256": "adb23cdddeae1f9de67e8341b1a7c3d273e2096a75a2f86e93db8cac02115950",
+        "stderrSha256": "0219009618f4404dd40d5a95df0279a5a9e6e5b7aa9f2cf411f02df01c586486"
+      },
+      "source-pin-report": {
+        "commandSha256": "b369fc49d9c0f090f7b4bc0288684d9687ec23b4e948aaed721b617947c34f6b",
+        "stdoutSha256": "a1a21cd7f43120de8350907d20c3034a90a898694eed4b437cab7e8af282b914",
+        "stderrSha256": "d058c48b30d8827af28f147679148e580234276b9448b0c60a95d0b9461bf310"
+      },
+      "source-pin-direct": {
+        "commandSha256": "148849090a038d5d8802d32f0c339bb1b9afede05bd0fb535ab26f8c0d5adc02",
+        "stdoutSha256": "0a252c9e72e864e7dd6a48ee3cc200c53805ee24f257dece572841ad41b165fa",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-helper-node26": {
+        "commandSha256": "1a9bb2f46e5d86b8315925e2a15a033262187a8a92192b96fba4aa0886ed64ef",
+        "stdoutSha256": "3b35c4c772f04ffa158544fea32987860dbbc7e890313b74d5e4212bbe2ad2a9",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-helper-node22": {
+        "commandSha256": "98cececefbf26e3ff37b6e6091922cb6eb6610341f197fec6f60e1585cdd353a",
+        "stdoutSha256": "e4b7fc04c6901549454a23d118c86eccd3b850d1c24b678b5309b8e487d4a896",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  }
+}

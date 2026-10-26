@@ -1,14 +1,14 @@
 {
   "name": "@vibernt/cupel",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Know which tests protect you. CLI and MCP for people and coding agents.",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "engines": { "node": ">=22" },
   "bin": { "cupel": "bin/cupel.mjs" },
   "exports": { ".": "./src/index.mjs" },
-  "files": ["bin", "src", "schemas"],
+  "files": ["bin", "src", "schemas", "ruby", "LICENSE", "NOTICE"],
   "scripts": {
     "test": "node --test --test-reporter=dot \"test/**/*.test.mjs\""
   }

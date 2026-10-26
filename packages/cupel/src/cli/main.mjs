@@ -36,6 +36,21 @@ const S = { type: 'string' };
 const B = { type: 'boolean' };
 
 const COMMANDS = {
+  'pr-producer': {
+    usage: 'cupel pr-producer [--json]',
+    about: 'experimental: inspect the private selective-profile producer pin',
+    options: {},
+  },
+  'pr-prepare': {
+    usage: 'cupel pr-prepare --profile node-readonly-files-v2 --base COMMIT --producer-sha256 PIN --work-dir DIR --out FILE [--node PATH]',
+    about: 'experimental: prepare a sealed Node 26 selective baseline',
+    options: { profile: S, base: S, 'producer-sha256': S, 'work-dir': S, out: S, node: S, 'input-policy': S },
+  },
+  pr: {
+    usage: 'cupel pr --profile node-readonly-files-v2 --base COMMIT --baseline FILE --baseline-sha256 PIN --producer-sha256 PIN --work-dir DIR --out FILE [--node PATH]',
+    about: 'experimental: execute a scoped Node 26 PR check with a pinned baseline',
+    options: { profile: S, base: S, baseline: S, 'baseline-sha256': S, 'producer-sha256': S, 'work-dir': S, out: S, node: S, 'input-policy': S },
+  },
   pseudo: {
     usage: 'cupel pseudo [--input <file>] [--json]',
     about: 'find functions run without an extreme-mutant kill',
@@ -96,13 +111,13 @@ const COMMANDS = {
   },
   'collect-go': {
     usage: 'cupel collect-go --root DIR [--runs N] [--tests GLOB] [--recheck UNIT…] [--out FILE] [-- packages…]',
-    about: 'collect Go test coverage as cupel-spec/1 input',
+    about: 'preview: collect bounded Go test coverage as cupel-spec/1 input',
     options: { root: S, runs: S, tests: S, recheck: { type: 'string', multiple: true }, out: S },
     positionals: true,
   },
   'collect-cargo': {
     usage: 'cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]',
-    about: 'collect Rust cargo test coverage as cupel-spec/1 input',
+    about: 'preview: collect Rust cargo test coverage as cupel-spec/1 input',
     options: { root: S, runs: S, tests: S, recheck: { type: 'string', multiple: true }, out: S },
     positionals: true,
   },
@@ -131,6 +146,8 @@ Common options:
   --version        show the version
 
 Exit codes: 0 ok, 1 a guardrail or check failed, 2 usage or invalid input, 3 environment.
+First-release scope: JS/TS/Python ordinary full guard; bounded Go/Ruby/Rust previews.
+Selective PR commands are private experiments outside the supported first release.
 See docs/cli.md.
 `;
 }
@@ -221,8 +238,7 @@ class Context {
   async mutator() {
     if (this.o['no-mutation']) return null;
     const m = await loadModule('mutator', this.env);
-    if (!m && (this.io.strictDependencies || this.command === 'review')) throw environment('mutation not available');
-    if (!m) this.log('mutation not available; continuing without mutation data');
+    if (!m) throw environment('mutation not available; use --no-mutation only when intentionally collecting without it');
     return m;
   }
 
@@ -247,7 +263,7 @@ class Context {
 /** Collects the working tree with mutation per config. */
 async function collectHead(ctx, { collector, mutator, cfg, changed }) {
   let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped });
-  if (mutator && (input.runtimes || ['node', 'python'].includes(input.runtime.name))) {
+  if (mutator) {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
     const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
     if (m) input = inheritRunnerParts(input, { ...input, mutation: m });
@@ -257,9 +273,9 @@ async function collectHead(ctx, { collector, mutator, cfg, changed }) {
 
 /** Collects a git ref in a temporary directory, with critical mutation per config. */
 function collectBase(ctx, { mutator, cfg, ref }) {
-  return collectRef({ root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log, env: ctx.env }, async (dir, input) => {
-    if (!mutator || (!input.runtimes && !['node', 'python'].includes(input.runtime.name))) return input;
-    const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log, collectorKind: collector.kind });
+  return collectRef({ root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log, env: ctx.env }, async (dir, input, refCollector) => {
+    if (!mutator) return input;
+    const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log, collectorKind: refCollector.kind });
     return m ? inheritRunnerParts(input, { ...input, mutation: m }) : input;
   });
 }
@@ -344,12 +360,12 @@ const commands = {
       const partCfg = name ? { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } } : cfg;
       let mutation;
       if (!part.mutation) {
-        mutation = await mutate(mutator, { root: ctx.root, cfg: partCfg, input: part, scope: { functions: true }, log: ctx.log, collectorKind: name === 'vitest' ? 'vitest' : collector.kind, diagnostics: ctx.skipped });
+        mutation = await mutate(mutator, { root: ctx.root, cfg: partCfg, input: part, scope: { functions: true }, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind, diagnostics: ctx.skipped });
       } else if (part.mutation.mutants.some((m) => m.operator !== 'body-replace')) {
         throw usage('pseudo --input needs function-scope body-replace mutation data');
       } else mutation = part.mutation;
       const survivors = mutation.mutants.filter((m) => m.status === 'survived').map((m) => m.id);
-      mutation = await confirm(mutator, { root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: name === 'vitest' ? 'vitest' : collector.kind });
+      mutation = await confirm(mutator, { root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind });
       const measured = { ...part, mutation };
       const sites = part.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg: partCfg, input: measured }) :
       Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
@@ -386,7 +402,7 @@ const commands = {
     let { input } = got;
     let result = ctx.engine('report', { input });
     const { collector, mutator, cfg } = got;
-    if (got.collected && ctx.o.evidence && mutator && (input.runtimes || ['node', 'python'].includes(input.runtime.name)) && result.exit === EXIT_OK) {
+    if (got.collected && ctx.o.evidence && mutator && result.exit === EXIT_OK) {
       // Optional evidence pass: re-check units whose unique coverage is unverified.
       const candidates = result.report.units
         .filter((u) => u.hints.includes('no-unique-coverage-unverified'))
@@ -656,6 +672,10 @@ export async function main(argv, io) {
     if (parsed.values.help) {
       io.out(`usage: ${COMMANDS[cmd].usage}\n\n${COMMANDS[cmd].about}. See docs/${cmd === 'mcp' ? 'mcp' : 'cli'}.md.\n`);
       return EXIT_OK;
+    }
+    if (['pr-producer', 'pr-prepare', 'pr'].includes(cmd)) {
+      const { prCommand } = await import('./pr.mjs');
+      return prCommand(cmd, parsed.values, io);
     }
     if (cmd === 'mcp') {
       if (parsed.positionals.length) throw usage('mcp takes no positional arguments');

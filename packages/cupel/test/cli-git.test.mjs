@@ -144,7 +144,7 @@ test('guard --base collects the base from git archive in a temp dir, runs prepar
   const head = git(dir, 'rev-parse', 'HEAD');
   const log = join(TMP, 'guard.log');
 
-  const r = cli(dir, ['guard', '--base', 'HEAD', '--json'], { CUPEL_STUB_LOG: log });
+  const r = cli(dir, ['guard', '--base', 'HEAD', '--no-mutation', '--json'], { CUPEL_STUB_LOG: log });
   const expected = run('guard', { base: read(`${c}base.json`), head: read(`${c}head.json`) }, config, {}, schemas);
   assert.equal(r.stdout, `${JSON.stringify(expected.report, null, 2)}\n`, r.stderr);
   assert.equal(r.status, 0);
@@ -169,20 +169,33 @@ test('guard --base collects the base from git archive in a temp dir, runs prepar
   git(dir, 'commit', '-q', '-m', 'head');
   const fail = cli(dir, ['guard', '--base', 'HEAD~1', '--base-input', `${CASES}045-guard-critical-removed/base.json`]);
   assert.equal(fail.status, 2, 'both --base and --base-input');
-  const human = cli(dir, ['guard', '--base-input', `${CASES}045-guard-critical-removed/base.json`]);
+  const human = cli(dir, ['guard', '--base-input', `${CASES}045-guard-critical-removed/base.json`, '--no-mutation']);
   assert.equal(human.status, 1, human.stderr);
   assert.match(human.stdout, /^FAIL {2}critical-removed/m);
   assert.match(human.stdout, /guard failed/);
 
-  assert.equal(cli(dir, ['guard', '--base', 'no-such-ref']).status, 3);
+  assert.equal(cli(dir, ['guard', '--base', 'no-such-ref', '--no-mutation']).status, 3);
 });
 
 test('a failing prepare exits 3 and still cleans up', () => {
   const config = { runners: { node: { prepare: `"${process.execPath}" -e "process.exit(5)"` } } };
   const dir = repo('prepare-fails', { 'stub-input.json': read(`${CASES}040-guard-pass/base.json`), 'cupel.json': config });
-  const r = cli(dir, ['guard', '--base', 'HEAD']);
+  const r = cli(dir, ['guard', '--base', 'HEAD', '--no-mutation']);
   assert.equal(r.status, 3);
   assert.match(r.stderr, /prepare failed \(exit 5\)/);
+});
+
+test('a missing mutation module exits 3 unless the caller explicitly opts out', () => {
+  const c = `${CASES}040-guard-pass/`;
+  const dir = repo('missing-mutator', { 'stub-input.json': read(`${c}head.json`) });
+  const missing = cli(dir, ['report', '--json']);
+  assert.equal(missing.status, 3);
+  assert.match(missing.stderr, /mutation not available/);
+  assert.equal(missing.stdout, '');
+
+  const explicit = cli(dir, ['report', '--no-mutation', '--json']);
+  assert.equal(explicit.status, 0, explicit.stderr);
+  assert.equal(JSON.parse(explicit.stdout).command, 'report');
 });
 
 test('check: file arguments expand to their units; --base compares with the collected base', () => {
@@ -195,16 +208,16 @@ test('check: file arguments expand to their units; --base compares with the coll
   writeFileSync(join(dir, file), '// test file\n');
   const units = [...new Set(head.tests.filter((t) => t.file === file).map((t) => t.unit ?? t.id))].sort();
 
-  const r = cli(join(dir, file, '..'), ['check', file.split('/').pop(), '--base', 'HEAD', '--json']);
+  const r = cli(join(dir, file, '..'), ['check', file.split('/').pop(), '--base', 'HEAD', '--no-mutation', '--json']);
   const expected = run('check', { base: read(`${c}base.json`), head }, {}, { tests: units }, schemas);
   assert.equal(r.stdout, `${JSON.stringify(expected.report, null, 2)}\n`, r.stderr);
   assert.equal(r.status, 1);
 
-  const human = cli(dir, ['check', 'w', '--base', 'HEAD']);
+  const human = cli(dir, ['check', 'w', '--base', 'HEAD', '--no-mutation']);
   assert.match(human.stdout, /^weakens {2}w {2}lost /m);
 
   // The same file named from --input, as written in the input.
-  const byPath = cli(dir, ['check', file, '--input', `${c}head.json`, '--json']);
+  const byPath = cli(dir, ['check', file, '--input', `${c}head.json`, '--no-mutation', '--json']);
   assert.deepEqual(JSON.parse(byPath.stdout).check.verdicts.map((v) => v.id), units);
 });
 

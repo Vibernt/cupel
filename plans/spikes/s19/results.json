@@ -1,0 +1,236 @@
+{
+  "version": "cupel-s19-result/1",
+  "verdict": "no-product-change",
+  "reason": "No complete workload reached 10 ms or 5% whole-call selection share; repeated parsing also missed both.",
+  "sourcePins": {
+    "productMutation": "9e24423e3e5f3674d5608dcd7b84d31bf278b26e16bb79820b6e9caf9b12646f",
+    "productClosure": {
+      "sourceHash": "c16ae8da078733986164da7a4590d1a6d3172554e98601c9f00ed6eb3d524ff1",
+      "schemaHash": "1d8eec60a51a899e0802b02a87baf522471431f724d2559682e9b6e13bb3688a",
+      "parserHash": "29aee23c96018eb7064a0ff134320072419a96593a67a7b72b312b80900bed7b"
+    },
+    "control": {
+      "module": "/Users/vid/cupel/.scratch/s19/runtime-5vPupQ/control/packages/cupel/src/mutate/index.mjs",
+      "mutationSourceHash": "722a098548e747747a86e2a6cefea32472ed29dd1e439c7535a0d5ede4ee76df",
+      "sourceHash": "c0ddbfac1c2452d176f28bba9c0c0079bd633f0dc05f426f591ab9503a82396c",
+      "schemaHash": "1d8eec60a51a899e0802b02a87baf522471431f724d2559682e9b6e13bb3688a",
+      "parserHash": "29aee23c96018eb7064a0ff134320072419a96593a67a7b72b312b80900bed7b"
+    },
+    "instrumented": {
+      "module": "/Users/vid/cupel/.scratch/s19/runtime-5vPupQ/instrumented/packages/cupel/src/mutate/index.mjs",
+      "mutationSourceHash": "5f4e9bb5221278d3703d3ed0a4695aa8bc8c110724013dd7db9566b8f66062a2",
+      "sourceHash": "524b55f21a50fe47eec8913de2afc22e3d9ab5f1eb405c92270607893f166083",
+      "schemaHash": "1d8eec60a51a899e0802b02a87baf522471431f724d2559682e9b6e13bb3688a",
+      "parserHash": "29aee23c96018eb7064a0ff134320072419a96593a67a7b72b312b80900bed7b"
+    }
+  },
+  "raw": {
+    "runtime": ".scratch/s19/runtime-5vPupQ/manifest.json",
+    "node26": ".scratch/s19/profile-EGUXJ9/results.json",
+    "node22": ".scratch/s19/profile-eQg53C/results.json",
+    "launches26": ".scratch/s19/launch-l932li/result.json",
+    "launches22": ".scratch/s19/launch-WHBIzc/result.json",
+    "express26": ".scratch/s19/express-replay-0NvLhL/result.json",
+    "express22": ".scratch/s19/express-replay-WiCn2v/result.json"
+  },
+  "runtimes": {
+    "node26": {
+      "version": "v26.7.0",
+      "warmupsPerCase": 1,
+      "alternatingPairsPerCase": 3,
+      "exactMutationConfirmationMetricsAndLaunchParity": true,
+      "cases": {
+        "node-existing": {
+          "kind": "existing runner fixture",
+          "controlWholeMedianMs": 339.187083,
+          "selectMedianMs": 0.308915,
+          "selectShare": 0.0009107510736191567,
+          "repeatedParseMedianMs": 0.087794,
+          "repeatedParseShare": 0.0002588365076390601,
+          "calibratedClockOverheadMs": 0.004088124000000004,
+          "counts": {
+            "tests": 4,
+            "mutants": 6,
+            "survivorRechecks": 1
+          },
+          "actualJobs": 6,
+          "launches": {
+            "test": 10,
+            "jest": 0,
+            "validity": 2,
+            "other": 0,
+            "projectSourceReadCalls": 34,
+            "projectSourceReadBytes": 4896
+          },
+          "callsMutation": 12,
+          "callsConfirmation": 3,
+          "parseCallsMutation": 48,
+          "parseCallsConfirmation": 12
+        },
+        "jest-existing": {
+          "kind": "existing runner fixture",
+          "controlWholeMedianMs": 1400.782083,
+          "selectMedianMs": 0.142042,
+          "selectShare": 0.00010140192519866775,
+          "repeatedParseMedianMs": 0.02575,
+          "repeatedParseShare": 0.00001838258806455622,
+          "calibratedClockOverheadMs": 0.0006540998400000007,
+          "counts": {
+            "tests": 8,
+            "mutants": 2,
+            "survivorRechecks": 0
+          },
+          "actualJobs": 6,
+          "launches": {
+            "test": 0,
+            "jest": 4,
+            "validity": 2,
+            "other": 0,
+            "projectSourceReadCalls": 12,
+            "projectSourceReadBytes": 912
+          },
+          "callsMutation": 4,
+          "callsConfirmation": 0,
+          "parseCallsMutation": 8,
+          "parseCallsConfirmation": 0
+        },
+        "source-heavy": {
+          "kind": "synthetic executable whole request",
+          "controlWholeMedianMs": 501.479917,
+          "selectMedianMs": 0.473752,
+          "selectShare": 0.0009447078216693572,
+          "repeatedParseMedianMs": 0.179711,
+          "repeatedParseShare": 0.00035836131001034684,
+          "calibratedClockOverheadMs": 0.006813540000000007,
+          "counts": {
+            "tests": 3,
+            "mutants": 8,
+            "survivorRechecks": 3
+          },
+          "actualJobs": 6,
+          "launches": {
+            "test": 16,
+            "jest": 0,
+            "validity": 3,
+            "other": 0,
+            "projectSourceReadCalls": 57,
+            "projectSourceReadBytes": 1147125
+          },
+          "callsMutation": 16,
+          "callsConfirmation": 9,
+          "parseCallsMutation": 64,
+          "parseCallsConfirmation": 36
+        }
+      },
+      "expressReplay": {
+        "kind": "input-only kernel replay, excluded from promotion gate",
+        "totalCoverableUnique": 3396,
+        "coveredCoverableUnique": 564,
+        "sampledUniqueQueries": 200,
+        "selectorMs": 12.636007,
+        "repeatedParseMs": 10.711629,
+        "targetedFull": 27,
+        "nonemptySelectedQueries": 107
+      }
+    },
+    "node22": {
+      "version": "v22.23.3",
+      "warmupsPerCase": 1,
+      "alternatingPairsPerCase": 3,
+      "exactMutationConfirmationMetricsAndLaunchParity": true,
+      "cases": {
+        "node-existing": {
+          "kind": "existing runner fixture",
+          "controlWholeMedianMs": 508.796375,
+          "selectMedianMs": 0.352499,
+          "selectShare": 0.0006928095743606664,
+          "repeatedParseMedianMs": 0.084833,
+          "repeatedParseShare": 0.0001667327130622737,
+          "calibratedClockOverheadMs": 0.004226187000000003,
+          "counts": {
+            "tests": 4,
+            "mutants": 6,
+            "survivorRechecks": 1
+          },
+          "actualJobs": 6,
+          "launches": {
+            "test": 10,
+            "jest": 0,
+            "validity": 2,
+            "other": 0,
+            "projectSourceReadCalls": 34,
+            "projectSourceReadBytes": 4896
+          },
+          "callsMutation": 12,
+          "callsConfirmation": 3,
+          "parseCallsMutation": 48,
+          "parseCallsConfirmation": 12
+        },
+        "jest-existing": {
+          "kind": "existing runner fixture",
+          "controlWholeMedianMs": 1546.5605420000002,
+          "selectMedianMs": 0.22425,
+          "selectShare": 0.0001449991732687048,
+          "repeatedParseMedianMs": 0.020333,
+          "repeatedParseShare": 0.000013147238305786284,
+          "calibratedClockOverheadMs": 0.0006761899200000004,
+          "counts": {
+            "tests": 8,
+            "mutants": 2,
+            "survivorRechecks": 0
+          },
+          "actualJobs": 6,
+          "launches": {
+            "test": 0,
+            "jest": 4,
+            "validity": 2,
+            "other": 0,
+            "projectSourceReadCalls": 12,
+            "projectSourceReadBytes": 912
+          },
+          "callsMutation": 4,
+          "callsConfirmation": 0,
+          "parseCallsMutation": 8,
+          "parseCallsConfirmation": 0
+        },
+        "source-heavy": {
+          "kind": "synthetic executable whole request",
+          "controlWholeMedianMs": 775.356916,
+          "selectMedianMs": 0.579126,
+          "selectShare": 0.0007469153728423054,
+          "repeatedParseMedianMs": 0.185539,
+          "repeatedParseShare": 0.00023929495716267012,
+          "calibratedClockOverheadMs": 0.007043645000000005,
+          "counts": {
+            "tests": 3,
+            "mutants": 8,
+            "survivorRechecks": 3
+          },
+          "actualJobs": 6,
+          "launches": {
+            "test": 16,
+            "jest": 0,
+            "validity": 3,
+            "other": 0,
+            "projectSourceReadCalls": 57,
+            "projectSourceReadBytes": 1147125
+          },
+          "callsMutation": 16,
+          "callsConfirmation": 9,
+          "parseCallsMutation": 64,
+          "parseCallsConfirmation": 36
+        }
+      },
+      "expressReplay": {
+        "kind": "input-only kernel replay, excluded from promotion gate",
+        "totalCoverableUnique": 3396,
+        "coveredCoverableUnique": 564,
+        "sampledUniqueQueries": 200,
+        "selectorMs": 14.372116,
+        "repeatedParseMs": 11.409868,
+        "targetedFull": 27,
+        "nonemptySelectedQueries": 107
+      }
+    }
+  }
+}

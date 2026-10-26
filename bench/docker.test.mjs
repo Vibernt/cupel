@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cacheEnv, dockerArgs, dockerBuildArgs } from './docker.mjs';
+import { cacheEnv, dockerArgs, dockerBuildArgs, cupelCommand } from './docker.mjs';
+
+test('timed report fails explicitly when RSS measurement tool is missing', () => {
+  const command = cupelCommand({}, 'report', '--json', true);
+  assert.match(command, /\/usr\/bin\/time is required/);
+  assert.match(command, /exit 127/);
+  assert.doesNotMatch(command, /else/);
+});
 
 test('every Docker command creates the cache home before running', () => {
   const repo = { name: 'ruby-sample', dir: '/tmp/sample', runner: 'minitest', image: 'ruby:3-bookworm' };

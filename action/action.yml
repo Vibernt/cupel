@@ -1,0 +1,18 @@
+name: Cupel guard
+description: Run the full Cupel guard with policy and approvals from an exact trusted base commit.
+inputs:
+  base-commit:
+    description: Full Git commit id of the trusted base (40 or 64 hex characters).
+    required: true
+  approvals-path:
+    description: Optional repository-relative JSON approvals file in the trusted base commit.
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Full Cupel guard
+      shell: bash
+      env:
+        CUPEL_BASE_COMMIT: ${{ inputs.base-commit }}
+        CUPEL_APPROVALS_PATH: ${{ inputs.approvals-path }}
+      run: node "$GITHUB_ACTION_PATH/runner.mjs"

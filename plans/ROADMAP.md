@@ -1,8 +1,70 @@
 # Roadmap
 
+## Frozen first-release scope (2026-10-26)
+
+The owner selected **JS/TS/Python core full guard**, **bounded Go/Ruby/Rust
+preview**, and **private experimental selective PR outside the supported first
+release**. The authoritative [support matrix](../docs/support.md) defines exact
+versions and evidence. This scopes the first release; it does not erase the
+seven-runner work queue or promote a failed profile. [Real-repository ordinary
+Jest acceptance](results/2026-10-26-jest-acceptance.md) passed on the complete
+original 51-test / 4-file jest-junit lane; native real-repository acceptance is
+unrun. Hosted required-check enforcement is unverified. No generic CI speedup
+or publication approval is claimed. Private experimental commands and warnings
+remain intact.
+
+The active private handoff is
+`.scratch/private-candidate/handoff-scope-ALquxx/handoff.json`. Its final gates
+passed: **615 Node outcomes on each of Node 26 and Node 22**, **45 Python tests**
+with no skips, and **35 Ruby tests / 148 assertions**. The same npm archive
+passed both runtimes; the stable private installation is updated and its
+predecessor retained. Version remains private `0.0.0`, with uncommitted source.
+
+Next best action: review the intended release paths and choose the actual release
+version, then verify and commit that versioned candidate before requesting
+explicit publication approval. Prior counts and hashes below remain historical
+evidence for their named handoffs.
+
+## Historical acceptance snapshot (2026-10-25)
+
+The table below retains the milestone definitions. Implemented code and completed
+acceptance are distinct:
+
+- M0–M3: engine, CLI, schemas and 78 conformance cases exist; current full gates
+  are recorded in `RELEASE-READINESS.md` after integration.
+- M4: MCP and D15 review pack implemented; S13 reviewed three real candidates and
+  retained them. No review → edit → guard cleanup saving is claimed.
+- M5: Action wrapper and local real-CLI negative tests implemented. Hosted
+  enforcement and required-check configuration are unverified.
+- M6: node:test, Vitest and pytest implemented; Jest is required before release
+  by D8 and its tested capability is recorded in S15. Do not infer support for
+  untested Jest versions/environments.
+- M6b: Go/Rust/Ruby provisional; known benchmark and acceptance gaps remain.
+- M6c: extension references and examples implemented; fresh-agent consumer
+  evidence and its limitations are recorded with S14.
+- D16: coverage-only selective PR mode failed S12. The owner-approved Node-only
+  S12b profile passes its frozen safety matrix with changed-code strict subsets;
+  the owner-approved opaque `.npmrc` profile also catches both real Express
+  faults with strict subsets. Complete selection is slower in all ten timing
+  pairs, so S12b is concluded without production promotion. Existing full guard
+  and plan ordering remain available.
+- Performance follow-up: S16 reduced selective request overhead 24–25% but still
+  lost to guarded full; no selective execution API shipped from that milestone. Pure engine flow
+  improvements and explicit MCP historical report snapshots are tested and
+  installed in the refreshed private handoff. S17's source-integrity checks and
+  request-local source facts passed installed acceptance, without a broad speed
+  claim. S18's saved baseline improved selection another 15–17% but still lost
+  to guarded full execution. S19's coverage-parsing profile failed its meaningful
+  saving trigger; no coverage cache was implemented. Persistent analysis caches
+  and parse-worker reuse remain candidates; Rust is deferred unless measured
+  value justifies it. No further performance research is scheduled from S19.
+- M7/M8: no public launch, package publication or integration is authorized.
+
+## Milestone definitions
+
 | Milestone | Contents | Done when |
 |---|---|---|
-| **M0 Kickoff** | Private repo `Vibernt/cupel`, licence file (Apache-2.0 unless D2 changes), README stub, AGENTS.md and CLAUDE.md, local checks run by a pre-push hook (no hosted CI for the repo itself; owner, 2026-10-21), plans moved in | Repo exists, `npm run verify` green, plans committed |
+| **M0 Kickoff** | Private repo `Vibernt/cupel`, licence file per D2 (now MIT), README stub, AGENTS.md and CLAUDE.md, local checks run by a pre-push hook (no hosted CI for the repo itself; owner, 2026-10-21), plans moved in | Repo exists, `npm run verify` green, plans committed |
 | **M1 Spikes** | S1, S2, S3 (collector and mutation design), then S4, S6 | Results in `plans/spikes/`; D6 and D7 decided |
 | **M2 Spec v1** | `spec/` with tiers, signals, rules, guardrails, and the input, report and config schemas; 30+ conformance cases | Cases cover every rule and guardrail and the input format, including negative cases. The adapter contract and the adapter conformance kit (one fixture project for node:test) are specified |
 | **M3 Node build** | Engine, node:test collector (per-test coverage, per-file fallback), mutation (critical + changed lines), CLI `report`, `check`, `guard`, `plan`, `label`, `import` (Cupel's input format and JUnit XML), `validate`, `conformance`, and external collector commands in `cupel.json`, with `--json` | Passes all conformance cases; runs on Assay's suite end to end within a set time budget |

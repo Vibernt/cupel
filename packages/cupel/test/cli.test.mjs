@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { EXIT, SPEC_VERSION } from '../src/index.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
@@ -28,7 +29,8 @@ test('no arguments prints usage and exits 2', () => {
 test('--version prints the package version', () => {
   const r = run('--version');
   assert.equal(r.status, EXIT.OK);
-  assert.match(r.stdout, /^\d+\.\d+\.\d+\n$/);
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(r.stdout, `${manifest.version}\n`);
 });
 
 test('unknown command exits 2', () => {

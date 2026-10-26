@@ -16,7 +16,7 @@
 
 | Id | Decision | Date |
 |---|---|---|
-| D2 | Licence: **Apache-2.0**, chosen for its explicit patent grant between contributors and users (it does not cover third-party patents). `LICENSE` is the canonical text; `NOTICE` names the copyright holder, Vibernt | 2026-10-21 (owner) |
+| D2 | Licence: **MIT** for first-party Cupel code. `LICENSE` is canonical; `NOTICE` records attribution and separate third-party provenance. Supersedes the original Apache-2.0 choice; see the owner decision below. | 2026-10-26 (owner) |
 | D7 | Coverage granularity: **per-test is the v1 default for node:test.** One ordinary `node --test` run with an `--import` preload takes in-process V8 precise coverage (`node:inspector` `Session.connect()`, no port) between tests: about 1.4× a plain run on Assay ([S2](spikes/S2.md)). Per-file is the fallback, when the hook cannot attach, and the report's summary level. Per-test processes (`--test-name-pattern`, 4–11×) only re-check retire candidates and tests that spawn node, which removes the in-process method's first-touch bias and child-process blind spot. The data model keys coverage by test id with `granularity: "file" \| "test"`. The default scope is the whole repository minus `tests/`, `node_modules` and dot-directories ([S1](spikes/S1.md)). Verified on Node 22.23.3: hooks, counter reset and per-test attribution behave as on 26. Line sets differ slightly between Node versions, so `guard` must collect base and head on the same runtime | 2026-10-21, from S1 and S2 |
 | D6 | JS parsing for mutation: **a zero-dependency textual lexer** for v1, with a standard-library validity filter (`vm.SourceTextModule`, falling back to `node --check`). On Assay it matches acorn on all 2 M tokens and on 99.85% of mutation sites, with no false sites and 0 invalid mutants ([S3](spikes/S3.md)). acorn 8.19.0 (MIT, one 235 KB file, no dependencies) is the fallback if ternary-condition mutants or JSX are needed. The TypeScript compiler API is rejected: about 56 MB, and its JS API is unstable. TypeScript sources are mutated after `module.stripTypeScriptTypes`, which keeps offsets. Mutants are served in memory through a module load hook, never written to disk, so source-text pins earn no kills. A kill counts only when a test reports a failure; a crash is an environment error **JSX and TSX** (2026-10-22): when a project has `typescript` installed, Cupel uses that project's own TypeScript scanner (`ts.createScanner`, which keeps offsets) for line classification and mutation sites in `.tsx`/`.jsx`; otherwise those files are skipped with a note. Cupel itself still has no dependency | 2026-10-21, from S3; JSX 2026-10-22 |
 | D10 | **The engine's input format is public**: a versioned JSON Schema in the spec, beside the report schema. `cupel import` reads it and supported tool formats. Every collector, native or third-party, emits it; existing mutation and coverage tools are imported rather than re-implemented. This is how Cupel reaches languages beyond JS and Python | 2026-10-21 (owner) |
@@ -28,15 +28,121 @@
 | D14 | **`check` never says a test adds nothing.** A test with no unique coverage and no unique kill gets the verdict `no-unique-evidence`, which is informational: `check` exits 1 only for `weakens`, `fails` or `not-run` | 2026-10-22 (owner, with D5) |
 | D15 | **Cleanup review pack for agents** (owner, after S11 and the benchmark speed discussion). A new MCP tool and CLI command hand an LLM agent the evidence it needs to decide on deleting or merging tests: per candidate, its unique lines and kills, which other tests cover the same lines and kill the same mutants, assertion fingerprints, its same-shape group, tier, brittleness and pseudo-tested functions. It never advises removal (D5 stands): the pack states that no unique evidence is not proof of redundancy, and the agent's change must pass `guard` before it is committed | 2026-10-24 (owner) |
 | D16 | **PR mode is the next milestone** (owner, open decision 1). Collect only the tests affected by a change (coverage map from main's saved report, plus new and changed test files, with a full run when non-code inputs change), compare against main's saved report, and mutate only changed critical lines. It starts with a safety spike that replays deliberately broken changes to measure missed failures | 2026-10-24 (owner) |
+| D8 | **Jest is required before release**, alongside node:test, Vitest and pytest. A working collector, real-runtime tests, mutation/guard integration and the PR safety cases must be verified before claiming Jest support. Other languages retain their separate real-repository acceptance gates | 2026-10-25 (owner) |
+
+## Historical implementation progression (through 2026-10-25)
+
+D16 implementation was **blocked by [S12](spikes/S12.md)**: its experimental
+selection produced a false green in each of node:test, Vitest, Jest and pytest.
+No selective PR execution command shipped from S12. Concluding this candidate without that
+feature was presented as an owner scope decision. The owner instead requested
+implementing and validating safe selective PR mode if possible, authorizing a
+bounded dependency-evidence follow-up. Public publication approval stays separate.
+The owner subsequently approved Node-only validation first. S12b's strict Node
+profile passed its safety matrix; practical acceptance is still required. The
+owner also explicitly approved an opt-in opaque exclusion of the real Express
+lane's exact root `.npmrc`: never read or hash its contents, forbid test access,
+and preserve strict refusal for other private paths. The bounded policy and new
+validation gates are recorded in [S12b](spikes/S12b.md).
+The final S12b matrices and real faults pass for the tested Node profile, but
+the entire selection API is slower in all ten real timing pairs. The bounded
+spike is concluded without production CLI/MCP promotion; full guard remains
+authoritative. No additional performance research is part of this pass.
+The owner then reopened performance work, asking to rethink flow, orchestration,
+caching and reuse, and whether Rust could help. This authorizes the separate
+[S16](spikes/S16.md) measured pass and [performance flow](PERFORMANCE-FLOW.md)
+design. S12b's outcome and the accepted private artifact remain unchanged until
+a new implementation passes equivalence, safety and whole-call timing gates.
+S16's request reuse improved old selective latency 23.6%/25.4% but still lost
+every paired full-run comparison, so selective execution remains experimental.
+Its pure-engine flow improvements and explicit historical MCP report snapshots
+passed both required Node gates and installed acceptance and are in the refreshed
+private artifact. General persistent caches, parse-worker pooling and Rust
+kernels remain planned, not implemented.
+
+Owner scope expansion, 2026-10-25: complete capabilities and selective PR support
+for the seven grid runners: node:test, Vitest, Jest, pytest, Go testing,
+Rust/Cargo and Ruby/Minitest, and report infeasible or blocked cases explicitly.
+The owner approved named **opt-in isolated profiles**, with unsupported suites
+refused, and approved correct opt-in selection **even when slower**, with honest
+complete-cost reporting. This supersedes the earlier speed-win promotion gate
+for the expanded scope, not safety, source integrity, provenance or required
+execution. Ordinary full guard remains separate. Rust language support is in
+scope; a Rust engine port remains deferred. Implementation and per-runner gates
+are in [RUNNER-COMPLETION.md](RUNNER-COMPLETION.md). Nothing here authorizes
+publishing or automatic fallback.
+
+## Owner release-scope direction (2026-10-26)
+
+Owner licence and candidate-version decision, 2026-10-26: **MIT** supersedes D2's
+earlier Apache-2.0 choice for Cupel's first-party code. `LICENSE` is the canonical
+MIT text with Copyright (c) 2026 Vibernt; npm and Python carry identical copies.
+`NOTICE` remains informational Vibernt attribution. This change does not relicense
+third-party components or change their attribution and licence obligations.
+The first release candidate is **0.1.0** in both `@vibernt/cupel` and
+`vibernt-cupel`. It remains private: npm retains `"private": true` and Python
+retains `Private :: Do Not Upload`. This selects the candidate's licence and
+version only; it does not authorize publication, releases or publishing tags,
+and does not reopen L1–L7.
+
+The first-release contract is **JS/TS/Python core full guard**, with **bounded
+Go/Ruby/Rust preview**. **Selective PR execution is outside the supported first
+release**. The existing private experimental Node 26.7.0 CLI/MCP commands remain
+available with their warnings and strict refusals. This direction scopes the
+first release and does not alter L1–L7, D5, historical spike outcomes or the
+separate seven-runner completion queue.
+
+The authoritative [support matrix](../docs/support.md) records exact runtime,
+framework, source and transform limits. Narrow Jest 30.2.0 passed its
+[real-repository ordinary guard acceptance gate](results/2026-10-26-jest-acceptance.md)
+on the complete original 51-test / 4-file pinned jest-junit lane. This does not
+broaden the native ESM test or arbitrary-transform boundary. Go 1.27.1, MRI 4.0.7 /
+Minitest 6.0.0 and closed-grammar macOS Rust/Cargo 1.97.1 retain installed fixture
+evidence only; native real-repository acceptance remains unrun. No generic CI
+speedup, hosted required-check enforcement or public release is claimed. npm
+and Python remain private. No alternate runner, reduced inventory, suppressed
+warning or automatic fallback is authorized.
+
+Next best action: freeze source/artifacts, consolidate the incoming private
+handoff, and rerun the exact required gates in
+[FIRST-RELEASE-CHECKLIST.md](FIRST-RELEASE-CHECKLIST.md). Publication approval is
+still a later explicit owner decision.
 
 ## Dependencies
 
+The owner retained per-test coverage and required narrowing or blocking Node 22
+selective execution after its inspector permission failure. Production v2 is
+therefore pinned to Node 26.7.0; ordinary Node 22 collection/guard remain in
+scope. Edited critical tests in the opt-in profile additionally retain their
+own compatible line and kill evidence (check-like comparison), explicitly
+stronger than ordinary full guard's aggregate comparison. This never changes
+the result into a whole-suite guard pass.
+
+The owner authorized a separate Python metadata-interception boundary test,
+with the explicit instruction to stop if incomplete. That does not authorize
+dropping missed channels, weakening audit enforcement or claiming pytest
+selective support from metadata unit tests alone.
+
 There are none yet. Each dependency must be pinned to an exact version and justified here; `scripts/check.mjs` enforces both.
+
+Jest validation: the test-only fixture in `spec/conformance/adapters/jest/`
+pins `jest` **30.2.0** as its project-owned runner and `typescript` **5.9.3**
+to produce the transformed-source fixture and its inline source map. They are
+installed only in that fixture or ignored scratch projects, never as Cupel
+package dependencies. The verified gate targets that exact Jest version,
+jest-circus and the Node environment; other environments/versions are not
+claimed without actual-runtime verification.
+
+Installed-artifact validation uses an isolated scratch tool environment with
+`setuptools` **80.9.0** (the existing build backend), `wheel` **0.48.0**, `pytest`
+**9.1.1** and `pluggy` **1.6.0**. These are test/build tools only; neither package
+gains a production dependency. The actual wheel build and clean installation run
+offline after this environment is explicitly prepared. Python package metadata
+now requires **3.12+**, matching the collector's existing `sys.monitoring` check.
 
 ## Open
 
 | Id | Question | Recommendation |
 |---|---|---|
 | D3 | Coverage target wording | 100% line and branch on critical modules, a ratchet elsewhere |
-| D8 | First runners | node:test first; then Vitest, Jest, pytest |
 | D9 | Report schema versioning | `cupel-spec/1`, semver-style, breaking changes bump the major |

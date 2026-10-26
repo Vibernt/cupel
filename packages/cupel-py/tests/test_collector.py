@@ -24,7 +24,9 @@ import vibernt_cupel.plugin as cupel_plugin
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = ROOT / 'spec/conformance/adapters/pytest'
-PYTHON = Path('/Users/vid/codecrystal/.venv/bin/python')
+# All adapter children use the interpreter explicitly running this test suite.
+# Do not depend on an unrelated repository's virtual environment.
+PYTHON = Path(sys.executable)
 
 
 def pytest_ready():
@@ -135,7 +137,7 @@ class StaticTests(unittest.TestCase):
             inspect_static(Path('.'), [], [{'kind': 'doc-wording', 'pattern': '['}])
 
 
-@unittest.skipUnless(pytest_ready(), 'pytest unavailable in read-only CodeCrystal Python 3.14 environment')
+@unittest.skipUnless(pytest_ready(), 'pytest unavailable in the test interpreter')
 class FixtureTests(unittest.TestCase):
     def run_adapter(self, *args):
         env = {**os.environ, 'PYTHONPATH': str(ROOT / 'packages/cupel-py/src'), 'PYTHONDONTWRITEBYTECODE': '1'}

@@ -101,9 +101,11 @@ export function planMetrics(report, input, touchedTests) {
   if (report.kind !== 'report' || report.command !== 'plan' || !report.plan) throw new Error('Cupel did not return plan JSON');
   const order = report.plan.order;
   const selected = order.filter((r) => ['critical', 'affected'].includes(r.bucket));
+  const selectedDurationMs = selected.reduce((sum, entry) => sum + entry.durationMs, 0);
   const fullMs = (input.tests ?? []).reduce((n, t) => n + (median(t.durationsMs ?? []) ?? 0), 0);
   const buckets = new Map(order.map((r) => [r.id, r.bucket]));
   const touched = (input.tests ?? []).filter((t) => touchedTests.includes(t.file)).map((t) => ({ id: t.id, bucket: buckets.get(t.unit ?? t.id) ?? 'skipped' }));
   const total = order.length + report.plan.skipped.length;
-  return { selected: selected.length, total, selectedShare: total ? selected.length / total : null, expectedMs: report.plan.expectedMs, fullMs, touched };
+  return { selected: selected.length, total, selectedShare: total ? selected.length / total : null,
+    selectedDurationMs, expectedMs: report.plan.expectedMs, fullMs, touched };
 }
