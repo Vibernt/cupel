@@ -1,6 +1,6 @@
 # Install Cupel locally
 
-Cupel **0.1.0** source is [MIT-licensed](../LICENSE) at
+Cupel **0.1.1** source is [MIT-licensed](../LICENSE) at
 [Vibernt/cupel](https://github.com/Vibernt/cupel). Public GitHub source publication
 was authorized by the owner on **2026-10-26**; npm and PyPI remain unpublished. The
 [support matrix](support.md) defines JS/TS/Python core ordinary full guard,
@@ -48,7 +48,7 @@ npm pack --offline --ignore-scripts ./packages/cupel \
   --pack-destination .scratch/local-package
 npm install --offline --ignore-scripts --no-audit --no-fund \
   --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.1.0.tgz
+  .scratch/local-package/vibernt-cupel-0.1.1.tgz
 CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
 "$CUPEL" --version
 "$CUPEL" --help

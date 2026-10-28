@@ -134,14 +134,15 @@ test('current documentation distinguishes the versioned MIT source from historic
   for (const text of [readme, install, support, read('docs/private-use.md')]) {
     assert.ok(text.includes(manifest.version), 'current source version must be discoverable');
   }
-  assert.equal(manifest.version, '0.1.0');
+  assert.equal(manifest.version, '0.1.1');
   assert.equal(manifest.license, 'MIT');
   assert.equal(rootManifest.license, manifest.license);
   assert.match(readme, /\[MIT\]\(LICENSE\)/);
   assert.match(read('LICENSE'), /^MIT License/);
   assert.match(read('docs/private-use.md'), /historical private 0\.0\.0 artifact/);
   assert.match(install, new RegExp(`vibernt-cupel-${manifest.version.replaceAll('.', '\\.')}\\.tgz`));
-  assert.match(install, new RegExp(`vibernt_cupel-${manifest.version.replaceAll('.', '\\.')}-py3-none-any\\.whl`));
+  const pythonVersion = /^version = "([^"]+)"$/m.exec(read('packages/cupel-py/pyproject.toml'))[1];
+  assert.match(install, new RegExp(`vibernt_cupel-${pythonVersion.replaceAll('.', '\\.')}-py3-none-any\\.whl`));
   assert.match(install, /npm pack --offline --ignore-scripts/);
   assert.match(install, /npm install --offline --ignore-scripts --no-audit --no-fund/);
   assert.doesNotMatch(readme, /^\s*(?:npm|pnpm|yarn) (?:install|add).*@vibernt\/cupel\s*$/m);

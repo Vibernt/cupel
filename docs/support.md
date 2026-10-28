@@ -2,7 +2,7 @@
 
 Owner direction: **2026-10-26**. This is the authoritative support matrix for
 the first-release scope. It describes supported capabilities and their evidence.
-The **0.1.0** source is MIT-licensed; **public GitHub source publication is
+The **0.1.1** source is MIT-licensed; **public GitHub source publication is
 authorized** by the owner on **2026-10-26** for `Vibernt/cupel`. npm and PyPI
 remain unpublished. Ordinary full guard is the whole-suite protection path.
 
@@ -68,7 +68,7 @@ passed both runtimes. These results certify that named artifact; they do not
 certify a later source version or licence change. Check the current version and
 corresponding handoff before using the maintainer's stable local path.
 
-The current source release uses version **0.1.0** and the first-party [MIT licence](../LICENSE).
+The current source release uses version **0.1.1** of the npm package (`@vibernt/cupel`; 0.1.1 adds collect-once CI collection) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is unchanged at 0.1.0.
 See [local installation](install.md) and [artifact provenance](private-use.md#artifact-provenance).
 The [versioned candidate record](../plans/results/2026-10-26-private-candidate.md)
 records fresh 0.1.0 verification and artifact identities. The reviewed release

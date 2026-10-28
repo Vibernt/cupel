@@ -12,7 +12,7 @@ is the whole-suite protection path. No generic CI speedup is claimed.
 
 ## Choose an executable
 
-Build/install the current **0.1.0 source release** using [the local installation
+Build/install the current **0.1.1 source release** using [the local installation
 guide](install.md). Its examples set an absolute `CUPEL` executable in
 `.scratch/local-install`. To use the maintainer's retained accepted installation:
 
@@ -77,13 +77,13 @@ still exists. See [installation](install.md) and [Python limits](python.md).
 
 ## Artifact provenance
 
-The current source version is **0.1.0**. Its verified handoff is
+The current source version is **0.1.1**. The 0.1.0 verified handoff is
 `.scratch/private-candidate/release-0.1.0/handoff.json`; the stable executable
-above now contains that version, with the prior installation retained for rollback.
+above contains 0.1.0, with the prior installation retained for rollback.
 See [the candidate record](../plans/results/2026-10-26-private-candidate.md) for
 archive hashes and fresh checks.
 
-The current source version is **0.1.0**. A source version and the tests of an
+The current source version is **0.1.1**. A source version and the tests of an
 older artifact do not certify a newly packed archive. Use its actual handoff and
 SHA-256 to identify an accepted installation.
 

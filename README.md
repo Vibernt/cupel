@@ -17,7 +17,7 @@ mutation protection, or a protected test removal without human approval.
 *Illustrative workflow; measured numbers from the [real-project Jest validation](plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls).
 The example covers 11 tested mutations across two declared critical API paths.*
 
-**Open-source under MIT · version `0.1.0`.** Get the source from
+**Open-source under MIT · version `0.1.1`.** Get the source from
 [GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
 use the local installation below. See the [verified candidate record](plans/results/2026-10-26-private-candidate.md)
 for artifact checks and [historical evidence](docs/private-use.md#artifact-provenance).
@@ -104,7 +104,7 @@ npm pack --offline --ignore-scripts ./packages/cupel \
   --pack-destination .scratch/local-package
 npm install --offline --ignore-scripts --no-audit --no-fund \
   --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.1.0.tgz
+  .scratch/local-package/vibernt-cupel-0.1.1.tgz
 CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
 "$CUPEL" --version
 ```

@@ -164,3 +164,10 @@ preparing copy does not authorize posting. The support contract remains
 JS/TS/Python ordinary full guard with bounded Go/Ruby/Rust previews. Selective
 PR commands remain experimental and outside the supported first release; public
 source visibility does not promote their capabilities or weaken any refusal.
+
+## Owner v0.1.1 release approval (2026-10-28)
+
+The owner approved, in chat, bumping the npm package to **0.1.1** (collect-once,
+D17) and committing, tagging and pushing **v0.1.1** on the public repository. The
+Python collector package is unchanged and stays at 0.1.0. npm and PyPI publishing
+remain unapproved; packages keep `"private": true` and `Private :: Do Not Upload`.
