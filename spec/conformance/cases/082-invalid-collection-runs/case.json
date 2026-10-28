@@ -1,0 +1,11 @@
+{
+  "description": "Zero collection runs are invalid input.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

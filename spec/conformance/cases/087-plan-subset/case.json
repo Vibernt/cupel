@@ -1,0 +1,11 @@
+{
+  "description": "Plan accepts the named subset as its available inventory.",
+  "command": "plan",
+  "rules": [
+    {
+      "id": "P1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

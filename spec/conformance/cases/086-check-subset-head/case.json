@@ -1,0 +1,16 @@
+{
+  "description": "Check judges the selected unit against a full base.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C1",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "tests": [
+      "t1"
+    ]
+  },
+  "expectExit": 0
+}

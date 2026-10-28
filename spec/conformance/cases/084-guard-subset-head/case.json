@@ -1,0 +1,15 @@
+{
+  "description": "Guard refuses a subset head before counting unselected lines as lost.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "negative"
+    },
+    {
+      "id": "I5",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

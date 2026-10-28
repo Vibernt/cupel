@@ -1,0 +1,11 @@
+{
+  "description": "A malformed shard suite digest is invalid input.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

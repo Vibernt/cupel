@@ -86,7 +86,7 @@ function walk(root, skipDir = () => false, log = () => {}, diagnostics = []) {
   return out.sort(cmp);
 }
 
-function resolveTestFiles(root, files, glob, log, diagnostics) {
+export function resolveTestFiles(root, files, glob, log = () => {}, diagnostics = []) {
   if (files && files.length) {
     return [...new Set(files.flatMap((f) => {
       try {
@@ -124,38 +124,49 @@ function run(cmd, args, opts) {
     const t0 = Date.now();
     let tail = '';
     if (opts.detailFile) writeFileSync(opts.detailFile, '');
-    const { detailFile, ...spawnOptions } = opts;
+    const { detailFile, inherit, ...spawnOptions } = opts;
     const keep = (chunk) => {
       tail = (tail + chunk).slice(-4096);
       if (detailFile) appendFileSync(detailFile, chunk);
     };
     const child = spawn(cmd, args, { ...spawnOptions, stdio: ['ignore', 'pipe', 'pipe'] });
-    child.stdout.setEncoding('utf8').on('data', keep);
-    child.stderr.setEncoding('utf8').on('data', keep);
+    child.stdout.setEncoding('utf8').on('data', (chunk) => { keep(chunk); if (inherit) process.stdout.write(chunk); });
+    child.stderr.setEncoding('utf8').on('data', (chunk) => { keep(chunk); if (inherit) process.stderr.write(chunk); });
     child.on('error', fail);
     child.on('close', (code, signal) => done({ code, signal, ms: Date.now() - t0, tail }));
   });
 }
 
-function readResults(file, diagnostics, log) {
+function readResults(file, diagnostics, log, strict) {
   if (!existsSync(file)) return null;
   const results = [];
   for (const line of readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
     try { results.push(JSON.parse(line)); }
-    catch (error) { skipFile(diagnostics, log, 'Node results', file, error); }
+    catch (error) {
+      if (strict) throw new CollectorError(`malformed node:test result in ${file}: ${error.message}`);
+      skipFile(diagnostics, log, 'Node results', file, error);
+    }
   }
   return results;
 }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-export async function collectNode({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [], assertionsOut, assertionCap } = {}) {
+export async function collectNode({ root, config = {}, files, runs = 2, recheck = [], log = () => {}, diagnostics = [], assertionsOut, assertionCap, nodeArgs = [], inherit = false, junit, shard, subset, strict = false } = {}) {
   if (!root) throw new CollectorError('collectNode: root is required');
   root = realpathSync(resolve(root));
   runs = Math.max(1, Math.trunc(runs ?? 1));
   const runner = config?.runners?.node ?? {};
-  const testFiles = resolveTestFiles(root, files, runner.tests ?? DEFAULT_TESTS, log, diagnostics);
-  if (!testFiles.length) throw new CollectorError(`no test files match ${runner.tests ?? DEFAULT_TESTS} in ${root}`);
+  const suiteFiles = resolveTestFiles(root, null, runner.tests ?? DEFAULT_TESTS, log, diagnostics);
+  if (!suiteFiles.length && (shard || !files)) throw new CollectorError(`no test files match ${runner.tests ?? DEFAULT_TESTS} in ${root}`);
+  const selected = files ? resolveTestFiles(root, files, runner.tests ?? DEFAULT_TESTS, log, diagnostics) : suiteFiles;
+  const allowed = new Set(suiteFiles);
+  if (strict) for (const file of selected) if (!allowed.has(file)) throw new CollectorError(`test file is not in configured suite: ${file}`);
+  const testFiles = shard ? suiteFiles.filter((_, k) => k % shard.total === shard.index - 1) : selected;
+  if (!testFiles.length && !shard) throw new CollectorError(`no test files match ${runner.tests ?? DEFAULT_TESTS} in ${root}`);
+  const digest = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+  const fileHashes = (list) => sortedObject(list.map((file) => [file, digest(readFileSync(join(root, file)))]));
+  const suiteHash = shard ? digest(JSON.stringify(Object.entries(fileHashes(suiteFiles)))) : null;
 
   const env = { ...process.env, ...(runner.env ?? {}) };
   for (const k of ['NODE_V8_COVERAGE', 'NODE_TEST_CONTEXT', 'CUPEL_NODE_HOOK']) delete env[k];
@@ -172,7 +183,15 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
   }
 
   const sources = scanSources(root, config?.scope, new Set(testFiles), log, diagnostics);
+  if (strict && diagnostics.length) throw new CollectorError(`source or test inventory is incomplete: ${diagnostics[0].file ?? diagnostics[0].cause}`);
   log(`${testFiles.length} test files, ${sources.size} sources`);
+  if (testFiles.length === 0) return {
+    spec: SPEC, kind: 'input', runtime: { name: 'node', version: process.versions.node },
+    sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash }])),
+    tests: [], coverage: { granularity: 'test', byTest: {}, setup: {}, ...(runs > 1 ? { unstable: {} } : {}) },
+    collection: { runs, shard: { index: shard.index, total: shard.total, suite: suiteHash, files: {} } },
+    brittleness: [], shapes: {},
+  };
 
   const sourceList = [...sources.keys()];
   const realTestFiles = testFiles.map((f) => realpathSync(join(root, f)));
@@ -215,13 +234,33 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       writeFileSync(hookConfig, JSON.stringify({ root, sources: sourceList, testFiles: realTestFiles, out, mode, childCoverage: children, assertions: !!assertionsOut && name === 'run0', assertionCap }));
       const dest = join(tmp, `${name}.ndjson`);
       const detailFile = join(tmp, `${name}-output.txt`);
-      const args = ['--test', '--import', HOOK, `--test-reporter=${REPORTER}`, `--test-reporter-destination=${dest}`];
+      const args = ['--test', ...nodeArgs, '--import', HOOK, `--test-reporter=${REPORTER}`, `--test-reporter-destination=${dest}`];
+      if (inherit && name.startsWith('run')) args.push('--test-reporter=spec', '--test-reporter-destination=stdout');
+      if (junit && name === 'run0') args.push('--test-reporter=junit', `--test-reporter-destination=${junit}`);
       if (pattern) args.push(`--test-name-pattern=${pattern}`);
-      const r = await run(process.execPath, [...args, ...only], { cwd: root, detailFile, env: { ...env, CUPEL_NODE_HOOK: hookConfig } });
-      const results = readResults(dest, diagnostics, log);
-      if (!results) {
+      const r = await run(process.execPath, [...args, ...only], { cwd: root, detailFile, inherit: inherit && name.startsWith('run'), env: { ...env, CUPEL_NODE_HOOK: hookConfig } });
+      let results;
+      try { results = readResults(dest, diagnostics, log, strict); }
+      catch (error) {
         preserveTmp = true;
-        throw new CollectorError(collectorError(`node --test did not run (${r.signal ?? `exit ${r.code}`}): ${r.tail.trim().split('\n')[0]}`, readFileSync(detailFile, 'utf8'), tmp));
+        throw new CollectorError(collectorError(error.message, readFileSync(detailFile, 'utf8'), tmp));
+      }
+      const summaries = new Set((results ?? []).filter((x) => x.type === 'summary').map((x) => posix(relative(root, x.file))));
+      const absent = only.filter((file) => !summaries.has(file));
+      const seenTests = new Map();
+      const completed = new Set();
+      let missingResults = null;
+      for (const item of results ?? []) {
+        if (item.type === 'summary') {
+          if (item.counts && item.counts.tests !== (seenTests.get(item.file) ?? 0)) missingResults = item;
+          completed.add(item.file);
+        } else if (item.type === 'test' && !completed.has(item.file)) {
+          seenTests.set(item.file, (seenTests.get(item.file) ?? 0) + 1);
+        }
+      }
+      if (!results || (strict && (r.signal || absent.length || missingResults || (r.code !== 0 && !results.some((x) => x.status === 'failed'))))) {
+        preserveTmp = true;
+        throw new CollectorError(collectorError(`incomplete node --test run (${r.signal ?? `exit ${r.code}`}): ${absent.length ? `missing summary for ${absent.join(', ')}` : missingResults ? `missing results for ${missingResults.file}` : r.tail.trim().split('\n')[0]}`, readFileSync(detailFile, 'utf8'), tmp));
       }
       const hook = [];
       for (const f of readdirSync(out).sort(cmp)) {
@@ -243,7 +282,11 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       }
       rmSync(out, { recursive: true, force: true });
       const childLines = children ? readChildCoverage(children) : null;
-      return { results, hook, ms: r.ms, childLines };
+      if (strict && diagnostics.length) {
+        preserveTmp = true;
+        throw new CollectorError(collectorError(`incomplete node coverage: ${diagnostics[0].file ?? diagnostics[0].cause}`, readFileSync(detailFile, 'utf8'), tmp));
+      }
+      return { results: results.filter((x) => x.type !== 'summary'), hook, ms: r.ms, childLines };
     };
     /** NODE_V8_COVERAGE output of child processes, per directory name -> Map rel -> lines. Raw files are removed. */
     const readChildCoverage = (dir) => {
@@ -295,6 +338,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         const ran = new Map();
         for (const r of recs) {
           if (r.type !== 'test' || r.parent) continue;
+          // node:test emits a synthetic file pass for a file with no test definitions.
+          if (r.name === file && r.callFile && posix(relative(root, abs(r.callFile))) === file && r.line === 1 && r.column === 1) continue;
           const name = [...r.path, r.name].join(' > ');
           const occ = seen.get(name) ?? 0;
           seen.set(name, occ + 1);
@@ -348,10 +393,24 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       const mode = 'coverage';
       const r = await suiteRun(`run${i}`, { mode });
       const leaves = leafTests(r.results);
+      if (strict && r.results.some((x) => x.status === 'failed') && !leaves.some((x) => x.status === 'failed')) {
+        preserveTmp = true;
+        throw new CollectorError(collectorError(`node --test failed without a failed leaf in run ${i + 1}`, readFileSync(join(tmp, `run${i}-output.txt`), 'utf8'), tmp));
+      }
+      const index = hookIndex(r.hook);
+      for (const t of leaves) if (strict && t.status !== 'skipped' && !index.has(`${t.file}\u0000${t.hookKey}`)) {
+        preserveTmp = true;
+        throw new CollectorError(collectorError(`missing hook coverage record for ${t.id} in run ${i + 1}`, readFileSync(join(tmp, `run${i}-output.txt`), 'utf8'), tmp));
+      }
       log(`run ${i + 1}/${runs} (${mode}): ${leaves.length} tests, ${leaves.filter((t) => t.status === 'passed').length} passed, ${(r.ms / 1000).toFixed(1)} s`);
-      all.push({ ...r, leaves, index: hookIndex(r.hook) });
+      all.push({ ...r, leaves, byId: new Map(leaves.map((t) => [t.id, t])), index });
     }
     const first = all[0];
+    const firstIds = first.leaves.map((t) => t.id).sort(cmp).join('\n');
+    for (const r of all.slice(1)) if (strict && r.leaves.map((t) => t.id).sort(cmp).join('\n') !== firstIds) {
+      preserveTmp = true;
+      throw new CollectorError(collectorError('test inventory changed between collection runs', '', tmp));
+    }
     const unstable = new Map();
 
     // Tests (K10, K11) and coverage.
@@ -373,7 +432,10 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       }
     }
     for (const rec of tests.values()) {
-      const runLines = all.map((r) => rec.hookKey ? r.index.get(`${rec.file}\u0000${rec.hookKey}`)?.lines : null);
+      const runLines = all.map((r) => {
+        const t = r.byId.get(rec.id);
+        return t?.hookKey ? r.index.get(`${t.file}\u0000${t.hookKey}`)?.lines : null;
+      });
       rec.lines = runLines.some(Boolean) ? foldRuns(runLines, unstable) : null;
     }
     const setup = new Map(); // test file -> Map rel -> lines
@@ -546,6 +608,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         };
       }),
       coverage,
+      collection: { runs, ...(shard ? { shard: { index: shard.index, total: shard.total, suite: suiteHash, files: fileHashes(testFiles) } } : {}), ...(subset ? { subset: { files: fileHashes(testFiles) } } : {}) },
       brittleness,
       shapes: sortedObject(shapes),
     };

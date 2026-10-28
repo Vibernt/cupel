@@ -1,0 +1,11 @@
+{
+  "description": "Report refuses a subset because its totals would be incomplete.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "R3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

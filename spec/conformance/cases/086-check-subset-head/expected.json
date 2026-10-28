@@ -1,0 +1,10 @@
+{
+  "check": {
+    "verdicts": [
+      {
+        "id": "t1",
+        "verdict": "adds-value"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "description": "A one-run head passes the unchanged guard with one warning.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "positive"
+    },
+    {
+      "id": "E1",
+      "polarity": "positive"
+    },
+    {
+      "id": "I5",
+      "polarity": "positive"
+    },
+    {
+      "id": "G10",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

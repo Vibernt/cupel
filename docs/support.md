@@ -19,7 +19,9 @@ remain unpublished. Ordinary full guard is the whole-suite protection path.
 
 The core contract covers the deterministic engine, CLI, local stdio MCP,
 report/review/check and ordinary full guard. A collector's existence does not
-promote its runner to core support. Native preview fixture evidence does not
+promote its runner to core support. `collect-node` is a node:test-only CI test step;
+its one-run, shard and subset modes do not extend to Vitest, Jest, pytest or the
+native preview runners. Native preview fixture evidence does not
 establish acceptance on a real repository. TypeScript support retains each
 runner's exact source, loader and transform restrictions; arbitrary JSX/TSX or
 transform configurations are not implied.

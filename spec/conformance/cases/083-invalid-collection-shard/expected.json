@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "invalid-input",
+      "severity": "error",
+      "path": "/collection/shard/suite"
+    }
+  ],
+  "suite": "$absent"
+}

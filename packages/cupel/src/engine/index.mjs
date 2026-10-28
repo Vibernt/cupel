@@ -77,6 +77,14 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   diagnostics.push(...argumentDiagnostics(command, args));
   if (diagnostics.length) return stop(diagnostics, EXIT_USAGE);
 
+  if (command === 'guard' || command === 'report' || command === 'review') {
+    for (const [label, doc] of docs) if (doc.collection?.subset) diagnostics.push({
+      code: 'subset-input', severity: 'error', path: '/collection/subset',
+      message: `${label ? `${label}: ` : ''}subset input cannot be used by ${command}`,
+    });
+    if (diagnostics.length) return stop(diagnostics, EXIT_USAGE);
+  }
+
   // I2, I3
   for (const [label, doc] of docs) diagnostics.push(...integrityDiagnostics(doc, label));
   if (command === 'check') {
@@ -125,6 +133,10 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     return m;
   });
   for (const m of models) diagnostics.push(...m.diagnostics);
+  if (command === 'guard') for (const [label, doc] of docs) if (doc.collection?.runs === 1) diagnostics.push({
+    code: 'single-run', severity: 'warning', path: '/collection/runs',
+    message: `${label}: coverage and test statuses come from one run`,
+  });
   const head = models[models.length - 1];
 
   const out = {};

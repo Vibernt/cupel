@@ -1,0 +1,14 @@
+{
+  "plan": {
+    "mode": "full",
+    "order": [
+      {
+        "id": "t1",
+        "bucket": "standard",
+        "durationMs": 0
+      }
+    ],
+    "skipped": [],
+    "expectedMs": 0
+  }
+}

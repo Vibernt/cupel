@@ -1,0 +1,11 @@
+{
+  "description": "A base unstable line protects a one-run head from a false lost-line failure.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

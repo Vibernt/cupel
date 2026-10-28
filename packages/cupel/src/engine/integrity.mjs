@@ -23,6 +23,8 @@ export const unitOf = (t) => t.unit ?? t.id;
 /** I2 and I3 for one schema-valid input. */
 export function integrityDiagnostics(input, label) {
   const out = [];
+  if (input.collection?.shard && input.collection?.subset) out.push(diag('invalid-input', { path: '/collection/subset', message: say(label, 'subset and shard cannot coexist') }));
+  if (input.collection?.shard && input.collection.shard.index > input.collection.shard.total) out.push(diag('invalid-input', { path: '/collection/shard/index', message: say(label, 'shard index exceeds total') }));
   const testIds = new Set();
   const unitIds = new Set();
   const unitFile = new Map();

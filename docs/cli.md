@@ -31,6 +31,9 @@ so `--json` prints exactly the engine's report (`spec/schemas/report.schema.json
 | `cupel conformance --adapter "<command>" [--fixtures <dir>]` | Runs an adapter in each fixture of `spec/conformance/adapters/` and matches its output against `expected.json` |
 | `cupel collect-go --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- packages…]` | Collects [Go](go.md) tests into `cupel-spec/1` input; default package pattern `./...` |
 | `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]` | Collects [Rust](rust.md) tests with isolated LLVM coverage |
+| `cupel collect-node [--root DIR] [--out FILE] [--junit FILE] [--runs N] [--shard I/N \| --tests FILE ...] [-- <node test flags>...]` | Runs node:test as the CI test step and writes complete collection input; default one run |
+| `cupel merge-inputs <shard.json...> --out FILE [--json]` | Validates and merges all disjoint shards of one suite |
+| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7) |
 
 `cupel mcp [--root <dir>]` starts the [local MCP server](mcp.md) over stdio.
 
@@ -76,6 +79,20 @@ Per command:
 | 3 | Environment: a runtime mismatch, a collector or git failure, `collector not available`, a failed `prepare`. The reason is one line on standard error |
 
 ## How the commands collect
+
+### Collect once in CI
+
+`collect-node` supports node:test only. It resolves the configured `runners.node.tests` suite, runs the selected files with the coverage hook, and streams the ordinary `spec` reporter. `--junit FILE` writes JUnit from the first run. Its default output is `.cupel/input.json` under the project root. `--runs` defaults to 1 here; `report` and `guard` still default to 2. Each selected file must finish with a node:test per-file summary, and each non-skipped leaf must have hook coverage. A zero-test file's synthetic pass is not counted as a test; Node 22.23.3 and 26.7.0 both produced a per-file summary under the Cupel hook.
+
+`--shard I/N` sorts all configured test files by code-point order and assigns the zero-based file at position `k` to shard `(k mod N)+1`. Empty shards are valid. Repeated `--tests FILE` arguments collect a named subset; duplicates collapse, non-suite files are refused, and `--tests` cannot be combined with `--shard`. Check, plan, label and mutate accept subsets. Guard, report and review refuse them because they lack the whole suite.
+
+After `--`, allowed Node flags are `--test-concurrency`, `--test-timeout`, `--test-force-exit`, paired `--test-reporter` and `--test-reporter-destination`, `--import`, `--require`/`-r`, `--conditions`/`-C`, `--env-file`, `--env-file-if-exists`, `--enable-source-maps`, `--experimental-strip-types`, `--experimental-transform-types`, `--no-experimental-strip-types`, `--no-warnings`, `--disable-warning`, `--max-old-space-size`, `--stack-size`, `--experimental-vm-modules`, `--experimental-test-module-mocks`, `--experimental-test-snapshots`, and `--test-update-snapshots`. Value flags accept `--flag=value` or a separate value. Test filters (`--test-name-pattern`, `--test-skip-pattern`, `--test-only`), Node's `--test-shard`, isolation changes, watch, coverage reporters, inspectors, other flags and positional files are refused.
+
+Use `collect-node --junit results.xml --shard 1/3 --out shard-1.json` as each container's test step, with the index changed per container. After all three finish, run `cupel merge-inputs shard-1.json shard-2.json shard-3.json --out head.json`, then `cupel mutate --input head.json --out head-mutated.json --base-input base.json --changed BASE_COMMIT`, then `cupel guard --base-input base.json --head-input head-mutated.json`. `guard --head-input` does not re-run survivors itself, so pass `--base-input` to `mutate` to keep K7's flake confirmation. Merge verifies runtime, config and commit identity, source facts, shard indices, file hashes and test ownership. Mutation follows the merge: invalid mutant draws are replaced in seeded order until `maxMutants` valid mutants run, and `maxSeconds` is a wall-clock budget. Per-shard budgets would change `sampled` and G6's “present at head” meaning.
+
+For `collect-node`, exit 0 means all tests passed and input was written; 1 means tests failed and input was written; 2 means usage error; 3 means incomplete collection and no input. It removes any previous output input and `skipped.json` before starting. For `merge-inputs`, incompatible or incomplete shard sets exit 3, while invalid input, non-shards, subsets or mutation-bearing shards exit 2. For `mutate`, invalid, already mutated or shard inputs exit 2; unavailable mutation or stale source hashes exit 3.
+
+**What one run loses.** One run has no `coverage.unstable`: a timing-dependent line covered at base but not at head can falsely fail `coverage-lines`; changed sources can move `coverage-ratio` or `critical-coverage` either way. A two-run base excludes its observed unstable lines from both sides, protecting a one-run head on those lines. An intermittent test appears passed or failed from one observation. `durationsMs` has one value, so A6 slow-low-value advice needs `advice.minRuns` (default 2) and is not given. `runStatuses` has one value, so V1 `never-passes` rests on one observation. Lost lines and mutants remain detectable, with a risk of false failures from timing-dependent lines. Use the same run count at base and head where possible; guard warns `single-run` without changing its result.
 
 - **Collection** uses the configured `runners` entries, or discovers runners
   from project metadata and test files. [Vitest](vitest.md) is detected by its

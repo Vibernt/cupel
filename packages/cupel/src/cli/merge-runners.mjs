@@ -69,6 +69,8 @@ export function mergeRunners(parts) {
     runtimes: [], sources: {}, tests: [],
     coverage: { granularity: first.input.coverage.granularity, byTest: {}, setup: {}, rechecked: [], unstable: {} },
   };
+  const runs = parts.map(({ input }) => input.collection?.runs);
+  if (runs.every((n) => Number.isInteger(n) && n === runs[0])) merged.collection = { runs: runs[0] };
   const tests = new Set(), mutants = new Set();
   for (const { name, input } of parts) {
     if (input.spec !== merged.spec || input.kind !== 'input' || !input.runtime?.name || !input.runtime?.version) {

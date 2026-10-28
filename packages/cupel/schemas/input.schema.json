@@ -32,6 +32,33 @@
         }
       }
     },
+    "collection": {
+      "type": "object",
+      "required": ["runs"],
+      "additionalProperties": false,
+      "properties": {
+        "runs": { "type": "integer", "minimum": 1 },
+        "config": { "$ref": "#/$defs/sha256" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+        "shard": {
+          "type": "object",
+          "required": ["index", "total", "suite", "files"],
+          "additionalProperties": false,
+          "properties": {
+            "index": { "type": "integer", "minimum": 1 },
+            "total": { "type": "integer", "minimum": 1 },
+            "suite": { "$ref": "#/$defs/sha256" },
+            "files": { "type": "object", "additionalProperties": { "$ref": "#/$defs/sha256" } }
+          }
+        },
+        "subset": {
+          "type": "object",
+          "required": ["files"],
+          "additionalProperties": false,
+          "properties": { "files": { "type": "object", "additionalProperties": { "$ref": "#/$defs/sha256" } } }
+        }
+      }
+    },
     "sources": {
       "type": "object",
       "additionalProperties": {
@@ -142,6 +169,7 @@
     }
   },
   "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "specVersion": { "type": "string", "pattern": "^cupel-spec/1(\\.[0-9]+)?$" },
     "lineSet": { "type": "string", "pattern": "^([1-9][0-9]*(-[1-9][0-9]*)?(,[1-9][0-9]*(-[1-9][0-9]*)?)*)?$" },
     "linesBySource": { "type": "object", "additionalProperties": { "$ref": "#/$defs/lineSet" } }

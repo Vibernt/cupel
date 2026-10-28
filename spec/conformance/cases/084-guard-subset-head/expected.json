@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "subset-input",
+      "severity": "error",
+      "path": "/collection/subset"
+    }
+  ],
+  "guard": "$absent"
+}

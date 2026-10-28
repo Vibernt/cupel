@@ -1,0 +1,15 @@
+{
+  "description": "Both one-run inputs give sorted base and head warnings without failing guard.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "positive"
+    },
+    {
+      "id": "E1",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

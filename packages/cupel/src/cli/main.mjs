@@ -23,6 +23,8 @@ import { bodySitesPytest } from './collect.mjs';
 import { sourceMutants } from '../mutate/sites.mjs';
 import { inheritRunnerParts, splitRunnerInput, runnerParts, mergeRunners } from './merge-runners.mjs';
 import { analyzePseudo } from '../analysis/pseudo.mjs';
+import { nodeFlags } from './node-flags.mjs';
+import { collectionCommands } from './collection-commands.mjs';
 
 export const FIXTURES_DIR = fileURLToPath(new URL('../../../../spec/conformance/adapters/', import.meta.url));
 
@@ -121,6 +123,21 @@ const COMMANDS = {
     options: { root: S, runs: S, tests: S, recheck: { type: 'string', multiple: true }, out: S },
     positionals: true,
   },
+  'collect-node': {
+    usage: 'cupel collect-node [--root DIR] [--config FILE] [--out FILE] [--junit FILE] [--runs N] [--shard I/N | --tests FILE ...] [--quiet] [-- <node test flags>...]',
+    about: 'run node:test once as the CI test step and collect complete input',
+    options: { root: S, out: S, junit: S, runs: S, shard: S, tests: { type: 'string', multiple: true } },
+  },
+  'merge-inputs': {
+    usage: 'cupel merge-inputs <shard.json...> --out FILE [--json]',
+    about: 'merge disjoint complete collection shards',
+    options: { out: S }, positionals: true,
+  },
+  mutate: {
+    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE]',
+    about: 'mutate a precollected input from the working tree',
+    options: { input: S, out: S, 'base-input': S, changed: S, root: S },
+  },
   mcp: {
     usage: 'cupel mcp [--root <dir>]',
     about: 'start the local MCP server over stdio',
@@ -186,7 +203,7 @@ class Context {
   }
 
   get root() {
-    this._root ??= projectRoot(this.cwd);
+    this._root ??= this.o.root ? resolve(this.cwd, this.o.root) : projectRoot(this.cwd);
     return this._root;
   }
 
@@ -207,7 +224,7 @@ class Context {
   runs() {
     const r = this.o.runs;
     if (r === undefined) return 2;
-    if (!/^[1-9][0-9]*$/.test(r)) throw usage(`--runs needs a positive integer, got ${JSON.stringify(r)}`);
+    if (!/^[1-9][0-9]*$/.test(r) || !Number.isSafeInteger(Number(r))) throw usage(`--runs needs a positive safe integer, got ${JSON.stringify(r)}`);
     return Number(r);
   }
 
@@ -249,14 +266,14 @@ class Context {
     return result.exit;
   }
 
-  writeCollected(input, fallback) {
+  writeCollected(input, fallback, { silent = false } = {}) {
     const target = this.o.out !== undefined ? this.path(this.o.out) : fallback;
     if (!target) return;
     writeJson(target, input);
-    this.log(`wrote ${relative(this.cwd, target) || target}`);
+    if (!silent) this.log(`wrote ${relative(this.cwd, target) || target}`);
     const sidecar = join(dirname(target), 'skipped.json');
     writeJson(sidecar, { skipped: this.skipped });
-    if (this.skipped.length) this.log(`${this.skipped.length} files skipped: see ${relative(this.cwd, sidecar) || sidecar}`);
+    if (this.skipped.length && !silent) this.log(`${this.skipped.length} files skipped: see ${relative(this.cwd, sidecar) || sidecar}`);
   }
 }
 
@@ -343,6 +360,7 @@ function mergeRecheck(first, second) {
 }
 
 const commands = {
+  ...collectionCommands,
   async pseudo(ctx) {
     const cfg = ctx.effective();
     const collected = ctx.o.input === undefined;
@@ -668,7 +686,9 @@ export async function main(argv, io) {
     return EXIT_USAGE;
   }
   try {
-    const parsed = parse(cmd, rest);
+    const divider = cmd === 'collect-node' ? rest.indexOf('--') : -1;
+    const parsed = parse(cmd, divider < 0 ? rest : rest.slice(0, divider));
+    if (cmd === 'collect-node') parsed.nodeArgs = divider < 0 ? [] : nodeFlags(rest.slice(divider + 1));
     if (parsed.values.help) {
       io.out(`usage: ${COMMANDS[cmd].usage}\n\n${COMMANDS[cmd].about}. See docs/${cmd === 'mcp' ? 'mcp' : 'cli'}.md.\n`);
       return EXIT_OK;
@@ -703,6 +723,7 @@ export async function main(argv, io) {
       return EXIT_OK;
     }
     const ctx = new Context(cmd, parsed, io);
+    ctx.nodeArgs = parsed.nodeArgs;
     return await commands[cmd](ctx);
   } catch (e) {
     if (e instanceof CliError) {

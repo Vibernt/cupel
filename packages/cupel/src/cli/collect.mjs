@@ -18,6 +18,7 @@ import { mergeRunners, runnerParts } from './merge-runners.mjs';
 import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
 import { mutateRuby } from './native-mutation.mjs';
+import { stampCollection } from './collection.mjs';
 
 const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
@@ -294,7 +295,7 @@ async function collect(collector, opts) {
 /** Collects the working tree at `root`. The collector runs `prepare` itself. */
 export function collectTree(collector, { root, cfg, runs, recheck, log, diagnostics }) {
   log(`collecting ${root}`);
-  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics });
+  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics }).then((input) => stampCollection(input, root, cfg));
 }
 
 /**
@@ -309,7 +310,7 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
     runPrepare(dir, cfg, log);
     const refConfig = withoutPrepare(cfg);
     const refCollector = await requireCollector(env, dir, refConfig);
-    const input = await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log });
+    const input = stampCollection(await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log }), dir, cfg, commit);
     return after ? await after(dir, input, refCollector) : input;
   } finally {
     cleanup();

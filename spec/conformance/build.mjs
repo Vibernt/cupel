@@ -20,7 +20,7 @@ const NODE22 = { name: 'node', version: '22.23.3' };
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
 /** Builds an input. `cov` maps test id to a line set of `src` (default src/a.mjs) or to { source: lines }. */
-function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, functionSites, runtime = NODE22, runtimes, spec = 'cupel-spec/1' }) {
+function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = {}, setup, granularity = 'test', byFile, rechecked, unstable, mutation, brittleness, shapes, functionSites, collection, runtime = NODE22, runtimes, spec = 'cupel-spec/1' }) {
   const coverage = { granularity };
   if (granularity === 'test') {
     coverage.byTest = Object.fromEntries(Object.entries(cov).map(([id, v]) => [id, typeof v === 'string' ? { 'src/a.mjs': v } : v]));
@@ -30,7 +30,7 @@ function input({ sources = { 'src/a.mjs': { coverable: '1-10' } }, tests, cov = 
   if (setup) coverage.setup = setup;
   if (rechecked) coverage.rechecked = rechecked;
   if (unstable) coverage.unstable = unstable;
-  const out = { spec, kind: 'input', runtime, ...(runtimes ? { runtimes } : {}), sources, tests, coverage };
+  const out = { spec, kind: 'input', runtime, ...(runtimes ? { runtimes } : {}), sources, tests, coverage, ...(collection ? { collection } : {}) };
   if (mutation) out.mutation = mutation;
   if (brittleness) out.brittleness = brittleness;
   if (shapes) out.shapes = shapes;
@@ -1305,6 +1305,45 @@ kase('077-review-passed-in-one-run', { description: 'A failed aggregate status w
 kase('078-review-unknown-unit', { description: 'An unknown review selection fails integrity instead of producing an empty pack.',
   command: 'review', rules: rules('-I4'), input: REVIEW_BASIC, args: { units: ['tests/missing.test.mjs'] }, expectExit: 2,
   expected: { diagnostics: [{ code: 'unknown-unit', severity: 'error', path: '/units/0' }], review: '$absent' } });
+
+// ---------- collection provenance and subset safety ----------
+
+const singleWarning = (label) => ({ code: 'single-run', severity: 'warning', path: '/collection/runs', message: `${label}: coverage and test statuses come from one run` });
+const sub = { runs: 1, subset: { files: { 'tests/a.test.mjs': `sha256:${'a'.repeat(64)}` } } };
+const subsetInput = input({ tests: [t('t1', 'tests/a.test.mjs')], cov: { t1: '1' }, collection: sub });
+
+kase('079-guard-head-single-run', { description: 'A one-run head passes the unchanged guard with one warning.',
+  command: 'guard', rules: rules('+G4 +E1 +I5 +G10'), base: gBase({ collection: { runs: 2 } }), head: gBase({ collection: { runs: 1 } }),
+  expectExit: 0, expected: { diagnostics: [singleWarning('head')], guard: { pass: true } } });
+kase('080-guard-both-single-run', { description: 'Both one-run inputs give sorted base and head warnings without failing guard.',
+  command: 'guard', rules: rules('+G4 +E1'), base: gBase({ collection: { runs: 1 } }), head: gBase({ collection: { runs: 1 } }),
+  expectExit: 0, expected: { diagnostics: [singleWarning('base'), singleWarning('head')], guard: { pass: true } } });
+kase('081-guard-two-runs', { description: 'Two-run collection needs no single-run warning.',
+  command: 'guard', rules: rules('-G4 -G10'), base: gBase({ collection: { runs: 2 } }), head: gBase({ collection: { runs: 2 } }),
+  expectExit: 0, expected: { diagnostics: [], guard: { pass: true } } });
+kase('082-invalid-collection-runs', { description: 'Zero collection runs are invalid input.',
+  command: 'report', rules: rules('-I1'), input: input({ tests: [], collection: { runs: 0 } }), expectExit: 2,
+  expected: { diagnostics: [{ code: 'invalid-input', severity: 'error', path: '/collection/runs' }], suite: '$absent' } });
+kase('083-invalid-collection-shard', { description: 'A malformed shard suite digest is invalid input.',
+  command: 'report', rules: rules('-I1'), input: input({ tests: [], collection: { runs: 1, shard: { index: 1, total: 2, suite: 'sha256:bad', files: {} } } }), expectExit: 2,
+  expected: { diagnostics: [{ code: 'invalid-input', severity: 'error', path: '/collection/shard/suite' }], suite: '$absent' } });
+kase('084-guard-subset-head', { description: 'Guard refuses a subset head before counting unselected lines as lost.',
+  command: 'guard', rules: rules('-G4 -I5'), base: input({ tests: [t('t1', 'tests/a.test.mjs')], cov: { t1: '1' } }), head: subsetInput,
+  expectExit: 2, expected: { diagnostics: [{ code: 'subset-input', severity: 'error', path: '/collection/subset' }], guard: '$absent' } });
+kase('085-report-subset', { description: 'Report refuses a subset because its totals would be incomplete.',
+  command: 'report', rules: rules('-R3'), input: subsetInput, expectExit: 2,
+  expected: { diagnostics: [{ code: 'subset-input', severity: 'error', path: '/collection/subset' }], suite: '$absent' } });
+kase('086-check-subset-head', { description: 'Check judges the selected unit against a full base.',
+  command: 'check', rules: rules('+C1'), args: { tests: ['t1'] },
+  base: input({ tests: [t('t1', 'tests/a.test.mjs')], cov: { t1: '1' } }), head: subsetInput,
+  expectExit: 0, expected: { check: { verdicts: [{ id: 't1', verdict: 'adds-value' }] } } });
+kase('087-plan-subset', { description: 'Plan accepts the named subset as its available inventory.',
+  command: 'plan', rules: rules('+P1'), input: subsetInput, expectExit: 0,
+  expected: { plan: { mode: 'full', order: [{ id: 't1', bucket: 'standard', durationMs: 0 }], skipped: [], expectedMs: 0 } } });
+kase('088-guard-base-unstable-head-single', { description: 'A base unstable line protects a one-run head from a false lost-line failure.',
+  command: 'guard', rules: rules('+G4'), base: gBase({ unstable: { 'src/a.mjs': '3' }, collection: { runs: 2 } }),
+  head: gBase({ cov: { ...G_COV, x: '1-2' }, collection: { runs: 1 } }),
+  expectExit: 0, expected: { diagnostics: [singleWarning('head')], guard: { pass: true, checks: checks() } } });
 
 
 // ---------- write ----------

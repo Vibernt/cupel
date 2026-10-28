@@ -47,6 +47,7 @@ export default async function* reporter(source) {
     } else if (type === 'test:summary' && data.file) {
       const out = flush(data.file);
       if (out) yield out;
+      yield `${JSON.stringify({ type: 'summary', file: data.file, counts: data.counts })}\n`;
     }
   }
   if (block.length) yield flush(null);

@@ -1,0 +1,19 @@
+{
+  "diagnostics": [
+    {
+      "code": "single-run",
+      "severity": "warning",
+      "path": "/collection/runs",
+      "message": "base: coverage and test statuses come from one run"
+    },
+    {
+      "code": "single-run",
+      "severity": "warning",
+      "path": "/collection/runs",
+      "message": "head: coverage and test statuses come from one run"
+    }
+  ],
+  "guard": {
+    "pass": true
+  }
+}

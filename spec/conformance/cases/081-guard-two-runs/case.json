@@ -1,0 +1,15 @@
+{
+  "description": "Two-run collection needs no single-run warning.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "negative"
+    },
+    {
+      "id": "G10",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

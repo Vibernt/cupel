@@ -1,0 +1,27 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "node",
+    "version": "22.23.3"
+  },
+  "sources": {
+    "src/a.mjs": {
+      "coverable": "1-10"
+    }
+  },
+  "tests": [],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {}
+  },
+  "collection": {
+    "runs": 1,
+    "shard": {
+      "index": 1,
+      "total": 2,
+      "suite": "sha256:bad",
+      "files": {}
+    }
+  }
+}
