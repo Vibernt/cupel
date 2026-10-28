@@ -134,7 +134,7 @@ test('current documentation distinguishes the versioned MIT source from historic
   for (const text of [readme, install, support, read('docs/private-use.md')]) {
     assert.ok(text.includes(manifest.version), 'current source version must be discoverable');
   }
-  assert.equal(manifest.version, '0.1.1');
+  assert.equal(manifest.version, '0.1.2');
   assert.equal(manifest.license, 'MIT');
   assert.equal(rootManifest.license, manifest.license);
   assert.match(readme, /\[MIT\]\(LICENSE\)/);

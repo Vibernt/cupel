@@ -171,3 +171,10 @@ The owner approved, in chat, bumping the npm package to **0.1.1** (collect-once,
 D17) and committing, tagging and pushing **v0.1.1** on the public repository. The
 Python collector package is unchanged and stays at 0.1.0. npm and PyPI publishing
 remain unapproved; packages keep `"private": true` and `Private :: Do Not Upload`.
+
+## Owner v0.1.2 release approval (2026-10-28)
+
+The owner approved, in chat, bumping the npm package to **0.1.2** (`check`'s C3
+leaves out lines unstable at base or head, as G4 does) and committing, tagging
+and pushing **v0.1.2**. The Python collector stays at 0.1.0. npm and PyPI
+publishing remain unapproved.

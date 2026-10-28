@@ -59,7 +59,7 @@ test('npm tarball installs offline and runs CLI, guard, and MCP smoke checks', (
   const manifest = JSON.parse(readFileSync(join(PACKAGE, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
   assert.equal(manifest.license, 'MIT');
-  assert.equal(manifest.version, '0.1.1');
+  assert.equal(manifest.version, '0.1.2');
   for (const legalFile of ['LICENSE', 'NOTICE']) {
     assert.deepEqual(readFileSync(join(PACKAGE, legalFile)), readFileSync(join(ROOT, legalFile)), `${legalFile} copy drifted`);
   }
