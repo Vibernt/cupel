@@ -1,0 +1,16 @@
+{
+  "description": "A line unstable at head is left out as well.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C3",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "tests": [
+      "a"
+    ]
+  },
+  "expectExit": 0
+}

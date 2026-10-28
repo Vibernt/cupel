@@ -1,0 +1,16 @@
+{
+  "description": "A line that moved between tests of one file across the base runs is not lost by a one-run head.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C3",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "tests": [
+      "a"
+    ]
+  },
+  "expectExit": 0
+}

@@ -1,0 +1,16 @@
+{
+  "check": {
+    "verdicts": [
+      {
+        "id": "a",
+        "verdict": "weakens",
+        "lost": {
+          "lines": {
+            "src/a.mjs": "3"
+          },
+          "mutants": []
+        }
+      }
+    ]
+  }
+}

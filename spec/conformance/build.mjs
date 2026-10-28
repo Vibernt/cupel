@@ -1346,6 +1346,26 @@ kase('088-guard-base-unstable-head-single', { description: 'A base unstable line
   expectExit: 0, expected: { diagnostics: [singleWarning('head')], guard: { pass: true, checks: checks() } } });
 
 
+// ---------- check and unstable lines (C3) ----------
+
+const MOVE_TESTS = [t('a', 'tests/f.test.mjs'), t('b', 'tests/f.test.mjs')];
+const moved = (extra) => input({ tests: MOVE_TESTS, cov: { a: '1-2', b: '3-4' }, ...extra });
+kase('089-check-first-touch-move-base-unstable', { description: 'A line that moved between tests of one file across the base runs is not lost by a one-run head.',
+  command: 'check', rules: rules('+C3'), args: { tests: ['a'] },
+  base: input({ tests: MOVE_TESTS, cov: { a: '1-3', b: '3-4' }, unstable: { 'src/a.mjs': '3' }, collection: { runs: 2 } }),
+  head: moved({ collection: { runs: 1 } }),
+  expectExit: 0, expected: { check: { verdicts: [{ id: 'a', verdict: 'adds-value' }] } } });
+kase('090-check-first-touch-move-unobserved', { description: 'The same move with no unstable line on either side is still a loss.',
+  command: 'check', rules: rules('-C3'), args: { tests: ['a'] },
+  base: input({ tests: MOVE_TESTS, cov: { a: '1-3', b: '3-4' }, collection: { runs: 1 } }),
+  head: moved({ collection: { runs: 1 } }),
+  expectExit: 1, expected: { check: { verdicts: [{ id: 'a', verdict: 'weakens', lost: { lines: { 'src/a.mjs': '3' }, mutants: [] } }] } } });
+kase('091-check-head-unstable', { description: 'A line unstable at head is left out as well.',
+  command: 'check', rules: rules('+C3'), args: { tests: ['a'] },
+  base: input({ tests: MOVE_TESTS, cov: { a: '1-3', b: '3-4' }, collection: { runs: 1 } }),
+  head: moved({ unstable: { 'src/a.mjs': '3' }, collection: { runs: 2 } }),
+  expectExit: 0, expected: { check: { verdicts: [{ id: 'a', verdict: 'adds-value' }] } } });
+
 // ---------- write ----------
 
 function filesFor(c) {

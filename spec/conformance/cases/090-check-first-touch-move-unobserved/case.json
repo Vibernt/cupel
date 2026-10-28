@@ -1,0 +1,16 @@
+{
+  "description": "The same move with no unstable line on either side is still a loss.",
+  "command": "check",
+  "rules": [
+    {
+      "id": "C3",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "tests": [
+      "a"
+    ]
+  },
+  "expectExit": 1
+}

@@ -143,8 +143,16 @@ export function checkSection(head, base, names) {
   return { section: { verdicts }, exit: verdicts.some((v) => ['weakens', 'fails', 'not-run'].includes(v.verdict)) ? 1 : 0 };
 }
 
+/** Lines in `coverage.unstable` at base or at head (C3, G4). */
+function unstableEither(base, head) {
+  const excluded = new Map(base.unstable);
+  for (const [src, set] of head.unstable) excluded.set(src, union(excluded.get(src) ?? [], set));
+  return excluded;
+}
+
 function weakenedBy(u, b, head, base) {
-  const lines = mapDiff(b.own, u.own);
+  // Lines unstable at base or at head are left out, as in G4: a line that moved between tests across runs is not lost.
+  const lines = mapDiff(mapDiff(b.own, u.own), unstableEither(base, head));
   const headMutants = new Map(head.mutants.map((m) => [m.id, m]));
   const mutants = [];
   for (const m of base.mutants) {
@@ -196,8 +204,7 @@ export function guardSection(base, head, cfg, approvals = []) {
   checks.push({ id: 'head-passes', pass: newFailures.length === 0, units: newFailures, preexisting: headFailed.filter((id) => baseFailed.has(id)) });
 
   // G4
-  const excluded = new Map(base.unstable);
-  for (const [src, set] of head.unstable) excluded.set(src, union(excluded.get(src) ?? [], set));
+  const excluded = unstableEither(base, head);
   const stable = (model) => mapDiff(model.covered, excluded);
   const baseCovered = stable(base);
   const headCovered = stable(head);
