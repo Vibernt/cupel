@@ -37,7 +37,7 @@ Every change to tests goes through `cupel guard` (section 4 below).
 | When | Command | Fault testing |
 | --- | --- | --- |
 | While editing | `cupel report`, then `cupel audit` | critical files, reusing earlier results |
-| Every pull request | `cupel guard --base origin/main` (or `--base-input` with main's saved input) | changed lines only (`"critical": false`), capped by `maxMutants` |
+| Every pull request | `cupel guard --base origin/main` (or `--base-input` with main's saved input) | changed lines only (`"critical": false`), capped by `maxMutants`; each fault stops at its first catch |
 | Nightly or on main | `cupel report --reuse … --out …` | critical files in full |
 
 [Faster fault testing](speed.md) has the settings and CI recipes, including how

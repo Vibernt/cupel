@@ -331,13 +331,18 @@ export async function mutate(mutator, options) {
   // Each fault's measured time from the earlier input sharpens plan estimates; every run records its own.
   const history = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => Number.isInteger(m.durationMs)).map((m) => [m.id, m.durationMs]));
   const scope = { ...options.scope, timings: true, ...(Object.keys(history).length ? { history } : {}) };
-  if (!reuseEnabled(cfg)) return mutateRuns(mutator, { ...options, scope });
+  if (!reuseEnabled(cfg)) {
+    const result = await mutateRuns(mutator, { ...options, scope });
+    return result && scope.firstCatch && !scope.plan ? { ...result, catches: 'first' } : result;
+  }
   const basis = new ReuseBasis({ root, input, cfg, ownFiles });
-  const reuse = previous ? reusableRows({ previous, basis }) : {};
+  // Rows from a first-catch run have partial catching-test lists: only another first-catch run may reuse them.
+  const usable = previous && (previous.mutation?.catches !== 'first' || scope.firstCatch) ? previous : null;
+  const reuse = usable ? reusableRows({ previous: usable, basis }) : {};
   if (previous) log(`reuse: ${Object.keys(reuse).length} of ${previous.mutation.mutants.length} earlier fault results still hold`);
   const result = await mutateRuns(mutator, { ...options, scope: Object.keys(reuse).length ? { ...scope, reuse } : scope });
   if (!result || scope.plan) return result;
-  const stamped = stampBasis(result, basis, new Set(Object.keys(reuse)));
+  const stamped = stampBasis(scope.firstCatch ? { ...result, catches: 'first' } : result, basis, new Set(Object.keys(reuse)));
   if (mutationOwners.has(result)) mutationOwners.set(stamped, mutationOwners.get(result));
   return stamped;
 }
@@ -424,7 +429,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
       return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
     }
     const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [],
-      ...Object.fromEntries(['reuse', 'plan', 'only', 'history', 'timings'].filter((k) => scope[k] !== undefined).map((k) => [k, scope[k]])) };
+      ...Object.fromEntries(['reuse', 'plan', 'only', 'history', 'timings', 'firstCatch'].filter((k) => scope[k] !== undefined).map((k) => [k, scope[k]])) };
     const ordinary = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics });
     // Phase 5: sources the tests run in workerd get their mutants in a scratch copy of the project.
     if (collectorKind || !Object.values(input.sources).some((s) => s.measuredIn)) return ordinary;

@@ -81,7 +81,7 @@ def pytest_runtest_logreport(report):
     if unit is None or report.nodeid in _SPEC.get('ignore', ()):
         return
     _KILLING_UNITS.add(unit)
-    if len(_KILLING_UNITS) >= STOP_AFTER_UNITS and _SESSION is not None and not _SESSION.shouldfail:
+    if len(_KILLING_UNITS) >= int(_SPEC.get('stopAfter', STOP_AFTER_UNITS)) and _SESSION is not None and not _SESSION.shouldfail:
         # Pytest checks this after the current test's teardown, as it does for --maxfail, and exits with code 1.
         _write_report({'event': 'stopped', 'units': sorted(_KILLING_UNITS)})
         _SESSION.shouldfail = f'cupel: mutant caught by {len(_KILLING_UNITS)} units'

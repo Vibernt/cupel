@@ -84,12 +84,33 @@ function report(backend, extra = {}) {
   } finally { rmSync(project, { recursive: true, force: true }); }
 }
 
+function firstCatch() {
+  const project = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-fast-first-')));
+  cpSync(fixture, project, { recursive: true });
+  rmSync(join(project, 'target'), { recursive: true, force: true });
+  writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-first') };
+  const cli = (...args) => spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), ...args], { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
+  try {
+    const c = cli('report', '--runs', '1', '--no-mutation', '--out', 'collected.json', '--json');
+    assert.equal(c.status, 0, c.stderr);
+    const m = cli('mutate', '--input', 'collected.json', '--out', 'first.json', '--first-catch', '--no-reuse');
+    assert.equal(m.status, 0, m.stderr);
+    const doc = JSON.parse(readFileSync(join(project, 'first.json'), 'utf8'));
+    assert.equal(doc.mutation.catches, 'first');
+    return doc.mutation.mutants;
+  } finally { rmSync(project, { recursive: true, force: true }); }
+}
+
 test('backend cupel gives the rows cargo-mutants gives, one build per fault and switched in one build', { skip, timeout: 900_000 }, () => {
   const reference = report('cargo-mutants');
   assert.ok(reference.rows.length >= 6);
   const single = report('cupel', { schemata: false });
   assert.deepEqual(single.rows, reference.rows);
   assert.match(single.log, /fault\(s\) with one build each/);
+  const first = firstCatch();
+  assert.deepEqual(first.map((r) => [r.id, r.status]), reference.rows.map((r) => [r.id, r.status]), 'first catch: same statuses');
+  assert.ok(first.every((r) => !r.killedBy || r.killedBy.length <= reference.rows.find((x) => x.id === r.id).killedBy.length));
   const switched = report('cupel');
   assert.deepEqual(switched.rows, reference.rows);
   assert.match(switched.log, /fault\(s\) switched in one build/);

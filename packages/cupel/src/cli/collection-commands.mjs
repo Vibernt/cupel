@@ -124,7 +124,8 @@ export const collectionCommands = {
     const cfg = ctx.effective();
     const mutator = await ctx.mutator();
     const changed = ctx.o.changed && cfg.mutation.changedLines ? changedLines(ctx.root, ctx.o.changed) : null;
-    const scope = { critical: cfg.mutation.critical, changed, ...(ctx.o.runner ? { runner: ctx.o.runner } : {}) };
+    // --first-catch: only whether each fault was caught, for guard --head-input (mutation.catches 'first').
+    const scope = { critical: cfg.mutation.critical, changed, ...(ctx.o.runner ? { runner: ctx.o.runner } : {}), ...(ctx.o['first-catch'] ? { firstCatch: true } : {}) };
     const common = { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, log: ctx.log };
     const number = (name, fallback, min = 1, integer = false) => {
       if (ctx.o[name] === undefined) return fallback;

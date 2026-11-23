@@ -139,6 +139,7 @@
         },
         "targeted": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "seed": { "type": "integer" },
+        "catches": { "const": "first" },
         "shard": {
           "type": "object", "required": ["runner", "index", "total", "plan", "assigned"], "additionalProperties": false,
           "properties": { "runner": { "type": "string", "minLength": 1 }, "index": { "type": "integer", "minimum": 1 }, "total": { "type": "integer", "minimum": 1 }, "plan": { "$ref": "#/$defs/sha256" }, "assigned": { "type": "integer", "minimum": 0 } }

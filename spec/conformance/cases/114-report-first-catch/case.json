@@ -1,0 +1,11 @@
+{
+  "description": "Report refuses fault results that stopped at the first catch: unique kills would be wrong.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I6",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

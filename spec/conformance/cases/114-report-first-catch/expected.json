@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "partial-catches",
+      "severity": "error"
+    }
+  ],
+  "suite": "$absent"
+}

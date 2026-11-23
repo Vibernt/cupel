@@ -59,6 +59,7 @@ class Session:
     def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000, targeted=()):
         self.root, self.input, self.config, self.tmp, self.deadline = root, input_data, config, tmp, deadline
         self.targeted = set(targeted)
+        self.first_catch = False
         self.facts = facts
         self.floor_ms = floor_ms
         self.tests = {t['id']: t for t in input_data['tests']}
@@ -127,7 +128,8 @@ class Session:
                                          'device': fact.path.device, 'inode': fact.path.inode,
                                          'edits': site.edits, 'seen': str(seen_path),
                                          'units': units, 'ignore': sorted(baseline_failures),
-                                         'stop': not any(u in self.targeted for u in units.values())}), encoding='utf-8')
+                                         'stop': not any(u in self.targeted for u in units.values()),
+                                         'stopAfter': 1 if self.first_catch else 2}), encoding='utf-8')
         def classify(run):
             if run['cut']:
                 return None
@@ -316,6 +318,7 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
         session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms, scope.get('targeted', []))
+        session.first_catch = bool(scope.get('firstCatch'))
         cursor = 0
         while cursor < len(ordered) and len(results) < cap and time.monotonic() < deadline:
             phase_end = next((i for i in range(cursor, len(ordered)) if scope.get('functions') and
@@ -381,6 +384,7 @@ def _only(root, input_data, config, scope, facts, deadline, floor_ms, jobs, orde
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
         session = Session(root, input_data, config, tmp, deadline, facts, floor_ms, scope.get('targeted', []))
+        session.first_catch = bool(scope.get('firstCatch'))
         chosen, invalid, _ = _choose(ordered, texts, reuse, session, cap, functions, primary_by_function)
         picked = {site.id for site, *_ in chosen}
         unknown = sorted(only - picked)

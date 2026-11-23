@@ -109,7 +109,8 @@
           "anyOf": [{ "const": "ratchet" }, { "type": "number", "minimum": 0, "maximum": 100 }],
           "default": "ratchet"
         },
-        "criticalMutation": { "const": "no-loss", "default": "no-loss" }
+        "criticalMutation": { "const": "no-loss", "default": "no-loss" },
+        "firstCatch": { "type": "boolean", "default": true, "description": "Collect the head's faults stopping at the first catching test: guard needs only whether each was caught (I6). false records catches as report does." }
       }
     },
     "advice": {

@@ -95,6 +95,9 @@ the source text lets Rust regroup the whole expression (`a && b && c && d` with
 one `&&` made `||` reads `(a && b) || (c && d)`), which a switch around the
 original operands cannot reproduce. Those faults get a build of their own.
 
+With `guard` (or `cupel mutate --first-catch`), each fault stops at its first
+catching target instead of the second (see [Faster fault testing](speed.md#pull-requests-stop-at-the-first-catch)).
+
 Known differences from one build per fault: a switched operator's temporaries are
 dropped at the end of the switch, not at the end of the statement, and panic
 columns (not lines) can shift. `#![no_std]` crates cannot read `CUPEL_FAULT`; their

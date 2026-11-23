@@ -166,6 +166,7 @@ class Runner {
     this.targets = new Map(); // test file -> target
     this.baseline = new Map(); // target key -> { ms, failing: Set(name) }
     this.compiled = new Map();
+    this.stopAfter = STOP_AFTER_TARGETS;
   }
 
   target(file) {
@@ -282,7 +283,7 @@ class Runner {
     const st = state ?? { catching: 0, timedOut: false, runs: [], done: new Set() };
     if (process.env.CUPEL_DEBUG_RUST) this.log(`debug: fault ${fault} line ${candidate.line} order ${order.map((k) => k.replaceAll('\0', '/')).join(', ')} only ${only ? [...only].map((k) => k.replaceAll('\0', '/')).join(', ') : '-'} done ${[...st.done].length} catching ${st.catching}`);
     for (const key of order) {
-      if (!full && st.catching >= STOP_AFTER_TARGETS) break;
+      if (!full && st.catching >= this.stopAfter) break;
       if (st.done.has(key) || (only && !only.has(key))) continue;
       const { target, names } = byTarget.get(key);
       const limit = Math.max(TIMEOUT_FACTOR * ms(key), TIMEOUT_FLOOR_MS);
@@ -301,7 +302,7 @@ class Runner {
       st.done.add(key);
     }
     // Targets still owed: stopped early with fewer than two catches (or a full run is needed), and some were skipped.
-    st.pending = (full || st.catching < STOP_AFTER_TARGETS) ? order.filter((key) => !st.done.has(key)) : [];
+    st.pending = (full || st.catching < this.stopAfter) ? order.filter((key) => !st.done.has(key)) : [];
     return st;
   }
 
@@ -359,6 +360,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       delete env.CUPEL_FAULT;
       const packages = await workspace(cargo, src, env);
       runner = new Runner({ root, src, input, env, cargo, packages, log, targeted: scope.targeted ?? [] });
+      if (scope.firstCatch) runner.stopAfter = 1;
 
       // Targets and test names every fault needs, for the baseline build and runs.
       const needed = new Map();

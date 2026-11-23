@@ -66,6 +66,7 @@ Per command:
 | `--base-input <file>`, `--head-input <file>` | check, guard | Saved inputs for either side (`check` also takes the head as `--input`) |
 | `--approvals <file>` | guard | A JSON list of `{ "action": "remove" \| "downgrade", "id", "by" }`, or an object with that list as `approvals` |
 | `--changed <ref>` | plan, guard, mutate | Changed lines from `git diff --unified=0 <ref>`. For guard, only with `--base-input` (with `--base`, the base ref gives them) |
+| `--first-catch` | mutate | Stop each fault at its first catching test; the result (`mutation.catches: "first"`) is accepted only as guard's head (I6). `guard` does this for its own head unless config `guard.firstCatch` is false |
 | `--reuse <file>` | report, review, audit, check, guard, mutate | Copy fault results from this earlier input when nothing they depend on changed ([K15](../spec/SPEC.md), [reuse](speed.md#reuse-earlier-results)). Default: `.cupel/input.json` when present. A missing file means every fault runs |
 | `--no-reuse` | report, review, audit, check, guard, mutate | Run every fault |
 | `--changed-lines <file>` | plan | Changed lines as JSON: `{ "path": "line set" }`, `""` for a whole file |

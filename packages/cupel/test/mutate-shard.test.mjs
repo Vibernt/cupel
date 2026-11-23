@@ -99,3 +99,44 @@ test('merged slices keep exactly the whole run\'s targeted units, with and witho
     assert.deepEqual(merged.mutants.map((m) => [m.id, m.status]).sort(), whole.mutants.map((m) => [m.id, m.status]).sort());
   }
 });
+
+test('first catch: the same statuses as a full run, at most one catching file per fault, and the engine refuses it outside guard\'s head', async (t) => {
+  const { mutateNode } = await import('../src/mutate/index.mjs');
+  const { run } = await import('../src/engine/index.mjs');
+  const { loadSchemas } = await import('../src/cli/context.mjs');
+  const p = makeProject();
+  t.after(p.cleanup);
+  const scope = { changed: { 'src/calc.mjs': '' } };
+  const full = await mutateNode({ root: p.root, config: {}, input: p.input, scope });
+  const first = await mutateNode({ root: p.root, config: {}, input: p.input, scope: { ...scope, firstCatch: true } });
+  assert.deepEqual(first.mutants.map((m) => [m.id, m.status]), full.mutants.map((m) => [m.id, m.status]));
+  const fileOf = (id) => id.split('::')[0];
+  assert.ok(first.mutants.every((m) => new Set((m.killedBy ?? []).map(fileOf)).size <= 1));
+  const schemas = loadSchemas();
+  const marked = { ...p.input, mutation: { ...first, catches: 'first' } };
+  const r = run('report', { input: marked }, {}, {}, schemas);
+  assert.equal(r.exit, 2);
+  assert.equal(r.report.diagnostics[0].code, 'partial-catches');
+});
+
+test('guard stops its head at the first catch by default; firstCatch: false records catches as report does', async (t) => {
+  const p = makeProject({ 'cupel.json': JSON.stringify({ tiers: { critical: ['src/calc.mjs'] } }) });
+  t.after(p.cleanup);
+  const env = { ...process.env, NO_COLOR: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+    GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
+  for (const args of [['init', '-q'], ['add', '-A'], ['commit', '-qm', 'init']]) assert.equal(spawnSync('git', args, { cwd: p.root, env }).status, 0);
+  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const cli = (...args) => spawnSync(process.execPath, [bin, ...args], { cwd: p.root, env, encoding: 'utf8' });
+  const g = cli('guard', '--base', 'HEAD', '--runs', '1', '--out', '.cupel/head.json', '--json');
+  assert.equal(g.status, 0, g.stderr);
+  const head = JSON.parse(readFileSync(join(p.root, '.cupel/head.json'), 'utf8'));
+  assert.equal(head.mutation.catches, 'first');
+  const refused = cli('report', '--input', '.cupel/head.json', '--json');
+  assert.equal(refused.status, 2);
+  assert.match(refused.stdout + refused.stderr, /partial-catches/);
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(join(p.root, 'cupel.json'), JSON.stringify({ tiers: { critical: ['src/calc.mjs'] }, guard: { firstCatch: false } }));
+  const g2 = cli('guard', '--base', 'HEAD', '--runs', '1', '--out', '.cupel/head2.json', '--json');
+  assert.equal(g2.status, 0, g2.stderr);
+  assert.equal(JSON.parse(readFileSync(join(p.root, '.cupel/head2.json'), 'utf8')).mutation.catches, undefined);
+});

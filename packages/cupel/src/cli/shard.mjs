@@ -115,6 +115,9 @@ export function mergeMutations(base, parts) {
     targeted.push(...(groupTargeted ?? []));
   }
   if (seeds.size > 1) fail('slices used different seeds');
+  const modes = new Set(parts.map(({ doc }) => doc.mutation.catches ?? 'all'));
+  if (modes.size > 1) fail('some parts stopped at the first catch and others did not; run every part the same way');
   targeted = sortedUnique(targeted);
-  return { mutants: mutants.sort((a, b) => cmp(a.id, b.id)), targeted, sampled, ...(seeds.size ? { seed: [...seeds][0] } : {}) };
+  return { mutants: mutants.sort((a, b) => cmp(a.id, b.id)), targeted, sampled, ...(seeds.size ? { seed: [...seeds][0] } : {}),
+    ...(modes.has('first') ? { catches: 'first' } : {}) };
 }

@@ -196,6 +196,9 @@ Fault testing is the slow part. Cupel keeps it fast without guessing:
   `--reuse <file>`. `guard`, `check` and `mutate` reuse only a file named this
   way, never one the change itself could contain.
 
+On pull requests, `guard` stops each fault at its first catching test: the guard
+only needs to know whether each fault was caught.
+
 For Rust, `"backend": "cupel"` runs cargo-mutants' faults with only the tests that
 run each line, fastest first, and compiles many faults into one build. Large
 suites can be split across CI machines: `cupel mutate --plan` estimates the time

@@ -49,7 +49,30 @@ In `cupel.json` (full list in the [config schema](../spec/schemas/config.schema.
 | `mutation.seed` | fixed | Changes which sample is taken. Keep it fixed so runs stay comparable. |
 | `mutation.reuse` | on | `false` switches reuse off. `ignore` lists files whose changes can never change a test result, such as docs no test reads. `env` adds environment variables whose values change test results. |
 | `runners.cargo.mutants.wholeWorkspace` | false | Test every workspace package for every Rust fault. Use it when Cargo features differ between one package alone and the whole workspace. |
+| `guard.firstCatch` | true | `guard` collects the head's faults stopping at the first catching test (see below). `false` records catches fully. |
 | `runners.cargo.mutants.jobs` | 1 | Rust faults built and tested in parallel. Each job needs its own build and memory. |
+
+## Pull requests: stop at the first catch
+
+A pull request's guard needs one answer per fault: was it caught? It never needs
+*which* tests caught it, or whether only one test does. So `guard` collects the
+head with each fault stopping at its **first** catching test file (JavaScript),
+test (Python) or test target (Rust), instead of the second. Statuses are exactly
+the same; the list of catching tests is shorter.
+
+This matters most where one test is the only one catching a fault: proving it is
+the only one means running every other test that runs the line, slow ones
+included. On a private Rust workspace that was 60% of all fault-testing time.
+
+The result is marked `mutation.catches: "first"`. Because unique catches and
+overlaps cannot be computed from it, every command refuses it (rule I6) except
+`guard`, for its head; reuse and `merge-mutations` never mix it with full results.
+The base side of `guard` always records catches fully, since a removed test is
+described by what only it caught. Turn the mode off with
+`"guard": { "firstCatch": false }`; use `cupel mutate --first-catch` to produce
+such a head for `guard --head-input` in CI. `report`, `audit`, `review` and
+`check` always record catches fully. The cargo-mutants backend runs every test
+anyway; the gain is for JavaScript, Python and `backend: "cupel"`.
 
 ## Reuse earlier results
 

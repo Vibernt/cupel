@@ -1,0 +1,11 @@
+{
+  "description": "Guard refuses a base that stopped at the first catch: removed tests are described by their unique kills.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "I6",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

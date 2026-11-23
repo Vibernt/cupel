@@ -313,6 +313,12 @@ class RunnerTest(unittest.TestCase):
         for mutant in self.killed(self.rows(test, names), {}):
             self.assertEqual(mutant['killedBy'], ['tests/test_logic.py::test_a', 'tests/test_logic.py::test_b'])
 
+    def test_first_catch_stops_after_one_unit(self):
+        names = ['test_a', 'test_b', 'test_c', 'test_d']
+        test = 'from logic import value\n' + ''.join(f'def {n}():\n    assert value() is True\n' for n in names)
+        for mutant in self.killed(self.rows(test, names), {'firstCatch': True}):
+            self.assertEqual(mutant['killedBy'], ['tests/test_logic.py::test_a'])
+
     def test_no_early_stop_on_rows_of_one_unit(self):
         names = ['test_a[1]', 'test_a[2]', 'test_a[3]', 'test_b', 'test_c']
         test = ('import pytest\nfrom logic import value\n@pytest.mark.parametrize("n", [1, 2, 3])\ndef test_a(n):\n    assert value() is True\n'

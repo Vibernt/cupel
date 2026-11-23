@@ -387,7 +387,7 @@ class Session {
       const outcomes = [];
       let killing = 0;
       for (const file of this.order(sel.counts)) {
-        if (!sel.needsFull && killing >= STOP_AFTER_FILES) break;
+        if (!sel.needsFull && killing >= (this.firstCatch ? 1 : STOP_AFTER_FILES)) break;
         if (performance.now() > this.deadline) return null;
         const out = await this.runFile(m, spec, file, sel.tests);
         if (out.kind === 'cut') return null;
@@ -581,6 +581,8 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     jobs: scratch ? 1 : jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts, scratch });
   session.deadline = deadline;
   session.timings = !!scope.timings;
+  // Guard's head only needs whether each fault was caught: stop at the first catching file (mutation.catches 'first').
+  session.firstCatch = !!scope.firstCatch;
   const reuse = scope.reuse && Object.keys(scope.reuse).length ? scope.reuse : null;
   let reusedCount = 0;
   const reusable = (m) => !!reuse && !skipped.has(m.source) && Object.hasOwn(reuse, m.id) && !session.select(m).needsFull;
