@@ -26,7 +26,18 @@
           "collector": { "type": "string", "description": "An external collector command that writes the input format (D13)." },
           "prepare": { "type": "string", "description": "A command run once before collecting, for example a build step." },
           "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Extra environment variables for the test run." },
-          "project": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1 } }], "description": "Vitest: the project name or names to run (passed as --project)." }
+          "mutants": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Cargo: Rust mutation. By default Cupel runs the installed cargo-mutants (D19); backend cupel-rust selects the restricted built-in mutator.",
+          "properties": {
+            "backend": { "enum": ["cargo-mutants", "cupel-rust"] },
+            "command": { "type": "string", "minLength": 1, "description": "The cargo-mutants executable; default cargo-mutants on PATH." },
+            "jobs": { "type": "integer", "minimum": 1, "description": "Parallel cargo-mutants jobs; default 1." },
+            "args": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Extra cargo-mutants arguments, such as --exclude-re." }
+          }
+        },
+        "project": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "items": { "type": "string", "minLength": 1 } }], "description": "Vitest: the project name or names to run (passed as --project)." }
         }
       }
     },

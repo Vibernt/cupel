@@ -1,0 +1,11 @@
+{
+  "description": "An unmeasured source that also lists coverable lines is refused.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

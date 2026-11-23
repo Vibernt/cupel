@@ -3,7 +3,7 @@ import { assertionsCommand } from './assertions.mjs';
 // collects inputs, runs the pure engine and prints its report. No network, no dependencies.
 
 import { parseArgs } from 'node:util';
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve, relative, sep, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,7 @@ import { checkRef, changedLines } from './git.mjs';
 import { loadModule, requireCollector, collectTree, collectRef, mutate, confirm, lostSurvivors, mergeMutation } from './collect.mjs';
 import { formatReport } from './human.mjs';
 import { junitToInput } from './junit.mjs';
+import { CargoMutantsError, importCargoMutants } from '../mutate-cargo/import.mjs';
 import { XmlError } from './xml.mjs';
 import { bodySitesPytest } from './collect.mjs';
 import { sourceMutants } from '../mutate/sites.mjs';
@@ -95,9 +96,9 @@ const COMMANDS = {
     options: { input: S, out: S, runs: S, 'generated-at': S },
   },
   import: {
-    usage: 'cupel import <file...> [--format cupel|junit] [--out <file>] [--runtime-name <n>] [--runtime-version <v>]',
-    about: 'convert JUnit XML (or check a Cupel input) into an input',
-    options: { format: S, out: S, 'runtime-name': S, 'runtime-version': S },
+    usage: 'cupel import <file...> [--format cupel|junit|cargo-mutants] [--out <file>] [--runtime-name <n>] [--runtime-version <v>]\n       cupel import <mutants.out> --format cargo-mutants --input <rust input> [--root DIR] [--listing <cargo mutants --list --json output>] [--out <file>]',
+    about: 'convert JUnit XML or cargo-mutants results (or check a Cupel input) into an input',
+    options: { format: S, out: S, 'runtime-name': S, 'runtime-version': S, input: S, root: S, listing: S },
     positionals: true,
   },
   validate: {
@@ -554,8 +555,20 @@ const commands = {
       } catch (e) {
         throw usage(`${e instanceof XmlError ? 'not well-formed XML: ' : ''}${e.message}`);
       }
+    } else if (format === 'cargo-mutants') {
+      if (files.length !== 1) throw usage('import --format cargo-mutants reads exactly one mutants.out directory');
+      if (ctx.o.input === undefined) throw usage('import --format cargo-mutants needs --input, the Rust coverage input of the same commit');
+      const base = readJson(ctx.path(ctx.o.input), 'input');
+      const listing = ctx.o.listing !== undefined ? readJson(ctx.path(ctx.o.listing), 'listing') : undefined;
+      const root = realpathSync(ctx.path(ctx.o.root ?? '.'));
+      try {
+        doc = { ...base, mutation: importCargoMutants({ root, input: base, outDir: ctx.path(files[0]), listing }).mutation };
+      } catch (e) {
+        if (e instanceof CargoMutantsError) throw usage(e.message);
+        throw e;
+      }
     } else {
-      throw usage(`import: unknown --format ${JSON.stringify(format)} (cupel or junit)`);
+      throw usage(`import: unknown --format ${JSON.stringify(format)} (cupel, junit or cargo-mutants)`);
     }
     const errors = inputErrors(ctx, doc);
     if (errors.length) {

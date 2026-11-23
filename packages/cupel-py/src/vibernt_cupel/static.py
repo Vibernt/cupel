@@ -6,6 +6,7 @@ import tokenize
 import sys
 from pathlib import Path
 from .brittleness import flags_for
+from .weak import weak_flags
 
 
 def _fn(source, line):
@@ -34,6 +35,11 @@ def shape(source, fn):
 
 def findings(source, fn, patterns):
     out = [(kind, line, False) for kind, line in flags_for(source, fn)]
+    seen = {kind for kind, _, _ in out}
+    for kind, line in weak_flags(ast.parse(source), fn):
+        if kind not in seen:
+            out.append((kind, line, False))
+            seen.add(kind)
     lines = source.splitlines()
     body = '\n'.join(lines[fn.lineno - 1:fn.end_lineno])
     for pattern in patterns:

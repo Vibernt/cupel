@@ -62,9 +62,14 @@ export function integrityDiagnostics(input, label) {
   (cov.rechecked ?? []).forEach((id, i) => unitIds.has(id) || unknownUnit(id, ptr('coverage', 'rechecked', i)));
   const mut = input.mutation;
   if (mut) {
-    mut.mutants.forEach((m, i) =>
-      (m.killedBy ?? []).forEach((id, j) => testIds.has(id) || unknownTest(id, ptr('mutation', 'mutants', i, 'killedBy', j))),
-    );
+    mut.mutants.forEach((m, i) => {
+      (m.killedBy ?? []).forEach((id, j) => testIds.has(id) || unknownTest(id, ptr('mutation', 'mutants', i, 'killedBy', j)));
+      for (const id of Object.keys(m.killKinds ?? {})) {
+        if (!(m.killedBy ?? []).includes(id)) {
+          out.push(diag('kill-kind-not-killer', { path: ptr('mutation', 'mutants', i, 'killKinds', id), test: id, message: say(label, `killKinds names "${id}", which is not in killedBy`) }));
+        }
+      }
+    });
     (mut.targeted ?? []).forEach((id, i) => unitIds.has(id) || unknownUnit(id, ptr('mutation', 'targeted', i)));
     // Mutant ids are unique (3.5). Guard and check match mutants by id, so a duplicate is refused.
     const seen = new Set();
@@ -84,6 +89,9 @@ export function integrityDiagnostics(input, label) {
     const p = parse(s.coverable);
     for (const [a, b] of p.bad) {
       out.push(diag('bad-range', { path: ptr('sources', src, 'coverable'), message: say(label, `range ${a}-${b} has start > end`) }));
+    }
+    if (s.unmeasured !== undefined && p.set.length) {
+      out.push(diag('unmeasured-coverable', { path: ptr('sources', src, 'unmeasured'), message: say(label, `unmeasured source "${src}" lists coverable lines`) }));
     }
     coverable.set(src, p.set);
   }

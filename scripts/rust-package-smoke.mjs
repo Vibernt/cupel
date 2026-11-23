@@ -15,6 +15,7 @@ export function rustPackageSmoke({ root, scratch, bin, checked }) {
     'pub fn value() -> i32 { 1 }', 'pub fn value() -> i32 { 0 + 1 }'));
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({
     tiers: { critical: ['src/outer/inner.rs'] }, mutation: { maxMutants: 10, maxSeconds: 120 },
+    runners: { cargo: { mutants: { backend: 'cupel-rust' } } },
   }));
   const basePath = join(project, 'base-input.json');
   checked(process.execPath, [bin, 'report', '--runs', '1', '--out', basePath, '--json'], { cwd: project });

@@ -1,0 +1,11 @@
+{
+  "description": "A source the collector could not measure carries its reason and no coverable lines; the report is unaffected.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I3",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

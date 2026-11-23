@@ -38,6 +38,7 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 `sources` maps each source path (relative to the repository root, `/`-separated) to:
 - `coverable`: the line set of coverable lines, by the line rule (K1);
 - `hash`: optional, a content hash. Guard uses it to tell whether a source changed (G4).
+- `unmeasured`: optional, the collector's reason that it could not measure this source, for example code not compiled for the host or code that runs inside another runtime. Such a source has no coverable lines. Reports list it as not measured, never as uncovered or 0%.
 
 ### 3.3 Tests, units and rows
 
@@ -78,6 +79,8 @@ An input MAY contain `collection`. Its required `runs` is a positive integer cou
 - `operator`;
 - `status`, which is `killed`, `survived`, `timeout`, `no-coverage` or `error`;
 - `killedBy`: the test ids whose run failed or timed out on this mutant.
+- `killKinds`: optional, for each test in `killedBy`, how it failed: `assertion` when the failure was raised by the test's own code (an assertion, an unmet `should_panic`, a returned error), `panic` when it was raised inside the code under test (the test caught the fault only because the code crashed). Every key MUST be in `killedBy` (`kill-kind-not-killer`).
+- `description`: optional, a human-readable description of the fault, such as `replace > with >= in looks_secret`.
 
 A mutant is **detected** when its status is `killed` or `timeout`.
 
@@ -85,7 +88,7 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 
 ### 3.6 Brittleness findings and shapes
 
-- `brittleness` lists findings `{ test, kind, line?, deliberate? }`. `kind` is `source-text`, `css-class`, `doc-wording` or `file-snapshot`. `deliberate: true` marks a pin that is intended, such as a freshness check of a generated file or a provenance hash (spike S6).
+- `brittleness` lists findings `{ test, kind, line?, deliberate? }`. `kind` is `source-text`, `css-class`, `doc-wording`, `file-snapshot`, `no-assertion` (the test checks nothing: no assertion, expected-error check or checking helper, reported only when certain) or `tautology` (an assertion that cannot fail, such as `assert(true)` or the same expression on both sides). `deliberate: true` marks a pin that is intended, such as a freshness check of a generated file or a provenance hash (spike S6).
 - `shapes` maps a unit id to its **shape**: a set of integer shingle hashes of the unit's body (K12).
 - Optional `functionSites` lists function-scope `body-replace` sites `{ id, source, operator, functionKey, functionName, startLine, endLine, variant }` corresponding to mutation results. It is only review evidence. Every site source must exist, every site range must have start ≤ end and contain its matching mutant's line, and duplicate site ids are invalid. The range can include non-coverable syntax lines.
 
@@ -105,8 +108,8 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 ## 4. Input integrity
 
 - **I1** The input MUST validate against `input.schema.json`, and every config against `config.schema.json`. Otherwise the engine reports the diagnostic `invalid-input` (or `invalid-config`) with the JSON path, and exits 2.
-- **I2** Every test id referenced in `coverage`, `mutation.mutants[].killedBy`, `brittleness`, and argument `tests` MUST exist in `tests`. Every unit id in `coverage.rechecked`, `mutation.targeted` and `shapes` MUST be a unit. Rows of a unit MUST share `file`, and test ids MUST be unique. When `runtimes` is present, every test MUST name a `runner` listed there, and runners MUST be unique in `runtimes`. Otherwise the diagnostic is `unknown-test`, `unknown-unit`, `unit-spans-files`, `duplicate-test` or `unknown-runner`, and the exit code is 2.
-- **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range (in `sources`, coverage, mutation and argument `changed`) MUST have start ≤ end. Otherwise the diagnostic is `line-not-coverable`, `unknown-source` or `bad-range`, and the exit code is 2.
+- **I2** Every test id referenced in `coverage`, `mutation.mutants[].killedBy`, `brittleness`, and argument `tests` MUST exist in `tests`, and every key of a mutant's `killKinds` MUST be in its `killedBy` (`kill-kind-not-killer`). Every unit id in `coverage.rechecked`, `mutation.targeted` and `shapes` MUST be a unit. Rows of a unit MUST share `file`, and test ids MUST be unique. When `runtimes` is present, every test MUST name a `runner` listed there, and runners MUST be unique in `runtimes`. Otherwise the diagnostic is `unknown-test`, `unknown-unit`, `unit-spans-files`, `duplicate-test` or `unknown-runner`, and the exit code is 2.
+- **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range (in `sources`, coverage, mutation and argument `changed`) MUST have start ≤ end. A source with `unmeasured` MUST have no coverable lines (`unmeasured-coverable`). Otherwise the diagnostic is `line-not-coverable`, `unknown-source`, `bad-range` or `unmeasured-coverable`, and the exit code is 2.
 - **I4** Review's `units` must resolve to at least one unit, row or test file for each name; unknown names produce `unknown-unit`. The optional assertion sidecar must match the input identity and have structurally valid recordings; otherwise `invalid-assertions` exits 2. Optional function sites must match their mutants and source ranges; otherwise `invalid-function-site` exits 2.
 - **I5** A collection shard's index MUST NOT exceed its total, and an input MUST NOT contain both `collection.shard` and `collection.subset`. Violations are `invalid-input` with exit 2. Guard, report and review MUST refuse a subset input with `subset-input` (severity error, path `/collection/subset`, exit 2); with two inputs the message names `base:` or `head:`. Check, plan and label MAY use subsets, because they judge only named units or the available inventory. A subset head cannot be used for whole-suite guard: it would count unselected tests' lines as lost.
 

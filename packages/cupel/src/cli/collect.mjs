@@ -27,6 +27,7 @@ const REAL = {
   mutator: { url: new URL('../mutate/index.mjs', import.meta.url), env: 'CUPEL_TEST_MUTATOR', exports: ['mutateNode'] },
   goMutator: { url: new URL('../mutate-go/index.mjs', import.meta.url), env: 'CUPEL_TEST_GO_MUTATOR', exports: ['mutateGo', 'confirmGo'] },
   rustMutator: { url: new URL('../mutate-rust/index.mjs', import.meta.url), env: 'CUPEL_TEST_RUST_MUTATOR', exports: ['mutateRust', 'confirmRust'] },
+  cargoMutants: { url: new URL('../mutate-cargo/run.mjs', import.meta.url), env: 'CUPEL_TEST_CARGO_MUTANTS_MUTATOR', exports: ['mutateCargo', 'confirmCargo'] },
 };
 
 
@@ -365,11 +366,7 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
       if (!go) throw environment('Go mutation module is not available');
       return await go.mutateGo({ root, config: cfg, input, scope, log });
     }
-    if (input.runtime.name === 'rust') {
-      const rust = await loadModule('rustMutator');
-      if (!rust) throw environment('Rust mutation module is not available');
-      return await rust.mutateRust({ root, config: cfg, input, scope, log });
-    }
+    if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log });
     if (input.runtime.name === 'ruby') {
       const nativeScope = { ...scope,
         changed: Object.fromEntries(Object.entries(scope.changed ?? {}).filter(([path]) => Object.hasOwn(input.sources, path))),
@@ -380,6 +377,27 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }
+}
+
+/** Rust mutation: cargo-mutants by default (D19), or the restricted built-in mutator on request. */
+async function rustMutation(action, { root, cfg, input, scope, mutation, ids, log }) {
+  const settings = cfg.runners?.cargo?.mutants ?? {};
+  if (settings.backend === 'cupel-rust') {
+    const rust = await loadModule('rustMutator');
+    if (!rust) throw environment('Rust mutation module is not available');
+    const { mutants: _backend, ...cargo } = cfg.runners?.cargo ?? {};
+    const legacy = { ...cfg, runners: { ...cfg.runners, cargo } };
+    if (!Object.keys(cargo).length) delete legacy.runners.cargo;
+    if (!Object.keys(legacy.runners).length) delete legacy.runners;
+    return action === 'mutate'
+      ? await rust.mutateRust({ root, config: legacy, input, scope, log })
+      : await rust.confirmRust({ root, config: legacy, input, mutation, ids, log });
+  }
+  const cargo = await loadModule('cargoMutants');
+  if (!cargo) throw environment('cargo-mutants mutation module is not available');
+  return action === 'mutate'
+    ? await cargo.mutateCargo({ root, config: cfg, input, scope, log })
+    : await cargo.confirmCargo({ root, config: cfg, input, mutation, ids, log });
 }
 
 /** K7: re-runs survivors through confirmSurvivors when the mutator provides it. */
@@ -416,11 +434,7 @@ export async function confirm(mutator, { root, cfg, input, mutation, ids, log, c
       if (!go) throw environment('Go mutation module is not available');
       return await go.confirmGo({ root, config: cfg, input, mutation, ids, log });
     }
-    if (input.runtime.name === 'rust') {
-      const rust = await loadModule('rustMutator');
-      if (!rust) throw environment('Rust mutation module is not available');
-      return await rust.confirmRust({ root, config: cfg, input, mutation, ids, log });
-    }
+    if (input.runtime.name === 'rust') return await rustMutation('confirm', { root, cfg, input, mutation, ids, log });
     if (input.runtime.name === 'ruby') return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, mutation, ids });
     if (typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation is not available');
     const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids, collectorKind });

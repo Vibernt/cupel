@@ -1366,6 +1366,26 @@ kase('091-check-head-unstable', { description: 'A line unstable at head is left 
   head: moved({ unstable: { 'src/a.mjs': '3' }, collection: { runs: 2 } }),
   expectExit: 0, expected: { check: { verdicts: [{ id: 'a', verdict: 'adds-value' }] } } });
 
+kase('092-unmeasured-source', { description: 'A source the collector could not measure carries its reason and no coverable lines; the report is unaffected.',
+  command: 'report', rules: rules('+I3'),
+  input: input({ sources: { 'src/a.mjs': { coverable: '1-10' }, 'src/wasm.mjs': { coverable: '', unmeasured: 'runs inside another runtime' } }, tests: SIMPLE_TESTS, cov: { t1: '1-4', t2: '3-6' } }),
+  expectExit: 0, expected: { diagnostics: [] } });
+kase('093-unmeasured-with-coverable', { description: 'An unmeasured source that also lists coverable lines is refused.',
+  command: 'report', rules: rules('-I3'),
+  input: input({ sources: { 'src/a.mjs': { coverable: '1-10', unmeasured: 'not compiled for this host' } }, tests: SIMPLE_TESTS, cov: { t1: '1-4' } }),
+  expectExit: 2, expected: { diagnostics: [{ code: 'unmeasured-coverable', severity: 'error' }], units: '$absent' } });
+
+kase('094-kill-kinds', { description: 'Catch kinds and fault descriptions are optional evidence; kills count the same whatever the kind.',
+  command: 'report', rules: rules('+I2'),
+  input: input({ tests: SIMPLE_TESTS, cov: { t1: '1-4', t2: '3-6' },
+    mutation: { mutants: [{ ...m('m1', 3, 'killed', ['t1', 't2']), killKinds: { t1: 'assertion', t2: 'panic' }, description: 'replace > with >= in f' }], targeted: [] } }),
+  expectExit: 0, expected: { diagnostics: [] } });
+kase('095-kill-kind-not-killer', { description: 'A catch kind for a test that did not catch the mutant is refused.',
+  command: 'report', rules: rules('-I2'),
+  input: input({ tests: SIMPLE_TESTS, cov: { t1: '1-4', t2: '3-6' },
+    mutation: { mutants: [{ ...m('m1', 3, 'killed', ['t1']), killKinds: { t2: 'panic' } }], targeted: [] } }),
+  expectExit: 2, expected: { diagnostics: [{ code: 'kill-kind-not-killer', severity: 'error' }], units: '$absent' } });
+
 // ---------- write ----------
 
 function filesFor(c) {

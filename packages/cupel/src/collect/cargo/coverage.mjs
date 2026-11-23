@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import nodePath from 'node:path';
 import { scanRust } from './lex.mjs';
 
 export function lineSet(lines) {
@@ -19,13 +19,26 @@ export function exportLines(exportJson, root) {
   return files;
 }
 
+// Source scope: repository `.rs` files under a `src/` directory, outside test,
+// bench, example, build-output, vendor and dot directories.
+export function inSourceScope(path) {
+  const parts = path.split('/');
+  return path.endsWith('.rs') && parts.includes('src')
+    && !parts.some((part) => part.startsWith('.') || ['target', 'tests', 'benches', 'examples', 'vendor'].includes(part));
+}
+
+// Repository-relative path with `/` separators, or null outside the root (any OS).
+export function repoPath(root, filename, path = nodePath) {
+  const abs = path.isAbsolute(filename) ? filename : path.resolve(root, filename);
+  const rel = path.relative(root, abs);
+  if (!rel || path.isAbsolute(rel) || rel === '..' || rel.startsWith(`..${path.sep}`)) return null;
+  return { abs, path: rel.split(path.sep).join('/') };
+}
+
 export function mapExportFile(files, file, root) {
-    const abs = isAbsolute(file.filename) ? file.filename : resolve(root, file.filename);
-    const path = relative(root, abs).split(sep).join('/');
-    if (path.startsWith('../') || path.startsWith('/') || !existsSync(abs)) return;
-    const parts = path.split('/');
-    if (!parts.includes('src') || parts.some((part) => part.startsWith('.') || ['target', 'tests', 'benches', 'examples', 'vendor'].includes(part))) return;
-    if (!path.endsWith('.rs')) return;
+    const located = repoPath(root, file.filename);
+    if (!located || !existsSync(located.abs) || !inSourceScope(located.path)) return;
+    const { abs, path } = located;
     const source = readFileSync(abs, 'utf8');
     const code = scanRust(source, { tokens: false }).code;
     const starts = [0];

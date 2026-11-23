@@ -1,0 +1,11 @@
+{
+  "description": "Catch kinds and fault descriptions are optional evidence; kills count the same whatever the kind.",
+  "command": "report",
+  "rules": [
+    {
+      "id": "I2",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}
