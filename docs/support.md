@@ -69,11 +69,12 @@ passed both runtimes. These results certify that named artifact; they do not
 certify a later source version or licence change. Check the current version and
 corresponding handoff before using the maintainer's stable local path.
 
-The current source release uses version **0.2.0** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is unchanged at 0.1.0.
+The current source release uses version **0.2.0** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is 0.1.1 (it adds the `no-assertion` and `tautology` findings).
 See [local installation](install.md) and [artifact provenance](private-use.md#artifact-provenance).
 The [versioned candidate record](../plans/results/2026-10-26-private-candidate.md)
-records fresh 0.1.0 verification and artifact identities. The reviewed release
-files are committed. Next best action: verify the public GitHub source and
-source-install instructions, then review the launch copy. Registry uploads,
+records fresh 0.1.0 verification and artifact identities. The
+[0.2.0 candidate record](../plans/results/2026-11-23-0.2.0-candidate.md) lists
+what 0.2.0 adds, its evidence and what is not verified (Linux and Windows, a
+full cargo-mutants run on a real workspace, `crossRunner` end to end). Registry uploads,
 publishing tags/releases and social posting remain separate approval decisions.
 Historical candidate records continue to describe their named private artifacts.

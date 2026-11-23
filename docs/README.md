@@ -1,8 +1,11 @@
 # Cupel documentation
 
 Start with the [README](../README.md). The [support matrix](support.md) defines
-core JS/TS/Python ordinary full guard, bounded Go/Ruby/Rust previews and
-experimental selection outside the supported first release.
+core JS/TS/Python ordinary full guard, bounded Go/Ruby/Rust previews, the
+workerd preview and experimental selection outside the supported first release.
+What 0.2.0 adds (`cupel audit`, Rust on any OS with cargo-mutants, Worker code in
+workerd, mixed-language labelling) is in the
+[0.2.0 candidate record](../plans/results/2026-11-23-0.2.0-candidate.md).
 
 ## Getting started
 
