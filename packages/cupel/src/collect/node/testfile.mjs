@@ -24,6 +24,7 @@
 // source-text and doc-wording need an assertion with a literal, css strings count only inside assertions.
 
 import { tokenize, matchBrackets } from '../../lang/js/lexer.mjs';
+import { helperImports, localFunctions, weakFindings } from './weak.mjs';
 
 const KIND_OF_PATH = (text) => {
   if (/\.json\b/.test(text)) return null;
@@ -277,6 +278,7 @@ export function analyseTestFile(src, scannedTokens = null) {
   const lit = (q) => toks[q] && (toks[q].type === 'string' || toks[q].type === 'regex' || (toks[q].type === 'template' && v(q).startsWith('`') && v(q).endsWith('`') && v(q).length > 1));
   const okEqKind = (kd) => kd === 'source-text' || kd === 'doc-wording' || kd === 'css-class' || kd === 'golden';
   const out = [];
+  const weakContext = { helpers: helperImports(toks), bodies: localFunctions(toks, pairs) };
   for (const d of defs) {
     const flags = [];
     const has = (kind) => flags.some((f) => f.kind === kind);
@@ -331,6 +333,15 @@ export function analyseTestFile(src, scannedTokens = null) {
     // The body: every token after the first argument.
     let bodyStart = d.close;
     for (let q = d.open + 1; q < d.close; q = skipPair(q) + 1) if (v(q) === ',') { bodyStart = q + 1; break; }
+    // A skipped or todo test is not run, so there is nothing to judge.
+    const modifier = v(d.k + 1) === '.' ? v(d.k + 2) : null;
+    // test(name, { skip: true }, fn): an options object right after the name.
+    const options = v(bodyStart) === '{' && pairs.has(bodyStart) ? text(bodyStart, pairs.get(bodyStart)) : '';
+    if (modifier !== 'skip' && modifier !== 'todo' && !/\b(?:skip|todo)\s*:\s*(?!false\b)/.test(options)) {
+      for (const finding of weakFindings(src, toks, pairs, bodyStart, d.close, toks[d.k].line, weakContext)) {
+        if (!has(finding.kind)) flags.push(finding);
+      }
+    }
     out.push({
       line: toks[d.k].line,
       column: toks[d.k].col + 1,

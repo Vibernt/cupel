@@ -10,17 +10,21 @@ Cupel runs a project's tests, attributes source coverage to individual tests, an
 introduces small source faults (mutants) to see which tests fail. It turns those
 observations into a report and a bounded review pack. Its `guard` compares a Git
 baseline with a proposed change and fails on lost coverage, lost critical
-mutation protection, or a protected test removal without human approval.
+mutation protection, or a protected test removal without human approval. Its
+`audit` answers six questions about an existing suite in one read-only report.
+Cupel never changes or deletes your tests or code: its output is a signal for
+the people and agents who do.
 
 ![An agent weakens an assertion while tests stay green. Cupel collects per-test evidence, introduces small faults and compares with the Git baseline. In the scoped Jest example, 51 tests still pass and coverage stays at 92.75%, but critical mutants caught drop from 11 to 10, so guard fails.](docs/assets/agentic-test-protection.png)
 
 *Illustrative workflow; measured numbers from the [real-project Jest validation](plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls).
 The example covers 11 tested mutations across two declared critical API paths.*
 
-**Open-source under MIT · version `0.1.2`.** Get the source from
+**Open-source under MIT · version `0.2.0`.** Get the source from
 [GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
-use the local installation below. See the [verified candidate record](plans/results/2026-10-26-private-candidate.md)
-for artifact checks and [historical evidence](docs/private-use.md#artifact-provenance).
+use the local installation below. See the [0.2.0 candidate record](plans/results/2026-11-23-0.2.0-candidate.md)
+for what changed and what is verified, the [first verified candidate record](plans/results/2026-10-26-private-candidate.md)
+for artifact checks, and [historical evidence](docs/private-use.md#artifact-provenance).
 
 Cupel supplies a Node CLI, a local stdio MCP server, and a pure JavaScript engine.
 It makes no model calls and has no telemetry or analytics. The engine produces
@@ -58,6 +62,10 @@ and code review, especially when changing assertions or critical-path tests.
 3. **Compare:** use `guard --base <ref>` to compare measured protection before
    and after a change. Lost coverage, lost critical kills and unapproved protected
    test removal can fail the guard even when the ordinary tests still pass.
+4. **Audit:** `audit` reads the same evidence and lists possibly wrong tests,
+   tests that catch no faults (or only because the code crashed), tests of the
+   same thing, tests that could be combined, coverage with unmeasured code kept
+   apart, and where test time goes.
 
 ## What is supported
 
@@ -66,7 +74,8 @@ The [support matrix](docs/support.md) is the authoritative version and scope con
 | Scope | Runners | Evidence and limits |
 | --- | --- | --- |
 | Core ordinary full guard | `node:test`, Vitest, narrow Jest, pytest | Source and installed acceptance; exact runtime, loader and transform limits apply. |
-| Bounded preview | Go, Ruby/Minitest, Rust/Cargo | Installed fixture acceptance; real-repository acceptance is unrun. |
+| Bounded preview | Go, Ruby/Minitest, Rust/Cargo | Installed fixture acceptance; real-repository acceptance is unrun as a recorded gate. Rust coverage works on any OS with rustup's LLVM tools; Rust fault testing uses your cargo-mutants. |
+| Preview | Worker code in workerd (node:test tests that start Miniflare, wrangler or workerd) | Per-test coverage and fault testing of repository files workerd runs unchanged; bundled or compiled Worker code and tests inside workerd are not measured. |
 | Experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
 | Local integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted Action required checks and branch protection remain unverified. |
 
@@ -79,6 +88,14 @@ A lack of unique coverage or kills does **not** prove a test is redundant.
 Cupel never advises deleting a test. Review results do not establish cleanup
 savings, and no generic CI speedup is claimed. `plan` orders tests; experimental
 selective results cannot approve the whole suite.
+
+**Repositories with several languages.** One `cupel.json` can name several
+runners (for example node:test, pytest and Cargo); their evidence is merged into
+one report. Code another language's tests run, such as Rust compiled to a
+WebAssembly module that JavaScript tests load, is labelled with those tests
+(`builtInto`) and never counted as uncovered. Opt-in `crossRunner` re-tests
+Rust faults no Rust test caught with the tests that load the module. See the
+[config guide](docs/extending/config.md).
 
 ## Run locally
 
@@ -104,7 +121,7 @@ npm pack --offline --ignore-scripts ./packages/cupel \
   --pack-destination .scratch/local-package
 npm install --offline --ignore-scripts --no-audit --no-fund \
   --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.1.2.tgz
+  .scratch/local-package/vibernt-cupel-0.2.0.tgz
 CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
 "$CUPEL" --version
 ```
@@ -131,6 +148,15 @@ tests and their assertions before changing them. Configure `cupel.json` to mark
 critical paths and select runners when needed; see the
 [config guide](docs/extending/config.md) and [CLI reference](docs/cli.md).
 
+To read the whole suite's health from the same saved evidence, run:
+
+```sh
+"$CUPEL" audit --input .cupel/input.json
+```
+
+It prints Markdown (or JSON with `--json`) and changes nothing. When the saved
+input has no mutation results, the fault questions say they were not measured.
+
 After an uncommitted test change, compare against the commit containing the
 original tests:
 
@@ -149,6 +175,7 @@ Exit codes are `0` OK, `1` a guardrail/check failed, `2` invalid usage/input, an
 | Command | Purpose |
 | --- | --- |
 | `report`, `review` | Inspect measured coverage, mutation, timings and review hints. |
+| `audit` | One read-only report on six questions: possibly wrong tests, tests that catch no faults, tests of the same thing, tests to combine, coverage, and where time goes. |
 | `check <tests>` | Inspect evidence added or lost by named tests. |
 | `guard --base <ref>` | Compare protection with an earlier commit. |
 | `label`, `plan` | Inspect tiers and test execution order. |

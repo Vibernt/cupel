@@ -67,7 +67,9 @@
         "additionalProperties": false,
         "properties": {
           "coverable": { "$ref": "#/$defs/lineSet" },
-          "hash": { "type": "string", "minLength": 1 }
+          "hash": { "type": "string", "minLength": 1 },
+          "unmeasured": { "type": "string", "minLength": 1 },
+          "measuredIn": { "enum": ["workerd"] }
         }
       }
     },
@@ -88,6 +90,7 @@
           "durationsMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
           "kind": { "enum": ["unit", "e2e"] },
           "runner": { "type": "string", "minLength": 1 },
+          "loads": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "spawnsInterpreter": { "type": "boolean" }
         }
       }
@@ -122,7 +125,12 @@
               "line": { "type": "integer", "minimum": 1 },
               "operator": { "type": "string", "minLength": 1 },
               "status": { "enum": ["killed", "survived", "timeout", "no-coverage", "error"] },
-              "killedBy": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+              "killedBy": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "killKinds": {
+              "type": "object",
+              "additionalProperties": { "enum": ["assertion", "panic"] }
+            },
+            "description": { "type": "string", "minLength": 1 }
             }
           }
         },
@@ -139,7 +147,7 @@
         "additionalProperties": false,
         "properties": {
           "test": { "type": "string", "minLength": 1 },
-          "kind": { "enum": ["source-text", "css-class", "doc-wording", "file-snapshot"] },
+          "kind": { "enum": ["source-text", "css-class", "doc-wording", "file-snapshot", "no-assertion", "tautology"] },
           "line": { "type": "integer", "minimum": 1 },
           "deliberate": { "type": "boolean" }
         }

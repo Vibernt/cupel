@@ -277,7 +277,10 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           file: d.file,
           setup: mode === 'coverage' ? toLines(d.setup) : null,
           childDirs: d.childDirs,
-          tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
+          workerdSources: d.workerdSources ?? [],
+          workerdStarted: d.workerd?.started ?? 0,
+          workerdNotes: d.workerd ?? null,
+          tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, loads: t.loads ?? [], assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
         });
       }
       rmSync(out, { recursive: true, force: true });
@@ -417,7 +420,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     const tests = new Map(); // id -> test
     for (const t of first.leaves) {
       if (tests.has(t.id)) continue;
-      tests.set(t.id, { ...t, firstStatus: t.status, durationsMs: [], runStatuses: [], interp: false, lines: null });
+      tests.set(t.id, { ...t, firstStatus: t.status, durationsMs: [], runStatuses: [], interp: false, loads: new Set(), lines: null });
     }
     for (const r of all) {
       for (const t of r.leaves) {
@@ -428,8 +431,34 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         if (r !== first && t.status === 'failed') rec.status = 'failed';
         const h = t.hookKey ? r.index.get(`${t.file}\u0000${t.hookKey}`) : null;
         if (h?.interp) rec.interp = true;
+        for (const rel of h?.loads ?? []) rec.loads.add(rel);
         if (r === first && h) rec.assertions = h.assertions;
       }
+    }
+    // Measuring inside workerd slows code under breakpoints, which can break a
+    // test's own time budget. Coverage must never change results: statuses and
+    // durations of files that started workerd come from one plain run of those
+    // files (no breakpoints), and coverage from the measured runs.
+    const workerdFiles = [...new Set(all.flatMap((r) => r.hook.filter((h) => h.workerdStarted > 0).map((h) => h.file)))].sort(cmp);
+    if (workerdFiles.length) {
+      const plain = await suiteRun('plain', { mode: 'spawns', files: workerdFiles });
+      const plainById = new Map(leafTests(plain.results).map((t) => [t.id, t]));
+      let changed = 0;
+      for (const rec of tests.values()) {
+        if (!workerdFiles.includes(rec.file)) continue;
+        const p = plainById.get(rec.id);
+        if (!p) continue;
+        if (p.status !== rec.status) changed++;
+        rec.status = p.status;
+        rec.runStatuses = [p.status];
+        rec.durationsMs = [Math.max(0, Math.round(p.ms ?? 0))];
+      }
+      log(`workerd: statuses and durations of ${workerdFiles.length} test files come from a plain run${changed ? `; ${changed} tests changed status only while measured` : ''}`);
+    }
+    const notes = all.flatMap((r) => r.hook.map((h) => h.workerdNotes).filter(Boolean));
+    const sum = (key) => notes.reduce((n, x) => n + (x[key] ?? 0), 0);
+    if (sum('unattached') || sum('transformed') || sum('unmatched')) {
+      log(`workerd: not measured: ${sum('unattached')} workerd processes Cupel could not attach to, ${sum('transformed')} scripts not byte-for-byte a repository file (bundled or transformed), ${sum('unmatched')} scripts outside the measured sources`);
     }
     for (const rec of tests.values()) {
       const runLines = all.map((r) => {
@@ -588,11 +617,12 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     };
     if (rechecked.length) coverage.rechecked = rechecked.sort(cmp);
     if (runs > 1) coverage.unstable = unstableObject(unstable);
+    const inWorkerd = new Set(all.flatMap((run) => run.hook.flatMap((h) => h.workerdSources ?? [])));
     const input = {
       spec: SPEC,
       kind: 'input',
       runtime: { name: 'node', version: process.versions.node },
-      sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash }])),
+      sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash, ...(inWorkerd.has(rel) ? { measuredIn: 'workerd' } : {}) }])),
       tests: ordered.map((t) => {
         const tags = [...new Set([...t.name.matchAll(TIER_TAG)].map((m) => m[1]))].sort(cmp);
         return {
@@ -605,6 +635,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           durationsMs: t.durationsMs,
           ...(t.runStatuses.length === all.length ? { runStatuses: t.runStatuses } : {}),
           ...(t.interp ? { spawnsInterpreter: true } : {}),
+          ...(t.loads?.size ? { loads: [...t.loads].sort(cmp) } : {}),
         };
       }),
       coverage,

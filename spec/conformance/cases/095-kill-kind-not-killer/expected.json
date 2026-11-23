@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "kill-kind-not-killer",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

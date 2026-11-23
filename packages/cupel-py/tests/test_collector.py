@@ -78,7 +78,8 @@ class StaticTests(unittest.TestCase):
         self.assertEqual(shape(a, fn), shape(b, ast.parse(b).body[0]))
         self.assertIn(('css-class', 2, False), findings(a, fn, []))
         self.assertIn(('doc-wording', 2, True), findings(a, fn, [{'kind': 'doc-wording', 'pattern': 'class=x', 'language': 'python', 'deliberate': True}]))
-        self.assertEqual(findings(a, fn, [{'kind': 'doc-wording', 'pattern': 'class=x', 'language': 'js'}]), [('css-class', 2, False)])
+        # The same literal on both sides is also a tautology (phase 3).
+        self.assertEqual(findings(a, fn, [{'kind': 'doc-wording', 'pattern': 'class=x', 'language': 'js'}]), [('css-class', 2, False), ('tautology', 2, False)])
 
     def test_param_id_keeps_internal_colons(self):
         self.assertEqual(_name_parts('tests/a.py::TestGroup::test_one[a::b]'), ['TestGroup', 'test_one[a::b]'])

@@ -6,11 +6,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixedEnv, profileRequestSnapshot } from '../src/pr/profiles/node/snapshot.mjs';
 import { verifyCoverageProof } from '../src/pr/profiles/node/coverage-proof.mjs';
+import { NODE26 } from './support/node-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const profile = fileURLToPath(new URL('../src/pr/profiles/node/', import.meta.url));
 const scratch = join(repo, '.scratch');
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 
 function faultRun(fault) {
   mkdirSync(scratch, { recursive: true });

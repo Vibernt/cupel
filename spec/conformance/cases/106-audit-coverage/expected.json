@@ -1,0 +1,22 @@
+{
+  "audit": {
+    "coverage": {
+      "files": [
+        {
+          "source": "src/a.mjs",
+          "critical": false,
+          "covered": 5,
+          "coverable": 10,
+          "pct": 50,
+          "uncovered": "5-8,10"
+        }
+      ],
+      "unmeasured": [
+        {
+          "source": "src/w.mjs",
+          "reason": "runs as Wasm in workerd"
+        }
+      ]
+    }
+  }
+}

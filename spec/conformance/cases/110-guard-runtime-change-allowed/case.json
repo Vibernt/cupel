@@ -1,0 +1,14 @@
+{
+  "description": "With allowRuntimeChange, a runtime change is a warning: test failures and critical checks still run, and line-based checks are reported as not compared.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G1",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "allowRuntimeChange": true
+  },
+  "expectExit": 1
+}

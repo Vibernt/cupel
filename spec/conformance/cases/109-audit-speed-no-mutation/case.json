@@ -1,0 +1,14 @@
+{
+  "description": "With limit 0 nothing is listed as slowest, and without mutation there is no cost estimate.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U7",
+      "polarity": "negative"
+    }
+  ],
+  "args": {
+    "limit": 0
+  },
+  "expectExit": 0
+}

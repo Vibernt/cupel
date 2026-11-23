@@ -1,0 +1,83 @@
+
+*** core/src/wasm_only.rs:2:5: replace only_in_wasm -> u8 with 1
+
+*** mutation diff:
+--- core/src/wasm_only.rs
++++ replace only_in_wasm -> u8 with 1
+@@ -1,3 +1,3 @@
+ pub fn only_in_wasm() -> u8 {
+-    7
++    1 /* ~ changed by cargo-mutants ~ */
+ }
+
+
+*** /work/bin/cargo test --no-run --verbose --workspace
+       Fresh ws-cli v0.1.0 (/work/copy/cli)
+       Fresh ws-core v0.1.0 (/work/copy/core)
+       Fresh ws-glue v0.1.0 (/work/copy/glue)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+  Executable `/work/copy/target/debug/deps/ws_cli-194b98cebe020787`
+  Executable `/work/copy/target/debug/deps/run-983e24f2d22e8345`
+  Executable `/work/copy/target/debug/deps/ws_core-2f498ad6d7f54995`
+  Executable `/work/copy/target/debug/deps/secrets-7ae1b906ab666388`
+  Executable `/work/copy/target/debug/deps/ws_glue-23c766655cef6046`
+
+*** result: Success
+
+*** /work/bin/cargo test --verbose --workspace --no-fail-fast
+       Fresh ws-cli v0.1.0 (/work/copy/cli)
+       Fresh ws-glue v0.1.0 (/work/copy/glue)
+       Fresh ws-core v0.1.0 (/work/copy/core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running `/work/copy/target/debug/deps/ws_cli-194b98cebe020787`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/work/copy/target/debug/deps/run-983e24f2d22e8345`
+
+running 1 test
+test prints_secret ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running `/work/copy/target/debug/deps/ws_core-2f498ad6d7f54995`
+
+running 4 tests
+test tests::slow ... ignored
+test tests::even ... ok
+test tests::odd_panics - should panic ... ok
+test tests::reads_data_from_package_dir ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/work/copy/target/debug/deps/secrets-7ae1b906ab666388`
+
+running 1 test
+test detects_key ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/work/copy/target/debug/deps/ws_glue-23c766655cef6046`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ws_core
+     Running `rustdoc --edition=2021 --crate-type lib --color auto --crate-name ws_core --test core/src/lib.rs --test-run-directory /work/copy/core --extern ws_core=/work/copy/target/debug/deps/libws_core-5d51069b31d35360.rlib -L dependency=/work/copy/target/debug/deps -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' --error-format human`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ws_glue
+     Running `rustdoc --edition=2021 --crate-type lib --color auto --crate-name ws_glue --test glue/src/lib.rs --test-run-directory /work/copy/glue --extern ws_glue=/work/copy/target/debug/deps/libws_glue-31d71e2dcd133cbd.rlib -L dependency=/work/copy/target/debug/deps -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' --error-format human`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+*** result: Success

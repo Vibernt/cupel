@@ -1,0 +1,11 @@
+{
+  "description": "Coverage per source with uncovered lines; an unmeasured source is listed apart, never as uncovered.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U6",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

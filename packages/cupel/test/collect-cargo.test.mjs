@@ -2,11 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { artifacts, collectCargo, listedTests, llvmTools, targetEnvironment, testResult } from '../src/collect/cargo/index.mjs';
-import { covered, exportLines, lineSet, combineRuns } from '../src/collect/cargo/coverage.mjs';
+import { UNMEASURED, artifacts, collectCargo, definesFunctions, listedTests, llvmTools, programs, runnerRecords, selectsTargets, targetEnvironment, testResult, withVariables } from '../src/collect/cargo/index.mjs';
+import { MARKER, runnerRecord } from '../src/collect/cargo/runner-shim.mjs';
+import nodePath from 'node:path';
+import { covered, exportLines, lineSet, combineRuns, inSourceScope, repoPath } from '../src/collect/cargo/coverage.mjs';
 import { scanRust, shape } from '../src/collect/cargo/lex.mjs';
 import { definitions, harnessName } from '../src/collect/cargo/tests.mjs';
 import { matchesTestFile } from '../src/collect/cargo/test-globs.mjs';
@@ -27,9 +29,10 @@ const llvmMajor = /^LLVM version: (\d+)/m.exec(rust.stdout)?.[1];
 const component = rust.status === 0 ? spawnSync('rustc', ['--print', 'sysroot'], { encoding: 'utf8' }).stdout.trim() : '';
 const host = /^host: (.+)$/m.exec(rust.stdout)?.[1];
 const componentDir = component && host ? join(component, 'lib', 'rustlib', host, 'bin') : '';
-const hasLlvm = !!llvmMajor && [componentDir, '/opt/homebrew/opt/llvm/bin'].some((dir) => dir &&
+const pathDirs = (process.env.PATH ?? process.env.Path ?? '').split(delimiter).filter(Boolean);
+const hasLlvm = !!llvmMajor && [componentDir, ...pathDirs].some((dir) => dir &&
   ['llvm-cov', 'llvm-profdata'].every((name) => {
-    const result = spawnSync(join(dir, name), ['--version'], { encoding: 'utf8' });
+    const result = spawnSync(join(dir, process.platform === 'win32' ? `${name}.exe` : name), ['--version'], { encoding: 'utf8' });
     return result.status === 0 && new RegExp(`\\bversion ${llvmMajor}\\.`).test(result.stdout);
   }));
 const skipReason = !hasLlvm && `matching LLVM tools unavailable for rustc LLVM ${llvmMajor ?? 'unknown'}; run rustup component add llvm-tools-preview`;
@@ -141,5 +144,97 @@ test('Cargo CLI and configured external collector select Rust', { skip: skipReas
     assert.equal(report.status, 0, report.stderr);
     assert.equal(JSON.parse(readFileSync(join(root, '.scratch/report.json'), 'utf8')).runtime.name, 'rust');
     assert.equal(JSON.parse(report.stdout).kind, 'report');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('should-panic and ignored harness lines, CRLF output and workspace programs', () => {
+  assert.equal(testResult('test t::odd - should panic ... ok\n', 't::odd', 0), 'passed');
+  assert.equal(testResult('test t::odd - should panic ... FAILED\r\n', 't::odd', 101), 'failed');
+  assert.equal(testResult('test t::slow ... ignored, needs network\r\n', 't::slow', 0), 'skipped');
+  assert.equal(testResult('test t::a ... ok\r\n', 't::a', 0), 'passed');
+  const bin = { reason: 'compiler-artifact', profile: { test: false }, executable: '/t/ws-cli', target: { kind: ['bin'] } };
+  const example = { reason: 'compiler-artifact', profile: { test: false }, executable: '/t/demo', target: { kind: ['example'] } };
+  const harness = { reason: 'compiler-artifact', profile: { test: true }, executable: '/t/run-1', target: { kind: ['test'] } };
+  assert.deepEqual(programs([bin, example, harness].map((m) => JSON.stringify(m)).join('\n')), ['/t/ws-cli']);
+  assert.equal(selectsTargets(['--test', 'run']), true);
+  assert.equal(selectsTargets(['--lib']), true);
+  assert.equal(selectsTargets(['--features', 'x', '--release']), false);
+});
+
+test('runner records report only what Cargo added, and merge case-insensitively on Windows', () => {
+  const base = { PATH: '/usr/bin', TOKEN: 'secret-value' };
+  const digests = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, createHash('sha256').update(v).digest('hex').slice(0, 16)]));
+  const record = runnerRecord('/t/bin', '/w/core', { ...base, PATH: '/t/deps:/usr/bin', CARGO_MANIFEST_DIR: '/w/core', CUPEL_CARGO_BASE: JSON.stringify(digests) });
+  assert.deepEqual(record, { binary: '/t/bin', cwd: '/w/core', added: { PATH: '/t/deps:/usr/bin', CARGO_MANIFEST_DIR: '/w/core' }, removed: [] });
+  assert.equal(JSON.stringify(record).includes('secret-value'), false);
+  const line = `noise\n${MARKER}${Buffer.from(JSON.stringify(record)).toString('base64')}\nmore`;
+  assert.deepEqual(runnerRecords(line).get(nodePath.resolve('/t/bin')), record);
+  assert.deepEqual(withVariables({ Path: 'C:\\a', HOME: 'h' }, { PATH: 'C:\\deps;C:\\a' }, [], 'win32'), { HOME: 'h', PATH: 'C:\\deps;C:\\a' });
+  assert.deepEqual(withVariables({ Path: '/a', HOME: 'h' }, { PATH: '/b' }, ['HOME'], 'linux'), { Path: '/a', PATH: '/b' });
+});
+
+test('Windows export paths map to repository paths with / separators', () => {
+  const win = nodePath.win32;
+  assert.deepEqual(repoPath('C:\\work\\proj', 'C:\\work\\proj\\core\\src\\lib.rs', win), { abs: 'C:\\work\\proj\\core\\src\\lib.rs', path: 'core/src/lib.rs' });
+  assert.equal(repoPath('C:\\work\\proj', 'D:\\other\\src\\lib.rs', win), null);
+  assert.equal(repoPath('C:\\work\\proj', 'C:\\work\\elsewhere\\src\\lib.rs', win), null);
+  assert.deepEqual(repoPath('/w/p', 'src/lib.rs', nodePath.posix), { abs: '/w/p/src/lib.rs', path: 'src/lib.rs' });
+  assert.equal(inSourceScope('core/src/lib.rs'), true);
+  assert.equal(inSourceScope('core/tests/run.rs'), false);
+  assert.equal(inSourceScope('target/debug/build/x/src/lib.rs'), false);
+});
+
+test('functions with bodies decide whether an unseen file was measured', () => {
+  assert.equal(definesFunctions('pub fn only_in_wasm() -> u8 {\n    7\n}\n'), true);
+  assert.equal(definesFunctions('pub mod a;\npub struct S { f: fn(u8) -> u8 }\npub trait T { fn m(&self); }\n'), false);
+  assert.equal(definesFunctions('// fn commented() {}\npub const X: u8 = 1;\n'), false);
+});
+
+test('test definitions accept attribute runs and async test macros', () => {
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const root = mkdtempSync(join(repo, '.scratch/cargo-attrs-'));
+  try {
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(root, 'src/lib.rs'), [
+      '#[cfg(test)]', 'mod tests {',
+      '    #[test]', '    #[should_panic(expected = "odd")]', '    fn odd() { panic!("odd"); }',
+      '    // cupel:critical', '    #[ignore]', '    #[test]', '    fn slow() { assert!(1 + 1 == 2); }',
+      '    #[tokio::test(flavor = "multi_thread")]', '    async fn later() { assert_eq!(1, 1); }',
+      '    #[derive(Debug)]', '    struct NotATest;', '}', ''].join('\n'));
+    const defs = definitions(root);
+    assert.deepEqual(defs.map((d) => d.id), ['src/lib.rs::tests > odd', 'src/lib.rs::tests > slow', 'src/lib.rs::tests > later']);
+    assert.deepEqual(defs[1].tags, ['critical']);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Cargo workspace: package directory, should_panic, child programs, untested crates and unmeasured files', { skip: skipReason }, async () => {
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const root = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-ws-')));
+  try {
+    cpSync(join(repo, 'spec/conformance/adapters/cargo-workspace'), root, { recursive: true });
+    const input = await collectCargo({ root, runs: 1, environment: { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-target-ws') } });
+    assert.deepEqual(input.tests.map((t) => [t.id, t.status]), [
+      ['cli/tests/run.rs::prints_secret', 'passed'],
+      ['core/src/lib.rs::tests > even', 'passed'],
+      ['core/src/lib.rs::tests > odd_panics', 'passed'],
+      ['core/src/lib.rs::tests > reads_data_from_package_dir', 'passed'],
+      ['core/src/lib.rs::tests > slow', 'skipped'],
+      ['core/tests/secrets.rs::detects_key', 'passed'],
+    ]);
+    assert.equal(input.sources['core/src/secrets.rs'].coverable, '1-3');
+    assert.equal(input.sources['glue/src/lib.rs'].coverable, '1-3');
+    assert.equal(input.sources['cli/src/main.rs'].coverable, '1-8');
+    assert.equal(input.sources['core/src/wasm_only.rs'].unmeasured, UNMEASURED);
+    assert.equal(input.sources['core/src/wasm_only.rs'].coverable, '');
+    assert.equal(input.sources['core/tests/secrets.rs'].unmeasured, undefined);
+    assert.deepEqual(input.coverage.byTest['cli/tests/run.rs::prints_secret'], { 'cli/src/main.rs': '1-5,8', 'core/src/secrets.rs': '1-3' });
+    assert.equal(input.coverage.byTest['core/src/lib.rs::tests > odd_panics']['core/src/lib.rs'], '5-7,18-20');
+    assert.deepEqual(validate(schemas.input, input), []);
+    const { report, exit } = run('report', { input }, {}, {}, schemas);
+    assert.equal(exit, 0, JSON.stringify(report.diagnostics));
+    const leftovers = [];
+    const walk = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { if (e.name === 'target' || e.name === '.scratch') continue; const p = join(dir, e.name); if (e.isDirectory()) walk(p); else if (p.endsWith('.profraw')) leftovers.push(p); } };
+    walk(root);
+    assert.deepEqual(leftovers, []);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

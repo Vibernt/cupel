@@ -1,0 +1,19 @@
+{
+  "audit": {
+    "speed": {
+      "slowest": [
+        {
+          "unit": "b",
+          "durationMs": 50
+        },
+        {
+          "unit": "a",
+          "durationMs": 30
+        }
+      ],
+      "slowLowValue": [],
+      "mutationCostMs": 80,
+      "flaky": []
+    }
+  }
+}

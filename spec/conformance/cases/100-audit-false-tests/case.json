@@ -1,0 +1,11 @@
+{
+  "description": "A targeted unit that covers faults and catches none, and one that catches only through panics, are listed; survivors and timeouts are reported.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U3",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

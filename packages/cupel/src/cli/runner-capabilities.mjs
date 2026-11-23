@@ -13,7 +13,7 @@ export function assertLiveMutationRunner(input, cfg, collectorKind, runnerName) 
     configured.length ? null : collectorKind || ({ python: 'pytest', node: 'node', go: 'go', rust: 'cargo', ruby: 'minitest' }[input.runtime?.name] ?? null));
   const runtime = input.runtime?.name ?? 'unknown';
   if (name === 'cargo' && runtime === 'rust') {
-    const unsupported = Object.keys(cfg.runners?.cargo ?? {}).filter(key => key !== 'tests');
+    const unsupported = Object.keys(cfg.runners?.cargo ?? {}).filter(key => key !== 'tests' && key !== 'mutants');
     if (unsupported.length)
       throw environment(`runner cargo: unsupported custom mutation configuration: ${unsupported.join(', ')}`);
   }

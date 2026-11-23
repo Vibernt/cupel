@@ -1,0 +1,10 @@
+{
+  "audit": {
+    "speed": {
+      "slowest": [],
+      "slowLowValue": [],
+      "mutationCostMs": null,
+      "flaky": []
+    }
+  }
+}

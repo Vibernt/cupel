@@ -1,0 +1,14 @@
+{
+  "audit": {
+    "overlap": [
+      {
+        "basis": "kills",
+        "units": [
+          "a",
+          "b"
+        ],
+        "crossRunner": true
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
 
 Owner direction: **2026-10-26**. This is the authoritative support matrix for
 the first-release scope. It describes supported capabilities and their evidence.
-The **0.1.2** source is MIT-licensed; **public GitHub source publication is
+The **0.2.0** source is MIT-licensed; **public GitHub source publication is
 authorized** by the owner on **2026-10-26** for `Vibernt/cupel`. npm and PyPI
 remain unpublished. Ordinary full guard is the whole-suite protection path.
 
@@ -14,11 +14,12 @@ remain unpublished. Ordinary full guard is the whole-suite protection path.
 | **Core — Python** | Python **3.12+** / pytest; current installed evidence is Python **3.14.8** / pytest **9.1.1**, within [Python limits](python.md) | Collection, mutation, survivor confirmation and ordinary full guard have source and installed acceptance. Other exact runtime combinations are unverified. |
 | **Bounded preview — Go** | Go **1.27.1**, offline pure-Go profile, within [Go limits](go.md) | Source and installed fixture acceptance pass. **Real-repository acceptance is unrun**; broader Go support is unverified. |
 | **Bounded preview — Ruby** | MRI Ruby **4.0.7** / Minitest **6.0.0**, direct-file loader, within [Ruby limits](ruby.md) | Source and installed fixture acceptance pass. **Real-repository acceptance is unrun**; Rails, Rake and custom mutation loaders are unclaimed. |
-| **Bounded preview — Rust** | Rust/Cargo **1.97.1**, `aarch64-apple-darwin`, closed grammar and serial ordinary suite, within [Rust limits](rust.md) | Source and installed fixture acceptance pass in prior runs. **Real-repository acceptance is unrun**. A subsequent run exposed a [timeout-classification concern](rust.md); do not rely on the Rust preview guard as a protection gate until resolved. |
+| **Bounded preview — Rust** | Coverage on any OS with rustup and matching LLVM tools (evidence: Rust **1.94.1** / LLVM 21 on `aarch64-apple-darwin`); mutation through the user's cargo-mutants (evidence: **27.1.0**); the restricted built-in mutator (`backend: "cupel-rust"`) keeps its Rust/Cargo **1.97.1** closed-grammar profile, within [Rust limits](rust.md) | Source fixture acceptance passes for workspace coverage and cargo-mutants import/run; installed fixture acceptance pass in prior runs for the restricted backend. **Real-repository acceptance is unrun** as a recorded gate: coverage matched plain LLVM line for line on one private 5,828-line workspace. cargo-mutants timeouts are re-run alone and never credit a test; the [timeout concern](rust.md) remains for the restricted backend. Linux and Windows are unverified. |
+| **Preview — Worker code in workerd** | node:test tests that start workerd (Miniflare 5 evidence), within [workerd limits](workerd.md) | Per-test coverage rebuilt from breakpoints matches V8 block coverage on 965 of 965 lines in the permanent test (1,265 of 1,270 in a larger run); statuses and durations come from a plain rerun; fault testing runs in a scratch copy. One private Workers codebase: 17 of 17 tests unchanged. Real-repository acceptance is unrun as a recorded gate. |
 | **Experimental — selective PR** | `node-readonly-files-v2` on Node **26.7.0** only, within [selective PR limits](selective-pr.md) | Experimental CLI/MCP commands remain available, with installed fixtures and the derived 65-test Express lane. **Outside the supported first release**. Node 22 selective execution refuses. Jest, Vitest, pytest and native selective profiles are unsupported or blocked. |
 
 The core contract covers the deterministic engine, CLI, local stdio MCP,
-report/review/check and ordinary full guard. A collector's existence does not
+report/review/check/audit and ordinary full guard. A collector's existence does not
 promote its runner to core support. `collect-node` is a node:test-only CI test step;
 its one-run, shard and subset modes do not extend to Vitest, Jest, pytest or the
 native preview runners. Native preview fixture evidence does not
@@ -68,11 +69,12 @@ passed both runtimes. These results certify that named artifact; they do not
 certify a later source version or licence change. Check the current version and
 corresponding handoff before using the maintainer's stable local path.
 
-The current source release uses version **0.1.2** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is unchanged at 0.1.0.
+The current source release uses version **0.2.0** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is 0.1.1 (it adds the `no-assertion` and `tautology` findings).
 See [local installation](install.md) and [artifact provenance](private-use.md#artifact-provenance).
 The [versioned candidate record](../plans/results/2026-10-26-private-candidate.md)
-records fresh 0.1.0 verification and artifact identities. The reviewed release
-files are committed. Next best action: verify the public GitHub source and
-source-install instructions, then review the launch copy. Registry uploads,
+records fresh 0.1.0 verification and artifact identities. The
+[0.2.0 candidate record](../plans/results/2026-11-23-0.2.0-candidate.md) lists
+what 0.2.0 adds, its evidence and what is not verified (Linux and Windows, a
+full cargo-mutants run on a real workspace, `crossRunner` end to end). Registry uploads,
 publishing tags/releases and social posting remain separate approval decisions.
 Historical candidate records continue to describe their named private artifacts.

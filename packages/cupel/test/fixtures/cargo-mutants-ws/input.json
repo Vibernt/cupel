@@ -1,0 +1,250 @@
+{
+  "spec": "cupel-spec/1",
+  "kind": "input",
+  "runtime": {
+    "name": "rust",
+    "version": "1.94.1"
+  },
+  "sources": {
+    "cli/src/main.rs": {
+      "coverable": "1-8",
+      "hash": "sha256:8c311cbcd9824dc9eea23c61837e43863581cf998fcd2583a06c9fa4fe5e5281"
+    },
+    "cli/tests/run.rs": {
+      "coverable": "",
+      "hash": "sha256:4f5e6fc271dfcc7e9236a3f2022b3b59612c85fc76e80954d1523e2384ad31c3"
+    },
+    "core/src/lib.rs": {
+      "coverable": "5-10,18-20,23-25,29-31,34-37",
+      "hash": "sha256:58ee058cbeee6baab14881d497e51ad2957dff3033d76a0fbc59ac54a996da37"
+    },
+    "core/src/secrets.rs": {
+      "coverable": "1-3",
+      "hash": "sha256:0f13b1aff266afcfb2c9b11233e271d2216ef4ada8b2ff155943c8b41554d6fe"
+    },
+    "core/src/wasm_only.rs": {
+      "coverable": "",
+      "hash": "sha256:8be0e3a62c5f3363832fa936c77e827991f311932c9ff6f1703ae6ded243b0e1",
+      "unmeasured": "not compiled into any test binary or workspace program built for this host"
+    },
+    "core/tests/secrets.rs": {
+      "coverable": "",
+      "hash": "sha256:71ff7061cf85bd69c4a7a7201d8a1e0e321a7cfa98925f35e7c8faafc73eff0a"
+    },
+    "glue/src/lib.rs": {
+      "coverable": "1-3",
+      "hash": "sha256:131791339230999e258ef4d6561d8243df40c2d0ea8f18e73a9bdb9cd8200d81"
+    }
+  },
+  "tests": [
+    {
+      "id": "cli/tests/run.rs::prints_secret",
+      "file": "cli/tests/run.rs",
+      "name": "prints_secret",
+      "status": "passed",
+      "durationsMs": [
+        470
+      ]
+    },
+    {
+      "id": "core/src/lib.rs::tests > even",
+      "file": "core/src/lib.rs",
+      "name": "tests::even",
+      "status": "passed",
+      "durationsMs": [
+        12
+      ]
+    },
+    {
+      "id": "core/src/lib.rs::tests > odd_panics",
+      "file": "core/src/lib.rs",
+      "name": "tests::odd_panics",
+      "status": "passed",
+      "durationsMs": [
+        13
+      ]
+    },
+    {
+      "id": "core/src/lib.rs::tests > reads_data_from_package_dir",
+      "file": "core/src/lib.rs",
+      "name": "tests::reads_data_from_package_dir",
+      "status": "passed",
+      "durationsMs": [
+        14
+      ]
+    },
+    {
+      "id": "core/src/lib.rs::tests > slow",
+      "file": "core/src/lib.rs",
+      "name": "tests::slow",
+      "status": "skipped",
+      "durationsMs": [
+        22
+      ]
+    },
+    {
+      "id": "core/tests/secrets.rs::detects_key",
+      "file": "core/tests/secrets.rs",
+      "name": "detects_key",
+      "status": "passed",
+      "durationsMs": [
+        11
+      ]
+    }
+  ],
+  "coverage": {
+    "granularity": "test",
+    "byTest": {
+      "core/tests/secrets.rs::detects_key": {
+        "core/src/secrets.rs": "1-3"
+      },
+      "core/src/lib.rs::tests > even": {
+        "core/src/lib.rs": "5-6,8-10,23-25"
+      },
+      "core/src/lib.rs::tests > odd_panics": {
+        "core/src/lib.rs": "5-7,18-20"
+      },
+      "core/src/lib.rs::tests > reads_data_from_package_dir": {
+        "core/src/lib.rs": "34-37"
+      },
+      "core/src/lib.rs::tests > slow": {},
+      "cli/tests/run.rs::prints_secret": {
+        "cli/src/main.rs": "1-5,8",
+        "core/src/secrets.rs": "1-3"
+      }
+    },
+    "setup": {},
+    "rechecked": [
+      "cli/tests/run.rs::prints_secret",
+      "core/src/lib.rs::tests > even",
+      "core/src/lib.rs::tests > odd_panics",
+      "core/src/lib.rs::tests > reads_data_from_package_dir",
+      "core/src/lib.rs::tests > slow",
+      "core/tests/secrets.rs::detects_key"
+    ]
+  },
+  "brittleness": [
+    {
+      "test": "core/src/lib.rs::tests > reads_data_from_package_dir",
+      "kind": "doc-wording",
+      "line": 33
+    }
+  ],
+  "shapes": {
+    "core/tests/secrets.rs::detects_key": [
+      1109802970,
+      1746240543,
+      3093307194,
+      3701505629,
+      3756800737,
+      4077701277
+    ],
+    "core/src/lib.rs::tests > even": [
+      854827256,
+      1239690962,
+      1558163855,
+      1916480040,
+      2052301557,
+      2360270994,
+      3249129113,
+      3373371333
+    ],
+    "core/src/lib.rs::tests > odd_panics": [
+      1239690962,
+      2544824803
+    ],
+    "core/src/lib.rs::tests > reads_data_from_package_dir": [
+      209489701,
+      436623442,
+      511675168,
+      569150570,
+      947745700,
+      1238445648,
+      1359648361,
+      1532543588,
+      1597915481,
+      1753808656,
+      1936990022,
+      2180877880,
+      2192344583,
+      2535962626,
+      2728818513,
+      2742547725,
+      2880083370,
+      3009419099,
+      3263788952,
+      3396313187,
+      3430340216,
+      3458592969,
+      3684536932,
+      4010052299,
+      4184349096,
+      4253200218,
+      4269210127
+    ],
+    "core/src/lib.rs::tests > slow": [
+      854827256,
+      1239690962,
+      1558163855,
+      1916480040,
+      2052301557,
+      2360270994,
+      3249129113,
+      3373371333
+    ],
+    "cli/tests/run.rs::prints_secret": [
+      80720713,
+      84384306,
+      291697784,
+      569150570,
+      572130897,
+      714202260,
+      721382040,
+      731025226,
+      759697108,
+      941456468,
+      947745700,
+      958455177,
+      975935034,
+      1022503085,
+      1201162921,
+      1201266939,
+      1316365635,
+      1456139760,
+      1554293153,
+      1597915481,
+      1797198985,
+      1860038699,
+      1863631764,
+      1913825857,
+      1930794352,
+      1931102211,
+      1936990022,
+      1987327606,
+      2112178935,
+      2156024851,
+      2180877880,
+      2192344583,
+      2278285919,
+      2445744250,
+      2590611180,
+      2614613972,
+      2728818513,
+      3009419099,
+      3010471919,
+      3046760295,
+      3093307194,
+      3097939674,
+      3396313187,
+      3430340216,
+      3458592969,
+      3507877964,
+      3603765926,
+      3642250072,
+      3670879936,
+      3684536932,
+      3737872657,
+      4184349096
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "audit": {
+    "combine": {
+      "groups": [
+        {
+          "group": "g1",
+          "file": "tests/a.test.mjs",
+          "units": [
+            "a1",
+            "a2"
+          ],
+          "form": "each"
+        }
+      ],
+      "acrossFiles": [
+        {
+          "units": [
+            "x",
+            "y"
+          ],
+          "files": [
+            "tests/x.test.mjs",
+            "tests/y.test.mjs"
+          ],
+          "form": "shared-helper"
+        }
+      ]
+    }
+  }
+}

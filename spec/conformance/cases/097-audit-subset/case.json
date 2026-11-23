@@ -1,0 +1,11 @@
+{
+  "description": "A subset collection cannot be audited: the audit would describe part of a suite as all of it.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U1",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 2
+}

@@ -8,9 +8,10 @@ import { collectNodeProfile } from '../src/pr/profiles/node/collect.mjs';
 import { nodeProfileProducerProof } from '../src/pr/producer.mjs';
 import { run } from '../src/engine/index.mjs';
 import { loadSchemas } from '../src/cli/context.mjs';
+import { NODE26, NODE22 } from './support/node-paths.mjs';
 
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 
 function fixture() {
   mkdirSync(scratch, { recursive: true });
@@ -66,7 +67,7 @@ test('Node v2 collection refuses Node 22 and unsupported runner setup before exe
     const args = { root: f.root, files: [f.file], out: join(f.outputs, 'node22'),
       config: f.config, expectedProducerHash };
     assert.throws(() => collectNodeProfile({ ...args,
-      nodePath: '/opt/homebrew/opt/node@22/bin/node' }), /requires verified Node 26\.7\.0/);
+      nodePath: NODE22 }), /requires verified Node 26\.7\.0/);
     assert.throws(() => collectNodeProfile({ ...args,
       config: { runners: { node: { ...f.config.runners.node, prepare: 'echo hi' } } },
       nodePath }), /refuses unsupported node runner/);

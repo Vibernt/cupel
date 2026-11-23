@@ -1,0 +1,17 @@
+{
+  "audit": {
+    "coverage": {
+      "files": [
+        {
+          "source": "src/a.mjs",
+          "critical": false,
+          "covered": 2,
+          "coverable": 2,
+          "pct": 100,
+          "uncovered": ""
+        }
+      ],
+      "unmeasured": []
+    }
+  }
+}

@@ -1,0 +1,610 @@
+[
+  {
+    "diff": "--- cli/src/main.rs\n+++ replace main with ()\n@@ -1,8 +1,3 @@\n fn main() {\n-    let arg = std::env::args().nth(1).unwrap_or_default();\n-    if ws_core::secrets::looks_secret(&arg) {\n-        println!(\"secret\");\n-    } else {\n-        println!(\"plain\");\n-    }\n+    () /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "cli/src/main.rs",
+    "function": {
+      "function_name": "main",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 8
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "cli/src/main.rs:2:5: replace main with ()",
+    "package": "ws-cli",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 7
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace halve -> i32 with 0\n@@ -1,17 +1,14 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n-    if n % 2 != 0 {\n-        panic!(\"odd\");\n-    }\n-    n / 2\n+    0 /* ~ changed by cargo-mutants ~ */\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n \n     #[test]\n     #[should_panic(expected = \"odd\")]\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/lib.rs:6:5: replace halve -> i32 with 0",
+    "package": "ws-core",
+    "replacement": "0",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 9
+      },
+      "start": {
+        "column": 5,
+        "line": 6
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace halve -> i32 with 1\n@@ -1,17 +1,14 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n-    if n % 2 != 0 {\n-        panic!(\"odd\");\n-    }\n-    n / 2\n+    1 /* ~ changed by cargo-mutants ~ */\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n \n     #[test]\n     #[should_panic(expected = \"odd\")]\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/lib.rs:6:5: replace halve -> i32 with 1",
+    "package": "ws-core",
+    "replacement": "1",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 9
+      },
+      "start": {
+        "column": 5,
+        "line": 6
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace halve -> i32 with -1\n@@ -1,17 +1,14 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n-    if n % 2 != 0 {\n-        panic!(\"odd\");\n-    }\n-    n / 2\n+    -1 /* ~ changed by cargo-mutants ~ */\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n \n     #[test]\n     #[should_panic(expected = \"odd\")]\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/lib.rs:6:5: replace halve -> i32 with -1",
+    "package": "ws-core",
+    "replacement": "-1",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 9
+      },
+      "start": {
+        "column": 5,
+        "line": 6
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace != with == in halve\n@@ -1,14 +1,14 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n-    if n % 2 != 0 {\n+    if n % 2 == /* ~ changed by cargo-mutants ~ */ 0 {\n         panic!(\"odd\");\n     }\n     n / 2\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/lib.rs:6:14: replace != with == in halve",
+    "package": "ws-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 6
+      },
+      "start": {
+        "column": 14,
+        "line": 6
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace % with / in halve\n@@ -1,14 +1,14 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n-    if n % 2 != 0 {\n+    if n / /* ~ changed by cargo-mutants ~ */ 2 != 0 {\n         panic!(\"odd\");\n     }\n     n / 2\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/lib.rs:6:10: replace % with / in halve",
+    "package": "ws-core",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 6
+      },
+      "start": {
+        "column": 10,
+        "line": 6
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace % with + in halve\n@@ -1,14 +1,14 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n-    if n % 2 != 0 {\n+    if n + /* ~ changed by cargo-mutants ~ */ 2 != 0 {\n         panic!(\"odd\");\n     }\n     n / 2\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/lib.rs:6:10: replace % with + in halve",
+    "package": "ws-core",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 6
+      },
+      "start": {
+        "column": 10,
+        "line": 6
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace / with % in halve\n@@ -1,17 +1,17 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n     if n % 2 != 0 {\n         panic!(\"odd\");\n     }\n-    n / 2\n+    n % /* ~ changed by cargo-mutants ~ */ 2\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n \n     #[test]\n     #[should_panic(expected = \"odd\")]\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/lib.rs:9:7: replace / with % in halve",
+    "package": "ws-core",
+    "replacement": "%",
+    "span": {
+      "end": {
+        "column": 8,
+        "line": 9
+      },
+      "start": {
+        "column": 7,
+        "line": 9
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/lib.rs\n+++ replace / with * in halve\n@@ -1,17 +1,17 @@\n pub mod secrets;\n #[cfg(target_arch = \"wasm32\")]\n mod wasm_only;\n \n pub fn halve(n: i32) -> i32 {\n     if n % 2 != 0 {\n         panic!(\"odd\");\n     }\n-    n / 2\n+    n * /* ~ changed by cargo-mutants ~ */ 2\n }\n \n #[cfg(test)]\n mod tests {\n     use super::halve;\n \n     #[test]\n     #[should_panic(expected = \"odd\")]\n",
+    "file": "core/src/lib.rs",
+    "function": {
+      "function_name": "halve",
+      "return_type": "-> i32",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 10
+        },
+        "start": {
+          "column": 1,
+          "line": 5
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/lib.rs:9:7: replace / with * in halve",
+    "package": "ws-core",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 8,
+        "line": 9
+      },
+      "start": {
+        "column": 7,
+        "line": 9
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/secrets.rs\n+++ replace looks_secret -> bool with true\n@@ -1,3 +1,3 @@\n pub fn looks_secret(text: &str) -> bool {\n-    text.starts_with(\"sk-\") && text.len() > 4\n+    true /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "core/src/secrets.rs",
+    "function": {
+      "function_name": "looks_secret",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/secrets.rs:2:5: replace looks_secret -> bool with true",
+    "package": "ws-core",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 2
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/secrets.rs\n+++ replace looks_secret -> bool with false\n@@ -1,3 +1,3 @@\n pub fn looks_secret(text: &str) -> bool {\n-    text.starts_with(\"sk-\") && text.len() > 4\n+    false /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "core/src/secrets.rs",
+    "function": {
+      "function_name": "looks_secret",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/secrets.rs:2:5: replace looks_secret -> bool with false",
+    "package": "ws-core",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 2
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/secrets.rs\n+++ replace && with || in looks_secret\n@@ -1,3 +1,3 @@\n pub fn looks_secret(text: &str) -> bool {\n-    text.starts_with(\"sk-\") && text.len() > 4\n+    text.starts_with(\"sk-\") || /* ~ changed by cargo-mutants ~ */ text.len() > 4\n }\n",
+    "file": "core/src/secrets.rs",
+    "function": {
+      "function_name": "looks_secret",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/secrets.rs:2:29: replace && with || in looks_secret",
+    "package": "ws-core",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 2
+      },
+      "start": {
+        "column": 29,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/secrets.rs\n+++ replace > with == in looks_secret\n@@ -1,3 +1,3 @@\n pub fn looks_secret(text: &str) -> bool {\n-    text.starts_with(\"sk-\") && text.len() > 4\n+    text.starts_with(\"sk-\") && text.len() == /* ~ changed by cargo-mutants ~ */ 4\n }\n",
+    "file": "core/src/secrets.rs",
+    "function": {
+      "function_name": "looks_secret",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/secrets.rs:2:43: replace > with == in looks_secret",
+    "package": "ws-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 2
+      },
+      "start": {
+        "column": 43,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/secrets.rs\n+++ replace > with < in looks_secret\n@@ -1,3 +1,3 @@\n pub fn looks_secret(text: &str) -> bool {\n-    text.starts_with(\"sk-\") && text.len() > 4\n+    text.starts_with(\"sk-\") && text.len() < /* ~ changed by cargo-mutants ~ */ 4\n }\n",
+    "file": "core/src/secrets.rs",
+    "function": {
+      "function_name": "looks_secret",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/secrets.rs:2:43: replace > with < in looks_secret",
+    "package": "ws-core",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 2
+      },
+      "start": {
+        "column": 43,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/secrets.rs\n+++ replace > with >= in looks_secret\n@@ -1,3 +1,3 @@\n pub fn looks_secret(text: &str) -> bool {\n-    text.starts_with(\"sk-\") && text.len() > 4\n+    text.starts_with(\"sk-\") && text.len() >= /* ~ changed by cargo-mutants ~ */ 4\n }\n",
+    "file": "core/src/secrets.rs",
+    "function": {
+      "function_name": "looks_secret",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "core/src/secrets.rs:2:43: replace > with >= in looks_secret",
+    "package": "ws-core",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 2
+      },
+      "start": {
+        "column": 43,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/wasm_only.rs\n+++ replace only_in_wasm -> u8 with 0\n@@ -1,3 +1,3 @@\n pub fn only_in_wasm() -> u8 {\n-    7\n+    0 /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "core/src/wasm_only.rs",
+    "function": {
+      "function_name": "only_in_wasm",
+      "return_type": "-> u8",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/wasm_only.rs:2:5: replace only_in_wasm -> u8 with 0",
+    "package": "ws-core",
+    "replacement": "0",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 2
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- core/src/wasm_only.rs\n+++ replace only_in_wasm -> u8 with 1\n@@ -1,3 +1,3 @@\n pub fn only_in_wasm() -> u8 {\n-    7\n+    1 /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "core/src/wasm_only.rs",
+    "function": {
+      "function_name": "only_in_wasm",
+      "return_type": "-> u8",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "core/src/wasm_only.rs:2:5: replace only_in_wasm -> u8 with 1",
+    "package": "ws-core",
+    "replacement": "1",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 2
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- glue/src/lib.rs\n+++ replace untested -> u8 with 0\n@@ -1,3 +1,3 @@\n pub fn untested(x: u8) -> u8 {\n-    x.wrapping_add(1)\n+    0 /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "glue/src/lib.rs",
+    "function": {
+      "function_name": "untested",
+      "return_type": "-> u8",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "glue/src/lib.rs:2:5: replace untested -> u8 with 0",
+    "package": "ws-glue",
+    "replacement": "0",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 2
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  },
+  {
+    "diff": "--- glue/src/lib.rs\n+++ replace untested -> u8 with 1\n@@ -1,3 +1,3 @@\n pub fn untested(x: u8) -> u8 {\n-    x.wrapping_add(1)\n+    1 /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "glue/src/lib.rs",
+    "function": {
+      "function_name": "untested",
+      "return_type": "-> u8",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 3
+        },
+        "start": {
+          "column": 1,
+          "line": 1
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "glue/src/lib.rs:2:5: replace untested -> u8 with 1",
+    "package": "ws-glue",
+    "replacement": "1",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 2
+      },
+      "start": {
+        "column": 5,
+        "line": 2
+      }
+    }
+  }
+]

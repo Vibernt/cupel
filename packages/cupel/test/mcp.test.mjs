@@ -13,7 +13,7 @@ const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const CASES = fileURLToPath(new URL('../../../spec/conformance/cases/', import.meta.url));
 const read = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const casePath = (number, file) => {
-  const names = { 9: '009-label-unknown-tag', 18: '018-consolidate-same-shape', 34: '034-plan-changed', 35: '035-check-no-unique-evidence', 40: '040-guard-pass', 41: '041-guard-coverage-lost', 46: '046-guard-critical-removed-approved', 48: '048-guard-runtime-mismatch', 64: '064-review-basic-pack', 74: '074-review-assertion-sidecar' };
+  const names = { 9: '009-label-unknown-tag', 18: '018-consolidate-same-shape', 34: '034-plan-changed', 35: '035-check-no-unique-evidence', 40: '040-guard-pass', 41: '041-guard-coverage-lost', 46: '046-guard-critical-removed-approved', 48: '048-guard-runtime-mismatch', 64: '064-review-basic-pack', 74: '074-review-assertion-sidecar', 100: '100-audit-false-tests' };
   return `${CASES}${names[number]}/${file}.json`;
 };
 
@@ -106,12 +106,15 @@ test('without --root, mcp selects the enclosing git root', () => {
 
 test('tools/list describes all tools with object input schemas', async () => {
   const { tools } = (await send('tools/list')).result;
-  assert.deepEqual(tools.map((tool) => tool.name), ['cupel_check', 'cupel_report', 'cupel_review', 'cupel_guard', 'cupel_plan', 'cupel_label', 'cupel_pr_producer', 'cupel_pr_prepare', 'cupel_pr']);
+  assert.deepEqual(tools.map((tool) => tool.name), ['cupel_check', 'cupel_report', 'cupel_review', 'cupel_audit', 'cupel_guard', 'cupel_plan', 'cupel_label', 'cupel_pr_producer', 'cupel_pr_prepare', 'cupel_pr']);
   for (const tool of tools) {
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
     if (tool.name === 'cupel_review') {
       assert.match(tool.description, /read the test code.*cupel_guard.*never advises removal/);
+    } else if (tool.name === 'cupel_audit') {
+      assert.ok(tool.description.includes('Cupel never advises removing tests'));
+      assert.match(tool.description, /read-only/);
     } else if (tool.name.startsWith('cupel_pr')) {
       assert.ok(tool.description.includes('Cupel never advises removing tests'));
       assert.match(tool.description, /pin|pinned/);
@@ -132,6 +135,15 @@ test('review returns the full filtered pack and assertion observations', async (
   const sidecar = read(casePath(74, 'assertions'));
   const withAssertions = await call('cupel_review', { input: casePath(74, 'input'), assertions: casePath(74, 'assertions') });
   assert.deepEqual(withAssertions.json, run('review', { input: read(casePath(74, 'input')), assertions: sidecar }, {}, {}, loadSchemas()).report);
+});
+
+test('audit returns exactly the engine audit, with the limit passed through', async () => {
+  const input = read(casePath(100, 'input'));
+  const expected = run('audit', { input }, {}, { limit: 1 }, loadSchemas());
+  const { json, result } = await call('cupel_audit', { input: casePath(100, 'input'), limit: 1 });
+  assert.equal(result.isError, false);
+  assert.deepEqual(json, expected.report);
+  assert.match(result.content[0].text, /^audit: 0 possibly wrong, 2 catching nothing, 1 unnoticed faults/);
 });
 
 test('report and label match run, including exit 1 as a normal result', async () => {

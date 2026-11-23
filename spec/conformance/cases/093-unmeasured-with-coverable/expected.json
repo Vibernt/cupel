@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "unmeasured-coverable",
+      "severity": "error"
+    }
+  ],
+  "units": "$absent"
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Units that catch the same faults form an overlap group, marked when their runners differ.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

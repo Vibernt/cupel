@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "code": "runtime-changed",
+      "severity": "warning"
+    }
+  ],
+  "guard": {
+    "pass": false,
+    "checks": [
+      {
+        "id": "head-passes",
+        "pass": false,
+        "units": [
+          "x"
+        ]
+      },
+      {
+        "id": "coverage-lines",
+        "pass": true,
+        "notCompared": "runtime-changed",
+        "lost": "$absent"
+      },
+      {
+        "id": "coverage-ratio",
+        "pass": true,
+        "notCompared": "runtime-changed",
+        "base": "$absent"
+      },
+      {
+        "id": "critical-coverage",
+        "pass": true,
+        "notCompared": "runtime-changed"
+      },
+      {
+        "id": "critical-mutation",
+        "pass": true
+      },
+      {
+        "id": "critical-removed",
+        "pass": true
+      },
+      {
+        "id": "critical-downgraded",
+        "pass": true
+      }
+    ]
+  }
+}

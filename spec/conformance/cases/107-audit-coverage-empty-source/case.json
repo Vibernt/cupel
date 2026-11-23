@@ -1,0 +1,11 @@
+{
+  "description": "A source with nothing coverable and no unmeasured reason is not listed.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U6",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

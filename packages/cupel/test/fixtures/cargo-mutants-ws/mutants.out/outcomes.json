@@ -1,0 +1,1289 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Success",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.925724416,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=ws-cli@0.1.0",
+            "--package=ws-core@0.1.0",
+            "--package=ws-glue@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.749381708,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=ws-cli@0.1.0",
+            "--package=ws-core@0.1.0",
+            "--package=ws-glue@0.1.0",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "cli/src/main.rs:2:5: replace main with ()",
+          "package": "ws-cli",
+          "file": "cli/src/main.rs",
+          "function": {
+            "function_name": "main",
+            "return_type": "",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 8,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 7,
+              "column": 6
+            }
+          },
+          "replacement": "()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/cli__src__main.rs_line_2_col_5.log",
+      "diff_path": "diff/cli__src__main.rs_line_2_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.374249083,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.449613875,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:6:5: replace halve -> i32 with 0",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 10
+            }
+          },
+          "replacement": "0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_6_col_5.log",
+      "diff_path": "diff/core__src__lib.rs_line_6_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.438672583,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.791202583,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:6:5: replace halve -> i32 with 1",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 10
+            }
+          },
+          "replacement": "1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_6_col_5_001.log",
+      "diff_path": "diff/core__src__lib.rs_line_6_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.43282325,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.840491209,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:6:5: replace halve -> i32 with -1",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 10
+            }
+          },
+          "replacement": "-1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_6_col_5_002.log",
+      "diff_path": "diff/core__src__lib.rs_line_6_col_5_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.439741375,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.143272959,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:6:14: replace != with == in halve",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 14
+            },
+            "end": {
+              "line": 6,
+              "column": 16
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_6_col_14.log",
+      "diff_path": "diff/core__src__lib.rs_line_6_col_14.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.487922459,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9266339590000001,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:6:10: replace % with / in halve",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 10
+            },
+            "end": {
+              "line": 6,
+              "column": 11
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_6_col_10.log",
+      "diff_path": "diff/core__src__lib.rs_line_6_col_10.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.43929325,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.833655792,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:6:10: replace % with + in halve",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 6,
+              "column": 10
+            },
+            "end": {
+              "line": 6,
+              "column": 11
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_6_col_10_001.log",
+      "diff_path": "diff/core__src__lib.rs_line_6_col_10_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.442564375,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.631602708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:9:7: replace / with % in halve",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 9,
+              "column": 7
+            },
+            "end": {
+              "line": 9,
+              "column": 8
+            }
+          },
+          "replacement": "%",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_9_col_7.log",
+      "diff_path": "diff/core__src__lib.rs_line_9_col_7.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.485650625,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.882014625,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/lib.rs:9:7: replace / with * in halve",
+          "package": "ws-core",
+          "file": "core/src/lib.rs",
+          "function": {
+            "function_name": "halve",
+            "return_type": "-> i32",
+            "span": {
+              "start": {
+                "line": 5,
+                "column": 1
+              },
+              "end": {
+                "line": 10,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 9,
+              "column": 7
+            },
+            "end": {
+              "line": 9,
+              "column": 8
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__lib.rs_line_9_col_7_001.log",
+      "diff_path": "diff/core__src__lib.rs_line_9_col_7_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.479356958,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.047264208,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/secrets.rs:2:5: replace looks_secret -> bool with true",
+          "package": "ws-core",
+          "file": "core/src/secrets.rs",
+          "function": {
+            "function_name": "looks_secret",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 46
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/core__src__secrets.rs_line_2_col_5.log",
+      "diff_path": "diff/core__src__secrets.rs_line_2_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.429658458,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.773473708,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/secrets.rs:2:5: replace looks_secret -> bool with false",
+          "package": "ws-core",
+          "file": "core/src/secrets.rs",
+          "function": {
+            "function_name": "looks_secret",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 46
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__secrets.rs_line_2_col_5_001.log",
+      "diff_path": "diff/core__src__secrets.rs_line_2_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.43819825,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.874065708,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/secrets.rs:2:29: replace && with || in looks_secret",
+          "package": "ws-core",
+          "file": "core/src/secrets.rs",
+          "function": {
+            "function_name": "looks_secret",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 29
+            },
+            "end": {
+              "line": 2,
+              "column": 31
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/core__src__secrets.rs_line_2_col_29.log",
+      "diff_path": "diff/core__src__secrets.rs_line_2_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.490408917,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.217076167,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/secrets.rs:2:43: replace > with == in looks_secret",
+          "package": "ws-core",
+          "file": "core/src/secrets.rs",
+          "function": {
+            "function_name": "looks_secret",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 43
+            },
+            "end": {
+              "line": 2,
+              "column": 44
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__secrets.rs_line_2_col_43.log",
+      "diff_path": "diff/core__src__secrets.rs_line_2_col_43.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.542611542,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.084685125,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/secrets.rs:2:43: replace > with < in looks_secret",
+          "package": "ws-core",
+          "file": "core/src/secrets.rs",
+          "function": {
+            "function_name": "looks_secret",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 43
+            },
+            "end": {
+              "line": 2,
+              "column": 44
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/core__src__secrets.rs_line_2_col_43_001.log",
+      "diff_path": "diff/core__src__secrets.rs_line_2_col_43_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.434261208,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.158121333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/secrets.rs:2:43: replace > with >= in looks_secret",
+          "package": "ws-core",
+          "file": "core/src/secrets.rs",
+          "function": {
+            "function_name": "looks_secret",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 43
+            },
+            "end": {
+              "line": 2,
+              "column": 44
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/core__src__secrets.rs_line_2_col_43_002.log",
+      "diff_path": "diff/core__src__secrets.rs_line_2_col_43_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.627026542,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.9574416669999999,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/wasm_only.rs:2:5: replace only_in_wasm -> u8 with 0",
+          "package": "ws-core",
+          "file": "core/src/wasm_only.rs",
+          "function": {
+            "function_name": "only_in_wasm",
+            "return_type": "-> u8",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 6
+            }
+          },
+          "replacement": "0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/core__src__wasm_only.rs_line_2_col_5.log",
+      "diff_path": "diff/core__src__wasm_only.rs_line_2_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.680392375,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.847712708,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "core/src/wasm_only.rs:2:5: replace only_in_wasm -> u8 with 1",
+          "package": "ws-core",
+          "file": "core/src/wasm_only.rs",
+          "function": {
+            "function_name": "only_in_wasm",
+            "return_type": "-> u8",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 6
+            }
+          },
+          "replacement": "1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/core__src__wasm_only.rs_line_2_col_5_001.log",
+      "diff_path": "diff/core__src__wasm_only.rs_line_2_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.168968042,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.76445925,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "glue/src/lib.rs:2:5: replace untested -> u8 with 0",
+          "package": "ws-glue",
+          "file": "glue/src/lib.rs",
+          "function": {
+            "function_name": "untested",
+            "return_type": "-> u8",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 22
+            }
+          },
+          "replacement": "0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/glue__src__lib.rs_line_2_col_5.log",
+      "diff_path": "diff/glue__src__lib.rs_line_2_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.351766959,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.720800459,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "glue/src/lib.rs:2:5: replace untested -> u8 with 1",
+          "package": "ws-glue",
+          "file": "glue/src/lib.rs",
+          "function": {
+            "function_name": "untested",
+            "return_type": "-> u8",
+            "span": {
+              "start": {
+                "line": 1,
+                "column": 1
+              },
+              "end": {
+                "line": 3,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 5
+            },
+            "end": {
+              "line": 2,
+              "column": 22
+            }
+          },
+          "replacement": "1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/glue__src__lib.rs_line_2_col_5_001.log",
+      "diff_path": "diff/glue__src__lib.rs_line_2_col_5_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.291548584,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--workspace"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.959491875,
+          "process_status": "Success",
+          "argv": [
+            "/work/bin/cargo",
+            "test",
+            "--verbose",
+            "--workspace",
+            "--no-fail-fast"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 19,
+  "missed": 7,
+  "caught": 12,
+  "timeout": 0,
+  "unviable": 0,
+  "success": 0,
+  "start_time": "2026-11-23T04:01:37.139359Z",
+  "end_time": "2026-11-23T04:02:24.126626Z",
+  "cargo_mutants_version": "27.1.0"
+}

@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {
     "description": { "type": "string", "minLength": 1 },
-    "command": { "enum": ["report", "plan", "check", "guard", "label", "review"] },
+    "command": { "enum": ["report", "plan", "check", "guard", "label", "review", "audit"] },
     "forbidVocabulary": { "type": "boolean" },
     "rules": {
       "type": "array",
@@ -17,7 +17,7 @@
         "required": ["id", "polarity"],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^[ITSACGPLREV][0-9]+$" },
+          "id": { "type": "string", "pattern": "^[ITSACGPLREVU][0-9]+$" },
           "polarity": { "enum": ["positive", "negative"] }
         }
       }
@@ -43,7 +43,7 @@
             }
           }
         },
-        "generatedAt": { "type": "string" }
+        "generatedAt": { "type": "string" }, "allowRuntimeChange": { "type": "boolean" }
       }
     },
     "expectExit": { "enum": [0, 1, 2, 3] }

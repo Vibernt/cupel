@@ -14,7 +14,8 @@ import { environment, usage } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
-import { mergeRunners, runnerParts } from './merge-runners.mjs';
+import { mergeRunners, runnerParts, splitRunnerInput } from './merge-runners.mjs';
+import { applyBuiltInto } from './built-into.mjs';
 import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
 import { mutateRuby } from './native-mutation.mjs';
@@ -27,6 +28,7 @@ const REAL = {
   mutator: { url: new URL('../mutate/index.mjs', import.meta.url), env: 'CUPEL_TEST_MUTATOR', exports: ['mutateNode'] },
   goMutator: { url: new URL('../mutate-go/index.mjs', import.meta.url), env: 'CUPEL_TEST_GO_MUTATOR', exports: ['mutateGo', 'confirmGo'] },
   rustMutator: { url: new URL('../mutate-rust/index.mjs', import.meta.url), env: 'CUPEL_TEST_RUST_MUTATOR', exports: ['mutateRust', 'confirmRust'] },
+  cargoMutants: { url: new URL('../mutate-cargo/run.mjs', import.meta.url), env: 'CUPEL_TEST_CARGO_MUTANTS_MUTATOR', exports: ['mutateCargo', 'confirmCargo'] },
 };
 
 
@@ -295,7 +297,7 @@ async function collect(collector, opts) {
 /** Collects the working tree at `root`. The collector runs `prepare` itself. */
 export function collectTree(collector, { root, cfg, runs, recheck, log, diagnostics }) {
   log(`collecting ${root}`);
-  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics }).then((input) => stampCollection(input, root, cfg));
+  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics }).then((input) => stampCollection(applyBuiltInto(input, cfg), root, cfg));
 }
 
 /**
@@ -310,7 +312,7 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
     runPrepare(dir, cfg, log);
     const refConfig = withoutPrepare(cfg);
     const refCollector = await requireCollector(env, dir, refConfig);
-    const input = stampCollection(await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log }), dir, cfg, commit);
+    const input = stampCollection(applyBuiltInto(await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log }), cfg), dir, cfg, commit);
     return after ? await after(dir, input, refCollector) : input;
   } finally {
     cleanup();
@@ -322,7 +324,8 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
   if (!mutationRequested(scope)) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
-    const parts = runnerParts(input);
+    // A saved multi-runner input (`--input`) is split back into its runners' parts.
+    const parts = runnerParts(input) ?? (input.runtimes?.length > 1 ? splitRunnerInput(input) : null);
     if (parts) {
       const mutations = [];
       const owners = new Map();
@@ -351,10 +354,16 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
         }
       }
       if (!mutations.length) return null;
-      const merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
+      let merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
       if (mutations.some((m) => m.sampled !== undefined)) merged.sampled = mutations.some((m) => m.sampled);
       const seeds = [...new Set(mutations.map((m) => m.seed).filter((n) => n !== undefined))];
       if (seeds.length === 1) merged.seed = seeds[0];
+      if (cfg.runners?.cargo?.mutants?.crossRunner && owners.size) {
+        // Phase 7: Rust survivors in sources built into an artifact get re-tested by the tests that load it.
+        const { crossRunner } = await import('./cross-runner.mjs');
+        const { listMutants } = await import('../mutate-cargo/run.mjs');
+        merged = await crossRunner({ root, cfg, input, mutation: merged, listing: await listMutants({ root, config: cfg }), log });
+      }
       mutationOwners.set(merged, owners);
       return merged;
     }
@@ -365,21 +374,43 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
       if (!go) throw environment('Go mutation module is not available');
       return await go.mutateGo({ root, config: cfg, input, scope, log });
     }
-    if (input.runtime.name === 'rust') {
-      const rust = await loadModule('rustMutator');
-      if (!rust) throw environment('Rust mutation module is not available');
-      return await rust.mutateRust({ root, config: cfg, input, scope, log });
-    }
+    if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log });
     if (input.runtime.name === 'ruby') {
       const nativeScope = { ...scope,
         changed: Object.fromEntries(Object.entries(scope.changed ?? {}).filter(([path]) => Object.hasOwn(input.sources, path))),
         targeted: scope.targeted ?? [] };
       return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
     }
-    return await mutator.mutateNode({ root, config: cfg, input, scope: { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
+    const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] };
+    const ordinary = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics });
+    // Phase 5: sources the tests run in workerd get their mutants in a scratch copy of the project.
+    if (collectorKind || !Object.values(input.sources).some((s) => s.measuredIn)) return ordinary;
+    const scratch = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics, scratch: true });
+    return mergePasses(input, ordinary, scratch);
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }
+}
+
+/** Rust mutation: cargo-mutants by default (D19), or the restricted built-in mutator on request. */
+async function rustMutation(action, { root, cfg, input, scope, mutation, ids, log }) {
+  const settings = cfg.runners?.cargo?.mutants ?? {};
+  if (settings.backend === 'cupel-rust') {
+    const rust = await loadModule('rustMutator');
+    if (!rust) throw environment('Rust mutation module is not available');
+    const { mutants: _backend, ...cargo } = cfg.runners?.cargo ?? {};
+    const legacy = { ...cfg, runners: { ...cfg.runners, cargo } };
+    if (!Object.keys(cargo).length) delete legacy.runners.cargo;
+    if (!Object.keys(legacy.runners).length) delete legacy.runners;
+    return action === 'mutate'
+      ? await rust.mutateRust({ root, config: legacy, input, scope, log })
+      : await rust.confirmRust({ root, config: legacy, input, mutation, ids, log });
+  }
+  const cargo = await loadModule('cargoMutants');
+  if (!cargo) throw environment('cargo-mutants mutation module is not available');
+  return action === 'mutate'
+    ? await cargo.mutateCargo({ root, config: cfg, input, scope, log })
+    : await cargo.confirmCargo({ root, config: cfg, input, mutation, ids, log });
 }
 
 /** K7: re-runs survivors through confirmSurvivors when the mutator provides it. */
@@ -416,11 +447,7 @@ export async function confirm(mutator, { root, cfg, input, mutation, ids, log, c
       if (!go) throw environment('Go mutation module is not available');
       return await go.confirmGo({ root, config: cfg, input, mutation, ids, log });
     }
-    if (input.runtime.name === 'rust') {
-      const rust = await loadModule('rustMutator');
-      if (!rust) throw environment('Rust mutation module is not available');
-      return await rust.confirmRust({ root, config: cfg, input, mutation, ids, log });
-    }
+    if (input.runtime.name === 'rust') return await rustMutation('confirm', { root, cfg, input, mutation, ids, log });
     if (input.runtime.name === 'ruby') return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, mutation, ids });
     if (typeof mutator.confirmSurvivors !== 'function') throw environment('mutation confirmation is not available');
     const out = await mutator.confirmSurvivors({ root, config: cfg, input, mutation, ids, collectorKind });
@@ -439,6 +466,29 @@ export function lostSurvivors(base, head) {
 }
 
 /** Merges a second mutation result into the first: later mutants replace earlier ones by id. */
+/**
+ * Merges an ordinary and a scratch-mode mutation pass over disjoint sources. A
+ * unit stays targeted only if every pass whose sources hold its own lines lists it.
+ */
+export function mergePasses(input, ordinary, scratch) {
+  if (!scratch) return ordinary;
+  if (!ordinary) return scratch;
+  const measured = new Set(Object.entries(input.sources).filter(([, s]) => s.measuredIn).map(([p]) => p));
+  const ownSources = new Map();
+  for (const t of input.tests) {
+    const unit = t.unit ?? t.id;
+    if (!ownSources.has(unit)) ownSources.set(unit, new Set());
+    for (const source of Object.keys(input.coverage?.byTest?.[t.id] ?? {})) ownSources.get(unit).add(source);
+  }
+  const inOrdinary = new Set(ordinary.targeted ?? []); const inScratch = new Set(scratch.targeted ?? []);
+  const targeted = [...new Set([...inOrdinary, ...inScratch])].filter((unit) => {
+    const sources = [...(ownSources.get(unit) ?? [])];
+    return (!sources.some((x) => !measured.has(x)) || inOrdinary.has(unit)) && (!sources.some((x) => measured.has(x)) || inScratch.has(unit));
+  }).sort(cmp);
+  const merged = mergeMutation(ordinary, scratch);
+  return { ...merged, targeted };
+}
+
 export function mergeMutation(a, b) {
   if (!a) return b;
   if (!b) return a;

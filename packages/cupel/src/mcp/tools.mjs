@@ -32,9 +32,14 @@ export const TOOLS = [
     inputSchema: schema({ input: string, config: string, units: { type: 'array', items: string }, limit: { type: 'integer', minimum: 0 }, assertions: string }),
   },
   {
+    name: 'cupel_audit',
+    description: 'Get a read-only signal on how to improve the test suite: possibly wrong tests, tests that run faulty code but catch nothing (or only by crashes), code that runs with faults unnoticed, tests protecting the same thing, tests to combine, coverage with unmeasured code apart, and where time goes. Cupel never advises removing tests; any change must pass cupel_guard.',
+    inputSchema: schema({ input: string, config: string, limit: { type: 'integer', minimum: 0 } }),
+  },
+  {
     name: 'cupel_guard',
     description: 'Before removing or rewriting tests, compare the base with the working tree or saved inputs. First-release core is JS/TS/Python full guard; bounded Go/Ruby/Rust are previews. With no base, compare HEAD. Cupel never advises removing tests; no-unique-evidence means a person may review, never delete.',
-    inputSchema: schema({ ...paths, base: string, approvals: { anyOf: [string, { type: 'array', items: { type: 'object', properties: { action: { enum: ['remove', 'downgrade'] }, id: string, by: string }, required: ['action', 'id', 'by'], additionalProperties: false } }] } }),
+    inputSchema: schema({ ...paths, base: string, allowRuntimeChange: { type: 'boolean' }, approvals: { anyOf: [string, { type: 'array', items: { type: 'object', properties: { action: { enum: ['remove', 'downgrade'] }, id: string, by: string }, required: ['action', 'id', 'by'], additionalProperties: false } }] } }),
   },
   {
     name: 'cupel_plan',
@@ -87,8 +92,8 @@ export function validateCall(name, args) {
       return `${key} must be ${properties[key].enum.join(' or ')}`;
     if (['page', 'pageSize'].includes(key)) {
       if (!Number.isInteger(value) || value < 1 || (key === 'pageSize' && value > 200)) return `${key} must be a positive integer${key === 'pageSize' ? ' at most 200' : ''}`;
-    } else if (key === 'retain') {
-      if (typeof value !== 'boolean') return 'retain must be a boolean';
+    } else if (key === 'retain' || key === 'allowRuntimeChange') {
+      if (typeof value !== 'boolean') return `${key} must be a boolean`;
     } else if (key === 'tests' || key === 'units') {
       if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || !item)) return `${key} must be an array of non-empty strings`;
     } else if (key === 'limit') {
@@ -120,6 +125,7 @@ function commandArgs(name, p) {
     option('base-input', p.baseInput);
     option('head-input', p.headInput ?? p.input);
     if (typeof p.approvals === 'string') option('approvals', p.approvals);
+    if (p.allowRuntimeChange === true) args.push('--allow-runtime-change');
   } else if (cmd === 'check') {
     option('input', p.input);
     option('head-input', p.headInput);
@@ -129,6 +135,7 @@ function commandArgs(name, p) {
   } else {
     option('input', p.input);
     if (cmd === 'plan') option('changed', p.changed);
+    if (cmd === 'audit') option('limit', p.limit === undefined ? undefined : String(p.limit));
     if (cmd === 'review') {
       for (const unit of p.units ?? []) option('units', unit);
       option('limit', p.limit === undefined ? undefined : String(p.limit));
@@ -161,6 +168,10 @@ function summary(cmd, report, exit, error) {
   if (cmd === 'guard') return `guard ${report.guard.pass ? 'passed' : 'failed'}; ${report.guard.checks.length} checks`;
   if (cmd === 'check') return `check ${exit === 1 ? 'failed' : 'passed'}; ${report.check.verdicts.length} verdicts`;
   if (cmd === 'plan') return `plan: ${report.plan.order.length} units, expected ${report.plan.expectedMs} ms`;
+  if (cmd === 'audit') {
+    const a = report.audit;
+    return `audit: ${a.wrong.length} possibly wrong, ${a.falseTests.measured ? `${a.falseTests.units.length} catching nothing, ${a.falseTests.unchecked.reduce((n, s) => n + s.mutants.length, 0)} unnoticed faults` : 'fault catching not measured'}, ${a.overlap.length} overlap groups, ${a.combine.groups.length + a.combine.acrossFiles.length} to combine, ${a.coverage.unmeasured.length} unmeasured sources; read the evidence, then run cupel_guard on any change`;
+  }
   if (cmd === 'review') return `review: ${report.review.candidates.length} candidates (${report.review.critical} critical); read code, then run cupel_guard`;
   const line = summaryLine(report.suite);
   return cmd === 'label' && exit === 1 ? `label failed: ${line}` : line;

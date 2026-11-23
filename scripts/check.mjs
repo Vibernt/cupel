@@ -9,11 +9,14 @@
 //     the "Private :: Do Not Upload" classifier. Lifting either needs the owner (L6).
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
+// D18 (owner, 2026-11-23): per-test workerd coverage talks to the workerd a
+// measured test run started, over 127.0.0.1 only, from this one file.
+const LOOPBACK_FILE = 'packages/cupel/src/collect/node/workerd.mjs';
 const JS_NETWORK = [
   /\bfrom\s+['"](node:)?(http|https|http2|net|tls|dgram|dns)['"]/,
   /\brequire\(\s*['"](node:)?(http|https|http2|net|tls|dgram|dns)['"]\s*\)/,
@@ -86,7 +89,18 @@ export function runChecks(root = ROOT) {
   for (const f of walk(join(root, 'packages/cupel/src'), ['.mjs', '.js', '.cjs']).concat(
     walk(join(root, 'packages/cupel/bin'), ['.mjs', '.js', '.cjs']),
   )) {
-    report(f, findViolations(readFileSync(f, 'utf8'), JS_NETWORK), 'network call');
+    const text = readFileSync(f, 'utf8');
+    // D18: the workerd collector alone may connect, and only to the loopback
+    // address it names; every URL in it must be built on that constant.
+    if (relative(root, f).split(sep).join('/') === LOOPBACK_FILE) {
+      if (!/^const LOOPBACK = '127\.0\.0\.1';$/m.test(text)) errors.push(`${LOOPBACK_FILE}: LOOPBACK must be '127.0.0.1'`);
+      for (const [index, match] of [...text.matchAll(/:\/\//g)].entries()) {
+        const after = text.slice(match.index + 3, match.index + 16);
+        if (!after.startsWith('${LOOPBACK}')) errors.push(`${LOOPBACK_FILE}: URL ${index + 1} is not built on LOOPBACK`);
+      }
+      continue;
+    }
+    report(f, findViolations(text, JS_NETWORK), 'network call');
   }
   for (const f of walk(join(root, 'packages/cupel-py/src'), ['.py'])) {
     report(f, findViolations(readFileSync(f, 'utf8'), PY_NETWORK), 'network call');

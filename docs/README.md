@@ -1,8 +1,11 @@
 # Cupel documentation
 
 Start with the [README](../README.md). The [support matrix](support.md) defines
-core JS/TS/Python ordinary full guard, bounded Go/Ruby/Rust previews and
-experimental selection outside the supported first release.
+core JS/TS/Python ordinary full guard, bounded Go/Ruby/Rust previews, the
+workerd preview and experimental selection outside the supported first release.
+What 0.2.0 adds (`cupel audit`, Rust on any OS with cargo-mutants, Worker code in
+workerd, mixed-language labelling) is in the
+[0.2.0 candidate record](../plans/results/2026-11-23-0.2.0-candidate.md).
 
 ## Getting started
 
@@ -21,6 +24,7 @@ experimental selection outside the supported first release.
 
 - Core: [Jest](jest.md), [Vitest](vitest.md), [Python/pytest](python.md); `node:test` uses the [CLI](cli.md) and [config](extending/config.md).
 - Bounded previews: [Go](go.md), [Ruby/Minitest](ruby.md), [Rust/Cargo](rust.md). Each page retains its exact restrictions.
+- Preview: [Worker code in workerd](workerd.md), per-test coverage of Worker code that node:test tests run in workerd.
 
 ## Extensions
 

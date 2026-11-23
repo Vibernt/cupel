@@ -8,9 +8,10 @@ import {auditNodeReference, verifyReferenceProcessProof} from '../src/pr/profile
 import {referenceRows} from '../src/pr/profiles/node/reference-results.mjs';
 import {profileRequestSnapshot} from '../src/pr/profiles/node/snapshot.mjs';
 import {nodeProfileProducerProof} from '../src/pr/producer.mjs';
+import { NODE26, NODE22 } from './support/node-paths.mjs';
 
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 function fixture(sources) {
   mkdirSync(scratch,{recursive:true});
   const parent = mkdtempSync(join(scratch,'pr-reference-'));
@@ -118,7 +119,7 @@ test('Node 22 refuses before subject and parser rejects duplicate, missing and f
   const f=fixture({'tests/a.test.mjs':normal});
   try {
     const args=f.args();
-    assert.throws(()=>auditNodeReference({...args,nodePath:'/opt/homebrew/opt/node@22/bin/node'}),
+    assert.throws(()=>auditNodeReference({...args,nodePath:NODE22}),
       /requires verified Node 26\.7\.0/);
     assert.equal(lstatSync(f.parent).isDirectory(),true);
     const base={type:'test:start',data:{testId:1,parentId:0,name:'x',

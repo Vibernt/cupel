@@ -36,6 +36,7 @@ import { bucket, recorder } from '../assertions/recorder.mjs';
 import { installNodeAssertions } from '../assertions/node.mjs';
 import { promisify } from 'node:util';
 import { positiveIntervals, unionIntervals, addAll } from './intervals.mjs';
+import { WorkerdCoverage, freePort, isWorkerd, textReader, wasmIndex, watchWorkerd } from './workerd.mjs';
 
 const real = (p) => { try { return realpathSync(p); } catch { return p; } };
 const configPath = process.env.CUPEL_NODE_HOOK;
@@ -107,29 +108,56 @@ async function install(cfg, mainFile) {
     else for (const t of owners) addAll(t.cov, got);
   };
   const safe = (fn) => (...a) => { try { return fn(...a); } catch { return undefined; } };
+  const safeAsync = (fn) => async (...a) => { try { return await fn(...a); } catch { return undefined; } };
 
-  before(safe(() => checkpoint()));
-  beforeEach(safe((t) => {
+  // workerd started by tests (S30, D18): deltas taken at the same boundaries.
+  const workerds = new Set();
+  const workerdPending = new Set();
+  const workerdNotes = { started: 0, unattached: 0, transformed: 0 };
+  const workerdSources = new Set();
+  const recordDelta = (delta, owners) => {
+    if (!delta.size) return;
+    for (const rel of delta.keys()) workerdSources.add(rel);
+    if (!owners.length) addAll(setup, delta);
+    else for (const t of owners) addAll(t.cov, delta);
+  };
+  const recordLoads = (rels, owners) => { for (const t of owners) for (const rel of rels) t.loads.add(rel); };
+  const workerdCheckpoint = async () => {
+    await Promise.allSettled([...workerdPending]);
+    if (!workerds.size) return;
+    const owners = leaves();
+    for (const coverage of [...workerds]) {
+      recordDelta(await coverage.take().catch(() => new Map()), owners);
+      recordLoads(coverage.newLoads(), owners);
+    }
+  };
+  let wasmFiles = null;
+  const wasmOf = (hash) => { wasmFiles ??= wasmIndex(root); return wasmFiles.get(hash) ?? null; };
+
+  before(safeAsync(async () => { checkpoint(); await workerdCheckpoint(); }));
+  beforeEach(safeAsync(async (t) => {
     checkpoint();
+    await workerdCheckpoint();
     const fullName = t.fullName ?? t.name;
     const n = seen.get(fullName) ?? 0;
     seen.set(fullName, n + 1);
-    const rec = { i: tests.length, fullName, n, interp: false, cov: new Map(), ctx: t, ...(cfg.assertions ? { assertions: bucket() } : {}) };
+    const rec = { i: tests.length, fullName, n, interp: false, cov: new Map(), loads: new Set(), ctx: t, ...(cfg.assertions ? { assertions: bucket() } : {}) };
     tests.push(rec);
     active.add(rec);
   }));
   afterEach(safe((t) => {
     // Registered from afterEach, this t.after runs last: after the file's afterEach hooks and the test's own
     // t.after() teardown, so those land in the test (S2, checked on Node 22 and 26).
-    t.after(safe(() => {
+    t.after(safeAsync(async () => {
       checkpoint();
+      await workerdCheckpoint();
       let rec = null;
       for (const r of active) if (r.ctx === t) rec = r;
       if (!rec) for (const r of active) if (r.fullName === (t.fullName ?? t.name)) rec = r;
       if (rec) { active.delete(rec); rec.ctx = null; }
     }));
   }));
-  after(safe(() => checkpoint()));
+  after(safeAsync(async () => { checkpoint(); await workerdCheckpoint(); }));
 
   // Child processes and workers (K11), and child coverage for re-checks (K4).
   const require = createRequire(import.meta.url);
@@ -227,11 +255,45 @@ async function install(cfg, mainFile) {
     process.env.NODE_V8_COVERAGE = dir;
     try { return call(args); } finally { if (had) process.env.NODE_V8_COVERAGE = old; else delete process.env.NODE_V8_COVERAGE; }
   };
+  const sourceText = textReader(root);
+  // A module name the harness gave workerd, resolved against the test's working
+  // directory (Miniflare) or the file itself. The source text is checked later.
+  const scriptRel = (url) => {
+    let path = String(url);
+    if (path.startsWith('file:')) {
+      try {
+        const abs = fileURLToPath(path);
+        const fromRoot = relative(root, abs).split(sep).join('/');
+        path = fromRoot.startsWith('..') ? relative(process.cwd(), abs).split(sep).join('/') : fromRoot;
+      } catch { return null; }
+    }
+    path = path.replace(/^\.?\/+/, '');
+    if (!path || path.startsWith('..')) return null;
+    if (sources.has(path)) return path;
+    const matches = [...sources].filter((rel) => rel.endsWith(`/${path}`));
+    return matches.length === 1 ? matches[0] : null;
+  };
+  const startWorkerd = (target, self, args) => {
+    const argv = Array.isArray(args[1]) ? args[1].map(String) : [];
+    const port = freePort();
+    const copy = args.slice();
+    copy[1] = [...argv, `--inspector-addr=127.0.0.1:${port}`];
+    const child = target.apply(self, copy);
+    const coverage = new WorkerdCoverage({ port, relOf: scriptRel, sourceText, notes: workerdNotes, wasmOf });
+    workerdNotes.started++;
+    workerds.add(coverage);
+    child.once('exit', () => workerds.delete(coverage));
+    watchWorkerd(child, coverage, { owners: leaves, record: recordDelta, pending: workerdPending, recordLoads });
+    return child;
+  };
   for (const fn of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']) {
     const orig = cp[fn];
     if (typeof orig !== 'function') continue;
     const wrap = (target) => function cupelChildProcess(...args) {
       try { if (isInterpreter(fn, args)) noteInterpreter(); } catch { /* never break the test */ }
+      if (fn === 'spawn' && cfg.mode === 'coverage' && Array.isArray(args[1]) && isWorkerd(args[0], args[1].map(String))) {
+        return startWorkerd(target, this, args);
+      }
       return withChildCoverage(fn, args, (a) => target.apply(this, a));
     };
     const wrapped = wrap(orig);
@@ -259,9 +321,10 @@ async function install(cfg, mainFile) {
       file: relative(root, mainFile).split(sep).join('/'),
       pid: process.pid,
       mode: cfg.mode,
-      tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
+      tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(t.loads.size ? { loads: [...t.loads].sort() } : {}), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
       setup: Object.fromEntries(setup),
       childDirs,
+      ...(workerdNotes.started ? { workerd: workerdNotes, workerdSources: [...workerdSources].sort() } : {}),
     };
     writeAtomicJson(join(cfg.out, `${process.pid}.json`), body);
   });

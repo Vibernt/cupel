@@ -3,7 +3,7 @@ import { assertionsCommand } from './assertions.mjs';
 // collects inputs, runs the pure engine and prints its report. No network, no dependencies.
 
 import { parseArgs } from 'node:util';
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync, realpathSync, rmdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve, relative, sep, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,7 @@ import { checkRef, changedLines } from './git.mjs';
 import { loadModule, requireCollector, collectTree, collectRef, mutate, confirm, lostSurvivors, mergeMutation } from './collect.mjs';
 import { formatReport } from './human.mjs';
 import { junitToInput } from './junit.mjs';
+import { CargoMutantsError, importCargoMutants } from '../mutate-cargo/import.mjs';
 import { XmlError } from './xml.mjs';
 import { bodySitesPytest } from './collect.mjs';
 import { sourceMutants } from '../mutate/sites.mjs';
@@ -73,6 +74,11 @@ const COMMANDS = {
     about: 'pack test evidence for an agent to review before changing tests',
     options: { input: S, units: { type: 'string', multiple: true }, limit: S, assertions: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
   },
+  audit: {
+    usage: 'cupel audit [--input FILE] [--config FILE] [--limit N] [--no-mutation] [--runs N] [--out FILE] [--json]',
+    about: 'answer six questions about the suite: wrong tests, tests that catch nothing, overlap, combining, coverage, speed (read-only)',
+    options: { input: S, limit: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
+  },
   check: {
     usage: 'cupel check <test ids or files...> [--base <ref> | --base-input <file>] [--input <file>] [--no-mutation] [--runs N]',
     about: 'does a new or changed test add anything?',
@@ -80,9 +86,9 @@ const COMMANDS = {
     positionals: true,
   },
   guard: {
-    usage: 'cupel guard (--base <ref> | --base-input <file>) [--head-input <file>] [--approvals <file>] [--no-mutation] [--runs N]',
+    usage: 'cupel guard (--base <ref> | --base-input <file>) [--head-input <file>] [--approvals <file>] [--allow-runtime-change] [--no-mutation] [--runs N]',
     about: 'fail if coverage or critical mutation score falls',
-    options: { base: S, 'base-input': S, 'head-input': S, approvals: S, 'no-mutation': B, runs: S, 'generated-at': S },
+    options: { base: S, 'base-input': S, 'head-input': S, approvals: S, 'allow-runtime-change': B, 'no-mutation': B, runs: S, 'generated-at': S },
   },
   plan: {
     usage: 'cupel plan [--changed <ref> | --changed-lines <file>] [--input <file>] [--runs N]',
@@ -95,9 +101,9 @@ const COMMANDS = {
     options: { input: S, out: S, runs: S, 'generated-at': S },
   },
   import: {
-    usage: 'cupel import <file...> [--format cupel|junit] [--out <file>] [--runtime-name <n>] [--runtime-version <v>]',
-    about: 'convert JUnit XML (or check a Cupel input) into an input',
-    options: { format: S, out: S, 'runtime-name': S, 'runtime-version': S },
+    usage: 'cupel import <file...> [--format cupel|junit|cargo-mutants] [--out <file>] [--runtime-name <n>] [--runtime-version <v>]\n       cupel import <mutants.out> --format cargo-mutants --input <rust input> [--root DIR] [--listing <cargo mutants --list --json output>] [--out <file>]',
+    about: 'convert JUnit XML or cargo-mutants results (or check a Cupel input) into an input',
+    options: { format: S, out: S, 'runtime-name': S, 'runtime-version': S, input: S, root: S, listing: S },
     positionals: true,
   },
   validate: {
@@ -460,6 +466,16 @@ const commands = {
     return ctx.emit(ctx.engine('review', { input, ...(assertions ? { assertions } : {}) }, args));
   },
 
+  async audit(ctx) {
+    const args = { ...ctx.args };
+    if (ctx.o.limit !== undefined) args.limit = /^[0-9]+$/.test(ctx.o.limit) ? Number(ctx.o.limit) : ctx.o.limit;
+    const pre = ctx.o.input === undefined && ctx.preflight('audit', args);
+    if (pre) return ctx.emit(pre);
+    const { input, collected } = await singleInput(ctx, { mutation: true });
+    if (collected) ctx.writeCollected(input, join(ctx.root, '.cupel', 'input.json'));
+    return ctx.emit(ctx.engine('audit', { input }, args));
+  },
+
   async label(ctx) {
     const pre = ctx.o.input === undefined && ctx.preflight('label');
     if (pre) return ctx.emit(pre);
@@ -501,6 +517,7 @@ const commands = {
   async guard(ctx) {
     if (ctx.o.base === undefined && ctx.o['base-input'] === undefined) throw usage(`guard needs --base <ref> or --base-input <file>\nusage: ${COMMANDS.guard.usage}`);
     const args = { ...ctx.args };
+    if (ctx.o['allow-runtime-change']) args.allowRuntimeChange = true;
     if (ctx.io.approvals !== undefined) args.approvals = ctx.io.approvals;
     else if (ctx.o.approvals !== undefined) {
       // A list of { action, id, by }, or an object with that list as `approvals`.
@@ -554,8 +571,20 @@ const commands = {
       } catch (e) {
         throw usage(`${e instanceof XmlError ? 'not well-formed XML: ' : ''}${e.message}`);
       }
+    } else if (format === 'cargo-mutants') {
+      if (files.length !== 1) throw usage('import --format cargo-mutants reads exactly one mutants.out directory');
+      if (ctx.o.input === undefined) throw usage('import --format cargo-mutants needs --input, the Rust coverage input of the same commit');
+      const base = readJson(ctx.path(ctx.o.input), 'input');
+      const listing = ctx.o.listing !== undefined ? readJson(ctx.path(ctx.o.listing), 'listing') : undefined;
+      const root = realpathSync(ctx.path(ctx.o.root ?? '.'));
+      try {
+        doc = { ...base, mutation: importCargoMutants({ root, input: base, outDir: ctx.path(files[0]), listing }).mutation };
+      } catch (e) {
+        if (e instanceof CargoMutantsError) throw usage(e.message);
+        throw e;
+      }
     } else {
-      throw usage(`import: unknown --format ${JSON.stringify(format)} (cupel or junit)`);
+      throw usage(`import: unknown --format ${JSON.stringify(format)} (cupel, junit or cargo-mutants)`);
     }
     const errors = inputErrors(ctx, doc);
     if (errors.length) {
@@ -671,7 +700,43 @@ function validateDocument(ctx, text) {
 /**
  * Runs the CLI. `io`: { cwd, env, out(text), err(text), colour }. Returns the exit code.
  */
+/**
+ * Runs one CLI command. Cupel never changes the assessed project's tests or
+ * code; its working files live in `.cupel/` and in scratch directories that the
+ * collectors remove. A `.scratch/` directory this command created and left empty
+ * is removed afterwards, so nothing new is left in the project.
+ */
 export async function main(argv, io) {
+  const roots = scratchRoots(argv, io);
+  const existed = new Set(roots.filter((root) => existsSync(join(root, '.scratch'))));
+  try {
+    return await runCommand(argv, io);
+  } finally {
+    for (const root of roots) if (!existed.has(root)) removeEmptyDirs(join(root, '.scratch'));
+  }
+}
+
+function scratchRoots(argv, io) {
+  const roots = new Set([resolve(io.cwd ?? process.cwd())]);
+  const at = argv.indexOf('--root');
+  if (at >= 0 && argv[at + 1]) roots.add(resolve(io.cwd ?? process.cwd(), argv[at + 1]));
+  for (const arg of argv) if (arg.startsWith('--root=')) roots.add(resolve(io.cwd ?? process.cwd(), arg.slice('--root='.length)));
+  return [...roots];
+}
+
+/** Removes `dir` and its subdirectories when they hold no files; never removes a file. */
+function removeEmptyDirs(dir) {
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return true; }
+  let empty = true;
+  for (const e of entries) {
+    if (e.isDirectory() && !e.isSymbolicLink()) { if (!removeEmptyDirs(join(dir, e.name))) empty = false; } else empty = false;
+  }
+  if (!empty) return false;
+  try { rmdirSync(dir); return true; } catch { return false; }
+}
+
+async function runCommand(argv, io) {
   const [cmd, ...rest] = argv;
   if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
     io.out(help());
