@@ -1,0 +1,42 @@
+{
+  "audit": {
+    "wrong": [
+      {
+        "unit": "a",
+        "file": "tests/a.test.mjs",
+        "reasons": [
+          "fails"
+        ]
+      },
+      {
+        "unit": "b",
+        "file": "tests/b.test.mjs",
+        "reasons": [
+          "skipped"
+        ]
+      },
+      {
+        "unit": "c",
+        "file": "tests/c.test.mjs",
+        "reasons": [
+          "flaky"
+        ]
+      },
+      {
+        "unit": "d",
+        "file": "tests/d.test.mjs",
+        "reasons": [
+          "no-assertion",
+          "pinned:source-text"
+        ]
+      },
+      {
+        "unit": "e",
+        "file": "tests/e.test.mjs",
+        "reasons": [
+          "tautology"
+        ]
+      }
+    ]
+  }
+}

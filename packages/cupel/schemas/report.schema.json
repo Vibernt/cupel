@@ -9,7 +9,7 @@
   "properties": {
     "spec": { "type": "string", "pattern": "^cupel-spec/1(\\.[0-9]+)?$" },
     "kind": { "const": "report" },
-    "command": { "enum": ["report", "plan", "check", "guard", "label", "validate", "review"] },
+    "command": { "enum": ["report", "plan", "check", "guard", "label", "validate", "review", "audit"] },
     "generatedAt": { "type": "string" },
     "runtime": {
       "type": "object",
@@ -237,6 +237,165 @@
         "critical": { "type": "integer", "minimum": 0 }
       }
     },
+    "audit": {
+      "type": "object",
+      "required": ["notice", "wrong", "falseTests", "overlap", "combine", "coverage", "speed"],
+      "additionalProperties": false,
+      "properties": {
+        "notice": {
+          "const": "A signal, not a verdict: no test is ever advised for removal. Overlap and look-alikes are evidence for a person or agent to read; any change to tests must pass guard. Coverage and caught faults show what ran and what was noticed, never whether an expectation is right."
+        },
+        "wrong": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["unit", "file", "reasons"],
+            "additionalProperties": false,
+            "properties": {"unit": {"type": "string"}, "file": {"type": "string"}, "reasons": {"type": "array", "minItems": 1, "items": {"type": "string"}}}
+          }
+        },
+        "falseTests": {
+          "type": "object",
+          "required": ["measured", "units", "unchecked", "timeoutOnly"],
+          "additionalProperties": false,
+          "properties": {
+            "measured": {"type": "boolean"},
+            "units": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["unit", "file", "coveredMutants", "kills", "panicKills", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "unit": {"type": "string"},
+                  "file": {"type": "string"},
+                  "coveredMutants": {"type": "integer"},
+                  "kills": {"type": "integer"},
+                  "panicKills": {"type": "integer"},
+                  "reason": {"enum": ["catches-nothing", "catches-only-by-panic"]}
+                }
+              }
+            },
+            "unchecked": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["source", "lines", "mutants"],
+                "additionalProperties": false,
+                "properties": {
+                  "source": {"type": "string"},
+                  "lines": {"$ref": "#/$defs/lineSet"},
+                  "mutants": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["id", "line"],
+                      "additionalProperties": false,
+                      "properties": {"id": {"type": "string"}, "line": {"type": "integer"}, "description": {"type": "string"}}
+                    }
+                  }
+                }
+              }
+            },
+            "timeoutOnly": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "overlap": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["basis", "units", "crossRunner"],
+            "additionalProperties": false,
+            "properties": {"basis": {"enum": ["kills", "lines"]}, "units": {"type": "array", "items": {"type": "string"}}, "crossRunner": {"type": "boolean"}}
+          }
+        },
+        "combine": {
+          "type": "object",
+          "required": ["groups", "acrossFiles"],
+          "additionalProperties": false,
+          "properties": {
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["group", "file", "units", "form"],
+                "additionalProperties": false,
+                "properties": {
+                  "group": {"type": "string"},
+                  "file": {"type": "string"},
+                  "units": {"type": "array", "items": {"type": "string"}},
+                  "form": {"enum": ["table-of-cases", "parametrize", "each"]}
+                }
+              }
+            },
+            "acrossFiles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["units", "files", "form"],
+                "additionalProperties": false,
+                "properties": {
+                  "units": {"type": "array", "items": {"type": "string"}},
+                  "files": {"type": "array", "items": {"type": "string"}},
+                  "form": {"const": "shared-helper"}
+                }
+              }
+            }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "required": ["files", "unmeasured"],
+          "additionalProperties": false,
+          "properties": {
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["source", "critical", "covered", "coverable", "pct", "uncovered"],
+                "additionalProperties": false,
+                "properties": {
+                  "source": {"type": "string"},
+                  "critical": {"type": "boolean"},
+                  "covered": {"type": "integer"},
+                  "coverable": {"type": "integer"},
+                  "pct": {"anyOf": [{"type": "number"}, {"type": "null"}]},
+                  "uncovered": {"$ref": "#/$defs/lineSet"}
+                }
+              }
+            },
+            "unmeasured": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["source", "reason"],
+                "additionalProperties": false,
+                "properties": {"source": {"type": "string"}, "reason": {"type": "string"}}
+              }
+            }
+          }
+        },
+        "speed": {
+          "type": "object",
+          "required": ["slowest", "slowLowValue", "mutationCostMs", "flaky"],
+          "additionalProperties": false,
+          "properties": {
+            "slowest": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["unit", "durationMs"],
+                "additionalProperties": false,
+                "properties": {"unit": {"type": "string"}, "durationMs": {"type": "integer"}}
+              }
+            },
+            "slowLowValue": {"type": "array", "items": {"type": "string"}},
+            "mutationCostMs": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            "flaky": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      }
+    },
     "guard": {
       "type": "object",
       "required": ["pass", "checks", "removed", "renamed"],
@@ -253,7 +412,7 @@
               "id": { "enum": ["head-passes", "coverage-lines", "coverage-ratio", "critical-coverage", "critical-mutation", "critical-removed", "critical-downgraded"] },
               "pass": { "type": "boolean" },
               "lost": { "$ref": "#/$defs/lost" },
-              "missing": { "type": "boolean" },
+              "missing": { "type": "boolean" }, "notCompared": { "const": "runtime-changed" },
               "units": { "type": "array", "items": { "type": "string" } },
               "preexisting": { "type": "array", "items": { "type": "string" } },
               "sources": { "type": "array", "items": { "type": "string" } },

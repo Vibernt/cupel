@@ -10,10 +10,11 @@ import { suiteSection, unitEntry, planSection, checkSection, guardSection } from
 import { orderKeys } from './keyorder.mjs';
 import { tokens } from './match.mjs';
 import { reviewSection } from './review.mjs';
+import { auditSection } from './audit.mjs';
 import { analyseReviewAssertions } from '../analysis/assertions.mjs';
 
 export const SPEC_VERSION = 'cupel-spec/1';
-export const COMMANDS = Object.freeze(['report', 'plan', 'check', 'guard', 'label', 'validate', 'review']);
+export const COMMANDS = Object.freeze(['report', 'plan', 'check', 'guard', 'label', 'validate', 'review', 'audit']);
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -37,7 +38,7 @@ function finish(schemas, base, extra, diagnostics, exit) {
 
 /**
  * Runs one command.
- * @param {'report'|'plan'|'check'|'guard'|'label'|'validate'|'review'} command
+ * @param {'report'|'plan'|'check'|'guard'|'label'|'validate'|'review'|'audit'} command
  * @param {{ input?: object, base?: object, head?: object, assertions?: object }} inputs
  * @param {object} config the parsed cupel.json, or {}
  * @param {{ changed?: object, tests?: string[], units?: string[], limit?: number, approvals?: object[], generatedAt?: string }} args
@@ -77,7 +78,7 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
   diagnostics.push(...argumentDiagnostics(command, args));
   if (diagnostics.length) return stop(diagnostics, EXIT_USAGE);
 
-  if (command === 'guard' || command === 'report' || command === 'review') {
+  if (command === 'guard' || command === 'report' || command === 'review' || command === 'audit') {
     for (const [label, doc] of docs) if (doc.collection?.subset) diagnostics.push({
       code: 'subset-input', severity: 'error', path: '/collection/subset',
       message: `${label ? `${label}: ` : ''}subset input cannot be used by ${command}`,
@@ -117,10 +118,13 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
       : (b.name !== h.name || b.version !== h.version ? [b, h] : null);
     if (mismatch) {
       const [before, after] = mismatch;
-      return stop([{
-        code: 'runtime-mismatch', severity: 'error',
-        message: `${after.runner ? `runner ${after.runner}: ` : ''}base ran on ${before.name} ${before.version}, head on ${after.name} ${after.version}; guard never compares across runtimes`,
-      }], EXIT_ENVIRONMENT);
+      const what = `${after.runner ? `runner ${after.runner}: ` : ''}base ran on ${before.name} ${before.version}, head on ${after.name} ${after.version}`;
+      // G1: only an explicit allowRuntimeChange compares across runtimes, and then never by lines.
+      if (args.allowRuntimeChange !== true) {
+        return stop([{ code: 'runtime-mismatch', severity: 'error', message: `${what}; guard never compares across runtimes` }], EXIT_ENVIRONMENT);
+      }
+      diagnostics.push({ code: 'runtime-changed', severity: 'warning', message: `${what}; line-based checks are not compared` });
+      args = { ...args, runtimeChanged: true };
     }
   }
 
@@ -161,6 +165,9 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     case 'review':
       out.review = reviewSection(head, args, inputs.assertions);
       break;
+    case 'audit':
+      out.audit = auditSection(head, cfg, args);
+      break;
     case 'label':
       analysis();
       if (diagnostics.some((d) => d.code === 'unknown-tag')) exit = EXIT_FAILED; // T2, L1
@@ -177,7 +184,7 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
       break;
     }
     case 'guard': {
-      const r = guardSection(models[0], head, cfg, args.approvals ?? []);
+      const r = guardSection(models[0], head, cfg, args.approvals ?? [], { runtimeChanged: args.runtimeChanged === true });
       out.guard = r.section;
       exit = r.exit;
       break;

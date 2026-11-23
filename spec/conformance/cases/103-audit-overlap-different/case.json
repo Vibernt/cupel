@@ -1,0 +1,11 @@
+{
+  "description": "Units whose caught faults differ are not grouped; without mutation, only equal own lines group.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

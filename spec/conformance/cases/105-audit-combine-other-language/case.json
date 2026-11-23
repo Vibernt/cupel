@@ -1,0 +1,11 @@
+{
+  "description": "Look-alikes in different languages are never suggested for combining.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U5",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

@@ -149,6 +149,7 @@ Exit codes are `0` OK, `1` a guardrail/check failed, `2` invalid usage/input, an
 | Command | Purpose |
 | --- | --- |
 | `report`, `review` | Inspect measured coverage, mutation, timings and review hints. |
+| `audit` | One read-only report on six questions: possibly wrong tests, tests that catch no faults, tests of the same thing, tests to combine, coverage, and where time goes. |
 | `check <tests>` | Inspect evidence added or lost by named tests. |
 | `guard --base <ref>` | Compare protection with an earlier commit. |
 | `label`, `plan` | Inspect tiers and test execution order. |

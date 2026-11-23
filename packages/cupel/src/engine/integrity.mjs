@@ -171,6 +171,8 @@ export function argumentDiagnostics(command, args) {
     }
     if (args.limit !== undefined && (!Number.isSafeInteger(args.limit) || args.limit < 0)) bad('/limit', 'must be a nonnegative safe integer');
   }
+  if (command === 'audit' && args.limit !== undefined && (!Number.isSafeInteger(args.limit) || args.limit < 0)) bad('/limit', 'must be a nonnegative safe integer');
+  if (command === 'guard' && args.allowRuntimeChange !== undefined && typeof args.allowRuntimeChange !== 'boolean') bad('/allowRuntimeChange', 'must be a boolean');
   if (command === 'guard' && args.approvals !== undefined) {
     if (!Array.isArray(args.approvals)) bad('/approvals', 'must be an array');
     else {

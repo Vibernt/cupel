@@ -1,0 +1,6 @@
+{
+  "audit": {
+    "notice": "A signal, not a verdict: no test is ever advised for removal. Overlap and look-alikes are evidence for a person or agent to read; any change to tests must pass guard. Coverage and caught faults show what ran and what was noticed, never whether an expectation is right."
+  },
+  "units": "$absent"
+}

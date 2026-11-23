@@ -193,7 +193,7 @@ function atLeastPercent(r, n) {
 }
 
 /** G3-G9. Returns { section, exit }. */
-export function guardSection(base, head, cfg, approvals = []) {
+export function guardSection(base, head, cfg, approvals = [], { runtimeChanged = false } = {}) {
   const approved = (action, id) => approvals.some((a) => a.action === action && a.id === id);
   const checks = [];
 
@@ -245,6 +245,13 @@ export function guardSection(base, head, cfg, approvals = []) {
   const hc = ratio(head, inShared);
   const aggregateOk = notLower(bc, hc) && (threshold === 'ratchet' || atLeastPercent(hc, threshold));
   checks.push({ id: 'critical-coverage', pass: failing.length === 0 && aggregateOk, sources: failing.sort(cmp) });
+  // G1: across runtimes, line sets are not comparable; these checks are reported as not compared.
+  if (runtimeChanged) for (const check of checks) {
+    if (['coverage-lines', 'coverage-ratio', 'critical-coverage'].includes(check.id)) {
+      for (const key of Object.keys(check)) if (key !== 'id') delete check[key];
+      Object.assign(check, { pass: true, notCompared: 'runtime-changed' });
+    }
+  }
 
   // G6
   const baseCritical = base.mutants.filter((m) => m.critical);

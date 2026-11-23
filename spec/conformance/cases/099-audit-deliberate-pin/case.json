@@ -1,0 +1,11 @@
+{
+  "description": "A deliberate pin is not a possibly-wrong test.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U2",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

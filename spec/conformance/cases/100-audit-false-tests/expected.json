@@ -1,0 +1,41 @@
+{
+  "audit": {
+    "falseTests": {
+      "measured": true,
+      "units": [
+        {
+          "unit": "a",
+          "file": "tests/a.test.mjs",
+          "coveredMutants": 2,
+          "kills": 0,
+          "panicKills": 0,
+          "reason": "catches-nothing"
+        },
+        {
+          "unit": "b",
+          "file": "tests/b.test.mjs",
+          "coveredMutants": 2,
+          "kills": 1,
+          "panicKills": 1,
+          "reason": "catches-only-by-panic"
+        }
+      ],
+      "unchecked": [
+        {
+          "source": "src/a.mjs",
+          "lines": "3",
+          "mutants": [
+            {
+              "id": "m2",
+              "line": 3,
+              "description": "replace > with >="
+            }
+          ]
+        }
+      ],
+      "timeoutOnly": [
+        "m3"
+      ]
+    }
+  }
+}

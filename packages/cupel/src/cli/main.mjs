@@ -74,6 +74,11 @@ const COMMANDS = {
     about: 'pack test evidence for an agent to review before changing tests',
     options: { input: S, units: { type: 'string', multiple: true }, limit: S, assertions: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
   },
+  audit: {
+    usage: 'cupel audit [--input FILE] [--config FILE] [--limit N] [--no-mutation] [--runs N] [--out FILE] [--json]',
+    about: 'answer six questions about the suite: wrong tests, tests that catch nothing, overlap, combining, coverage, speed (read-only)',
+    options: { input: S, limit: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
+  },
   check: {
     usage: 'cupel check <test ids or files...> [--base <ref> | --base-input <file>] [--input <file>] [--no-mutation] [--runs N]',
     about: 'does a new or changed test add anything?',
@@ -81,9 +86,9 @@ const COMMANDS = {
     positionals: true,
   },
   guard: {
-    usage: 'cupel guard (--base <ref> | --base-input <file>) [--head-input <file>] [--approvals <file>] [--no-mutation] [--runs N]',
+    usage: 'cupel guard (--base <ref> | --base-input <file>) [--head-input <file>] [--approvals <file>] [--allow-runtime-change] [--no-mutation] [--runs N]',
     about: 'fail if coverage or critical mutation score falls',
-    options: { base: S, 'base-input': S, 'head-input': S, approvals: S, 'no-mutation': B, runs: S, 'generated-at': S },
+    options: { base: S, 'base-input': S, 'head-input': S, approvals: S, 'allow-runtime-change': B, 'no-mutation': B, runs: S, 'generated-at': S },
   },
   plan: {
     usage: 'cupel plan [--changed <ref> | --changed-lines <file>] [--input <file>] [--runs N]',
@@ -461,6 +466,16 @@ const commands = {
     return ctx.emit(ctx.engine('review', { input, ...(assertions ? { assertions } : {}) }, args));
   },
 
+  async audit(ctx) {
+    const args = { ...ctx.args };
+    if (ctx.o.limit !== undefined) args.limit = /^[0-9]+$/.test(ctx.o.limit) ? Number(ctx.o.limit) : ctx.o.limit;
+    const pre = ctx.o.input === undefined && ctx.preflight('audit', args);
+    if (pre) return ctx.emit(pre);
+    const { input, collected } = await singleInput(ctx, { mutation: true });
+    if (collected) ctx.writeCollected(input, join(ctx.root, '.cupel', 'input.json'));
+    return ctx.emit(ctx.engine('audit', { input }, args));
+  },
+
   async label(ctx) {
     const pre = ctx.o.input === undefined && ctx.preflight('label');
     if (pre) return ctx.emit(pre);
@@ -502,6 +517,7 @@ const commands = {
   async guard(ctx) {
     if (ctx.o.base === undefined && ctx.o['base-input'] === undefined) throw usage(`guard needs --base <ref> or --base-input <file>\nusage: ${COMMANDS.guard.usage}`);
     const args = { ...ctx.args };
+    if (ctx.o['allow-runtime-change']) args.allowRuntimeChange = true;
     if (ctx.io.approvals !== undefined) args.approvals = ctx.io.approvals;
     else if (ctx.o.approvals !== undefined) {
       // A list of { action, id, by }, or an object with that list as `approvals`.

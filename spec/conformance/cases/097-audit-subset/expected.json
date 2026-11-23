@@ -1,0 +1,9 @@
+{
+  "diagnostics": [
+    {
+      "code": "subset-input",
+      "severity": "error"
+    }
+  ],
+  "audit": "$absent"
+}

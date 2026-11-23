@@ -1,0 +1,11 @@
+{
+  "description": "Failing, skipped, flaky, pinned, assertion-free and tautological tests are listed with sorted reasons.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U2",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

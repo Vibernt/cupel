@@ -109,7 +109,8 @@ function guard(r, c) {
     if (k.lost && lostText(k.lost)) detail.push(`lost ${lostText(k.lost)}`);
     if (k.missing) detail.push('head has no mutation data');
     if (k.sources?.length) detail.push(`sources ${k.sources.join(', ')}`);
-    if (k.units?.length) detail.push(`units ${k.units.join(', ')} need approval`);
+    if (k.units?.length) detail.push(k.id === 'head-passes' ? `units ${k.units.join(', ')} newly fail` : `units ${k.units.join(', ')} need approval`);
+    if (k.notCompared) { out.push(`${c.dim('not compared')}  ${k.id}${c.dim('  runtime changed; line sets differ between runtimes')}`); continue; }
     out.push(`${k.pass ? c.green('pass') : c.red('FAIL')}  ${k.id}${detail.length ? c.dim(`  ${detail.join('; ')}`) : ''}`);
   }
   if (g.removed.length) {
@@ -122,12 +123,74 @@ function guard(r, c) {
   return out;
 }
 
-const SECTIONS = { report, label, plan, check, guard, review };
+const REASON_TEXT = {
+  fails: 'fails', skipped: 'skipped', flaky: 'passes and fails across runs', 'no-assertion': 'checks nothing',
+  tautology: 'has an assertion that cannot fail', 'catches-nothing': 'runs code with faults but catches none',
+  'catches-only-by-panic': 'catches faults only because the code crashed, not by checking',
+};
+const reasonText = (r) => REASON_TEXT[r] ?? (r.startsWith('pinned:') ? `pins ${r.slice(7)}` : r);
+
+/** The audit as Markdown: one heading per question. */
+function audit(r) {
+  const a = r.audit;
+  const out = ['# Test-quality audit', '', a.notice, ''];
+  out.push('## 1. Possibly wrong tests', '');
+  if (!a.wrong.length) out.push('None found.');
+  for (const w of a.wrong) out.push(`- \`${w.unit}\`: ${w.reasons.map(reasonText).join('; ')}`);
+  out.push('', 'Whether an expected value is right needs a person or reviewer: run `cupel review` for the evidence.', '');
+  out.push('## 2. Tests that catch no faults', '');
+  const f = a.falseTests;
+  if (!f.measured) out.push('Not measured: collect with mutation to answer this.');
+  else {
+    if (!f.units.length) out.push('No targeted test runs faulty code without catching it.');
+    for (const u of f.units) out.push(`- \`${u.unit}\`: ${reasonText(u.reason)} (covers ${u.coveredMutants} faults, catches ${u.kills}${u.panicKills ? `, ${u.panicKills} only by crash` : ''})`);
+    if (f.unchecked.length) {
+      out.push('', 'Code that runs but where a fault went unnoticed:');
+      for (const s of f.unchecked) {
+        out.push(`- \`${s.source}\` lines ${s.lines}`);
+        for (const m of s.mutants) out.push(`  - line ${m.line}: ${m.description ?? m.id}`);
+      }
+    }
+    if (f.timeoutOnly.length) out.push('', `Faults detected only by a timeout (no test credited): ${f.timeoutOnly.length}.`);
+  }
+  out.push('', '## 3. Tests that protect the same thing', '');
+  if (!a.overlap.length) out.push('None found.');
+  for (const g of a.overlap) out.push(`- ${g.units.map((u) => `\`${u}\``).join(', ')}: same ${g.basis === 'kills' ? 'caught faults' : 'lines'}${g.crossRunner ? ' (across languages)' : ''}`);
+  out.push('', 'Overlap is evidence, not proof that a test is redundant: read the assertions first.', '');
+  out.push('## 4. Tests that could be combined', '');
+  const FORM = { 'table-of-cases': 'one test with a table of cases', parametrize: 'one parametrized test (pytest.mark.parametrize)', each: 'one test.each or a loop over cases', 'shared-helper': 'a shared helper or fixture' };
+  if (!a.combine.groups.length && !a.combine.acrossFiles.length) out.push('None found.');
+  for (const g of a.combine.groups) out.push(`- \`${g.file}\`: ${g.units.map((u) => `\`${u}\``).join(', ')} as ${FORM[g.form]}`);
+  for (const g of a.combine.acrossFiles) out.push(`- across ${g.files.map((x) => `\`${x}\``).join(', ')}: ${g.units.map((u) => `\`${u}\``).join(', ')} through ${FORM[g.form]}`);
+  out.push('', '## 5. Coverage', '');
+  const files = a.coverage.files;
+  const covered = files.reduce((n, x) => n + x.covered, 0); const coverable = files.reduce((n, x) => n + x.coverable, 0);
+  out.push(`${covered} of ${coverable} lines covered${coverable ? ` (${Math.floor((10000 * covered) / coverable) / 100}%)` : ''}.`, '');
+  const gaps = files.filter((x) => x.uncovered).sort((x, y) => Number(y.critical) - Number(x.critical) || (y.coverable - y.covered) - (x.coverable - x.covered));
+  if (gaps.length) {
+    out.push('| File | Covered | Uncovered lines |', '| --- | --- | --- |');
+    for (const x of gaps) out.push(`| \`${x.source}\`${x.critical ? ' (critical)' : ''} | ${x.covered}/${x.coverable} | ${x.uncovered} |`);
+  }
+  if (a.coverage.unmeasured.length) {
+    out.push('', 'Not measured (never counted as uncovered):');
+    for (const u of a.coverage.unmeasured) out.push(`- \`${u.source}\`: ${u.reason}`);
+  }
+  out.push('', '## 6. Faster and leaner suite', '');
+  const sp = a.speed;
+  if (sp.slowest.length) { out.push('Slowest tests:'); for (const x of sp.slowest) out.push(`- \`${x.unit}\`: ${x.durationMs} ms`); }
+  if (sp.slowLowValue.length) out.push('', `Slow and little unique evidence: ${sp.slowLowValue.map((u) => `\`${u}\``).join(', ')}.`);
+  if (sp.flaky.length) out.push('', `Flaky, costing reruns: ${sp.flaky.map((u) => `\`${u}\``).join(', ')}.`);
+  if (sp.mutationCostMs !== null) out.push('', `Fault testing these faults takes about ${Math.round(sp.mutationCostMs / 1000)} s of test time; changed-lines mode runs only the faults a change touches.`);
+  out.push('', 'Merging look-alike tests (section 4) reduces the test count while keeping every case; any change must pass `cupel guard`.');
+  return out;
+}
+
+const SECTIONS = { report, label, plan, check, guard, review, audit };
 
 /** Formats an engine report for people. */
 export function formatReport(command, r, colour) {
   const c = painter(colour);
-  const lines = r.suite || r.guard || r.review ? SECTIONS[command](r, c) : [];
+  const lines = r.suite || r.guard || r.review || r.audit ? SECTIONS[command](r, c) : [];
   const diags = diagnostics(r, c);
   if (diags.length) lines.push(...(lines.length ? [''] : []), ...diags);
   return lines.length ? `${lines.join('\n')}\n` : '';

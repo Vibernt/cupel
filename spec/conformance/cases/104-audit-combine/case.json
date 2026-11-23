@@ -1,0 +1,11 @@
+{
+  "description": "Same-file groups carry a form for their language; same-language look-alikes across files are suggested as a shared helper.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U5",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

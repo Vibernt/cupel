@@ -15,6 +15,7 @@ The server supports protocol versions `2025-06-18` and `2025-03-26`. Start it wi
 |---|---|---|
 | `cupel_check` | Before committing new or changed tests: review their evidence. | `tests` (test IDs or files), `input` or `headInput`, optional `baseInput` or git `base`, `config` |
 | `cupel_review` | Before deleting or merging tests: inspect the evidence pack, then read the test code and run `cupel_guard` on a proposed change. | `input`, `config`, `units` (unit IDs, row IDs or test files), `limit` (default 50), `assertions` (S10b sidecar path) |
+| `cupel_audit` | For a signal on how to improve the suite: possibly wrong tests, tests that catch nothing or only by crashes, unnoticed faults, overlap, tests to combine, coverage with unmeasured code apart, and speed. Read-only. | `input`, `config`, `limit` (slowest tests, default 10) |
 | `cupel_guard` | Before removing or rewriting tests: did the change lose coverage, mutation evidence or protection? | `baseInput` and `headInput` (or `input` for the head), git `base`, `approvals`, `config` |
 | `cupel_plan` | Choose which tests to run first. | `input`, git `changed`, `config` |
 | `cupel_report` | See the whole-suite picture. Optionally retain one completed report to replay other pages. | `input`, `config`, `page`, `pageSize`, `retain`, `snapshotId` |

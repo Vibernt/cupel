@@ -1,0 +1,12 @@
+{
+  "description": "The audit carries its fixed notice and no removal vocabulary anywhere else.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U1",
+      "polarity": "positive"
+    }
+  ],
+  "forbidVocabulary": true,
+  "expectExit": 0
+}

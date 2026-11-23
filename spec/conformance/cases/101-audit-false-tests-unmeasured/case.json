@@ -1,0 +1,11 @@
+{
+  "description": "Without mutation, or for a unit not targeted, nothing is called a false test: missing data is never \"catches nothing\".",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U3",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 0
+}

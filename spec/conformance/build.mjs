@@ -1386,6 +1386,126 @@ kase('095-kill-kind-not-killer', { description: 'A catch kind for a test that di
     mutation: { mutants: [{ ...m('m1', 3, 'killed', ['t1']), killKinds: { t2: 'panic' } }], targeted: [] } }),
   expectExit: 2, expected: { diagnostics: [{ code: 'kill-kind-not-killer', severity: 'error' }], units: '$absent' } });
 
+kase('110-guard-runtime-change-allowed', { description: 'With allowRuntimeChange, a runtime change is a warning: test failures and critical checks still run, and line-based checks are reported as not compared.',
+  command: 'guard', rules: rules('+G1'), args: { allowRuntimeChange: true },
+  base: gBase(),
+  head: gBase({ runtime: { name: 'node', version: '26.7.0' }, tests: [G_TESTS[0], G_TESTS[1], { ...G_TESTS[2], status: 'failed' }] }),
+  expectExit: 1,
+  expected: { diagnostics: [{ code: 'runtime-changed', severity: 'warning' }], guard: { pass: false, checks: [
+    { id: 'head-passes', pass: false, units: ['x'] },
+    { id: 'coverage-lines', pass: true, notCompared: 'runtime-changed', lost: '$absent' },
+    { id: 'coverage-ratio', pass: true, notCompared: 'runtime-changed', base: '$absent' },
+    { id: 'critical-coverage', pass: true, notCompared: 'runtime-changed' },
+    { id: 'critical-mutation', pass: true },
+    { id: 'critical-removed', pass: true },
+    { id: 'critical-downgraded', pass: true },
+  ] } } });
+
+// ---------- audit (11b) ----------
+
+const AUDIT_NOTICE = 'A signal, not a verdict: no test is ever advised for removal. Overlap and look-alikes are evidence for a person or agent to read; any change to tests must pass guard. Coverage and caught faults show what ran and what was noticed, never whether an expectation is right.';
+const U_TESTS = [t('a', 'tests/a.test.mjs'), t('b', 'tests/b.test.mjs'), t('c', 'tests/c.test.mjs')];
+
+kase('096-audit-notice', { description: 'The audit carries its fixed notice and no removal vocabulary anywhere else.',
+  command: 'audit', rules: rules('+U1'), forbidVocabulary: true,
+  input: input({ tests: U_TESTS, cov: { a: '1-4', b: '1-4', c: '5-6' } }),
+  expectExit: 0, expected: { audit: { notice: AUDIT_NOTICE }, units: '$absent' } });
+kase('097-audit-subset', { description: 'A subset collection cannot be audited: the audit would describe part of a suite as all of it.',
+  command: 'audit', rules: rules('-U1'),
+  input: input({ tests: U_TESTS, cov: { a: '1-4' }, collection: { runs: 1, subset: { files: { 'tests/a.test.mjs': `sha256:${'a'.repeat(64)}` } } } }),
+  expectExit: 2, expected: { diagnostics: [{ code: 'subset-input', severity: 'error' }], audit: '$absent' } });
+kase('098-audit-wrong-tests', { description: 'Failing, skipped, flaky, pinned, assertion-free and tautological tests are listed with sorted reasons.',
+  command: 'audit', rules: rules('+U2'),
+  input: input({
+    tests: [t('a', 'tests/a.test.mjs', 'a', { status: 'failed' }), t('b', 'tests/b.test.mjs', 'b', { status: 'skipped' }),
+      t('c', 'tests/c.test.mjs', 'c', { runStatuses: ['passed', 'failed'] }), t('d', 'tests/d.test.mjs'), t('e', 'tests/e.test.mjs')],
+    cov: { c: '1-2', d: '3-4', e: '5' },
+    brittleness: [{ test: 'd', kind: 'source-text', line: 3 }, { test: 'd', kind: 'no-assertion', line: 2 }, { test: 'e', kind: 'tautology', line: 4 }],
+  }),
+  expectExit: 0, expected: { audit: { wrong: [
+    { unit: 'a', file: 'tests/a.test.mjs', reasons: ['fails'] },
+    { unit: 'b', file: 'tests/b.test.mjs', reasons: ['skipped'] },
+    { unit: 'c', file: 'tests/c.test.mjs', reasons: ['flaky'] },
+    { unit: 'd', file: 'tests/d.test.mjs', reasons: ['no-assertion', 'pinned:source-text'] },
+    { unit: 'e', file: 'tests/e.test.mjs', reasons: ['tautology'] },
+  ] } } });
+kase('099-audit-deliberate-pin', { description: 'A deliberate pin is not a possibly-wrong test.',
+  command: 'audit', rules: rules('-U2'),
+  input: input({ tests: [t('a', 'tests/a.test.mjs')], cov: { a: '1-2' }, brittleness: [{ test: 'a', kind: 'doc-wording', line: 2, deliberate: true }] }),
+  expectExit: 0, expected: { audit: { wrong: [] } } });
+kase('100-audit-false-tests', { description: 'A targeted unit that covers faults and catches none, and one that catches only through panics, are listed; survivors and timeouts are reported.',
+  command: 'audit', rules: rules('+U3'),
+  input: input({ tests: U_TESTS, cov: { a: '1-4', b: '1-4', c: '5-6' },
+    mutation: { targeted: ['a', 'b', 'c'], mutants: [
+      { ...m('m1', 2, 'killed', ['b']), killKinds: { b: 'panic' } },
+      { ...m('m2', 3, 'survived'), description: 'replace > with >=' },
+      m('m3', 5, 'timeout', []),
+      { ...m('m4', 6, 'killed', ['c']), killKinds: { c: 'assertion' } },
+    ] } }),
+  expectExit: 0, expected: { audit: { falseTests: {
+    measured: true,
+    units: [
+      { unit: 'a', file: 'tests/a.test.mjs', coveredMutants: 2, kills: 0, panicKills: 0, reason: 'catches-nothing' },
+      { unit: 'b', file: 'tests/b.test.mjs', coveredMutants: 2, kills: 1, panicKills: 1, reason: 'catches-only-by-panic' },
+    ],
+    unchecked: [{ source: 'src/a.mjs', lines: '3', mutants: [{ id: 'm2', line: 3, description: 'replace > with >=' }] }],
+    timeoutOnly: ['m3'],
+  } } } });
+kase('101-audit-false-tests-unmeasured', { description: 'Without mutation, or for a unit not targeted, nothing is called a false test: missing data is never "catches nothing".',
+  command: 'audit', rules: rules('-U3'),
+  input: input({ tests: U_TESTS, cov: { a: '1-4', b: '1-4' }, mutation: { targeted: [], mutants: [m('m1', 2, 'survived')] } }),
+  expectExit: 0, expected: { audit: { falseTests: { measured: true, units: [] } } } });
+kase('102-audit-overlap', { description: 'Units that catch the same faults form an overlap group, marked when their runners differ.',
+  command: 'audit', rules: rules('+U4'),
+  input: input({
+    runtimes: [{ runner: 'node', name: 'node', version: '22.23.3' }, { runner: 'cargo', name: 'rust', version: '1.94.1' }],
+    sources: { 'src/a.mjs': { coverable: '1-10' }, 'src/b.rs': { coverable: '1-10' } },
+    tests: [t('a', 'tests/a.test.mjs', 'a', { runner: 'node' }), t('b', 'tests/b.rs', 'b', { runner: 'cargo' }), t('c', 'tests/c.test.mjs', 'c', { runner: 'node' })],
+    cov: { a: '1-3', b: { 'src/b.rs': '1-3' }, c: '5' },
+    mutation: { targeted: [], mutants: [m('m1', 2, 'killed', ['a', 'b']), m('m2', 5, 'killed', ['c'])] },
+  }),
+  expectExit: 0, expected: { audit: { overlap: [{ basis: 'kills', units: ['a', 'b'], crossRunner: true }] } } });
+kase('103-audit-overlap-different', { description: 'Units whose caught faults differ are not grouped; without mutation, only equal own lines group.',
+  command: 'audit', rules: rules('-U4'),
+  input: input({ tests: U_TESTS, cov: { a: '1-3', b: '1-4', c: '1-3' } }),
+  expectExit: 0, expected: { audit: { overlap: [{ basis: 'lines', units: ['a', 'c'], crossRunner: false }] } } });
+kase('104-audit-combine', { description: 'Same-file groups carry a form for their language; same-language look-alikes across files are suggested as a shared helper.',
+  command: 'audit', rules: rules('+U5'),
+  input: input({
+    tests: [t('a1', 'tests/a.test.mjs'), t('a2', 'tests/a.test.mjs'), t('x', 'tests/x.test.mjs'), t('y', 'tests/y.test.mjs')],
+    cov: { a1: '1-4', a2: '1-4', x: '6-9', y: '6-9' },
+    shapes: { a1: range(1, 10), a2: range(1, 10), x: range(20, 30), y: range(20, 30) },
+  }),
+  expectExit: 0, expected: { audit: { combine: {
+    groups: [{ group: 'g1', file: 'tests/a.test.mjs', units: ['a1', 'a2'], form: 'each' }],
+    acrossFiles: [{ units: ['x', 'y'], files: ['tests/x.test.mjs', 'tests/y.test.mjs'], form: 'shared-helper' }],
+  } } } });
+kase('105-audit-combine-other-language', { description: 'Look-alikes in different languages are never suggested for combining.',
+  command: 'audit', rules: rules('-U5'),
+  input: input({ sources: { 'src/a.mjs': { coverable: '1-10' } }, tests: [t('x', 'tests/x.test.mjs'), t('y', 'tests/y_test.py')],
+    cov: { x: '6-9', y: '6-9' }, shapes: { x: range(20, 30), y: range(20, 30) } }),
+  expectExit: 0, expected: { audit: { combine: { groups: [], acrossFiles: [] } } } });
+kase('106-audit-coverage', { description: 'Coverage per source with uncovered lines; an unmeasured source is listed apart, never as uncovered.',
+  command: 'audit', rules: rules('+U6'),
+  input: input({ sources: { 'src/a.mjs': { coverable: '1-10' }, 'src/w.mjs': { coverable: '', unmeasured: 'runs as Wasm in workerd' } }, tests: U_TESTS, cov: { a: '1-4', c: '9' } }),
+  expectExit: 0, expected: { audit: { coverage: {
+    files: [{ source: 'src/a.mjs', critical: false, covered: 5, coverable: 10, pct: 50, uncovered: '5-8,10' }],
+    unmeasured: [{ source: 'src/w.mjs', reason: 'runs as Wasm in workerd' }],
+  } } } });
+kase('107-audit-coverage-empty-source', { description: 'A source with nothing coverable and no unmeasured reason is not listed.',
+  command: 'audit', rules: rules('-U6'),
+  input: input({ sources: { 'src/a.mjs': { coverable: '1-2' }, 'src/types.mjs': { coverable: '' } }, tests: [t('a', 'tests/a.test.mjs')], cov: { a: '1-2' } }),
+  expectExit: 0, expected: { audit: { coverage: { files: [{ source: 'src/a.mjs', critical: false, covered: 2, coverable: 2, pct: 100, uncovered: '' }], unmeasured: [] } } } });
+kase('108-audit-speed', { description: 'Slowest units first within the limit, and the fault-testing cost estimate.',
+  command: 'audit', rules: rules('+U7'), args: { limit: 2 },
+  input: input({ tests: [t('a', 'tests/a.test.mjs', 'a', { durationsMs: [30] }), t('b', 'tests/b.test.mjs', 'b', { durationsMs: [50] }), t('c', 'tests/c.test.mjs', 'c', { durationsMs: [10] })],
+    cov: { a: '1-4', b: '1-2', c: '5' }, mutation: { targeted: [], mutants: [m('m1', 2, 'killed', ['a'])] } }),
+  expectExit: 0, expected: { audit: { speed: { slowest: [{ unit: 'b', durationMs: 50 }, { unit: 'a', durationMs: 30 }], slowLowValue: [], mutationCostMs: 80, flaky: [] } } } });
+kase('109-audit-speed-no-mutation', { description: 'With limit 0 nothing is listed as slowest, and without mutation there is no cost estimate.',
+  command: 'audit', rules: rules('-U7'), args: { limit: 0 },
+  input: input({ tests: [t('a', 'tests/a.test.mjs', 'a', { durationsMs: [30] })], cov: { a: '1-4' } }),
+  expectExit: 0, expected: { audit: { speed: { slowest: [], slowLowValue: [], mutationCostMs: null, flaky: [] } } } });
+
 // ---------- write ----------
 
 function filesFor(c) {

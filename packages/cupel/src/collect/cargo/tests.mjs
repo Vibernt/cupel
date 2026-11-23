@@ -58,9 +58,12 @@ export function definitions(root, sourceBytes) {
           const body = tokens.slice(open + 1, end - 1);
           const rawBody = source.slice(tokens[open].end, tokens[end - 1].start);
           const tag = /^\s*\/\/\s*cupel:(critical|minor|standard)\s*$/.exec(lines[token.line - 2] ?? '')?.[1];
-          const reads = /(?:include_str!|std\s*::\s*fs\s*::\s*read_to_string)\s*\(\s*[^)]*\.(?:rs|md|txt|rst)["#]/s.test(rawBody);
+          // Source and documentation reads only: test data files (data/x.txt) are input, not pins.
+          const readPath = /(?:include_str!|std\s*::\s*fs\s*::\s*read_to_string)\s*\(\s*([^)]*)\)/s.exec(rawBody)?.[1] ?? '';
+          const doc = /\.(?:md|rst)["#]/.test(readPath) || /(?:README|CHANGELOG|docs\/)[^"]*\.txt["#]/.test(readPath);
+          const reads = doc || /\.rs["#]/.test(readPath);
           const asserts = /\b(?:assert(?:_eq|_ne)?!|debug_assert!|panic!|expect\s*\()/s.test(rawBody);
-          const pins = reads && asserts ? [{ test: id, kind: /\.(?:md|txt|rst)["#]/.test(rawBody) ? 'doc-wording' : 'source-text', line: token.line }] : [];
+          const pins = reads && asserts ? [{ test: id, kind: doc ? 'doc-wording' : 'source-text', line: token.line }] : [];
           const weak = assertionFindings(tokens, { attrs, signatureFrom: j + 2, bodyOpen: open, bodyClose: end - 1, line: tokens[j].line, bodies })
             .map((finding) => ({ test: id, ...finding }));
           found.push({ fullName, id, file: path, name: fullName, ...(tag ? { tags: [tag] } : {}), shape: shape(body),

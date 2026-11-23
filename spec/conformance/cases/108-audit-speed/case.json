@@ -1,0 +1,14 @@
+{
+  "description": "Slowest units first within the limit, and the fault-testing cost estimate.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U7",
+      "polarity": "positive"
+    }
+  ],
+  "args": {
+    "limit": 2
+  },
+  "expectExit": 0
+}
