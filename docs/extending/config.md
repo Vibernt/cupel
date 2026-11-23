@@ -33,13 +33,13 @@ tests load, such as Rust crates compiled to a WebAssembly module that a Worker
 runs in workerd, name it with `builtInto` (source glob → artifact path):
 
 ```json
-{ "builtInto": { "crates/wasm/**": "cloud/src/prill.wasm" } }
+{ "builtInto": { "crates/wasm/**": "worker/src/core.wasm" } }
 ```
 
 The workerd collector records, per test, which repository `.wasm` files the
 Worker loaded (matched by their bytes) as the test's `loads`. A matching source
 that no test covers in its own language is then reported as `unmeasured`, for
-example "built into cloud/src/prill.wasm, which 72 tests load; lines inside
+example "built into worker/src/core.wasm, which 72 tests load; lines inside
 WebAssembly are not measured", instead of looking untested. A source that its own
 tests do reach keeps its measured coverage. Rust faults in such sources are left
 out of fault testing, since no Rust test can run them.
@@ -52,7 +52,7 @@ and capped, because every fault costs a build and a test run:
 
 ```json
 { "runners": { "cargo": { "mutants": { "crossRunner": {
-  "sources": "crates/core/**", "artifact": "cloud/src/prill.wasm",
+  "sources": "crates/core/**", "artifact": "worker/src/core.wasm",
   "build": "sh tools/build-wasm.sh", "maxMutants": 20 } } } } }
 ```
 

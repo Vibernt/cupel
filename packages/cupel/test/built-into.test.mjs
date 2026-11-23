@@ -17,17 +17,17 @@ const node = {
   spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'node', version: '26.7.0' },
   sources: { 'cloud/src/space.mjs': { coverable: '1-4' } },
   tests: [
-    { id: 'cloud/test/a.test.mjs::a', file: 'cloud/test/a.test.mjs', name: 'a', status: 'passed', loads: ['cloud/src/prill.wasm'] },
-    { id: 'cloud/test/a.test.mjs::b', file: 'cloud/test/a.test.mjs', name: 'b', status: 'passed', loads: ['cloud/src/prill.wasm'] },
+    { id: 'cloud/test/a.test.mjs::a', file: 'cloud/test/a.test.mjs', name: 'a', status: 'passed', loads: ['worker/src/core.wasm'] },
+    { id: 'cloud/test/a.test.mjs::b', file: 'cloud/test/a.test.mjs', name: 'b', status: 'passed', loads: ['worker/src/core.wasm'] },
   ],
   coverage: { granularity: 'test', byTest: { 'cloud/test/a.test.mjs::a': { 'cloud/src/space.mjs': '1-4' } } },
 };
-const cfg = { builtInto: { 'crates/wasm/**': 'cloud/src/prill.wasm' } };
+const cfg = { builtInto: { 'crates/wasm/**': 'worker/src/core.wasm' } };
 
 test('uncovered sources built into a loaded artifact become unmeasured, in every runner part', () => {
   const merged = mergeRunners([{ name: 'cargo', input: rust }, { name: 'node', input: node }]);
   const out = applyBuiltInto(merged, cfg);
-  assert.deepEqual(out.sources['crates/wasm/src/lib.rs'], { coverable: '', unmeasured: 'built into cloud/src/prill.wasm, which 2 tests load; lines inside WebAssembly are not measured' });
+  assert.deepEqual(out.sources['crates/wasm/src/lib.rs'], { coverable: '', unmeasured: 'built into worker/src/core.wasm, which 2 tests load; lines inside WebAssembly are not measured' });
   // A source its own tests reach keeps its native coverage.
   assert.equal(out.sources['crates/wasm/src/host.rs'].coverable, '1-5');
   assert.equal(out.sources['crates/core/src/lib.rs'].unmeasured, undefined);
@@ -38,7 +38,7 @@ test('uncovered sources built into a loaded artifact become unmeasured, in every
 test('without builtInto or loads nothing changes, and an unloaded artifact says so', () => {
   assert.equal(applyBuiltInto(rust, {}), rust);
   const out = applyBuiltInto(rust, cfg);
-  assert.equal(out.sources['crates/wasm/src/lib.rs'].unmeasured, 'built into cloud/src/prill.wasm; no measured test loads it');
+  assert.equal(out.sources['crates/wasm/src/lib.rs'].unmeasured, 'built into worker/src/core.wasm; no measured test loads it');
 });
 
 test('cross-runner faults: cargo-mutants diffs apply exactly to the original source', async () => {

@@ -7,7 +7,7 @@
 // costs a build and a test run:
 //
 //   "runners": { "cargo": { "mutants": { "crossRunner": {
-//     "sources": "crates/core/**", "artifact": "cloud/src/prill.wasm",
+//     "sources": "crates/core/**", "artifact": "worker/src/core.wasm",
 //     "build": "sh tools/build-wasm.sh", "maxMutants": 20 } } } }
 //
 // The project itself is never written; the copy and its build output are removed.
