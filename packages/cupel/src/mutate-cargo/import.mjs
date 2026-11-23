@@ -114,6 +114,30 @@ export function importCargoMutants({ root, input, outDir, listing, testPackages 
     }
   }
 
+  const logs = new Map();
+  const compiled = new Map();
+  for (const o of results) {
+    const path = join(outDir, o.log_path);
+    if (!existsSync(path)) refuse(`missing cargo-mutants log ${o.log_path}`);
+    const parsed = parseLog(readFileSync(path, 'utf8'));
+    logs.set(o.log_path, parsed);
+  }
+  if (baseline?.log_path && existsSync(join(outDir, baseline.log_path))) {
+    for (const [binary, info] of parseLog(readFileSync(join(outDir, baseline.log_path), 'utf8')).compiled) compiled.set(binary, info);
+  }
+  return attributeOutcomes({ root, input, listing, compiled,
+    outcomes: results.map((o) => ({ mutant: o.scenario.Mutant, summary: o.summary, log: logs.get(o.log_path), diff: diffs.get(o.scenario.Mutant.name) })) });
+}
+
+/**
+ * Turns per-fault outcomes into Cupel rows with credited tests and catch kinds. Shared by the
+ * cargo-mutants import and Cupel's own Rust runner. `outcomes`: [{ mutant (a listing entry),
+ * summary ('CaughtMutant' | 'MissedMutant' | 'Timeout' | 'Unviable'), log (parseLog result),
+ * diff? }]; `compiled`: binary → crate source from build logs (each log's own build lines are added).
+ */
+export function attributeOutcomes({ root, input, listing, compiled: known = new Map(), outcomes }) {
+  const compiled = new Map(known);
+  for (const o of outcomes) for (const [binary, info] of o.log?.compiled ?? []) compiled.set(binary, info);
   const tests = new Map(input.tests.map((t) => [t.id, t]));
   const sourceDefs = definitions(root);
   const regions = new Map();
@@ -138,19 +162,6 @@ export function importCargoMutants({ root, input, outDir, listing, testPackages 
   }
   const coverable = new Map(Object.entries(input.sources).map(([file, s]) => [file, new Set(expand(s.coverable))]));
 
-  // Binary → crate source, from every log's verbose build lines.
-  const logs = new Map();
-  const compiled = new Map();
-  for (const o of results) {
-    const path = join(outDir, o.log_path);
-    if (!existsSync(path)) refuse(`missing cargo-mutants log ${o.log_path}`);
-    const parsed = parseLog(readFileSync(path, 'utf8'));
-    logs.set(o.log_path, parsed);
-    for (const [binary, info] of parsed.compiled) compiled.set(binary, info);
-  }
-  if (baseline?.log_path && existsSync(join(outDir, baseline.log_path))) {
-    for (const [binary, info] of parseLog(readFileSync(join(outDir, baseline.log_path), 'utf8')).compiled) compiled.set(binary, info);
-  }
 
   const idCache = new Map();
   const cupelId = (binary, name) => {
@@ -170,8 +181,8 @@ export function importCargoMutants({ root, input, outDir, listing, testPackages 
 
   const notes = { unviable: 0, uncompiled: 0, doctestOnly: 0, pinnedCreditDropped: 0 };
   const mutants = [];
-  for (const o of results) {
-    const m = o.scenario.Mutant;
+  for (const o of outcomes) {
+    const m = o.mutant;
     const file = m.file.replaceAll('\\', '/');
     if (o.summary === 'Unviable') { notes.unviable++; continue; }
     const line = m.span.start.line;
@@ -180,7 +191,7 @@ export function importCargoMutants({ root, input, outDir, listing, testPackages 
     // but no test could ever run it here.
     if (!coverable.get(file)?.has(line)) { notes.uncompiled++; continue; }
     if (!existsSync(join(root, file))) refuse(`${file} is not under ${root}; run from the project root or pass --root`);
-    const diff = diffs.get(m.name);
+    const diff = o.diff;
     if (diff && !diffMatches(diff, readFileSync(join(root, file), 'utf8'))) refuse(`${file} changed since cargo-mutants ran (${m.name})`);
     const base = baseRow(m);
     if (o.summary === 'MissedMutant') {
@@ -188,7 +199,7 @@ export function importCargoMutants({ root, input, outDir, listing, testPackages 
     } else if (o.summary === 'Timeout') {
       mutants.push({ ...base, status: 'timeout', killedBy: [] });
     } else if (o.summary === 'CaughtMutant') {
-      const parsed = logs.get(o.log_path);
+      const parsed = o.log;
       const kinds = {};
       for (const run of parsed.runs) for (const failure of run.failed) {
         const id = cupelId(run.binary, failure.name);
@@ -219,7 +230,7 @@ export function importCargoMutants({ root, input, outDir, listing, testPackages 
 
   const mutation = { mutants, targeted: [] };
   if (listing) {
-    const ran = new Set(results.map((o) => mutantId(o.scenario.Mutant)));
+    const ran = new Set(outcomes.map((o) => mutantId(o.mutant)));
     mutation.sampled = listing.some((m) => !ran.has(mutantId(m)));
     mutation.targeted = targetedUnits({ input, listing, ran, rows: mutants });
   }

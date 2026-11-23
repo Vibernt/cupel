@@ -132,12 +132,17 @@
             },
             "description": { "type": "string", "minLength": 1 },
             "basis": { "$ref": "#/$defs/sha256" },
-            "reused": { "const": true }
+            "reused": { "const": true },
+            "durationMs": { "type": "integer", "minimum": 0 }
             }
           }
         },
         "targeted": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "seed": { "type": "integer" },
+        "shard": {
+          "type": "object", "required": ["runner", "index", "total", "plan", "assigned"], "additionalProperties": false,
+          "properties": { "runner": { "type": "string", "minLength": 1 }, "index": { "type": "integer", "minimum": 1 }, "total": { "type": "integer", "minimum": 1 }, "plan": { "$ref": "#/$defs/sha256" }, "assigned": { "type": "integer", "minimum": 0 } }
+        },
         "sampled": { "type": "boolean" }
       }
     },

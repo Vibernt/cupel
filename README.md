@@ -20,9 +20,9 @@ the people and agents who do.
 *Illustrative workflow; measured numbers from the [real-project Jest validation](plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls).
 The example covers 11 tested mutations across two declared critical API paths.*
 
-**Open-source under MIT · version `0.3.0`.** Get the source from
+**Open-source under MIT · version `0.4.0`.** Get the source from
 [GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
-use the local installation below. See the [0.3.0 release record](plans/results/2026-11-23-0.3.0-release.md) and the
+use the local installation below. See the [0.4.0 release record](plans/results/2026-11-23-0.4.0-release.md), the [0.3.0 record](plans/results/2026-11-23-0.3.0-release.md) and the
 [0.2.0 record](plans/results/2026-11-23-0.2.0-candidate.md) for what changed and what is verified, the [first verified candidate record](plans/results/2026-10-26-private-candidate.md)
 for artifact checks, and [historical evidence](docs/private-use.md#artifact-provenance).
 
@@ -121,7 +121,7 @@ npm pack --offline --ignore-scripts ./packages/cupel \
   --pack-destination .scratch/local-package
 npm install --offline --ignore-scripts --no-audit --no-fund \
   --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.3.0.tgz
+  .scratch/local-package/vibernt-cupel-0.4.0.tgz
 CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
 "$CUPEL" --version
 ```
@@ -195,6 +195,12 @@ Fault testing is the slow part. Cupel keeps it fast without guessing:
   start empty, keep the input file in the CI cache and pass it back with
   `--reuse <file>`. `guard`, `check` and `mutate` reuse only a file named this
   way, never one the change itself could contain.
+
+For Rust, `"backend": "cupel"` runs cargo-mutants' faults with only the tests that
+run each line, fastest first, and compiles many faults into one build. Large
+suites can be split across CI machines: `cupel mutate --plan` estimates the time
+and suggests how many slices each runner needs (usually one for JavaScript and
+Python), `--shard I/N` runs one, and `merge-mutations` joins them.
 
 On pull requests, test only changed lines (`"mutation": { "critical": false }`)
 and run critical files in full nightly. [Faster fault testing](docs/speed.md) has

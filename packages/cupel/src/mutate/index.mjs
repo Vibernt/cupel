@@ -372,6 +372,13 @@ class Session {
    * unit covers the mutant (then every file runs, so its kill data is exact). Returns null when the deadline cut it.
    */
   async killCheck(m, text) {
+    const started = performance.now();
+    const out = await this.killCheckRuns(m, text);
+    if (out && this.timings && out.status !== 'no-coverage') out.durationMs = Math.round(performance.now() - started);
+    return out;
+  }
+
+  async killCheckRuns(m, text) {
     const sel = this.select(m);
     if (sel.counts.size === 0) return { status: 'no-coverage', killedBy: [] };
     if ([...sel.counts.keys()].some((f) => !this.baselines.has(f))) return null; // the budget ended before its baseline
@@ -406,6 +413,7 @@ const entry = (m, r) => {
   if (r.row) return { ...r.row };
   const out = { id: m.id, source: m.source, line: m.line, operator: m.operator, status: r.status };
   if (r.killedBy.length) out.killedBy = r.killedBy;
+  if (r.durationMs !== undefined) out.durationMs = r.durationMs;
   return out;
 };
 
@@ -446,6 +454,73 @@ export function wholeUnits(sites, own, cap) {
     for (const m of extra) chosen.add(m);
   }
   return sites.filter((m) => chosen.has(m));
+}
+
+/**
+ * Slices for CI (`cupel mutate --plan`, `--shard`): the faults a run with no time limit would choose,
+ * decided before anything runs, so every machine agrees. With `scope.plan` it returns
+ * { plan: [{ id, source, line, kind: 'run' | 'reused' | 'no-coverage', estimateMs }], sampled, seed };
+ * with `scope.only` (ids) it runs just those of the chosen faults, and a unit is targeted when its
+ * faults in this slice all have results (the other slices answer for theirs).
+ */
+async function planOrSlice({ scope, ordered, candidates, maxMutants, seed, skipped, facts, root, metrics, diagnostics, log, session, reuse, reusable, own, deadline }) {
+  if (scope.functions) throw new TypeError('plans and slices are not available for function-scope mutation');
+  const chosen = [];
+  const invalid = new Set();
+  for (let k = 0; k < ordered.length && chosen.length < maxMutants;) {
+    const batch = ordered.slice(k, k + 64);
+    k += batch.length;
+    const texts = new Map();
+    const built = [];
+    for (const m of batch) {
+      if (skipped.has(m.source) || reusable(m)) continue;
+      try {
+        if (!texts.has(m.source)) texts.set(m.source, facts.assertFresh(m.source));
+        built.push({ m, text: applyMutant(texts.get(m.source), m) });
+      } catch (error) { skipped.add(m.source); skipFile(diagnostics, log, 'mutate', m.source, error); }
+    }
+    const validity = built.length ? await candidateValidity(root, built, metrics) : { errors: [] };
+    const textOf = new Map();
+    built.forEach(({ m, text }, i) => { if (validity.errors[i] === null) textOf.set(m.id, text); else invalid.add(m.id); });
+    for (const m of batch) {
+      if (chosen.length >= maxMutants) break;
+      if (skipped.has(m.source)) continue;
+      if (reusable(m)) chosen.push({ m, reused: true });
+      else if (textOf.has(m.id)) chosen.push({ m, text: textOf.get(m.id) });
+    }
+  }
+  const picked = new Set(chosen.map(({ m }) => m.id));
+  const sampled = candidates.some((m) => !picked.has(m.id) && !invalid.has(m.id));
+  if (scope.plan) {
+    const history = scope.history ?? {};
+    const plan = chosen.map(({ m, reused }) => {
+      const sel = session.select(m);
+      const kind = reused ? 'reused' : sel.counts.size === 0 ? 'no-coverage' : 'run';
+      // Estimate: the measured time of this fault last time, or its test files' durations plus a process start each.
+      const estimateMs = kind !== 'run' ? 0 : Math.round(history[m.id] ?? [...sel.counts.keys()].reduce((n, f) => n + session.fileMs(f) + 300, 0));
+      return { id: m.id, source: m.source, line: m.line, kind, estimateMs };
+    });
+    return { plan, sampled, seed };
+  }
+  const only = new Set(scope.only);
+  const mine = chosen.filter(({ m }) => only.has(m.id));
+  const byId = new Map();
+  for (const { m, reused } of mine) if (reused) byId.set(m.id, { status: reuse[m.id].status, killedBy: reuse[m.id].killedBy ?? [], row: reuse[m.id] });
+  const toRun = mine.filter(({ reused }) => !reused);
+  const files = new Set();
+  for (const { m } of toRun) for (const f of session.select(m).counts.keys()) files.add(f);
+  await session.baseline([...files]);
+  facts.assertAllFresh();
+  const results = await pool(toRun, session.jobs, async ({ m, text }) => (performance.now() > deadline ? null : session.killCheck(m, text)));
+  facts.assertAllFresh();
+  toRun.forEach(({ m }, k) => { if (results[k]) byId.set(m.id, results[k]); });
+  log(`mutate: slice of ${mine.length} of ${chosen.length} chosen faults; ${toRun.length} run, ${mine.length - toRun.length} reused`);
+  const mutants = candidates.filter((m) => byId.has(m.id)).map((m) => entry(m, byId.get(m.id)));
+  // As in a whole run: faults left out by the cap are missing evidence; chosen faults in other slices are theirs.
+  const settled = new Map(byId);
+  for (const { m } of chosen) if (!only.has(m.id)) settled.set(m.id, { status: 'elsewhere', killedBy: [] });
+  const targeted = targetedUnits({ own, eligible: candidates.filter((m) => !invalid.has(m.id)), results: settled, skipped });
+  return { mutants, targeted, seed, sampled };
 }
 
 /**
@@ -505,9 +580,13 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
   const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()),
     jobs: scratch ? 1 : jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts, scratch });
   session.deadline = deadline;
+  session.timings = !!scope.timings;
   const reuse = scope.reuse && Object.keys(scope.reuse).length ? scope.reuse : null;
   let reusedCount = 0;
+  const reusable = (m) => !!reuse && !skipped.has(m.source) && Object.hasOwn(reuse, m.id) && !session.select(m).needsFull;
   try {
+    if (scope.plan || scope.only) return await planOrSlice({ scope, ordered, candidates, maxMutants, seed, skipped, facts, root,
+      metrics, diagnostics, log, session, reuse, reusable, own, deadline });
     const invalid = new Set();
     const byId = new Map();
     let cursor = 0;

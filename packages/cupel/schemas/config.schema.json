@@ -36,7 +36,8 @@
           "additionalProperties": false,
           "description": "Cargo: Rust mutation. By default Cupel runs the installed cargo-mutants (D19); backend cupel-rust selects the restricted built-in mutator.",
           "properties": {
-            "backend": { "enum": ["cargo-mutants", "cupel-rust"] },
+            "backend": { "enum": ["cargo-mutants", "cupel", "cupel-rust"], "description": "cargo-mutants (default) runs each fault with cargo-mutants; cupel runs cargo-mutants' faults itself: only the test targets and tests that run the faulty line, fastest first, stopping after two catching targets, with certain faults switched in one build (D21); cupel-rust is the restricted built-in mutator." },
+            "schemata": { "type": "boolean", "description": "backend cupel: compile faults the rewriter is certain about into one build, switched by CUPEL_FAULT (default true)." },
             "command": { "type": "string", "minLength": 1, "description": "The cargo-mutants executable; default cargo-mutants on PATH." },
             "jobs": { "type": "integer", "minimum": 1, "description": "Parallel cargo-mutants jobs; default 1." },
             "wholeWorkspace": { "type": "boolean", "description": "Test every workspace package for every fault (--test-workspace=true) instead of only the packages whose tests run the faulty lines; use when features differ between a package alone and the whole workspace." },

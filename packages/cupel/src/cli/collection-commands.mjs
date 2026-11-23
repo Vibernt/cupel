@@ -11,6 +11,22 @@ import { mutate, confirm, lostSurvivors } from './collect.mjs';
 import { stampCollection } from './collection.mjs';
 import { mergeInputs } from './merge-inputs.mjs';
 import { writeAtomicJson } from '../collect/atomic-json.mjs';
+import { availableParallelism, cpus } from 'node:os';
+import { DEFAULT_RULE, assignSlices, mergeMutations, parseShard, planDigest, planReport } from './shard.mjs';
+
+const defaultCores = () => (typeof availableParallelism === 'function' ? availableParallelism() : cpus().length);
+
+/** The plan as text: per runner, faults, estimate and suggested slices. */
+function formatPlan(report) {
+  const lines = ['Fault-test plan', ''];
+  for (const r of report.runners) {
+    if (!r.sliceable) { lines.push(`${r.runner}: runs whole (${r.reason})`); continue; }
+    lines.push(`${r.runner}: ${r.faults.run} to run, ${r.faults.reused} reused, ${r.faults.noCoverage} on lines no test runs; about ${Math.round(r.estimateSeconds / 60)} min of fault time on one process; ${r.parallel} at once`);
+    lines.push(`  suggested: ${r.suggestedShards} slice${r.suggestedShards === 1 ? '' : 's'} (about ${r.expectedMinutes} min each)${r.suggestedShards > 1 ? `: cupel mutate --input <input> --runner ${r.runner} --shard I/${r.suggestedShards} --out <slice>` : ''}`);
+  }
+  lines.push('', `Rule: one machine while the time fits ${report.rule.targetMinutes} min; otherwise enough slices to fit it, with ${report.rule.startupSeconds} s startup each, at most ${report.rule.maxShards}. Estimates use each fault's measured time from --reuse when present.`);
+  return `${lines.join('\n')}\n`;
+}
 
 function inputErrors(ctx, doc) {
   return run('validate', { input: doc }, {}, {}, ctx.schemas).report.diagnostics.filter((d) => d.severity === 'error');
@@ -83,7 +99,7 @@ export const collectionCommands = {
     return EXIT_OK;
   },
   async mutate(ctx) {
-    if (!ctx.o.input || !ctx.o.out) throw usage('mutate needs --input FILE and --out FILE');
+    if (!ctx.o.input || (!ctx.o.out && !ctx.o.plan)) throw usage('mutate needs --input FILE and --out FILE (--out is optional with --plan)');
     const input = ctx.readInput(ctx.o.input);
     const errors = inputErrors(ctx, input);
     if (errors.length) throw usage(`${ctx.o.input}: ${errors[0].path}: ${errors[0].message}`);
@@ -108,22 +124,82 @@ export const collectionCommands = {
     const cfg = ctx.effective();
     const mutator = await ctx.mutator();
     const changed = ctx.o.changed && cfg.mutation.changedLines ? changedLines(ctx.root, ctx.o.changed) : null;
-    const mutation = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input,
-      scope: { critical: cfg.mutation.critical, changed }, log: ctx.log });
+    const scope = { critical: cfg.mutation.critical, changed, ...(ctx.o.runner ? { runner: ctx.o.runner } : {}) };
+    const common = { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, log: ctx.log };
+    const number = (name, fallback, min = 1, integer = false) => {
+      if (ctx.o[name] === undefined) return fallback;
+      const n = Number(ctx.o[name]);
+      if (!Number.isFinite(n) || n < min || (integer && !Number.isInteger(n))) throw usage(`--${name} needs ${integer ? 'a whole number' : 'a number'} of at least ${min}, got ${JSON.stringify(ctx.o[name])}`);
+      return n;
+    };
+    const shard = ctx.o.shard === undefined ? null : parseShard(ctx.o.shard);
+    if (ctx.o.shard !== undefined && !shard) throw usage(`--shard needs I/N with 1 <= I <= N, got ${JSON.stringify(ctx.o.shard)}`);
+    if (ctx.o.plan && shard) throw usage('use either --plan or --shard');
+    if (ctx.o.plan || shard) {
+      const planned = await mutate(mutator, { ...common, scope: { ...scope, plan: true } });
+      const plans = planned?.plans ?? {};
+      if (ctx.o.plan) {
+        const cores = number('cores', defaultCores(), 1, true);
+        const rule = { startupSeconds: number('startup-seconds', DEFAULT_RULE.startupSeconds, 0), targetMinutes: number('target-minutes', DEFAULT_RULE.targetMinutes),
+          maxShards: number('max-shards', DEFAULT_RULE.maxShards, 1, true) };
+        // JavaScript and Python mutators run about half the cores at once; Rust runs one fault at a time.
+        const parallel = Object.fromEntries(Object.keys(plans).map((name) => [name, name === 'cargo' ? 1 : Math.max(1, Math.floor(cores / 2))]));
+        const report = planReport(plans, { rule, parallel });
+        if (ctx.o.out) { const output = ctx.path(ctx.o.out); mkdirSync(dirname(output), { recursive: true }); writeAtomicJson(output, report); }
+        if (ctx.o.json) ctx.io.out(`${JSON.stringify(report, null, 2)}\n`);
+        else ctx.io.out(formatPlan(report));
+        return EXIT_OK;
+      }
+      const names = Object.keys(plans).filter((name) => !ctx.o.runner || name === ctx.o.runner);
+      const unsliceable = names.filter((name) => !plans[name]?.plan);
+      if (unsliceable.length) throw environment(`runner ${unsliceable.join(', ')}: slices are not available; run it whole with --runner`);
+      const entries = names.flatMap((name) => plans[name].plan);
+      const slices = assignSlices(entries, shard.total);
+      const only = entries.filter((e) => slices.get(e.id) === shard.index).map((e) => e.id);
+      scope.only = only;
+      ctx.sliceInfo = { runner: ctx.o.runner ?? '*', index: shard.index, total: shard.total, plan: planDigest(ctx.o.runner ?? '*', entries, shard.total), assigned: only.length };
+      ctx.sliceRunnerOf = new Map(names.flatMap((name) => plans[name].plan.map((e) => [e.id, name])));
+      ctx.log(`slice ${shard.index}/${shard.total}: ${only.length} of ${entries.length} planned faults`);
+    }
+    let mutation = await mutate(mutator, { ...common, scope });
     if (!mutation) throw environment('mutation is unavailable for the configured scope');
+    if (ctx.sliceInfo) {
+      // A slice that stopped early (maxSeconds, JavaScript and Python) did not answer every fault it was given.
+      // Rust faults have no time budget: a missing one did not compile, as in a whole run.
+      const answered = new Set(mutation.mutants.map((m) => m.id));
+      const cut = scope.only.some((id) => !answered.has(id) && ctx.sliceRunnerOf.get(id) !== 'cargo');
+      mutation = { ...mutation, shard: ctx.sliceInfo, ...(cut ? { sampled: true } : {}) };
+    } else if (ctx.o.runner) {
+      mutation = { ...mutation, shard: { runner: ctx.o.runner, index: 1, total: 1, plan: planDigest(ctx.o.runner, mutation.mutants.map((m) => ({ id: m.id, kind: 'run', estimateMs: 0 })), 1), assigned: mutation.mutants.length } };
+    }
     let confirmed = mutation;
     if (base) {
       // K7, as guard does when it collects the head itself: survivors detected at base are re-run.
       const ids = lostSurvivors(base, { mutation });
       confirmed = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, mutation, ids, log: ctx.log });
     }
-    const result = { ...input, mutation: confirmed };
+    const result = { ...input, mutation: { ...confirmed, ...(mutation.shard ? { shard: mutation.shard } : {}) } };
     const resultErrors = inputErrors(ctx, result);
     if (resultErrors.length) throw environment(`mutated input is invalid: ${resultErrors[0].path}: ${resultErrors[0].message}`);
     const output = ctx.path(ctx.o.out);
     mkdirSync(dirname(output), { recursive: true });
     writeAtomicJson(output, result);
     if (!ctx.o.quiet) ctx.io.err(`cupel: mutation input written to ${output}\n`);
+    return EXIT_OK;
+  },
+  async 'merge-mutations'(ctx) {
+    if (!ctx.o.input || !ctx.o.out || !ctx.positionals.length) throw usage('merge-mutations needs --input FILE, --out FILE and slice files');
+    const base = ctx.readInput(ctx.o.input);
+    const parts = ctx.positionals.map((name) => ({ name, doc: ctx.readInput(name) }));
+    let mutation;
+    try { mutation = mergeMutations(base, parts); } catch (e) { throw usage(`merge-mutations: ${e.message}`); }
+    const result = { ...base, mutation };
+    const errors = inputErrors(ctx, result);
+    if (errors.length) throw environment(`merged input is invalid: ${errors[0].path}: ${errors[0].message}`);
+    const output = ctx.path(ctx.o.out);
+    mkdirSync(dirname(output), { recursive: true });
+    writeAtomicJson(output, result);
+    if (!ctx.o.quiet) ctx.io.err(`cupel: merged ${parts.length} parts (${mutation.mutants.length} faults); input written to ${output}\n`);
     return EXIT_OK;
   },
 };

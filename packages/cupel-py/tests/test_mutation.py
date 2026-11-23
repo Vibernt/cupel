@@ -367,6 +367,141 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(once.call_count, len(fresh['mutants']))
         self.assertTrue(all(m['status'] == 'survived' for m in again['mutants']))
 
+    BRANCH = 'def value(x):\n    if x < 2:\n        return True\n    return False\n'
+
+    def recorded(self, data, scope, config, status='survived', pause=0):
+        calls = []
+        def once(session, site, selected):
+            calls.append(site.id)
+            if pause:
+                import time
+                time.sleep(pause)
+            return (status, [])
+        with patch('vibernt_cupel.mutation_run.Session.once', autospec=True, side_effect=once):
+            result = mutate(self.root, data, scope, config, jobs=1, timeout_floor_ms=100)
+        return result, calls
+
+    def test_plan_has_the_run_selection_and_order(self):
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        uid = data['tests'][0]['id']
+        scope = {'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 3, 'maxSeconds': 20, 'seed': 3}}
+        fresh, calls = self.recorded(data, scope, config)
+        plan, none = self.recorded(data, {**scope, 'plan': True}, config)
+        self.assertEqual(none, [])
+        self.assertEqual(set(plan), {'plan', 'sampled', 'seed'})
+        self.assertEqual([e['id'] for e in plan['plan']], calls)
+        self.assertEqual((plan['sampled'], plan['seed']), (fresh['sampled'], fresh['seed']))
+        self.assertEqual(plan['plan'][0], {'id': calls[0], 'source': 'logic.py', 'line': plan['plan'][0]['line'], 'kind': 'run', 'estimateMs': 1001})
+        # Targeted units first, as in a run.
+        _, calls = self.recorded(data, {'targeted': [uid], 'changed': {'logic.py': ''}}, config)
+        plan = mutate(self.root, data, {'targeted': [uid], 'changed': {'logic.py': ''}, 'plan': True}, config)
+        self.assertEqual([e['id'] for e in plan['plan']], calls)
+        # A reused row keeps its place; a site no test covers is planned as no-coverage.
+        reuse = {calls[0]: {**fresh['mutants'][0], 'id': calls[0], 'status': 'killed'}}
+        plan = mutate(self.root, data, {**scope, 'reuse': reuse, 'plan': True}, config)
+        self.assertEqual([(e['kind'], e['estimateMs']) for e in plan['plan']][0], ('reused', 0))
+        data['coverage']['byTest'][uid] = {'logic.py': '1'}
+        plan = mutate(self.root, data, {**scope, 'plan': True}, config)
+        self.assertEqual({(e['kind'], e['estimateMs']) for e in plan['plan']}, {('no-coverage', 0)})
+
+    def test_plan_function_variants_follow_the_run(self):
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        scope = {'functions': True, 'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 10, 'maxSeconds': 20, 'seed': 3}}
+        _, calls = self.recorded(data, scope, config)
+        plan = mutate(self.root, data, {**scope, 'plan': True}, config)
+        self.assertEqual([e['id'] for e in plan['plan']], calls)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(plan['plan'][1]['after'], plan['plan'][0]['id'])
+        killed = {calls[0]: {'id': calls[0], 'source': 'logic.py', 'line': 2, 'operator': 'body-replace', 'status': 'killed'}}
+        plan = mutate(self.root, data, {**scope, 'plan': True, 'reuse': killed}, config)
+        self.assertEqual([e['kind'] for e in plan['plan']], ['reused'])
+
+    def test_plan_history_overrides_the_estimate(self):
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        data['tests'][0]['durationsMs'] = [30, 10, 20, 40]
+        scope = {'changed': {'logic.py': ''}, 'plan': True}
+        config = {'mutation': {'maxMutants': 2, 'maxSeconds': 20, 'seed': 3}}
+        first, second = mutate(self.root, data, scope, config)['plan']
+        self.assertEqual((first['estimateMs'], second['estimateMs']), (1025, 1025))
+        again = mutate(self.root, data, {**scope, 'history': {second['id']: 4321}}, config)['plan']
+        self.assertEqual([e['estimateMs'] for e in again], [1025, 4321])
+
+    def test_plan_ignores_max_seconds_for_the_choice(self):
+        import itertools
+        from types import SimpleNamespace
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        scope = {'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 3, 'maxSeconds': 1, 'seed': 3}}
+        expected = mutate(self.root, data, {**scope, 'plan': True}, config)
+        clock = itertools.count(0, 1000)
+        late = SimpleNamespace(monotonic=lambda: float(next(clock)), monotonic_ns=lambda: next(clock))
+        with patch('vibernt_cupel.mutation_run.time', late):
+            planned = mutate(self.root, data, {**scope, 'plan': True}, config)
+            ran, calls = self.recorded(data, scope, config)
+        self.assertEqual(planned, expected)
+        self.assertEqual(len(planned['plan']), 3)
+        self.assertEqual((ran['mutants'], calls), ([], []))
+
+    def test_only_runs_the_listed_ids_and_targets_only_them(self):
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        uid = data['tests'][0]['id']
+        scope = {'targeted': [uid]}
+        config = {'mutation': {'maxMutants': 20, 'maxSeconds': 20, 'seed': 3}}
+        plan = mutate(self.root, data, {**scope, 'plan': True}, config)['plan']
+        self.assertEqual(len(plan), 8)
+        ids = [e['id'] for e in plan]
+        wanted = [ids[5], ids[2]]
+        sliced, calls = self.recorded(data, {**scope, 'only': wanted}, config)
+        self.assertEqual(calls, [ids[2], ids[5]])
+        self.assertEqual({m['id'] for m in sliced['mutants']}, set(wanted))
+        self.assertEqual(sliced['targeted'], [uid])
+        self.assertFalse(sliced['sampled'])
+        rest, calls = self.recorded(data, {**scope, 'only': [i for i in ids if i not in wanted]}, config)
+        self.assertEqual(len(calls), 6)
+        self.assertEqual(rest['targeted'], [uid])
+        failing, _ = self.recorded(data, {**scope, 'only': wanted}, config, status='error')
+        self.assertEqual(failing['targeted'], [])
+        # Faults the plan left out (cap) still keep the unit from being targeted.
+        small = {'mutation': {**config['mutation'], 'maxMutants': 4}}
+        some = [e['id'] for e in mutate(self.root, data, {**scope, 'plan': True}, small)['plan']]
+        capped, calls = self.recorded(data, {**scope, 'only': some}, small)
+        self.assertEqual(calls, some)
+        self.assertEqual(capped['targeted'], [])
+        self.assertTrue(capped['sampled'])
+        with self.assertRaises(ValueError):
+            mutate(self.root, data, {**scope, 'only': ['logic.py:9:1:nope:0']}, small)
+        # No-coverage rows listed in only are emitted without a run.
+        data['coverage']['byTest'][uid] = {'logic.py': '1'}
+        bare = [e['id'] for e in mutate(self.root, data, {'changed': {'logic.py': ''}, 'plan': True}, config)['plan']]
+        uncovered, calls = self.recorded(data, {'changed': {'logic.py': ''}, 'only': bare[:2]}, config)
+        self.assertEqual(calls, [])
+        self.assertEqual([m['status'] for m in uncovered['mutants']], ['no-coverage', 'no-coverage'])
+        self.assertTrue(all('durationMs' not in m for m in uncovered['mutants']))
+
+    def test_reused_row_in_only_is_copied(self):
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        scope = {'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 2, 'maxSeconds': 20, 'seed': 3}}
+        ids = [e['id'] for e in mutate(self.root, data, {**scope, 'plan': True}, config)['plan']]
+        row = {'id': ids[0], 'source': 'logic.py', 'line': 2, 'operator': 'x', 'status': 'killed', 'note': 'earlier'}
+        sliced, calls = self.recorded(data, {**scope, 'only': [ids[0]], 'reuse': {ids[0]: row}}, config)
+        self.assertEqual((sliced['mutants'], calls), ([row], []))
+
+    def test_duration_on_rows_that_ran(self):
+        data = self.input(self.BRANCH, 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        scope = {'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 2, 'maxSeconds': 20, 'seed': 3}}
+        plain, _ = self.recorded(data, scope, config)
+        self.assertTrue(all('durationMs' not in m for m in plain['mutants']))
+        timed, _ = self.recorded(data, {**scope, 'timings': True}, config, pause=.03)
+        self.assertEqual([{k: v for k, v in m.items() if k != 'durationMs'} for m in timed['mutants']], plain['mutants'])
+        self.assertTrue(all(isinstance(m['durationMs'], int) and m['durationMs'] >= 25 for m in timed['mutants']))
+        ids = [e['id'] for e in mutate(self.root, data, {**scope, 'plan': True}, config)['plan']]
+        sliced, _ = self.recorded(data, {**scope, 'only': ids[:1]}, config, pause=.03)
+        self.assertGreaterEqual(sliced['mutants'][0]['durationMs'], 25)
+
     def test_confirm_two_extra_runs(self):
         data = self.input('def value():\n    return True\n', 'from logic import value\ndef test_value():\n    assert True\n', '1-2')
         site = next(iter(generate('logic.py', self.source.read_text())))

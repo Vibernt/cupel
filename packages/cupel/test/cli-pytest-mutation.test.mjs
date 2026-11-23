@@ -38,7 +38,7 @@ if (!['collect', 'mutate'].includes(action)) process.exit(4);
     const run = spawnSync(process.execPath, [bin, 'report', '--runs', '1', '--out', output, '--json'], { cwd: root, encoding: 'utf8' });
     assert.equal(run.status, 0, run.stderr);
     assert.equal(JSON.parse(readFileSync(output, 'utf8')).mutation.seed, 123);
-    assert.deepEqual(JSON.parse(readFileSync(trace, 'utf8')), { action: 'mutate', scope: { critical: true, changed: null } });
+    assert.deepEqual(JSON.parse(readFileSync(trace, 'utf8')), { action: 'mutate', scope: { critical: true, changed: null, timings: true } });
     const base = join(root, 'base.json');
     writeFileSync(base, JSON.stringify(input));
     const check = spawnSync(process.execPath, [bin, 'check', 't1', '--base-input', base, '--runs', '1', '--json'], { cwd: root, encoding: 'utf8' });

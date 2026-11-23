@@ -34,7 +34,9 @@ so `--json` prints exactly the engine's report (`spec/schemas/report.schema.json
 | `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]` | Collects [Rust](rust.md) tests with isolated LLVM coverage |
 | `cupel collect-node [--root DIR] [--out FILE] [--junit FILE] [--runs N] [--shard I/N \| --tests FILE ...] [-- <node test flags>...]` | Runs node:test as the CI test step and writes complete collection input; default one run |
 | `cupel merge-inputs <shard.json...> --out FILE [--json]` | Validates and merges all disjoint shards of one suite |
-| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7) |
+| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--runner NAME] [--shard I/N]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7). `--runner` limits it to one runner; `--shard I/N` runs slice I of the plan's N slices ([slicing](speed.md#slicing-across-ci-machines)) |
+| `cupel mutate --input FILE --plan [--out FILE] [--runner NAME] [--cores N] [--startup-seconds S] [--target-minutes M] [--max-shards N] [--json]` | Plans fault testing without running it: faults per runner, an estimate and the suggested number of slices |
+| `cupel merge-mutations --input FILE --out FILE <part.json...>` | Joins slices and whole runs of the same collected input into one input; refuses mismatched, missing or doubled slices |
 
 `cupel mcp [--root <dir>]` starts the [local MCP server](mcp.md) over stdio.
 

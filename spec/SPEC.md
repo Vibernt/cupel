@@ -85,6 +85,8 @@ An input MAY contain `collection`. Its required `runs` is a positive integer cou
 - `description`: optional, a human-readable description of the fault, such as `replace > with >= in looks_secret`.
 - `basis`: optional, `sha256:` and 64 hex digits: what the row's outcome depends on (K15). The engine does not read it.
 - `reused`: optional, `true` when the row was copied from an earlier input under K15 instead of being run. The engine treats a reused row like any other.
+- `durationMs`: optional, the wall time in milliseconds this fault's tests took when it was run (retries included). The engine does not read it; plans use it as the fault's estimate next time.
+- `mutation.shard`: optional, present on a slice (`cupel mutate --shard`): `runner` (or `*` for every runner), `index`, `total`, `plan` (`sha256:` over the planned faults and the number of slices) and `assigned` (the faults given to this slice). Slices of one plan are joined by `merge-mutations`, which removes it. The engine does not read it.
 
 A mutant is **detected** when its status is `killed` or `timeout`.
 
