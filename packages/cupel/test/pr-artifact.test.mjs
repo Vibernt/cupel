@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { sealNodeProfileBaseline, loadPinnedNodeProfileBaseline } from '../src/pr/artifact.mjs';
 import { nodeProfileProducerProof } from '../src/pr/producer.mjs';
 import { nodeProfileRuntimeIdentity } from '../src/pr/runtime.mjs';
+import { NODE26 } from './support/node-paths.mjs';
 
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
 const sha = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -19,7 +20,7 @@ function artifact() {
   const inputManifest = { [source]: sha('source'), [file]: sha('test') };
   return { version: 'cupel-pr-baseline/1', profile: 'node-readonly-files-v2',
     baseCommit: commit, privacyPolicy: 'strict-v1', producer,
-    runtime: nodeProfileRuntimeIdentity('/opt/homebrew/Cellar/node/26.7.0/bin/node'),
+    runtime: nodeProfileRuntimeIdentity(NODE26),
     git: { commit, inputManifest, opaqueRootNpmrc: 'absent', opaqueGit: null }, config: {},
     collection: { mode: 'full', inputPolicy: 'strict-v1', fullFiles: [file],
       runRows: [parityRows, parityRows],

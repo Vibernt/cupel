@@ -14,7 +14,7 @@ import { environment, usage } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
-import { mergeRunners, runnerParts } from './merge-runners.mjs';
+import { mergeRunners, runnerParts, splitRunnerInput } from './merge-runners.mjs';
 import { applyBuiltInto } from './built-into.mjs';
 import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
@@ -324,7 +324,8 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
   if (!mutationRequested(scope)) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
-    const parts = runnerParts(input);
+    // A saved multi-runner input (`--input`) is split back into its runners' parts.
+    const parts = runnerParts(input) ?? (input.runtimes?.length > 1 ? splitRunnerInput(input) : null);
     if (parts) {
       const mutations = [];
       const owners = new Map();

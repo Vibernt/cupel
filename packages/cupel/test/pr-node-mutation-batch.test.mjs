@@ -7,9 +7,10 @@ import { sourceMutants } from '../src/mutate/sites.mjs';
 import { collectNodeProfile } from '../src/pr/profiles/node/collect.mjs';
 import { runNodeProfileMutationBatch } from '../src/pr/profiles/node/mutation-batch.mjs';
 import { nodeProfileProducerProof } from '../src/pr/producer.mjs';
+import { NODE26 } from './support/node-paths.mjs';
 
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 
 function fixture(assertion) {
   mkdirSync(scratch, { recursive: true });

@@ -5,9 +5,10 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prPackageSmoke } from '../../../scripts/pr-package-smoke.mjs';
+import { NODE26 } from './support/node-paths.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 function checked(command, args, options) {
   const value = spawnSync(command, args, { encoding: 'utf8', timeout: 60_000,
     maxBuffer: 16 << 20, ...options });

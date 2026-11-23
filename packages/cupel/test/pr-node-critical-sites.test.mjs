@@ -5,9 +5,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { criticalProfileSites } from '../src/pr/profiles/node/critical-sites.mjs';
+import { NODE26, NODE22 } from './support/node-paths.mjs';
 
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 const sha = text => `sha256:${createHash('sha256').update(text).digest('hex')}`;
 
 function fixture(text = 'module.exports = value => value + 1;\n') {
@@ -55,7 +56,7 @@ test('Node 22 critical site enumeration refuses before source analysis', () => {
   try {
     assert.throws(() => criticalProfileSites({ root: f.root, input: f.input,
       manifest: f.manifest, config: { tiers: { critical: [f.source] } },
-      nodePath: '/opt/homebrew/opt/node@22/bin/node' }),
+      nodePath: NODE22 }),
     /require verified Node 26\.7\.0/);
   } finally { f.close(); }
 });

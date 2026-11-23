@@ -10,12 +10,13 @@ import { runNodeProfileAttempt as attempt } from '../src/pr/profiles/node/attemp
 import { nodeProfileProducerProof } from '../src/pr/producer.mjs';
 import { collectNode } from '../src/collect/node/index.mjs';
 import { analyse, coveredLines, formatLines } from '../src/collect/node/lines.mjs';
+import { NODE26, NODE22 } from './support/node-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const scratch = join(repo, '.scratch');
 const profile = fileURLToPath(new URL('../src/pr/profiles/node/', import.meta.url));
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-const runtimes = [['26', '/opt/homebrew/Cellar/node/26.7.0/bin/node']];
+const runtimes = [['26', NODE26]];
 const runNodeProfileAttempt = options => attempt({ ...options,
   expectedProducerHash: nodeProfileProducerProof().producerHash });
 
@@ -39,7 +40,7 @@ test('Node 22 v2 attempt refuses before subject execution', () => {
   const f = fixture();
   try {
     assert.throws(() => runNodeProfileAttempt({ root: f.root, file: 'tests/math.test.cjs',
-      out: join(f.out, 'node22-refusal'), nodePath: '/opt/homebrew/opt/node@22/bin/node' }),
+      out: join(f.out, 'node22-refusal'), nodePath: NODE22 }),
     /requires verified Node 26\.7\.0; got 22\.23\.3/);
   } finally { f.close(); }
 });

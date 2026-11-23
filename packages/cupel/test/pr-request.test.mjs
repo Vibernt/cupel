@@ -7,9 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { prepareNodeProfileBaseline } from '../src/pr/prepare.mjs';
 import { runNodeProfileRequest } from '../src/pr/request.mjs';
 import { nodeProfileProducerProof } from '../src/pr/producer.mjs';
+import { NODE26, NODE22 } from './support/node-paths.mjs';
 
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 function git(root, ...args) {
   const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', timeout: 30000 });
   assert.equal(result.status, 0, result.stderr);
@@ -183,7 +184,7 @@ test('noncode change takes declared profile-full route', () => {
 test('Node 22 PR request refuses before subject execution', () => {
   const f = fixture();
   try {
-    assert.throws(() => f.request({ nodePath: realpathSync('/opt/homebrew/opt/node@22/bin/node') }),
+    assert.throws(() => f.request({ nodePath: realpathSync(NODE22) }),
       /requires Node 26\.7\.0/);
   } finally { f.close(); }
 });

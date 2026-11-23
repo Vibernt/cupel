@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { profileCandidateValidity } from '../src/pr/profiles/node/validity.mjs';
+import { NODE26 } from './support/node-paths.mjs';
 
-const nodePath = '/opt/homebrew/Cellar/node/26.7.0/bin/node';
+const nodePath = NODE26;
 
 test('fixed Node 26 validity worker distinguishes valid and invalid CommonJS, ESM and erasable TS', () => {
   const result = profileCandidateValidity([
