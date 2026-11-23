@@ -39,6 +39,7 @@
             "backend": { "enum": ["cargo-mutants", "cupel-rust"] },
             "command": { "type": "string", "minLength": 1, "description": "The cargo-mutants executable; default cargo-mutants on PATH." },
             "jobs": { "type": "integer", "minimum": 1, "description": "Parallel cargo-mutants jobs; default 1." },
+            "wholeWorkspace": { "type": "boolean", "description": "Test every workspace package for every fault (--test-workspace=true) instead of only the packages whose tests run the faulty lines; use when features differ between a package alone and the whole workspace." },
             "args": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Extra cargo-mutants arguments, such as --exclude-re." },
             "crossRunner": {
               "type": "object",
@@ -87,7 +88,15 @@
         "targeted": { "type": "boolean", "default": true, "description": "With report --evidence, mutate the own lines of units being reviewed (D5)." },
         "maxMutants": { "type": "integer", "minimum": 1, "default": 200 },
         "maxSeconds": { "type": "integer", "minimum": 1, "default": 300 },
-        "seed": { "type": "integer", "default": 20261021 }
+        "seed": { "type": "integer", "default": 20261021 },
+        "reuse": {
+          "description": "K15: copy fault results of an earlier input whose basis still holds. false switches reuse off; ignore lists project files whose changes never affect test outcomes (for example docs no test reads); env adds environment variables whose values change test outcomes.",
+          "default": true,
+          "anyOf": [
+            { "type": "boolean" },
+            { "type": "object", "additionalProperties": false, "properties": { "ignore": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "env": { "type": "array", "items": { "type": "string", "minLength": 1 } } } }
+          ]
+        }
       }
     },
     "guard": {

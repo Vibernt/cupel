@@ -5,13 +5,16 @@ core JS/TS/Python ordinary full guard, bounded Go/Ruby/Rust previews, the
 workerd preview and experimental selection outside the supported first release.
 What 0.2.0 adds (`cupel audit`, Rust on any OS with cargo-mutants, Worker code in
 workerd, mixed-language labelling) is in the
-[0.2.0 candidate record](../plans/results/2026-11-23-0.2.0-candidate.md).
+[0.2.0 record](../plans/results/2026-11-23-0.2.0-candidate.md); 0.3.0 makes fault testing
+faster ([0.3.0 record](../plans/results/2026-11-23-0.3.0-release.md), [Faster fault testing](speed.md)).
 
 ## Getting started
 
 - [Install from the source checkout](install.md): source CLI, offline npm tarball and Python wheel.
 - [Review and protect a change](private-use.md): installed workflow, baseline choice and artifact provenance.
 - [Support matrix](support.md): exact tested versions, scope boundaries and unverified gates.
+- [Best practices](best-practices.md): what to run when, how to read results, agents, mixed-language repositories, Rust and Workers.
+- [Faster fault testing](speed.md): what Cupel skips on its own, the settings, reuse of earlier results, and CI recipes.
 
 ## Usage
 

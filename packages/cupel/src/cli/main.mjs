@@ -22,6 +22,7 @@ import { CargoMutantsError, importCargoMutants } from '../mutate-cargo/import.mj
 import { XmlError } from './xml.mjs';
 import { bodySitesPytest } from './collect.mjs';
 import { sourceMutants } from '../mutate/sites.mjs';
+import { previousInput } from '../mutate/reuse.mjs';
 import { inheritRunnerParts, splitRunnerInput, runnerParts, mergeRunners } from './merge-runners.mjs';
 import { analyzePseudo } from '../analysis/pseudo.mjs';
 import { nodeFlags } from './node-flags.mjs';
@@ -65,30 +66,30 @@ const COMMANDS = {
     options: { input: S, out: S },
   },
   report: {
-    usage: 'cupel report [--input <file>] [--evidence] [--no-mutation] [--runs N] [--out <file>] [--generated-at <text>]',
+    usage: 'cupel report [--input <file>] [--evidence] [--no-mutation] [--reuse <file> | --no-reuse] [--runs N] [--out <file>] [--generated-at <text>]',
     about: 'score every test and give advice',
-    options: { input: S, out: S, evidence: B, 'no-mutation': B, runs: S, 'generated-at': S },
+    options: { input: S, out: S, evidence: B, 'no-mutation': B, runs: S, 'generated-at': S, reuse: S, 'no-reuse': B },
   },
   review: {
     usage: 'cupel review [--input FILE] [--config FILE] [--units ID_OR_FILE ...] [--limit N] [--assertions FILE] [--json]',
     about: 'pack test evidence for an agent to review before changing tests',
-    options: { input: S, units: { type: 'string', multiple: true }, limit: S, assertions: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
+    options: { input: S, units: { type: 'string', multiple: true }, limit: S, assertions: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S, reuse: S, 'no-reuse': B },
   },
   audit: {
     usage: 'cupel audit [--input FILE] [--config FILE] [--limit N] [--no-mutation] [--runs N] [--out FILE] [--json]',
     about: 'answer six questions about the suite: wrong tests, tests that catch nothing, overlap, combining, coverage, speed (read-only)',
-    options: { input: S, limit: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S },
+    options: { input: S, limit: S, out: S, runs: S, 'no-mutation': B, 'generated-at': S, reuse: S, 'no-reuse': B },
   },
   check: {
-    usage: 'cupel check <test ids or files...> [--base <ref> | --base-input <file>] [--input <file>] [--no-mutation] [--runs N]',
+    usage: 'cupel check <test ids or files...> [--base <ref> | --base-input <file>] [--input <file>] [--no-mutation] [--reuse <file> | --no-reuse] [--runs N]',
     about: 'does a new or changed test add anything?',
-    options: { input: S, 'head-input': S, 'base-input': S, base: S, out: S, 'no-mutation': B, runs: S, 'generated-at': S },
+    options: { input: S, 'head-input': S, 'base-input': S, base: S, out: S, 'no-mutation': B, runs: S, 'generated-at': S, reuse: S, 'no-reuse': B },
     positionals: true,
   },
   guard: {
-    usage: 'cupel guard (--base <ref> | --base-input <file>) [--head-input <file>] [--approvals <file>] [--allow-runtime-change] [--no-mutation] [--runs N]',
+    usage: 'cupel guard (--base <ref> | --base-input <file>) [--head-input <file>] [--approvals <file>] [--allow-runtime-change] [--no-mutation] [--changed <ref>] [--reuse <file> | --no-reuse] [--out <file>] [--runs N]',
     about: 'fail if coverage or critical mutation score falls',
-    options: { base: S, 'base-input': S, 'head-input': S, approvals: S, 'allow-runtime-change': B, 'no-mutation': B, runs: S, 'generated-at': S },
+    options: { base: S, 'base-input': S, 'head-input': S, approvals: S, 'allow-runtime-change': B, 'no-mutation': B, runs: S, 'generated-at': S, reuse: S, 'no-reuse': B, out: S, changed: S },
   },
   plan: {
     usage: 'cupel plan [--changed <ref> | --changed-lines <file>] [--input <file>] [--runs N]',
@@ -140,9 +141,9 @@ const COMMANDS = {
     options: { out: S }, positionals: true,
   },
   mutate: {
-    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE]',
+    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE] [--reuse FILE | --no-reuse]',
     about: 'mutate a precollected input from the working tree',
-    options: { input: S, out: S, 'base-input': S, changed: S, root: S },
+    options: { input: S, out: S, 'base-input': S, changed: S, root: S, reuse: S, 'no-reuse': B },
   },
   mcp: {
     usage: 'cupel mcp [--root <dir>]',
@@ -205,6 +206,7 @@ class Context {
     this.args = {};
     this.skipped = [];
     this.runs(); // validates --runs up front, whatever the command reads
+    if (this.o['no-reuse'] && this.o.reuse !== undefined) throw usage('use either --reuse or --no-reuse, not both');
     if (this.o['generated-at'] !== undefined) this.args.generatedAt = this.o['generated-at'];
   }
 
@@ -258,6 +260,27 @@ class Context {
     return this.o.base !== undefined || this.o['base-input'] !== undefined;
   }
 
+  /**
+   * K15: the earlier input whose still-valid fault results may be copied: `--reuse FILE`, else
+   * `.cupel/input.json` when it exists and holds mutation; none with `--no-reuse`.
+   */
+  previous() {
+    if (this._previous === undefined) {
+      // guard, check and mutate judge a change: the in-tree .cupel/input.json could come from that
+      // very change, so they reuse only a file named with --reuse (a trusted CI cache, say).
+      const gating = ['guard', 'check', 'mutate'].includes(this.command);
+      const off = !!this.o['no-reuse'] || (gating && this.o.reuse === undefined);
+      try { this._previous = previousInput({ file: this.o.reuse === undefined ? undefined : this.path(this.o.reuse), off, root: this.root, log: this.log }); }
+      catch (e) { throw usage(`--reuse: ${e.message}`); }
+    }
+    return this._previous;
+  }
+
+  /** Cupel's own files for this run (--reuse, --out): never part of a reuse basis. */
+  ownFiles() {
+    return [this.o.reuse, this.o.out].filter((p) => p !== undefined).map((p) => this.path(p));
+  }
+
   async mutator() {
     if (this.o['no-mutation']) return null;
     const m = await loadModule('mutator', this.env);
@@ -288,7 +311,7 @@ async function collectHead(ctx, { collector, mutator, cfg, changed }) {
   let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped });
   if (mutator) {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
-    const m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
+    const m = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
     if (m) input = inheritRunnerParts(input, { ...input, mutation: m });
   }
   return input;
@@ -298,7 +321,7 @@ async function collectHead(ctx, { collector, mutator, cfg, changed }) {
 function collectBase(ctx, { mutator, cfg, ref }) {
   return collectRef({ root: ctx.root, ref, cfg, runs: ctx.runs(), log: ctx.log, env: ctx.env }, async (dir, input, refCollector) => {
     if (!mutator) return input;
-    const m = await mutate(mutator, { root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log, collectorKind: refCollector.kind });
+    const m = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: dir, cfg, input, scope: { critical: cfg.mutation.critical }, log: ctx.log, collectorKind: refCollector.kind });
     return m ? inheritRunnerParts(input, { ...input, mutation: m }) : input;
   });
 }
@@ -308,6 +331,12 @@ async function baseAndHead(ctx, headOption) {
   const o = ctx.o;
   if (o.base !== undefined && o['base-input'] !== undefined) throw usage('use either --base or --base-input, not both');
   if (o.base !== undefined) checkRef(o.base, '--base');
+  if (o.changed !== undefined) {
+    if (o.base !== undefined) throw usage('--changed is for a saved base (--base-input); --base already gives the changed lines');
+    if (o['head-input'] !== undefined || o[headOption] !== undefined) throw usage('--changed needs a head that Cupel collects; it has no effect with a saved head input');
+    if (o['no-mutation']) throw usage('--changed chooses lines for mutation; it has no effect with --no-mutation');
+    checkRef(o.changed, '--changed');
+  }
   const headFile = o[headOption] ?? o['head-input'];
   const needCollector = headFile === undefined || o.base !== undefined;
   const cfg = ctx.effective();
@@ -318,11 +347,13 @@ async function baseAndHead(ctx, headOption) {
   let head;
   if (headFile !== undefined) head = ctx.readInput(headFile);
   else {
-    const changed = o.base !== undefined && mutator && cfg.mutation.changedLines ? changedLines(ctx.root, o.base) : null;
+    // Changed lines come from --base, or from --changed when the base is a saved input (CI keeps main's input).
+    const changedRef = o.base ?? o.changed;
+    const changed = changedRef !== undefined && mutator && cfg.mutation.changedLines ? changedLines(ctx.root, changedRef) : null;
     head = await collectHead(ctx, { collector, mutator, cfg, changed });
     if (mutator && base && head.mutation) {
       const ids = lostSurvivors(base, head);
-      const mutation = await confirm(mutator, { root: ctx.root, cfg, input: head, mutation: head.mutation, ids, log: ctx.log, collectorKind: collector.kind });
+      const mutation = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input: head, mutation: head.mutation, ids, log: ctx.log, collectorKind: collector.kind });
       head = inheritRunnerParts(head, { ...head, mutation });
     }
     ctx.writeCollected(head, null);
@@ -384,12 +415,12 @@ const commands = {
       const partCfg = name ? { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } } : cfg;
       let mutation;
       if (!part.mutation) {
-        mutation = await mutate(mutator, { root: ctx.root, cfg: partCfg, input: part, scope: { functions: true }, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind, diagnostics: ctx.skipped });
+        mutation = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg: partCfg, input: part, scope: { functions: true }, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind, diagnostics: ctx.skipped });
       } else if (part.mutation.mutants.some((m) => m.operator !== 'body-replace')) {
         throw usage('pseudo --input needs function-scope body-replace mutation data');
       } else mutation = part.mutation;
       const survivors = mutation.mutants.filter((m) => m.status === 'survived').map((m) => m.id);
-      mutation = await confirm(mutator, { root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind });
+      mutation = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind });
       const measured = { ...part, mutation };
       const sites = part.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg: partCfg, input: measured }) :
       Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
@@ -437,10 +468,10 @@ const commands = {
         const again = await collectTree(collector, { root: ctx.root, cfg, runs: 1, recheck: candidates, log: ctx.log, diagnostics: ctx.skipped });
         input = mergeRecheck(input, again);
         if (cfg.mutation.targeted) {
-          let m = await mutate(mutator, { root: ctx.root, cfg, input, scope: { critical: false, targeted: candidates }, log: ctx.log, collectorKind: collector.kind });
+          let m = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, scope: { critical: false, targeted: candidates }, log: ctx.log, collectorKind: collector.kind });
           if (m) {
             const survivors = m.mutants.filter((x) => x.status === 'survived').map((x) => x.id);
-            m = await confirm(mutator, { root: ctx.root, cfg, input, mutation: m, ids: survivors, log: ctx.log, collectorKind: collector.kind });
+            m = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, mutation: m, ids: survivors, log: ctx.log, collectorKind: collector.kind });
             input = inheritRunnerParts(input, { ...input, mutation: mergeMutation(input.mutation, m) });
           }
         }

@@ -3,14 +3,16 @@
 // the project is never changed; its output goes to Cupel's scratch directory.
 import { spawn } from 'node:child_process';
 import { chmodSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, writeFileSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { effectiveConfig } from '../engine/config.mjs';
 import { isCriticalSource } from '../engine/model.mjs';
 import { anyGlobMatches } from '../engine/match.mjs';
 import { parse } from '../engine/lines.mjs';
 import { mutationModel } from '../mutate/model.mjs';
 import { cmp } from '../engine/order.mjs';
-import { CargoMutantsError, importCargoMutants } from './import.mjs';
+import { prng, sample } from '../mutate/operators.mjs';
+import { wholeUnits } from '../mutate/index.mjs';
+import { CargoMutantsError, baseRow, importCargoMutants, mutantId, targetedUnits } from './import.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const noop = () => {};
@@ -70,6 +72,135 @@ export function scopeDiff(root, wanted) {
   return `${out.join('\n')}\n`;
 }
 
+const spanLines = (m) => {
+  const a = m.span.start.line;
+  return Array.from({ length: Math.max(a, m.span.end?.line ?? a) - a + 1 }, (_, i) => a + i);
+};
+
+/**
+ * Which test files run each line of the wanted sources: the coverage of passed
+ * tests, plus the setup and whole-file coverage of test files that have passed
+ * tests (the selection Session.select makes in mutate/index.mjs).
+ * Map(source → Map(line → Set(test file))).
+ */
+export function lineRunners(input, wanted) {
+  const runners = new Map();
+  const add = (file, row) => {
+    for (const [source, spec] of Object.entries(row ?? {})) {
+      if (!wanted.has(source)) continue;
+      if (!runners.has(source)) runners.set(source, new Map());
+      const byLine = runners.get(source);
+      for (const n of lines(parse(spec).set)) {
+        if (!byLine.has(n)) byLine.set(n, new Set());
+        byLine.get(n).add(file);
+      }
+    }
+  };
+  const passed = input.tests.filter((t) => t.status === 'passed');
+  for (const t of passed) add(t.file, input.coverage?.byTest?.[t.id]);
+  const files = new Set(passed.map((t) => t.file));
+  for (const index of [input.coverage?.setup, input.coverage?.byFile]) {
+    for (const [file, row] of Object.entries(index ?? {})) if (files.has(file)) add(file, row);
+  }
+  return runners;
+}
+
+/** A seeded shuffle, the same as seededOrder in mutate/index.mjs. */
+function seededOrder(items, seed) {
+  const out = [...items];
+  const rand = prng(seed);
+  for (let k = out.length - 1; k > 0; k--) {
+    const j = Math.floor(rand() * (k + 1));
+    [out[k], out[j]] = [out[j], out[k]];
+  }
+  return out;
+}
+
+/**
+ * Which listed mutants a Cupel scope gets, before anything runs:
+ * { noCoverage, candidates, chosen, reused, run, sampled, seed }.
+ *
+ * In scope is every listed mutant that `--in-diff` would pick for the wanted
+ * lines (its span touches one) and whose line the coverage input can count.
+ * A mutant on lines no passed test runs is a `noCoverage` row now: no test
+ * could fail on it, so running it would only cost a build. The rest are
+ * `candidates`; `mutation.maxMutants` of them are `chosen` by the JS mutator's
+ * rule: targeted units' own lines first, whole units when those alone exceed
+ * the cap, then a seeded sample (`mutation.seed`) of the others. A chosen
+ * mutant whose id is in `scope.reuse` takes that stored row (`reused`) and
+ * counts toward the cap as if it ran; the others are `run`.
+ */
+export function planCargoMutants({ input, cfg, wanted, listing, scope = {} }) {
+  const { maxMutants, seed } = cfg.mutation;
+  const runners = lineRunners(input, wanted);
+  const coverable = new Map([...wanted.keys()].map((source) => [source, new Set(lines(parse(input.sources[source]?.coverable ?? '').set))]));
+  const noCoverage = [];
+  const candidates = [];
+  for (const entry of listing) {
+    const row = baseRow(entry);
+    const want = wanted.get(row.source);
+    if (!want || !coverable.get(row.source).has(row.line)) continue;
+    const touched = spanLines(entry);
+    if (!touched.some((n) => want.has(n))) continue;
+    const covered = touched.filter((n) => runners.get(row.source)?.has(n));
+    if (!covered.length) { noCoverage.push({ ...row, status: 'no-coverage' }); continue; }
+    const files = new Set(covered.flatMap((n) => [...runners.get(row.source).get(n)]));
+    const diffLines = covered.filter((n) => want.has(n));
+    candidates.push({ ...row, column: entry.span.start.column, name: entry.name, files, diffLines: diffLines.length ? diffLines : [row.line] });
+  }
+  candidates.sort((a, b) => cmp(a.source, b.source) || a.line - b.line || a.column - b.column || cmp(a.id, b.id));
+  noCoverage.sort((a, b) => cmp(a.id, b.id));
+
+  let chosen = candidates;
+  if (candidates.length > maxMutants) {
+    const model = mutationModel(input, cfg, scope.targeted ?? []);
+    const own = new Map();
+    for (const uid of scope.targeted ?? []) if (model.unitById.has(uid)) own.set(uid, model.unitById.get(uid).own);
+    const onTargeted = (c) => [...own.values()].some((o) => o.get(c.source)?.some(([a, b]) => c.line >= a && c.line <= b));
+    const first = candidates.filter(onTargeted);
+    const rest = candidates.filter((c) => !onTargeted(c));
+    const preferred = first.length >= maxMutants ? wholeUnits(first, own, maxMutants) : [...first, ...sample(rest, maxMutants - first.length, seed)];
+    const picked = new Set(preferred);
+    // As in the JS mutator, whole units that leave room are topped up from the
+    // remaining targeted sites, then the rest, in seeded order.
+    const ordered = [...preferred, ...seededOrder(first.filter((c) => !picked.has(c)), seed), ...seededOrder(rest.filter((c) => !picked.has(c)), seed)];
+    const keep = new Set(ordered.slice(0, maxMutants));
+    chosen = candidates.filter((c) => keep.has(c));
+  }
+  const reuse = scope.reuse ?? {};
+  const isReused = (c) => Object.hasOwn(reuse, c.id);
+  return { noCoverage, candidates, chosen, reused: chosen.filter(isReused).map((c) => reuse[c.id]), run: chosen.filter((c) => !isReused(c)),
+    sampled: chosen.length < candidates.length, seed };
+}
+
+/**
+ * The `--test-package` names for a run, or null for `--test-workspace=true`.
+ * `packages` is the workspace's [{ name, dir }]; each test file belongs to the
+ * package with the deepest directory holding it (as the cargo collector maps
+ * `--tests` globs). Null when some file has no package or every package is needed.
+ */
+export function testPackages(packages, testFiles) {
+  const names = new Set();
+  for (const file of testFiles) {
+    const owner = packages.filter((p) => !p.dir || p.dir === '.' || file.startsWith(`${p.dir}/`)).sort((a, b) => b.dir.length - a.dir.length)[0];
+    if (!owner) return null;
+    names.add(owner.name);
+  }
+  if (!names.size || names.size >= new Set(packages.map((p) => p.name)).size) return null;
+  return [...names].sort(cmp);
+}
+
+/** The workspace's packages from `cargo metadata --no-deps` (no build, no network), or null when it cannot be read. */
+async function workspacePackages(root, env) {
+  const cargo = env.CARGO ?? findTool('cargo', env);
+  if (!cargo) return null;
+  try {
+    const result = await execute(cargo, ['metadata', '--offline', '--format-version=1', '--no-deps'], { cwd: root, env, log: noop });
+    if (result.status !== 0) return null;
+    return JSON.parse(result.stdout).packages.map((p) => ({ name: p.name, dir: relative(root, dirname(p.manifest_path)).split(sep).join('/') }));
+  } catch { return null; }
+}
+
 function findTool(command, env) {
   if (command.includes('/') || command.includes('\\')) return existsSync(command) ? command : null;
   const names = process.platform === 'win32' ? [`${command}.exe`, command] : [command];
@@ -102,9 +233,9 @@ function execute(command, args, { cwd, env, log }) {
 /** cargo-mutants exits 0 (all caught), 2 (some missed) or 3 (some timed out); anything else failed. */
 const ACCEPTED = new Set([0, 2, 3]);
 
-async function runCargoMutants({ tool, root, env, scratch, name, extra, log }) {
+async function runCargoMutants({ tool, root, env, scratch, name, extra, log, tests = ['--test-workspace=true'] }) {
   const out = join(scratch, name);
-  const args = ['mutants', '--no-shuffle', '--test-workspace=true', '--cargo-test-arg=--no-fail-fast', '--colors=never', '-o', out, ...extra];
+  const args = ['mutants', '--no-shuffle', ...tests, '--cargo-test-arg=--no-fail-fast', '--colors=never', '-o', out, ...extra];
   const result = await execute(tool, args, { cwd: root, env, log });
   if (!ACCEPTED.has(result.status)) refuse(`cargo-mutants failed (exit ${result.status}): ${(result.stderr || result.stdout).trim().split('\n').slice(-5).join(' | ')}`);
   return join(out, 'mutants.out');
@@ -126,21 +257,14 @@ function environmentFor(root, scratch, base, tool) {
   return env;
 }
 
-function untargeted(targeted, input, cfg, rows) {
-  if (!rows.length || !targeted.length) return targeted;
-  const model = mutationModel(input, cfg, targeted);
-  return targeted.filter((uid) => {
-    const own = model.unitById.get(uid)?.own;
-    return !rows.some((m) => own?.get(m.source)?.some(([a, b]) => m.line >= a && m.line <= b));
-  });
-}
-
 function escapeRegex(text) { return text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&'); }
 
 /**
  * mutateCargo({ root, input, config, scope, log }) → Cupel mutation object.
- * Runs every cargo-mutants mutant on the wanted lines, re-runs timeouts once
- * alone with a longer limit, and imports the result with per-test catches.
+ * Plans the scope's mutants (planCargoMutants), runs the chosen ones through
+ * cargo-mutants with every catching test recorded, re-runs timeouts once alone
+ * with a longer limit, and imports the result with per-test catches.
+ * `mutation.maxSeconds` does not apply: cargo-mutants runs to the end.
  */
 export async function mutateCargo({ root, input, config = {}, scope = {}, log = noop, environment = process.env } = {}) {
   const cfg = effectiveConfig(config, SCHEMA);
@@ -156,29 +280,61 @@ export async function mutateCargo({ root, input, config = {}, scope = {}, log = 
     const listed = await execute(tool, ['mutants', '--list', '--json', '--colors=never', ...(settings.args ?? [])], { cwd: root, env, log: noop });
     if (listed.status !== 0) refuse(`cargo mutants --list failed (exit ${listed.status}): ${listed.stderr.trim().split('\n').slice(-3).join(' | ')}`);
     const listing = JSON.parse(listed.stdout);
-    const diffPath = join(scratch, 'scope.diff');
-    writeFileSync(diffPath, scopeDiff(root, wanted));
-    const jobs = settings.jobs ?? 1;
-    log(`mutate-cargo: cargo-mutants on ${[...wanted.values()].reduce((n, s) => n + s.size, 0)} lines in ${wanted.size} files, ${jobs} job(s)`);
-    const outDir = await runCargoMutants({ tool, root, env, scratch, name: 'main', extra: ['--in-diff', diffPath, '-j', String(jobs), ...(settings.args ?? [])], log });
-    let { mutation, notes } = importCargoMutants({ root, input, outDir, listing });
-    // A timeout under load can be contention, not detection: re-run each once,
-    // alone, with ten times the usual limit, and keep that result.
-    const timedOut = JSON.parse(readFileSync(join(outDir, 'outcomes.json'), 'utf8')).outcomes
-      .filter((o) => o.summary === 'Timeout' && o.scenario?.Mutant).map((o) => o.scenario.Mutant.name);
-    if (timedOut.length) {
-      log(`mutate-cargo: re-running ${timedOut.length} timed-out mutant(s) alone`);
-      const again = await runCargoMutants({ tool, root, env, scratch, name: 'timeouts',
-        extra: ['-j', '1', '--timeout-multiplier', '10', ...timedOut.flatMap((n) => ['--re', `^${escapeRegex(n)}$`]), ...(settings.args ?? [])], log });
-      const rerun = importCargoMutants({ root, input, outDir: again }).mutation.mutants;
-      const byId = new Map(rerun.map((m) => [m.id, m]));
-      mutation = { ...mutation, mutants: mutation.mutants.map((m) => byId.get(m.id) ?? m) };
-      // A fault that still times out has no killer: a unit whose own lines hold
-      // it is no longer complete evidence (missing data is never "no kill").
-      mutation.targeted = untargeted(mutation.targeted, input, cfg, rerun.filter((m) => m.status === 'timeout'));
+    const plan = planCargoMutants({ input, cfg, wanted, listing, scope });
+    if (plan.noCoverage.length) log(`mutate-cargo: ${plan.noCoverage.length} mutant(s) on lines no passed test runs are no-coverage, not run`);
+    if (plan.sampled) log(`mutate-cargo: sampled ${plan.chosen.length} of ${plan.candidates.length} mutants on covered lines (seed ${plan.seed})`);
+    if (plan.reused.length) log(`mutate-cargo: ${plan.reused.length} result(s) reused from an earlier run`);
+    // Settled without running here: no-coverage and reused rows.
+    const toRun = new Set(plan.run.map((c) => c.id));
+    const ran = new Set([...plan.noCoverage.map((m) => m.id), ...plan.chosen.filter((c) => !toRun.has(c.id)).map((c) => c.id)]);
+    let imported = [];
+    if (plan.run.length) {
+      // Only the packages holding a passed test that runs a mutated line are
+      // tested. A test in any other package never executes that line (by the
+      // coverage input), so it cannot fail because of the fault: no catch is
+      // lost, and the per-test killers stay complete. Cargo still builds the
+      // mutated crate as their dependency. The package that owns each mutated
+      // file is always included too, so its own programs are rebuilt with the
+      // fault: a test that starts another package's program by path would
+      // otherwise run a stale, unmutated build.
+      const files = new Set([...plan.run.flatMap((c) => [...c.files]), ...plan.run.map((c) => c.source)]);
+      const packages = settings.wholeWorkspace ? null : await workspacePackages(root, env);
+      const chosenPackages = packages ? testPackages(packages, files) : null;
+      const tests = chosenPackages ? chosenPackages.map((name) => `--test-package=${name}`) : ['--test-workspace=true'];
+      const diffLines = new Map();
+      for (const c of plan.run) {
+        if (!diffLines.has(c.source)) diffLines.set(c.source, new Set());
+        for (const n of c.diffLines) diffLines.get(c.source).add(n);
+      }
+      const diffPath = join(scratch, 'scope.diff');
+      writeFileSync(diffPath, scopeDiff(root, diffLines));
+      const names = plan.run.flatMap((c) => ['--re', `^${escapeRegex(c.name)}$`]);
+      const jobs = settings.jobs ?? 1;
+      log(`mutate-cargo: cargo-mutants on ${plan.run.length} mutants in ${diffLines.size} files, testing ${chosenPackages ? `packages ${chosenPackages.join(', ')} of ${packages.length}` : 'the workspace'}, ${jobs} job(s)`);
+      const outDir = await runCargoMutants({ tool, root, env, scratch, name: 'main', tests, extra: ['--in-diff', diffPath, '-j', String(jobs), ...names, ...(settings.args ?? [])], log });
+      const imports = importCargoMutants({ root, input, outDir, testPackages: chosenPackages ?? undefined });
+      imported = imports.mutation.mutants;
+      const outcomes = JSON.parse(readFileSync(join(outDir, 'outcomes.json'), 'utf8')).outcomes.filter((o) => o.scenario?.Mutant);
+      for (const o of outcomes) ran.add(mutantId(o.scenario.Mutant));
+      // A timeout under load can be contention, not detection: re-run each once,
+      // alone, with ten times the usual limit, and keep that result.
+      const timedOut = outcomes.filter((o) => o.summary === 'Timeout').map((o) => o.scenario.Mutant.name);
+      if (timedOut.length) {
+        log(`mutate-cargo: re-running ${timedOut.length} timed-out mutant(s) alone`);
+        const again = await runCargoMutants({ tool, root, env, scratch, name: 'timeouts', tests,
+          extra: ['-j', '1', '--timeout-multiplier', '10', ...timedOut.flatMap((n) => ['--re', `^${escapeRegex(n)}$`]), ...(settings.args ?? [])], log });
+        const byId = new Map(importCargoMutants({ root, input, outDir: again, testPackages: chosenPackages ?? undefined }).mutation.mutants.map((m) => [m.id, m]));
+        imported = imported.map((m) => byId.get(m.id) ?? m);
+      }
+      const { notes } = imports;
+      log(`mutate-cargo: ${imported.length} mutants imported; ${notes.unviable} unviable, ${notes.uncompiled} in code not built for this host, ${notes.pinnedCreditDropped} source-pin catches not credited`);
     }
-    log(`mutate-cargo: ${mutation.mutants.length} mutants imported; ${notes.unviable} unviable, ${notes.uncompiled} in code not built for this host, ${notes.pinnedCreditDropped} source-pin catches not credited`);
-    return mutation;
+    const mutants = [...plan.noCoverage, ...plan.reused, ...imported].sort((a, b) => cmp(a.id, b.id));
+    for (let i = 1; i < mutants.length; i++) if (mutants[i].id === mutants[i - 1].id) refuse(`duplicate mutant id ${mutants[i].id}`);
+    // A fault that still times out, or was caught with no test credited, has no
+    // killer: a unit whose own lines hold it is not complete evidence.
+    const targeted = targetedUnits({ input, listing, ran, rows: mutants });
+    return { mutants, targeted, sampled: plan.sampled, ...(plan.sampled ? { seed: plan.seed } : {}) };
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 }
 

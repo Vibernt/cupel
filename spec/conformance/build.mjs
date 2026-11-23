@@ -1455,19 +1455,27 @@ kase('101-audit-false-tests-unmeasured', { description: 'Without mutation, or fo
   command: 'audit', rules: rules('-U3'),
   input: input({ tests: U_TESTS, cov: { a: '1-4', b: '1-4' }, mutation: { targeted: [], mutants: [m('m1', 2, 'survived')] } }),
   expectExit: 0, expected: { audit: { falseTests: { measured: true, units: [] } } } });
-kase('102-audit-overlap', { description: 'Units that catch the same faults form an overlap group, marked when their runners differ.',
+kase('102-audit-overlap', { description: 'Targeted units that catch the same faults form an overlap group, marked when their runners differ.',
   command: 'audit', rules: rules('+U4'),
   input: input({
     runtimes: [{ runner: 'node', name: 'node', version: '22.23.3' }, { runner: 'cargo', name: 'rust', version: '1.94.1' }],
     sources: { 'src/a.mjs': { coverable: '1-10' }, 'src/b.rs': { coverable: '1-10' } },
     tests: [t('a', 'tests/a.test.mjs', 'a', { runner: 'node' }), t('b', 'tests/b.rs', 'b', { runner: 'cargo' }), t('c', 'tests/c.test.mjs', 'c', { runner: 'node' })],
     cov: { a: '1-3', b: { 'src/b.rs': '1-3' }, c: '5' },
-    mutation: { targeted: [], mutants: [m('m1', 2, 'killed', ['a', 'b']), m('m2', 5, 'killed', ['c'])] },
+    mutation: { targeted: ['a', 'b', 'c'], mutants: [m('m1', 2, 'killed', ['a', 'b']), m('m2', 5, 'killed', ['c'])] },
   }),
   expectExit: 0, expected: { audit: { overlap: [{ basis: 'kills', units: ['a', 'b'], crossRunner: true }] } } });
 kase('103-audit-overlap-different', { description: 'Units whose caught faults differ are not grouped; without mutation, only equal own lines group.',
   command: 'audit', rules: rules('-U4'),
   input: input({ tests: U_TESTS, cov: { a: '1-3', b: '1-4', c: '1-3' } }),
+  expectExit: 0, expected: { audit: { overlap: [{ basis: 'lines', units: ['a', 'c'], crossRunner: false }] } } });
+kase('111-audit-overlap-partial-kills', { description: 'Units not in targeted may have partial kill sets, so they group by own lines, never by kills.',
+  command: 'audit', rules: rules('+U4'),
+  input: input({
+    tests: [t('a', 'tests/a.test.mjs'), t('c', 'tests/c.test.mjs')],
+    cov: { a: '1-3', c: '1-3' },
+    mutation: { targeted: [], mutants: [m('m1', 2, 'killed', ['a']), m('m2', 3, 'killed', ['c'])] },
+  }),
   expectExit: 0, expected: { audit: { overlap: [{ basis: 'lines', units: ['a', 'c'], crossRunner: false }] } } });
 kase('104-audit-combine', { description: 'Same-file groups carry a form for their language; same-language look-alikes across files are suggested as a shared helper.',
   command: 'audit', rules: rules('+U5'),

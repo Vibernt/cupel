@@ -12,6 +12,10 @@ from .mutation_source import SourceChangedError, SourceFacts
 
 _SPEC = json.loads(Path(os.environ['CUPEL_MUTANT_SPEC']).read_text(encoding='utf-8')) if os.environ.get('CUPEL_MUTANT_SPEC') else None
 _REPORT = os.environ.get('CUPEL_MUTANT_REPORT')
+_SESSION = None
+_KILLING_UNITS = set()
+# Stop once credited failures span this many units: a unique kill needs to know only whether a second unit catches it.
+STOP_AFTER_UNITS = 2
 
 
 def _write_report(value):
@@ -64,5 +68,20 @@ def pytest_runtest_logstart(nodeid, location):
     _write_report({'nodeid': nodeid, 'event': 'start'})
 
 
+def pytest_sessionstart(session):
+    global _SESSION
+    _SESSION = session
+
+
 def pytest_runtest_logreport(report):
     _write_report({'nodeid': report.nodeid, 'when': report.when, 'failed': report.failed, 'passed': report.passed})
+    if not (_SPEC and _SPEC.get('stop') and report.failed):
+        return
+    unit = _SPEC.get('units', {}).get(report.nodeid)
+    if unit is None or report.nodeid in _SPEC.get('ignore', ()):
+        return
+    _KILLING_UNITS.add(unit)
+    if len(_KILLING_UNITS) >= STOP_AFTER_UNITS and _SESSION is not None and not _SESSION.shouldfail:
+        # Pytest checks this after the current test's teardown, as it does for --maxfail, and exits with code 1.
+        _write_report({'event': 'stopped', 'units': sorted(_KILLING_UNITS)})
+        _SESSION.shouldfail = f'cupel: mutant caught by {len(_KILLING_UNITS)} units'

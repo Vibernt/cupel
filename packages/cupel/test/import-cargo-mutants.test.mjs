@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { importCargoMutants, mutantId, diffMatches } from '../src/mutate-cargo/import.mjs';
+import { importCargoMutants, mutantId, diffMatches, packageNames } from '../src/mutate-cargo/import.mjs';
+import { mutateCargo, planCargoMutants, testPackages, wantedLines } from '../src/mutate-cargo/run.mjs';
+import { sample } from '../src/mutate/operators.mjs';
+import { effectiveConfig } from '../src/engine/config.mjs';
 import { parseLog, rustcCompile } from '../src/mutate-cargo/logs.mjs';
 import { validate } from '../src/engine/schema.mjs';
 import { run } from '../src/engine/index.mjs';
@@ -159,10 +162,126 @@ test('cargo-mutants logs: Windows binaries, rustc wrappers, deaths and doctests'
   assert.equal(diffMatches('--- a\n+++ b\n@@ -2,2 +2,2 @@\n x\n-q\n+z\n', 'w\nx\ny\n'), false);
 });
 
+test('cargo-mutants import accepts a run Cupel restricted to chosen packages, and no other single-package run', () => {
+  assert.deepEqual(packageNames(['cargo', 'test', '--package=ws-cli@0.1.0', '-p', 'ws-core', '-pws-glue', '--no-fail-fast']), ['ws-cli', 'ws-core', 'ws-glue']);
+  const dir = scratchCopy((o) => {
+    for (const x of o.outcomes) for (const p of x.phase_results ?? []) if (p.phase === 'Test') p.argv = [...p.argv.filter((a) => a !== '--workspace'), '--package=ws-cli@0.1.0', '--package=ws-core@0.1.0'];
+  });
+  try {
+    assert.throws(() => importCargoMutants({ root, input, outDir: dir }), /--test-workspace=true/);
+    assert.throws(() => importCargoMutants({ root, input, outDir: dir, testPackages: ['ws-core', 'ws-glue'] }), /--test-workspace=true/);
+    assert.equal(importCargoMutants({ root, input, outDir: dir, testPackages: ['ws-cli', 'ws-core'] }).mutation.mutants.length, 17);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+const CONFIG_SCHEMA = JSON.parse(readFileSync(join(repo, 'packages/cupel/schemas/config.schema.json'), 'utf8'));
+const planFor = (scope, config = {}) => {
+  const cfg = effectiveConfig(config, CONFIG_SCHEMA);
+  return planCargoMutants({ input, cfg, wanted: wantedLines(input, cfg, scope), listing, scope });
+};
+const imported = importCargoMutants({ root, input, outDir }).mutation.mutants;
+const SECRETS_AND_GLUE = { changed: { 'core/src/secrets.rs': '1-3', 'glue/src/lib.rs': '1-3' } };
+
+test('mutate-cargo plan: mutants on lines no passed test runs are no-coverage rows, exactly as an import gives them, and never run', () => {
+  const plan = planFor(SECRETS_AND_GLUE);
+  assert.deepEqual(plan.noCoverage, imported.filter((m) => m.source === 'glue/src/lib.rs'));
+  assert.equal(plan.noCoverage.length, 2);
+  assert.ok(plan.noCoverage.every((m) => m.status === 'no-coverage' && !('killedBy' in m)));
+  assert.deepEqual(plan.run.map((c) => c.source), Array(6).fill('core/src/secrets.rs'));
+  assert.deepEqual([...new Set(plan.run.flatMap((c) => [...c.files]))].sort(), ['cli/tests/run.rs', 'core/tests/secrets.rs']);
+  assert.equal(plan.sampled, false);
+});
+
+test('mutate-cargo plan: only packages holding a passed test that runs the code are tested', () => {
+  const packages = [{ name: 'ws-core', dir: 'core' }, { name: 'ws-cli', dir: 'cli' }, { name: 'ws-glue', dir: 'glue' }];
+  assert.deepEqual(testPackages(packages, ['core/tests/secrets.rs', 'cli/tests/run.rs']), ['ws-cli', 'ws-core']);
+  assert.deepEqual(testPackages(packages, ['core/src/lib.rs']), ['ws-core']);
+  assert.equal(testPackages(packages, ['core/src/lib.rs', 'cli/tests/run.rs', 'glue/tests/x.rs']), null, 'every package: --test-workspace=true');
+  assert.equal(testPackages(packages, ['tools/tests/x.rs']), null, 'a test outside every package: the whole workspace');
+  assert.deepEqual(testPackages([{ name: 'root', dir: '' }, { name: 'inner', dir: 'crates/inner' }], ['crates/inner/tests/a.rs']), ['inner']);
+});
+
+test('mutate-cargo plan: maxMutants keeps a seeded sample, targeted units first and whole', () => {
+  const all = planFor({ changed: { 'core/src/secrets.rs': '1-3', 'core/src/lib.rs': '5-10', 'cli/src/main.rs': '1-8' } });
+  assert.equal(all.candidates.length, 15);
+  const capped = planFor({ changed: { 'core/src/secrets.rs': '1-3', 'core/src/lib.rs': '5-10', 'cli/src/main.rs': '1-8' } }, { mutation: { maxMutants: 4, seed: 7 } });
+  assert.deepEqual(capped.chosen.map((c) => c.id), sample(all.candidates, 4, 7).map((c) => c.id));
+  assert.equal(capped.sampled, true);
+  assert.equal(capped.seed, 7);
+  const again = planFor({ changed: { 'core/src/secrets.rs': '1-3', 'core/src/lib.rs': '5-10', 'cli/src/main.rs': '1-8' } }, { mutation: { maxMutants: 4, seed: 7 } });
+  assert.deepEqual(again.chosen.map((c) => c.id), capped.chosen.map((c) => c.id), 'same seed, same mutants');
+  // A targeted unit whose own-line mutants fit the cap is taken whole, before anything else.
+  const targeted = planFor({ changed: { 'core/src/secrets.rs': '1-3', 'cli/src/main.rs': '1-8' }, targeted: [EVEN] }, { mutation: { maxMutants: 8 } });
+  assert.deepEqual(targeted.chosen.map((c) => c.source), Array(8).fill('core/src/lib.rs'));
+  assert.equal(targeted.sampled, true);
+});
+
+/** A stand-in for cargo-mutants: lists the fixture's mutants and "runs" by copying the fixture output for the --re names. */
+function fakeCargoMutants() {
+  const dir = mkdtempSync(join(repo, '.scratch/cargo-mutants-fake-'));
+  const script = join(dir, 'cargo-mutants.cjs'); // CommonJS: the repository's package.json makes .js and bare files ESM
+  writeFileSync(script, `#!/usr/bin/env node
+const { appendFileSync, cpSync, readFileSync, writeFileSync } = require('node:fs');
+const { join } = require('node:path');
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(join(dir, 'argv.log'))}, JSON.stringify(args) + '\\n');
+if (args.includes('--list')) { process.stdout.write(readFileSync(${JSON.stringify(join(fixture, 'listing.json'))}, 'utf8')); process.exit(0); }
+const out = join(args[args.indexOf('-o') + 1], 'mutants.out');
+cpSync(${JSON.stringify(outDir)}, out, { recursive: true });
+const res = args.flatMap((a, i) => (a === '--re' ? [new RegExp(args[i + 1])] : []));
+const packages = args.filter((a) => a.startsWith('--test-package=')).map((a) => '--package=' + a.slice(15) + '@0.1.0');
+const outcomes = JSON.parse(readFileSync(join(out, 'outcomes.json'), 'utf8'));
+outcomes.outcomes = outcomes.outcomes.filter((o) => o.scenario === 'Baseline' || res.some((re) => re.test(o.scenario.Mutant.name)));
+if (packages.length) for (const o of outcomes.outcomes) for (const p of o.phase_results ?? []) p.argv = [...p.argv.filter((a) => a !== '--workspace'), ...packages];
+writeFileSync(join(out, 'outcomes.json'), JSON.stringify(outcomes));
+process.exit(2);
+`);
+  chmodSync(script, 0o755);
+  const project = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-mutants-project-')));
+  cpSync(root, project, { recursive: true });
+  const calls = () => readFileSync(join(dir, 'argv.log'), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+  return { script, project, calls, done: () => { rmSync(dir, { recursive: true, force: true }); rmSync(project, { recursive: true, force: true }); } };
+}
+
+test('mutateCargo: reused rows are copied and not run; no-coverage rows never start cargo-mutants', async () => {
+  const fake = fakeCargoMutants();
+  try {
+    const config = { runners: { cargo: { mutants: { command: fake.script } } } };
+    const secrets = imported.filter((m) => m.source === 'core/src/secrets.rs');
+    const reuse = Object.fromEntries(secrets.map((m) => [m.id, { ...m, reused: true }]));
+    // Everything reused or uncovered: only the listing runs.
+    const all = await mutateCargo({ root: fake.project, input, config, scope: { ...SECRETS_AND_GLUE, reuse } });
+    assert.deepEqual(fake.calls().map((args) => args.includes('--list')), [true]);
+    assert.deepEqual(all.mutants, [...imported.filter((m) => m.source === 'glue/src/lib.rs'), ...secrets.map((m) => ({ ...m, reused: true }))].sort((a, b) => (a.id < b.id ? -1 : 1)));
+    assert.equal(all.sampled, false);
+    assert.equal('seed' in all, false);
+    assert.ok(all.targeted.includes(KEY), JSON.stringify(all.targeted));
+    // One reused: the other five run, testing only the packages whose tests run secrets.rs.
+    const kept = secrets.find((m) => m.description === 'replace looks_secret -> bool with true');
+    const some = await mutateCargo({ root: fake.project, input, config, scope: { ...SECRETS_AND_GLUE, reuse: { [kept.id]: { ...kept, reused: true } } } });
+    const run = fake.calls().at(-1);
+    assert.equal(run.includes('--test-workspace=true'), false);
+    assert.deepEqual(run.filter((a) => a.startsWith('--test-package=')), ['--test-package=ws-cli', '--test-package=ws-core']);
+    assert.ok(run.includes('--in-diff') && run.includes('--cargo-test-arg=--no-fail-fast'));
+    const names = run.flatMap((a, i) => (run[i - 1] === '--re' ? [a] : []));
+    assert.equal(names.length, 5);
+    assert.equal(names.some((n) => n.includes('with true')), false);
+    assert.deepEqual(some.mutants, all.mutants.map((m) => (m.id === kept.id || m.source !== 'core/src/secrets.rs' ? m : secrets.find((s) => s.id === m.id))));
+    assert.ok(some.targeted.includes(KEY));
+    // Absent reuse with a cap: a seeded sample runs and the result says so.
+    const capped = await mutateCargo({ root: fake.project, input, config: { ...config, mutation: { maxMutants: 2, seed: 3 } }, scope: SECRETS_AND_GLUE });
+    assert.equal(fake.calls().at(-1).filter((a) => a === '--re').length, 2);
+    assert.equal(capped.mutants.filter((m) => m.status !== 'no-coverage').length, 2);
+    assert.equal(capped.sampled, true);
+    assert.equal(capped.seed, 3);
+    assert.equal(capped.targeted.includes(KEY), false, 'a unit with unsampled mutants is not complete evidence');
+  } finally { fake.done(); }
+});
+
 // Live cargo-mutants runs need the tool: CUPEL_CARGO_MUTANTS names the binary, or it is found on PATH.
 import { spawnSync } from 'node:child_process';
 import { delimiter } from 'node:path';
-import { existsSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 const tool = process.env.CUPEL_CARGO_MUTANTS
   ?? (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, process.platform === 'win32' ? 'cargo-mutants.exe' : 'cargo-mutants')).find((path) => existsSync(path));

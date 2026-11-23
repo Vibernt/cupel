@@ -56,8 +56,9 @@ def _run(root, nodeids, env, tmp, timeout, deadline, spec=None):
 
 
 class Session:
-    def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000):
+    def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000, targeted=()):
         self.root, self.input, self.config, self.tmp, self.deadline = root, input_data, config, tmp, deadline
+        self.targeted = set(targeted)
         self.facts = facts
         self.floor_ms = floor_ms
         self.tests = {t['id']: t for t in input_data['tests']}
@@ -85,6 +86,10 @@ class Session:
                     files.add(file)
         return [t for t in self.input['tests'] if t['status'] == 'passed' and t['file'] in files and (t in found or site.line in lines(cov.get('setup', {}).get(t['file'], {}).get(site.source, '')) or site.line in lines(cov.get('byFile', {}).get(t['file'], {}).get(site.source, '')))]
 
+    def needs_full(self, site):
+        """Whether a targeted unit covers the mutant, so every selected test must run."""
+        return any(t.get('unit', t['id']) in self.targeted for t in self.select(site))
+
     def baseline(self, selected):
         key = tuple(t['id'] for t in selected)
         if key not in self.baselines:
@@ -110,20 +115,25 @@ class Session:
         fact = self.facts.assert_fresh(site.source)
         spec_path = Path(self.tmp, tag + '.json')
         seen_path = Path(self.tmp, tag + '.seen')
+        ids = [t['id'].replace(' > ', '::') for t in selected]
+        passing = {t['id'].replace(' > ', '::'): t['id'] for t in selected}
+        baseline_failures = {r['nodeid'] for r in base['reports'] if r.get('failed')}
+        # Early stop (the plugin ends the session once credited failures span two units) unless a targeted unit
+        # covers the mutant: then every selected test runs, so its kill data is exact.
+        units = {t['id'].replace(' > ', '::'): t.get('unit', t['id']) for t in selected}
         spec_path.write_text(json.dumps({'source': site.source, 'root': str(self.root),
                                          'hash': fact.raw_hash, 'real': fact.path.real,
                                          'root_real': fact.path.root_real,
                                          'device': fact.path.device, 'inode': fact.path.inode,
-                                         'edits': site.edits, 'seen': str(seen_path)}), encoding='utf-8')
-        ids = [t['id'].replace(' > ', '::') for t in selected]
-        passing = {t['id'].replace(' > ', '::'): t['id'] for t in selected}
+                                         'edits': site.edits, 'seen': str(seen_path),
+                                         'units': units, 'ignore': sorted(baseline_failures),
+                                         'stop': not any(u in self.targeted for u in units.values())}), encoding='utf-8')
         def classify(run):
             if run['cut']:
                 return None
-            baseline_failures = {r['nodeid'] for r in base['reports'] if r.get('failed')}
             killers = sorted({passing[r['nodeid']] for r in run['reports'] if r.get('failed') and r['nodeid'] in passing and r['nodeid'] not in baseline_failures})
             if killers:
-                return 'killed', killers
+                return 'killed', killers  # also every early-stopped run: its stop needed two credited failures
             if run['timeout']:
                 started = {r['nodeid'] for r in run['reports'] if r.get('event') == 'start'}
                 ended = {r['nodeid'] for r in run['reports'] if r.get('when') == 'teardown'}
@@ -170,6 +180,9 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
     if cap < 1 or seconds < 1:
         raise ValueError('mutation maxMutants and maxSeconds must be positive')
     deadline = time.monotonic() + seconds
+    reuse = scope.get('reuse') or {}
+    if not isinstance(reuse, dict):
+        raise ValueError('scope.reuse must map mutant ids to mutant rows')
     wanted, own = scope_lines(input_data, scope, config)
     facts = SourceFacts(root, input_data)
     candidates, texts = [], {}
@@ -208,11 +221,11 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
     else:
         ordered = candidates
     jobs = max(1, jobs or (os.cpu_count() or 2) // 2)
-    results, invalid = {}, set()
+    results, invalid, reused = {}, set(), {}
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
-        session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms)
+        session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms, scope.get('targeted', []))
         cursor = 0
         while cursor < len(ordered) and len(results) < cap and time.monotonic() < deadline:
             phase_end = next((i for i in range(cursor, len(ordered)) if scope.get('functions') and
@@ -229,6 +242,15 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
                     compile(text, site.source, 'exec')
                 except (SyntaxError, ValueError):
                     invalid.add(site.id)
+                    continue
+                # Not when a targeted unit covers it: that unit needs every test run, and the earlier row may have stopped early.
+                if site.id in reuse and not session.needs_full(site):
+                    # A row from an earlier run stands in for this run, in its place and counted against the cap.
+                    row = reuse[site.id]
+                    if not isinstance(row, dict) or row.get('id') != site.id or 'status' not in row:
+                        raise ValueError(f'scope.reuse: {site.id} is not a mutant row with that id')
+                    reused[site.id] = json.loads(json.dumps(row))
+                    results[site.id] = (row['status'], list(row.get('killedBy', [])))
                 else:
                     valid.append((site, text))
             def check(item):
@@ -244,7 +266,7 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
                 if result is not None:
                     results[site.id] = result
         facts.assert_all_fresh()
-    mutants = [_entry(site, results[site.id]) for site in candidates if site.id in results]
+    mutants = [reused[site.id] if site.id in reused else _entry(site, results[site.id]) for site in candidates if site.id in results]
     eligible = ([s for s in candidates if s.variant == 0 or
                  results.get(primary_by_function.get(s.function_key), (None,))[0] == 'survived']
                 if scope.get('functions') else candidates)
@@ -268,7 +290,7 @@ def confirm(root, input_data, mutation, ids, config=None, jobs=None, timeout_flo
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pyconfirm-', dir=scratch) as tmp:
-        session = Session(root, input_data, config or {}, tmp, float('inf'), facts, timeout_floor_ms)
+        session = Session(root, input_data, config or {}, tmp, float('inf'), facts, timeout_floor_ms, mutation.get('targeted') or [])
         cache = {}
         for mid in sorted(set(ids)):
             if index[mid]['status'] != 'survived':

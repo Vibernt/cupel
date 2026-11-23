@@ -20,6 +20,7 @@ import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJe
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
 import { mutateRuby } from './native-mutation.mjs';
 import { stampCollection } from './collection.mjs';
+import { ReuseBasis, reusableRows, reuseEnabled, stampBasis } from '../mutate/reuse.mjs';
 
 const REAL = {
   collector: { url: new URL('../collect/node/index.mjs', import.meta.url), env: 'CUPEL_TEST_COLLECTOR', exports: ['collectNode'] },
@@ -319,8 +320,26 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
   }
 }
 
-/** Runs mutateNode for a scope; returns the mutation object, or null when the scope is empty. */
-export async function mutate(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
+/**
+ * Runs mutation for a scope; returns the mutation object, or null when the scope is empty.
+ * K15: rows of `previous` (an earlier input) whose basis still holds are copied instead of
+ * run, and every row of the result gets its basis for the next run.
+ */
+export async function mutate(mutator, options) {
+  const { root, cfg, input, scope, log, previous, ownFiles = [] } = options;
+  if (!mutationRequested(scope)) return null;
+  if (!reuseEnabled(cfg)) return mutateRuns(mutator, options);
+  const basis = new ReuseBasis({ root, input, cfg, ownFiles });
+  const reuse = previous ? reusableRows({ previous, basis }) : {};
+  if (previous) log(`reuse: ${Object.keys(reuse).length} of ${previous.mutation.mutants.length} earlier fault results still hold`);
+  const result = await mutateRuns(mutator, { ...options, scope: Object.keys(reuse).length ? { ...scope, reuse } : scope });
+  if (!result) return result;
+  const stamped = stampBasis(result, basis, new Set(Object.keys(reuse)));
+  if (mutationOwners.has(result)) mutationOwners.set(stamped, mutationOwners.get(result));
+  return stamped;
+}
+
+async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
   if (!mutationRequested(scope)) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
@@ -344,7 +363,7 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
       for (const { name, part, selected } of plans) {
         if (!mutationRequested(selected)) continue;
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
-        const result = await mutate(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
+        const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
         if (result) {
           mutations.push(result);
           for (const mutant of result.mutants) {
@@ -376,12 +395,13 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
     }
     if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log });
     if (input.runtime.name === 'ruby') {
-      const nativeScope = { ...scope,
+      const { reuse: _reuse, ...rubyScope } = scope;
+      const nativeScope = { ...rubyScope,
         changed: Object.fromEntries(Object.entries(scope.changed ?? {}).filter(([path]) => Object.hasOwn(input.sources, path))),
         targeted: scope.targeted ?? [] };
       return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
     }
-    const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] };
+    const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [], ...(scope.reuse ? { reuse: scope.reuse } : {}) };
     const ordinary = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics });
     // Phase 5: sources the tests run in workerd get their mutants in a scratch copy of the project.
     if (collectorKind || !Object.values(input.sources).some((s) => s.measuredIn)) return ordinary;
@@ -413,8 +433,16 @@ async function rustMutation(action, { root, cfg, input, scope, mutation, ids, lo
     : await cargo.confirmCargo({ root, config: cfg, input, mutation, ids, log });
 }
 
-/** K7: re-runs survivors through confirmSurvivors when the mutator provides it. */
-export async function confirm(mutator, { root, cfg, input, mutation, ids, log, collectorKind }) {
+/** K7: re-runs survivors through confirmSurvivors when the mutator provides it; changed rows get a new basis (K15). */
+export async function confirm(mutator, options) {
+  const { root, cfg, input, mutation, ownFiles = [] } = options;
+  const result = await confirmRuns(mutator, options);
+  if (result === mutation || !result || !reuseEnabled(cfg)) return result;
+  const kept = new Set(result.mutants.filter((row) => row.reused).map((row) => row.id));
+  return stampBasis(result, new ReuseBasis({ root, input, cfg, ownFiles }), kept);
+}
+
+async function confirmRuns(mutator, { root, cfg, input, mutation, ids, log, collectorKind }) {
   if (!ids.length) return mutation;
   log(`confirming ${ids.length} survivors`);
   try {
@@ -431,7 +459,7 @@ export async function confirm(mutator, { root, cfg, input, mutation, ids, log, c
         const partTargeted = (mutation.targeted ?? []).filter((id) => unitIds.has(id));
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
         if (selectedIds.length) {
-          const result = await confirm(mutator, { root, cfg: partCfg, input: part,
+          const result = await confirmRuns(mutator, { root, cfg: partCfg, input: part,
             mutation: { ...mutation, mutants: relevant, targeted: partTargeted },
             ids: selectedIds, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined });
           confirmed.push(...result.mutants);

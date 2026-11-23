@@ -130,7 +130,9 @@
               "type": "object",
               "additionalProperties": { "enum": ["assertion", "panic"] }
             },
-            "description": { "type": "string", "minLength": 1 }
+            "description": { "type": "string", "minLength": 1 },
+            "basis": { "$ref": "#/$defs/sha256" },
+            "reused": { "const": true }
             }
           }
         },

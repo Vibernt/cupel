@@ -30,6 +30,23 @@ export function mutantId(mutant) {
   return `${mutant.file}:${at.line}:${at.column}:${mutant.genre}:${sha8([mutant.function?.function_name ?? null, mutant.replacement, mutant.name])}`;
 }
 
+/** The fields of a Cupel row that come from the mutant alone (its id, place, operator and description). */
+export function baseRow(mutant) {
+  return { id: mutantId(mutant), source: mutant.file.replaceAll('\\', '/'), line: mutant.span.start.line, operator: mutant.genre,
+    description: mutant.name.replace(/^[^:]+:\d+:\d+: /, '') };
+}
+
+/** The package names a cargo test command line selects (`--package=ws-core@0.1.0`, `-p ws-core`). */
+export function packageNames(argv) {
+  const out = [];
+  argv.forEach((arg, i) => {
+    if (arg.startsWith('--package=')) out.push(arg.slice('--package='.length));
+    else if (arg === '-p' || arg === '--package') { if (i + 1 < argv.length) out.push(argv[i + 1]); }
+    else if (/^-p[^-]/.test(arg)) out.push(arg.slice(2));
+  });
+  return out.map((spec) => spec.split('@')[0]);
+}
+
 /** The innermost directory holding a Cargo.toml, at or above a source file. */
 function packageDir(root, file) {
   let dir = dirname(file);
@@ -60,14 +77,18 @@ export function diffMatches(diff, source) {
 const testPhase = (outcome) => outcome.phase_results?.find((phase) => phase.phase === 'Test');
 
 /**
- * importCargoMutants({ root, input, outDir, listing? }) →
+ * importCargoMutants({ root, input, outDir, listing?, testPackages? }) →
  * { mutation: { mutants, targeted, sampled? }, notes: { unviable, uncompiled, doctestOnly, pinnedCreditDropped } }
  *
  * `outDir` is the `mutants.out` directory. `listing` is the complete
  * `cargo mutants --list --json` array for the same tree and configuration;
  * without it no unit is `targeted` and `sampled` is left out.
+ * `testPackages` is only for runs Cupel started itself with `--test-package`:
+ * the package names it chose because they hold every passed test that runs
+ * the mutated lines (see mutateCargo). Such a run is accepted when its tests
+ * ran at least those packages; any other single-package run is refused.
  */
-export function importCargoMutants({ root, input, outDir, listing }) {
+export function importCargoMutants({ root, input, outDir, listing, testPackages }) {
   const outcomesPath = join(outDir, 'outcomes.json');
   if (!existsSync(outcomesPath)) refuse(`no outcomes.json in ${outDir}`);
   const outcomes = JSON.parse(readFileSync(outcomesPath, 'utf8'));
@@ -86,9 +107,10 @@ export function importCargoMutants({ root, input, outDir, listing }) {
     if (!argv) continue; // unviable mutants never reach the test phase
     if (argv.some((arg) => arg === 'nextest')) refuse('cargo-mutants ran tests with nextest, whose logs Cupel cannot read per test yet; rerun with test_tool = "cargo"');
     if (!argv.includes('--no-fail-fast')) refuse('cargo-mutants ran cargo test without --no-fail-fast, so later catching tests are missing; rerun with --cargo-test-arg=--no-fail-fast');
-    const onePackage = argv.some((arg) => arg.startsWith('--package=') || arg === '-p' || arg === '--package');
-    if (onePackage && !argv.includes('--workspace') && severalPackages) {
-      refuse('cargo-mutants tested only the mutated package, so tests in other packages never saw its faults; rerun with --test-workspace=true');
+    const named = packageNames(argv);
+    if (named.length && !argv.includes('--workspace') && severalPackages) {
+      const chosen = testPackages?.length && testPackages.every((name) => named.includes(name));
+      if (!chosen) refuse('cargo-mutants tested only the mutated package, so tests in other packages never saw its faults; rerun with --test-workspace=true');
     }
   }
 
@@ -147,7 +169,6 @@ export function importCargoMutants({ root, input, outDir, listing }) {
   };
 
   const notes = { unviable: 0, uncompiled: 0, doctestOnly: 0, pinnedCreditDropped: 0 };
-  const uncertain = new Set(); // source\0line of detected faults no test could be credited with
   const mutants = [];
   for (const o of results) {
     const m = o.scenario.Mutant;
@@ -161,12 +182,11 @@ export function importCargoMutants({ root, input, outDir, listing }) {
     if (!existsSync(join(root, file))) refuse(`${file} is not under ${root}; run from the project root or pass --root`);
     const diff = diffs.get(m.name);
     if (diff && !diffMatches(diff, readFileSync(join(root, file), 'utf8'))) refuse(`${file} changed since cargo-mutants ran (${m.name})`);
-    const base = { id: mutantId(m), source: file, line, operator: m.genre, description: m.name.replace(/^[^:]+:\d+:\d+: /, '') };
+    const base = baseRow(m);
     if (o.summary === 'MissedMutant') {
       mutants.push({ ...base, status: coveredLines.get(file)?.has(line) ? 'survived' : 'no-coverage' });
     } else if (o.summary === 'Timeout') {
       mutants.push({ ...base, status: 'timeout', killedBy: [] });
-      uncertain.add(`${file}\0${line}`);
     } else if (o.summary === 'CaughtMutant') {
       const parsed = logs.get(o.log_path);
       const kinds = {};
@@ -189,7 +209,6 @@ export function importCargoMutants({ root, input, outDir, listing }) {
         if (parsed.doctestFailures) notes.doctestOnly++;
         else if (parsed.runs.some((run) => run.died)) notes.unattributed = (notes.unattributed ?? 0) + 1;
         else if (!parsed.runs.some((run) => run.failed.length)) refuse(`cannot tell which test caught ${m.name} from its log; was cargo test's output changed?`);
-        uncertain.add(`${file}\0${line}`);
       }
       mutants.push({ ...base, status: 'killed', killedBy, ...(killedBy.length ? { killKinds: Object.fromEntries(killedBy.map((id) => [id, kinds[id]])) } : {}) });
     } else refuse(`unknown cargo-mutants outcome ${o.summary} for ${m.name}`);
@@ -201,22 +220,37 @@ export function importCargoMutants({ root, input, outDir, listing }) {
   const mutation = { mutants, targeted: [] };
   if (listing) {
     const ran = new Set(results.map((o) => mutantId(o.scenario.Mutant)));
-    const listed = listing.map((m) => ({ id: mutantId(m), file: m.file.replaceAll('\\', '/'), line: m.span.start.line }));
-    mutation.sampled = listed.some((m) => !ran.has(m.id));
-    const units = new Map();
-    for (const t of input.tests) {
-      const unit = t.unit ?? t.id;
-      if (!units.has(unit)) units.set(unit, new Map());
-      for (const [file, spec] of Object.entries(input.coverage?.byTest?.[t.id] ?? {})) {
-        if (!units.get(unit).has(file)) units.get(unit).set(file, new Set());
-        for (const n of expand(spec)) units.get(unit).get(file).add(n);
-      }
-    }
-    for (const [unit, own] of [...units].sort(([a], [b]) => cmp(a, b))) {
-      const mine = listed.filter((m) => own.get(m.file)?.has(m.line));
-      const unsure = [...own].some(([file, set]) => [...set].some((n) => uncertain.has(`${file}\0${n}`)));
-      if (mine.length && mine.every((m) => ran.has(m.id)) && !unsure) mutation.targeted.push(unit);
-    }
+    mutation.sampled = listing.some((m) => !ran.has(mutantId(m)));
+    mutation.targeted = targetedUnits({ input, listing, ran, rows: mutants });
   }
   return { mutation, notes };
+}
+
+/**
+ * The units with complete evidence: every listed mutant on the unit's own lines
+ * has a result (`ran` holds the ids that cargo-mutants ran, unviable ones
+ * included, and the ids settled without running), and none of those lines
+ * holds a fault detected without a credited test (a timeout, a crashed test
+ * binary, a doctest), which is missing data, never "catches nothing".
+ */
+export function targetedUnits({ input, listing, ran, rows }) {
+  const uncertain = new Set(rows.filter((m) => m.status === 'timeout' || (m.status === 'killed' && !m.killedBy?.length))
+    .map((m) => `${m.source}\0${m.line}`));
+  const listed = listing.map((m) => ({ id: mutantId(m), file: m.file.replaceAll('\\', '/'), line: m.span.start.line }));
+  const units = new Map();
+  for (const t of input.tests) {
+    const unit = t.unit ?? t.id;
+    if (!units.has(unit)) units.set(unit, new Map());
+    for (const [file, spec] of Object.entries(input.coverage?.byTest?.[t.id] ?? {})) {
+      if (!units.get(unit).has(file)) units.get(unit).set(file, new Set());
+      for (const n of expand(spec)) units.get(unit).get(file).add(n);
+    }
+  }
+  const targeted = [];
+  for (const [unit, own] of [...units].sort(([a], [b]) => cmp(a, b))) {
+    const mine = listed.filter((m) => own.get(m.file)?.has(m.line));
+    const unsure = [...own].some(([file, set]) => [...set].some((n) => uncertain.has(`${file}\0${n}`)));
+    if (mine.length && mine.every((m) => ran.has(m.id)) && !unsure) targeted.push(unit);
+  }
+  return targeted;
 }

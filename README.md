@@ -20,10 +20,10 @@ the people and agents who do.
 *Illustrative workflow; measured numbers from the [real-project Jest validation](plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls).
 The example covers 11 tested mutations across two declared critical API paths.*
 
-**Open-source under MIT · version `0.2.0`.** Get the source from
+**Open-source under MIT · version `0.3.0`.** Get the source from
 [GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
-use the local installation below. See the [0.2.0 candidate record](plans/results/2026-11-23-0.2.0-candidate.md)
-for what changed and what is verified, the [first verified candidate record](plans/results/2026-10-26-private-candidate.md)
+use the local installation below. See the [0.3.0 release record](plans/results/2026-11-23-0.3.0-release.md) and the
+[0.2.0 record](plans/results/2026-11-23-0.2.0-candidate.md) for what changed and what is verified, the [first verified candidate record](plans/results/2026-10-26-private-candidate.md)
 for artifact checks, and [historical evidence](docs/private-use.md#artifact-provenance).
 
 Cupel supplies a Node CLI, a local stdio MCP server, and a pure JavaScript engine.
@@ -121,7 +121,7 @@ npm pack --offline --ignore-scripts ./packages/cupel \
   --pack-destination .scratch/local-package
 npm install --offline --ignore-scripts --no-audit --no-fund \
   --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.2.0.tgz
+  .scratch/local-package/vibernt-cupel-0.3.0.tgz
 CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
 "$CUPEL" --version
 ```
@@ -180,6 +180,27 @@ Exit codes are `0` OK, `1` a guardrail/check failed, `2` invalid usage/input, an
 | `guard --base <ref>` | Compare protection with an earlier commit. |
 | `label`, `plan` | Inspect tiers and test execution order. |
 | `import`, `validate` | Read JUnit/Cupel data and validate spec documents. |
+
+## Faster runs and best practices
+
+Fault testing is the slow part. Cupel keeps it fast without guessing:
+
+- it runs only the tests that run a faulty line, and stops once two test files
+  (JavaScript) or two different tests (Python) have caught the fault;
+- time limits come from each test file's measured time;
+- faults on lines no test runs are reported without being run, and for Rust only
+  the packages whose tests run the code are tested;
+- faults whose code, tests and test inputs are unchanged since the last run reuse
+  the earlier answer. Locally that is `.cupel/input.json`; on CI machines that
+  start empty, keep the input file in the CI cache and pass it back with
+  `--reuse <file>`. `guard`, `check` and `mutate` reuse only a file named this
+  way, never one the change itself could contain.
+
+On pull requests, test only changed lines (`"mutation": { "critical": false }`)
+and run critical files in full nightly. [Faster fault testing](docs/speed.md) has
+the settings and CI recipes; [best practices](docs/best-practices.md) covers what
+to run when, how to read the audit, agents, mixed-language repositories, Rust and
+Workers.
 
 ## Use with an agent
 
