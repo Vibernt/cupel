@@ -277,6 +277,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           file: d.file,
           setup: mode === 'coverage' ? toLines(d.setup) : null,
           childDirs: d.childDirs,
+          workerdSources: d.workerdSources ?? [],
           tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, loads: t.loads ?? [], assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
         });
       }
@@ -589,11 +590,12 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     };
     if (rechecked.length) coverage.rechecked = rechecked.sort(cmp);
     if (runs > 1) coverage.unstable = unstableObject(unstable);
+    const inWorkerd = new Set(all.flatMap((run) => run.hook.flatMap((h) => h.workerdSources ?? [])));
     const input = {
       spec: SPEC,
       kind: 'input',
       runtime: { name: 'node', version: process.versions.node },
-      sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash }])),
+      sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash, ...(inWorkerd.has(rel) ? { measuredIn: 'workerd' } : {}) }])),
       tests: ordered.map((t) => {
         const tags = [...new Set([...t.name.matchAll(TIER_TAG)].map((m) => m[1]))].sort(cmp);
         return {

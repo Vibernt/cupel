@@ -2,7 +2,13 @@
   "audit": {
     "falseTests": {
       "measured": true,
-      "units": []
+      "units": [],
+      "notFaultTested": [
+        {
+          "source": "src/w.mjs",
+          "reason": "runs in workerd; its faults are not tested yet"
+        }
+      ]
     }
   }
 }

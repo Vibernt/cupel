@@ -98,6 +98,10 @@ function scopeLines({ input, cfg, model, scope }) {
   const exclude = cfg.scope?.exclude ?? [];
   for (const path of [...out.keys()]) {
     if (!anyGlobMatches(include, path) || anyGlobMatches(exclude, path) || out.get(path).size === 0) out.delete(path);
+    // Code measured inside workerd is loaded there by the harness, not through this
+    // runner's module loader: a mutant served here would never run, and would look
+    // unnoticed. It is left out until workerd mutation exists.
+    else if (input.sources[path]?.measuredIn) out.delete(path);
   }
   return { lines: new Map([...out].sort((a, b) => cmp(a[0], b[0]))), own };
 }

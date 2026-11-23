@@ -8,6 +8,10 @@
   "sources": {
     "src/a.mjs": {
       "coverable": "1-10"
+    },
+    "src/w.mjs": {
+      "coverable": "1-3",
+      "measuredIn": "workerd"
     }
   },
   "tests": [

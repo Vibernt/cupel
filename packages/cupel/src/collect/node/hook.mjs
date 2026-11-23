@@ -114,8 +114,10 @@ async function install(cfg, mainFile) {
   const workerds = new Set();
   const workerdPending = new Set();
   const workerdNotes = { started: 0, unattached: 0, transformed: 0 };
+  const workerdSources = new Set();
   const recordDelta = (delta, owners) => {
     if (!delta.size) return;
+    for (const rel of delta.keys()) workerdSources.add(rel);
     if (!owners.length) addAll(setup, delta);
     else for (const t of owners) addAll(t.cov, delta);
   };
@@ -322,7 +324,7 @@ async function install(cfg, mainFile) {
       tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(t.loads.size ? { loads: [...t.loads].sort() } : {}), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
       setup: Object.fromEntries(setup),
       childDirs,
-      ...(workerdNotes.started ? { workerd: workerdNotes } : {}),
+      ...(workerdNotes.started ? { workerd: workerdNotes, workerdSources: [...workerdSources].sort() } : {}),
     };
     writeAtomicJson(join(cfg.out, `${process.pid}.json`), body);
   });

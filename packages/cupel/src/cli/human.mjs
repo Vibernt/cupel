@@ -153,6 +153,10 @@ function audit(r) {
     }
     if (f.timeoutOnly.length) out.push('', `Faults detected only by a timeout (no test credited): ${f.timeoutOnly.length}.`);
   }
+  if (f.notFaultTested.length) {
+    out.push('', 'Not fault-tested (code that runs in another runtime):');
+    for (const x of f.notFaultTested) out.push(`- \`${x.source}\`: ${x.reason}`);
+  }
   out.push('', '## 3. Tests that protect the same thing', '');
   if (!a.overlap.length) out.push('None found.');
   for (const g of a.overlap) out.push(`- ${g.units.map((u) => `\`${u}\``).join(', ')}: same ${g.basis === 'kills' ? 'caught faults' : 'lines'}${g.crossRunner ? ' (across languages)' : ''}`);

@@ -40,7 +40,10 @@ function wrong(model) {
 
 /** U3: tests that catch no fault, or only by a crash in the code; code that runs with faults unnoticed. */
 function falseTests(model) {
-  if (!model.mutation) return { measured: false, units: [], unchecked: [], timeoutOnly: [] };
+  // Sources measured in another runtime (workerd) cannot be fault-tested through this runner.
+  const notFaultTested = Object.entries(model.input.sources).filter(([, s]) => s.measuredIn)
+    .map(([source, s]) => ({ source, reason: `runs in ${s.measuredIn}; its faults are not tested yet` })).sort((a, b) => cmp(a.source, b.source));
+  if (!model.mutation) return { measured: false, units: [], unchecked: [], timeoutOnly: [], notFaultTested };
   const live = model.mutants.filter((m) => m.status !== 'error');
   const units = [];
   for (const u of model.units) {
@@ -69,7 +72,7 @@ function falseTests(model) {
     mutants: ms.sort((a, b) => cmp(a.id, b.id)).map((m) => ({ id: m.id, line: m.line, ...(m.description ? { description: m.description } : {}) })),
   }));
   const timeoutOnly = live.filter((m) => m.status === 'timeout').map((m) => m.id).sort(cmp);
-  return { measured: true, units, unchecked, timeoutOnly };
+  return { measured: true, units, unchecked, timeoutOnly, notFaultTested };
 }
 
 /** U4: tests that protect the same thing: equal caught-fault sets, or equal own lines without mutation. */

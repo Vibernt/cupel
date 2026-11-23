@@ -68,7 +68,8 @@
         "properties": {
           "coverable": { "$ref": "#/$defs/lineSet" },
           "hash": { "type": "string", "minLength": 1 },
-          "unmeasured": { "type": "string", "minLength": 1 }
+          "unmeasured": { "type": "string", "minLength": 1 },
+          "measuredIn": { "enum": ["workerd"] }
         }
       }
     },
