@@ -1,5 +1,5 @@
 {
-  "description": "Units that catch the same faults form an overlap group, marked when their runners differ.",
+  "description": "Targeted units that catch the same faults form an overlap group, marked when their runners differ.",
   "command": "audit",
   "rules": [
     {

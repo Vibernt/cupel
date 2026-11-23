@@ -26,6 +26,22 @@ The example brittleness pattern is a regular-expression string interpreted by a 
 
 For guard enforcement, keep the effective config outside a proposed change's write scope. The [Action](../../action/README.md) reads `cupel.json` from the exact trusted base commit. Test a rule with `cupel label --input <measured-input> --config cupel.json --json`; a config file alone cannot demonstrate that a collector produced expected tags or findings.
 
+## Fault testing settings
+
+`mutation` controls what is fault-tested and how much:
+
+```json
+{ "mutation": { "critical": true, "changedLines": true, "maxMutants": 200, "maxSeconds": 300,
+  "reuse": { "ignore": ["docs/**", "**/*.md"] } } }
+```
+
+`critical` tests every critical source in full; `changedLines` tests the lines a
+change touched (with a base); `maxMutants` caps the faults per run with a seeded
+sample; `maxSeconds` stops starting new faults (not for Rust); `reuse` copies
+earlier results whose inputs have not changed (`false` turns it off, `ignore`
+names files no test reads). [Faster fault testing](../speed.md) explains each, with
+recipes for pull requests, nightly runs and CI.
+
 ## Code that another language's tests run
 
 When one language's code is built into an artifact that another language's

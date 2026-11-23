@@ -54,7 +54,7 @@ Per command:
 | Option | Commands | Meaning |
 |---|---|---|
 | `--input <file>` | report, review, check, plan, label | Read the input instead of collecting. `report --input` and `review --input` replay a saved input as is: no collection, no mutation, no second pass |
-| `--out <file>` | report, review, check, plan, label, import | Where to write the collected (or imported) input. `report` and `review` write `.cupel/input.json` by default; the others write it only when asked |
+| `--out <file>` | report, review, check, guard, plan, label, import | Where to write the collected (or imported) input. `report` and `review` write `.cupel/input.json` by default; the others write it only when asked |
 | `--runs N` | report, review, check, guard, plan, label | Collection repeats, for durations. Default 2 |
 | `--no-mutation` | report, review, check, guard | Skip mutation and the optional evidence pass |
 | `--units <id-or-file>`, `--limit N` | review | Select candidates and cap the pack after sorting; default cap 50 |
@@ -63,7 +63,9 @@ Per command:
 | `--base <ref>` | check, guard | Collect the base from a git ref |
 | `--base-input <file>`, `--head-input <file>` | check, guard | Saved inputs for either side (`check` also takes the head as `--input`) |
 | `--approvals <file>` | guard | A JSON list of `{ "action": "remove" \| "downgrade", "id", "by" }`, or an object with that list as `approvals` |
-| `--changed <ref>` | plan | Changed lines from `git diff --unified=0 <ref>` |
+| `--changed <ref>` | plan, guard, mutate | Changed lines from `git diff --unified=0 <ref>`. For guard, only with `--base-input` (with `--base`, the base ref gives them) |
+| `--reuse <file>` | report, review, audit, check, guard, mutate | Copy fault results from this earlier input when nothing they depend on changed ([K15](../spec/SPEC.md), [reuse](speed.md#reuse-earlier-results)). Default: `.cupel/input.json` when present. A missing file means every fault runs |
+| `--no-reuse` | report, review, audit, check, guard, mutate | Run every fault |
 | `--changed-lines <file>` | plan | Changed lines as JSON: `{ "path": "line set" }`, `""` for a whole file |
 | `--generated-at <text>` | report, review, check, guard, plan, label | Copied into the report as `generatedAt`. Cupel never reads the clock for a report |
 | `--format cupel\|junit` | import | Default `cupel` |
@@ -111,7 +113,8 @@ For `collect-node`, exit 0 means all tests passed and input was written; 1 means
   Commands with `--input`, `--base-input` or `--head-input` can read saved inputs
   without starting a collector.
 - **Mutation** follows config `mutation` for core node:test, Vitest, Jest and pytest, and bounded preview Go, direct-file Minitest and restricted Cargo/Rust:
-  critical sources, and for `check` and `guard` with `--base`, changed lines.
+  critical sources, and for `check` and `guard` with `--base` (or `guard --base-input … --changed <ref>`), changed lines.
+  Results of an earlier input whose basis still holds are copied instead of run (K15, `--reuse`, `--no-reuse`); see [Faster fault testing](speed.md).
   Vitest serves mutants through an in-memory Vite plugin; Jest supplies mutants
   to its transformer in memory with its cache disabled. A missing mutation
   module stops collection with exit 3. `--no-mutation` explicitly requests

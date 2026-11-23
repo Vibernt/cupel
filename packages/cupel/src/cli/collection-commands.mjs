@@ -108,14 +108,14 @@ export const collectionCommands = {
     const cfg = ctx.effective();
     const mutator = await ctx.mutator();
     const changed = ctx.o.changed && cfg.mutation.changedLines ? changedLines(ctx.root, ctx.o.changed) : null;
-    const mutation = await mutate(mutator, { root: ctx.root, cfg, input,
+    const mutation = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input,
       scope: { critical: cfg.mutation.critical, changed }, log: ctx.log });
     if (!mutation) throw environment('mutation is unavailable for the configured scope');
     let confirmed = mutation;
     if (base) {
       // K7, as guard does when it collects the head itself: survivors detected at base are re-run.
       const ids = lostSurvivors(base, { mutation });
-      confirmed = await confirm(mutator, { root: ctx.root, cfg, input, mutation, ids, log: ctx.log });
+      confirmed = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, mutation, ids, log: ctx.log });
     }
     const result = { ...input, mutation: confirmed };
     const resultErrors = inputErrors(ctx, result);

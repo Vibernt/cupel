@@ -42,13 +42,25 @@ Install [cargo-mutants](https://mutants.rs) yourself (for example `cargo install
 { "runners": { "cargo": { "mutants": { "command": "cargo-mutants", "jobs": 2, "args": ["--exclude-re", "impl Debug"] } } } }
 ```
 
-All keys are optional: `command` defaults to `cargo-mutants` on `PATH`, `jobs` to 1. Cupel runs `cargo mutants --no-shuffle --test-workspace=true --cargo-test-arg=--no-fail-fast --in-diff <scope>` with output in its scratch directory. cargo-mutants mutates a copy of the project, never the project itself. Then Cupel:
+All keys are optional: `command` defaults to `cargo-mutants` on `PATH`, `jobs` to 1. cargo-mutants mutates a copy of the project, never the project itself, and writes its output to Cupel's scratch directory.
+
+What runs:
+
+1. **List.** `cargo mutants --list --json` names every mutant. In scope is each one that `--in-diff` would pick for the lines in scope and whose line the coverage input can count.
+2. **Skip lines no test runs.** A mutant on lines that no passed test covers (by the input's per-test coverage, and the setup and whole-file coverage of test files with passed tests) is recorded as `no-coverage` straight away, with the same id and fields an import would give it, and is not built or run. No test Cupel credits runs that code. Two differences from running it: a fault there that would not compile is counted as `no-coverage` instead of being left out, and a doctest (which Cupel does not credit anyway) is not run.
+3. **Cap.** `mutation.maxMutants` (default 200) and `mutation.seed` apply as for JavaScript and Python. Mutants on targeted units' own lines come first (whole units when those alone exceed the cap), then a seeded sample of the rest. `no-coverage` mutants do not count. When anything is left out, the result has `sampled: true` and the `seed`, and a unit with an unsampled mutant on its own lines is not `targeted` (complete evidence).
+4. **Reuse.** A mutant with a still-valid earlier result (K15) is not run; the earlier row is copied unchanged and counts toward the cap as if it ran. When every chosen mutant is reused, cargo-mutants never starts a run (only the listing).
+5. **Run.** Cupel runs `cargo mutants --no-shuffle --cargo-test-arg=--no-fail-fast --in-diff <lines> --re <each chosen mutant>` and tests only the packages that hold a passed test covering the mutated lines, plus the package that owns each mutated file so its own programs are rebuilt with the fault (`--test-package`, read with `cargo metadata --no-deps`). A test in any other package never runs those lines, so it cannot catch the fault, and the list of catching tests stays complete. When every package is needed, or the packages cannot be read, it uses `--test-workspace=true`. Building one package alone can enable different Cargo features than building the workspace; if your workspace depends on that, set `runners.cargo.mutants.wholeWorkspace: true` to test every package for every fault.
+
+`mutation.maxSeconds` does **not** apply to cargo-mutants: once started, the run goes to the end. Use `maxMutants`, `jobs` or a narrower scope to bound it.
+
+Then Cupel:
 
 - records **which tests caught each fault** from cargo-mutants' logs, and **how**: `assertion` when the failure came from the test's own code (an assertion, an unmet `should_panic`, a returned error), `panic` when the code under test panicked and the test merely ran it;
 - re-runs every **timeout** once, alone, with ten times the limit, and keeps that result. A timeout never credits a test;
 - gives **no credit** to a test that reads source text (K6: pins never earn kills);
 - leaves out faults on lines the coverage input cannot count (code not built for this host), which cargo-mutants would otherwise call missed, and marks missed faults on lines no test covers as `no-coverage`;
-- refuses results whose sources changed since the run, runs without `--no-fail-fast`, single-package test runs in a multi-package workspace (whatever the outcome), nextest logs (not readable per test yet), logs it cannot attribute, and catching tests the coverage input does not have;
+- refuses results whose sources changed since the run, runs without `--no-fail-fast`, single-package test runs in a multi-package workspace (whatever the outcome; only a run Cupel itself limited to the packages above is accepted), nextest logs (not readable per test yet), logs it cannot attribute, and catching tests the coverage input does not have;
 - counts a fault caught by a test binary that crashed, or only by a timeout, as detected without crediting any test, and then no test whose lines hold it is treated as complete evidence (it is never called "catches nothing").
 
 `cupel import --format cargo-mutants` reads a `mutants.out` you produced yourself, with the same rules (see the [CLI reference](cli.md)).

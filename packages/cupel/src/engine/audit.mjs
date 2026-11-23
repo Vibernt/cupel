@@ -72,16 +72,19 @@ function falseTests(model) {
   return { measured: true, units, unchecked, timeoutOnly };
 }
 
-/** U4: tests that protect the same thing: equal caught-fault sets, or equal own lines without mutation. */
+/** U4: tests that protect the same thing: equal caught-fault sets (targeted units), or equal own lines. */
 function overlap(model) {
   const passed = model.units.filter((u) => u.status === 'passed' && !model.fileLevel);
   const groups = new Map();
   for (const u of passed) {
     let key = null; let basis = null;
-    if (model.mutation) {
+    // Only a targeted unit has a complete kill set: a mutant run stops once two test files (or
+    // units) caught it, so other units' kill sets can be partial. Those group by own lines.
+    if (model.mutation && u.targeted) {
       const kills = model.mutants.filter((m) => m.detected && m.killerUnits.has(u.id)).map((m) => m.id).sort(cmp);
       if (kills.length) { key = `k${JSON.stringify(kills)}`; basis = 'kills'; }
-    } else if (mapSize(u.own) > 0) {
+    }
+    if (!key && mapSize(u.own) > 0) {
       key = `l${JSON.stringify([...u.own].sort(([a], [b]) => cmp(a, b)).map(([s, r]) => [s, format(r)]))}`; basis = 'lines';
     }
     if (!key) continue;

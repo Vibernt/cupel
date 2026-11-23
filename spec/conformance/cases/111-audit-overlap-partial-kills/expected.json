@@ -1,0 +1,14 @@
+{
+  "audit": {
+    "overlap": [
+      {
+        "basis": "lines",
+        "units": [
+          "a",
+          "c"
+        ],
+        "crossRunner": false
+      }
+    ]
+  }
+}

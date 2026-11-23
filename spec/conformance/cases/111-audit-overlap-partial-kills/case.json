@@ -1,0 +1,11 @@
+{
+  "description": "Units not in targeted may have partial kill sets, so they group by own lines, never by kills.",
+  "command": "audit",
+  "rules": [
+    {
+      "id": "U4",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

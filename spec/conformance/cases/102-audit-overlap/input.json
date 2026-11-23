@@ -63,7 +63,11 @@
     }
   },
   "mutation": {
-    "targeted": [],
+    "targeted": [
+      "a",
+      "b",
+      "c"
+    ],
     "mutants": [
       {
         "id": "m1",

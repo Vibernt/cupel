@@ -403,6 +403,7 @@ class Session {
 }
 
 const entry = (m, r) => {
+  if (r.row) return { ...r.row };
   const out = { id: m.id, source: m.source, line: m.line, operator: m.operator, status: r.status };
   if (r.killedBy.length) out.killedBy = r.killedBy;
   return out;
@@ -504,6 +505,8 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
   const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()),
     jobs: scratch ? 1 : jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts, scratch });
   session.deadline = deadline;
+  const reuse = scope.reuse && Object.keys(scope.reuse).length ? scope.reuse : null;
+  let reusedCount = 0;
   try {
     const invalid = new Set();
     const byId = new Map();
@@ -515,7 +518,15 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
         boundary < 0 ? ordered.length - cursor : boundary - cursor);
       const batch = ordered.slice(cursor, cursor + batchSize);
       cursor += batch.length;
-      const ready = scope.functions ? batch.filter((m) => m.variant === 0 || byId.get(primaryByFunction.get(m.functionKey))?.status === 'survived') : batch;
+      const eligibleNow = scope.functions ? batch.filter((m) => m.variant === 0 || byId.get(primaryByFunction.get(m.functionKey))?.status === 'survived') : batch;
+      // K15: a mutant whose earlier result still holds is copied, not run (it was valid then, on the same text).
+      const ready = [];
+      for (const m of eligibleNow) {
+        // Not when a targeted unit covers it: that unit needs every file run, and the earlier row may have stopped early.
+        const row = reuse && !skipped.has(m.source) && Object.hasOwn(reuse, m.id) && !session.select(m).needsFull ? reuse[m.id] : null;
+        if (row) { byId.set(m.id, { status: row.status, killedBy: row.killedBy ?? [], row }); reusedCount++; }
+        else ready.push(m);
+      }
       const texts = new Map();
       for (const m of ready) if (!skipped.has(m.source) && !texts.has(m.source))
         texts.set(m.source, facts.assertFresh(m.source));
@@ -563,7 +574,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     const sampled = eligible.some((m) => !byId.has(m.id) && !invalid.has(m.id));
     if (sampled) log(`mutate: sampled ${mutants.length} of ${eligible.length - invalid.size} known valid sites (seed ${seed})`);
     if (performance.now() >= deadline) log(`mutate: maxSeconds (${maxSeconds}) reached; ${ordered.length - cursor} sites not drawn`);
-    log(`mutate: ${metrics?.valid ?? byId.size} valid, ${invalid.size} invalid, ${mutants.length} run with ${session.jobs} processes`);
+    log(`mutate: ${metrics?.valid ?? byId.size} valid, ${invalid.size} invalid, ${mutants.length - reusedCount} run with ${session.jobs} processes${reusedCount ? `, ${reusedCount} reused from an earlier run` : ''}`);
     const targeted = targetedUnits({ own, eligible: eligible.filter((m) => !invalid.has(m.id)), results: byId, skipped });
     return { mutants, targeted, seed, sampled };
   } finally {

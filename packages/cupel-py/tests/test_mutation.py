@@ -287,6 +287,86 @@ class RunnerTest(unittest.TestCase):
         self.assertIn(uid, full['targeted'])
         self.assertFalse(full['sampled'])
 
+    def rows(self, test, names, units=None):
+        data = self.input('def value():\n    return True\n', test, '1-2')
+        uid = data['tests'][0]['id']
+        data['tests'] = []
+        for name in names:
+            tid = f'tests/test_logic.py::{name}'
+            row = {'id': tid, 'file': 'tests/test_logic.py', 'name': name, 'status': 'passed', 'durationsMs': [1]}
+            if units and name in units:
+                row['unit'] = units[name]
+            data['tests'].append(row)
+            data['coverage']['byTest'][tid] = {'logic.py': '1-2'}
+        del data['coverage']['byTest'][uid]
+        return data
+
+    def killed(self, data, scope):
+        result = mutate(self.root, data, {'changed': {'logic.py': '2'}, **scope}, {'mutation': {'maxMutants': 5, 'maxSeconds': 30}}, jobs=1, timeout_floor_ms=100)
+        killed = [m for m in result['mutants'] if m['status'] == 'killed']
+        self.assertTrue(killed)
+        return killed
+
+    def test_early_stop_after_two_units(self):
+        names = ['test_a', 'test_b', 'test_c', 'test_d']
+        test = 'from logic import value\n' + ''.join(f'def {n}():\n    assert value() is True\n' for n in names)
+        for mutant in self.killed(self.rows(test, names), {}):
+            self.assertEqual(mutant['killedBy'], ['tests/test_logic.py::test_a', 'tests/test_logic.py::test_b'])
+
+    def test_no_early_stop_on_rows_of_one_unit(self):
+        names = ['test_a[1]', 'test_a[2]', 'test_a[3]', 'test_b', 'test_c']
+        test = ('import pytest\nfrom logic import value\n@pytest.mark.parametrize("n", [1, 2, 3])\ndef test_a(n):\n    assert value() is True\n'
+                'def test_b():\n    assert value() is True\ndef test_c():\n    assert value() is True\n')
+        data = self.rows(test, names, {f'test_a[{n}]': 'tests/test_logic.py::test_a' for n in (1, 2, 3)})
+        for mutant in self.killed(data, {}):
+            self.assertEqual(mutant['killedBy'], [f'tests/test_logic.py::{n}' for n in names[:4]])
+
+    def test_no_early_stop_when_targeted_unit_covers(self):
+        names = ['test_a', 'test_b', 'test_c']
+        test = 'from logic import value\n' + ''.join(f'def {n}():\n    assert value() is True\n' for n in names)
+        for mutant in self.killed(self.rows(test, names), {'targeted': ['tests/test_logic.py::test_c']}):
+            self.assertEqual(mutant['killedBy'], [f'tests/test_logic.py::{n}' for n in names])
+
+    def test_baseline_failure_is_not_credited_for_early_stop(self):
+        names = ['test_a', 'test_b', 'test_c']
+        test = ('from logic import value\ndef test_a():\n    assert False\n'
+                'def test_b():\n    assert value() is True\ndef test_c():\n    assert value() is True\n')
+        for mutant in self.killed(self.rows(test, names), {}):
+            self.assertEqual(mutant['killedBy'], ['tests/test_logic.py::test_b', 'tests/test_logic.py::test_c'])
+
+    def test_reuse_skips_run_and_keeps_order_and_cap(self):
+        data = self.input('def value(x):\n    if x < 2:\n        return True\n    return False\n', 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        scope = {'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 2, 'maxSeconds': 20, 'seed': 3}}
+        with patch('vibernt_cupel.mutation_run.Session.once', return_value=('survived', [])) as once:
+            fresh = mutate(self.root, data, scope, config, jobs=1, timeout_floor_ms=100)
+        self.assertEqual(once.call_count, 2)
+        self.assertTrue(fresh['sampled'])
+        first, second = fresh['mutants']
+        row = {**first, 'status': 'killed', 'killedBy': ['tests/test_logic.py::test_value'], 'note': 'earlier run'}
+        with patch('vibernt_cupel.mutation_run.Session.once', return_value=('survived', [])) as once:
+            again = mutate(self.root, data, {**scope, 'reuse': {first['id']: row}}, config, jobs=1, timeout_floor_ms=100)
+        self.assertEqual(once.call_count, 1)
+        self.assertEqual(again['mutants'], [row, second])
+        self.assertIsNot(again['mutants'][0], row)
+        self.assertEqual({k: again[k] for k in ('targeted', 'seed', 'sampled')}, {k: fresh[k] for k in ('targeted', 'seed', 'sampled')})
+        with patch('vibernt_cupel.mutation_run.Session.once', return_value=('survived', [])) as once:
+            empty = mutate(self.root, data, {**scope, 'reuse': {}}, config, jobs=1, timeout_floor_ms=100)
+        self.assertEqual(empty, fresh)
+
+    def test_reuse_skipped_when_a_targeted_unit_covers_the_mutant(self):
+        data = self.input('def value(x):\n    if x < 2:\n        return True\n    return False\n', 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
+        scope = {'changed': {'logic.py': ''}}
+        config = {'mutation': {'maxMutants': 2, 'maxSeconds': 20, 'seed': 3}}
+        with patch('vibernt_cupel.mutation_run.Session.once', return_value=('survived', [])):
+            fresh = mutate(self.root, data, scope, config, jobs=1, timeout_floor_ms=100)
+        reuse = {m['id']: {**m, 'status': 'killed', 'killedBy': ['tests/test_logic.py::test_value']} for m in fresh['mutants']}
+        unit = data['tests'][0].get('unit', data['tests'][0]['id'])
+        with patch('vibernt_cupel.mutation_run.Session.once', return_value=('survived', [])) as once:
+            again = mutate(self.root, data, {**scope, 'targeted': [unit], 'reuse': reuse}, config, jobs=1, timeout_floor_ms=100)
+        self.assertEqual(once.call_count, len(fresh['mutants']))
+        self.assertTrue(all(m['status'] == 'survived' for m in again['mutants']))
+
     def test_confirm_two_extra_runs(self):
         data = self.input('def value():\n    return True\n', 'from logic import value\ndef test_value():\n    assert True\n', '1-2')
         site = next(iter(generate('logic.py', self.source.read_text())))
