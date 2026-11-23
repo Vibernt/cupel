@@ -6,6 +6,11 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "builtInto": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "description": "Sources (glob keys) built into an artifact that other tests load, such as Rust crates compiled to a WebAssembly module: uncovered matching sources are reported as unmeasured with the artifact and how many tests loaded it."
+    },
     "spec": { "type": "string", "pattern": "^cupel-spec/1(\\.[0-9]+)?$" },
     "scope": {
       "type": "object",

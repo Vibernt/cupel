@@ -25,3 +25,21 @@ Write `cupel.json` at the repository root and check it with `cupel validate cupe
 The example brittleness pattern is a regular-expression string interpreted by a collector for matching test source. A finding in the input has `{ "test": "<id>", "kind": "source-text" }`; the engine does not scan source or execute the regex. Collector support for a language and pattern kind must be checked before depending on it. Mark a deliberate source pin with `deliberate: true` in its finding. Avoid rules that flag every test.
 
 For guard enforcement, keep the effective config outside a proposed change's write scope. The [Action](../../action/README.md) reads `cupel.json` from the exact trusted base commit. Test a rule with `cupel label --input <measured-input> --config cupel.json --json`; a config file alone cannot demonstrate that a collector produced expected tags or findings.
+
+## Code that another language's tests run
+
+When one language's code is built into an artifact that another language's
+tests load, such as Rust crates compiled to a WebAssembly module that a Worker
+runs in workerd, name it with `builtInto` (source glob → artifact path):
+
+```json
+{ "builtInto": { "crates/wasm/**": "cloud/src/prill.wasm" } }
+```
+
+The workerd collector records, per test, which repository `.wasm` files the
+Worker loaded (matched by their bytes) as the test's `loads`. A matching source
+that no test covers in its own language is then reported as `unmeasured`, for
+example "built into cloud/src/prill.wasm, which 72 tests load; lines inside
+WebAssembly are not measured", instead of looking untested. A source that its own
+tests do reach keeps its measured coverage. Rust faults in such sources are left
+out of fault testing, since no Rust test can run them.

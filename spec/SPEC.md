@@ -50,6 +50,7 @@ A **line set** is a string of 1-based line numbers and inclusive ranges, separat
 - `kind` is `unit` (default) or `e2e`.
 - `runner` optionally names the runner that produced the test (for example `vitest`, `pytest`, `go`). It is required when the input lists `runtimes`. `e2e` marks end-to-end or browser tests whose coverage cannot be attributed reliably.
 - `spawnsInterpreter: true` marks a test that starts another interpreter, whose coverage the per-test method cannot see (spike S2).
+- `loads` is optional: repository files of compiled artifacts the test loaded, such as a WebAssembly module a Worker instantiated. With the config's `builtInto` (sources glob to artifact), a matching source that no test covers is reported `unmeasured` with the artifact and how many tests loaded it.
 
 ### 3.4 Coverage
 

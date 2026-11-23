@@ -3,7 +3,7 @@ import { assertionsCommand } from './assertions.mjs';
 // collects inputs, runs the pure engine and prints its report. No network, no dependencies.
 
 import { parseArgs } from 'node:util';
-import { readFileSync, existsSync, statSync, readdirSync, realpathSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync, realpathSync, rmdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve, relative, sep, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -700,7 +700,42 @@ function validateDocument(ctx, text) {
 /**
  * Runs the CLI. `io`: { cwd, env, out(text), err(text), colour }. Returns the exit code.
  */
+/**
+ * Runs one CLI command. Cupel never changes the assessed project's tests or
+ * code; its working files live in `.cupel/` and in scratch directories that the
+ * collectors remove. A `.scratch/` directory this command created and left empty
+ * is removed afterwards, so nothing new is left in the project.
+ */
 export async function main(argv, io) {
+  const roots = scratchRoots(argv, io);
+  const existed = new Set(roots.filter((root) => existsSync(join(root, '.scratch'))));
+  try {
+    return await runCommand(argv, io);
+  } finally {
+    for (const root of roots) if (!existed.has(root)) removeEmptyDirs(join(root, '.scratch'));
+  }
+}
+
+function scratchRoots(argv, io) {
+  const roots = new Set([resolve(io.cwd ?? process.cwd())]);
+  const at = argv.indexOf('--root');
+  if (at >= 0 && argv[at + 1]) roots.add(resolve(io.cwd ?? process.cwd(), argv[at + 1]));
+  return [...roots];
+}
+
+/** Removes `dir` and its subdirectories when they hold no files; never removes a file. */
+function removeEmptyDirs(dir) {
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return true; }
+  let empty = true;
+  for (const e of entries) {
+    if (e.isDirectory() && !e.isSymbolicLink()) { if (!removeEmptyDirs(join(dir, e.name))) empty = false; } else empty = false;
+  }
+  if (!empty) return false;
+  try { rmdirSync(dir); return true; } catch { return false; }
+}
+
+async function runCommand(argv, io) {
   const [cmd, ...rest] = argv;
   if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
     io.out(help());

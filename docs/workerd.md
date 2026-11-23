@@ -29,5 +29,5 @@ starts and is counted then, as module loading is in Node.
 each, and request-heavy tests can take 10–20 times longer. Collect the full suite
 nightly and select changed tests per change.
 
-**Not measured.** Code compiled to WebAssembly (V8 reports no Wasm lines), and
+**Not measured.** Code compiled to WebAssembly (V8 reports no Wasm lines): Cupel records which tests loaded each repository `.wasm` file, and `builtInto` in [config](extending/config.md#code-that-another-languages-tests-run) labels the sources built into it. Also not measured:
 tests that run inside workerd themselves (`@cloudflare/vitest-pool-workers`).

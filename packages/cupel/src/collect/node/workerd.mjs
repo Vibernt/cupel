@@ -19,9 +19,10 @@
 // Profiler/Debugger commands, and never connects elsewhere. scripts/check.mjs
 // allows the connection calls in this file only.
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { appendFileSync } from 'node:fs';
 const debug = (line) => { if (process.env.CUPEL_DEBUG_WORKERD) appendFileSync(process.env.CUPEL_DEBUG_WORKERD, `${line}\n`); };
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { PassThrough } from 'node:stream';
 import { unionIntervals } from './intervals.mjs';
 import { functionRanges, paintHits, topLevelIntervals } from './workerd-ranges.mjs';
@@ -100,8 +101,9 @@ const DRAIN = '(() => { const s = globalThis.__cupelHits; if (!s) return "[]"; c
  * drained and removed, so hot code stops paying for them; each take restores them.
  */
 export class WorkerdCoverage {
-  constructor({ port, relOf, sourceText, notes }) {
-    this.port = port; this.relOf = relOf; this.sourceText = sourceText; this.notes = notes;
+  constructor({ port, relOf, sourceText, notes, wasmOf = () => null }) {
+    this.port = port; this.relOf = relOf; this.sourceText = sourceText; this.notes = notes; this.wasmOf = wasmOf;
+    this.loads = new Set(); this.reported = new Set(); this.wasmSeen = new Set();
     this.sessions = new Map(); this.points = new Map(); this.next = 0; this.window = new Set(); this.removed = new Set();
     this.timer = null;
   }
@@ -132,10 +134,14 @@ export class WorkerdCoverage {
       const scripts = []; const contexts = new Set();
       session.socket.addEventListener('message', (event) => {
         let m; try { m = JSON.parse(String(event.data)); } catch { return; }
-        if (m.method === 'Debugger.scriptParsed') { scripts.push(m.params); session.parsed = (session.parsed ?? 0) + 1; }
+        if (m.method === 'Debugger.scriptParsed') {
+          session.parsed = (session.parsed ?? 0) + 1;
+          if (m.params.scriptLanguage === 'WebAssembly') session.wasm.push(m.params.scriptId); else scripts.push(m.params);
+        }
         if (m.method === 'Runtime.executionContextCreated') contexts.add(m.params.context.id);
         if (m.method === 'Runtime.executionContextDestroyed') contexts.delete(m.params.executionContextId);
       });
+      session.wasm = [];
       await session.open;
       session.contexts = contexts;
       await session.send('Runtime.enable');
@@ -163,7 +169,32 @@ export class WorkerdCoverage {
         this.notes.scripts = (this.notes.scripts ?? 0) + 1;
       }
     }
+    await this.resolveWasm();
     return loaded;
+  }
+
+  /** Which repository WebAssembly files the isolates loaded, matched by their bytes. */
+  async resolveWasm() {
+    for (const session of this.sessions.values()) {
+      while (session.wasm?.length) {
+        const scriptId = session.wasm.shift();
+        const key = `${session.url} ${scriptId}`;
+        if (this.wasmSeen.has(key)) continue;
+        this.wasmSeen.add(key);
+        try {
+          const { bytecode } = await session.send('Debugger.getScriptSource', { scriptId });
+          const rel = bytecode ? this.wasmOf(createHash('sha256').update(Buffer.from(bytecode, 'base64')).digest('hex')) : null;
+          if (rel) this.loads.add(rel);
+        } catch { /* the isolate may be gone */ }
+      }
+    }
+  }
+
+  /** Loaded artifacts not reported yet. */
+  newLoads() {
+    const out = [...this.loads].filter((rel) => !this.reported.has(rel));
+    for (const rel of out) this.reported.add(rel);
+    return out;
   }
 
   async place(key) {
@@ -199,6 +230,7 @@ export class WorkerdCoverage {
     const got = new Map();
     try { const loaded = await this.connect(await targets(this.port)); for (const [rel, iv] of loaded) got.set(rel, unionIntervals(got.get(rel), iv)); } catch { /* workerd may be exiting */ }
     await this.sweep();
+    await this.resolveWasm();
     const byScript = new Map();
     for (const key of this.window) {
       const point = this.points.get(key);
@@ -225,7 +257,7 @@ export class WorkerdCoverage {
  * runs, and takes a last delta before the harness kills it.
  * `record(delta, owners)` stores a delta for the tests that were running.
  */
-export function watchWorkerd(child, coverage, { owners, record, pending }) {
+export function watchWorkerd(child, coverage, { owners, record, pending, recordLoads }) {
   const control = child.stdio?.[3];
   let gate = null;
   if (control && typeof control.pipe === 'function') {
@@ -236,7 +268,8 @@ export function watchWorkerd(child, coverage, { owners, record, pending }) {
     gate.destroy = (...args) => { control.destroy(); return destroy(...args); };
   }
   const started = owners();
-  const ready = coverage.attach().then((loaded) => record(loaded, started)).finally(() => { if (gate) control.pipe(gate); });
+  const ready = coverage.attach().then((loaded) => { record(loaded, started); recordLoads?.(coverage.newLoads(), started); })
+    .finally(() => { if (gate) control.pipe(gate); });
   pending.add(ready);
   ready.finally(() => pending.delete(ready));
   const kill = child.kill.bind(child);
@@ -244,7 +277,7 @@ export function watchWorkerd(child, coverage, { owners, record, pending }) {
   child.kill = (signal) => {
     if (!final) {
       const who = owners();
-      final = ready.then(() => coverage.take()).then((delta) => record(delta, who)).catch(() => {})
+      final = ready.then(() => coverage.take()).then((delta) => { record(delta, who); recordLoads?.(coverage.newLoads(), who); }).catch(() => {})
         .finally(() => { coverage.close(); kill(signal); });
       pending.add(final);
       final.finally(() => pending.delete(final));
@@ -262,4 +295,21 @@ export function textReader(root) {
     if (!cache.has(rel)) { try { cache.set(rel, readFileSync(`${root}/${rel}`, 'utf8')); } catch { cache.set(rel, null); } }
     return cache.get(rel);
   };
+}
+
+/** sha256 → repository path of every .wasm file under root (outside node_modules, target and dot directories). */
+export function wasmIndex(root) {
+  const out = new Map();
+  const walk = (dir, rel, depth) => {
+    if (depth > 12) return;
+    let entries; try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'target') continue;
+      const path = `${dir}/${e.name}`; const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path, r, depth + 1);
+      else if (e.isFile() && e.name.endsWith('.wasm')) { try { out.set(createHash('sha256').update(readFileSync(path)).digest('hex'), r); } catch { /* unreadable */ } }
+    }
+  };
+  walk(root, '', 0);
+  return out;
 }

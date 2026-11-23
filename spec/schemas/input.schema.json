@@ -89,6 +89,7 @@
           "durationsMs": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
           "kind": { "enum": ["unit", "e2e"] },
           "runner": { "type": "string", "minLength": 1 },
+          "loads": { "type": "array", "items": { "type": "string", "minLength": 1 } },
           "spawnsInterpreter": { "type": "boolean" }
         }
       }

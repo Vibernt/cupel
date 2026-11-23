@@ -154,8 +154,7 @@ test('CLI report runs cargo-mutants on critical code and records how each test c
   try {
     cpSync(root, project, { recursive: true });
     writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool } } } }));
-    // TODO(phase 6): collectors still create an empty .scratch/ in the project; move it under .cupel/.
-    const before = treeHash(project, ['target', '.scratch']);
+    const before = treeHash(project, ['target']);
     const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-target-mutants-cli') };
     const outDir = mkdtempSync(join(repo, '.scratch/cargo-mutants-cli-out-'));
     const out = join(outDir, 'input.json');
@@ -169,7 +168,7 @@ test('CLI report runs cargo-mutants on critical code and records how each test c
       ['replace && with || in looks_secret', 'replace > with >= in looks_secret', 'replace looks_secret -> bool with true']);
     assert.ok(rows.filter((m) => m.status === 'killed').every((m) => m.killKinds?.[KEY] === 'assertion'));
     assert.deepEqual(validate(schemas.input, saved), []);
-    assert.equal(treeHash(project, ['target', '.scratch']), before, 'the assessed project is never changed');
+    assert.equal(treeHash(project, ['target']), before, 'the assessed project is never changed; only Cargo writes target/');
     rmSync(outDir, { recursive: true, force: true });
   } finally { rmSync(project, { recursive: true, force: true }); }
 });

@@ -36,7 +36,7 @@ import { bucket, recorder } from '../assertions/recorder.mjs';
 import { installNodeAssertions } from '../assertions/node.mjs';
 import { promisify } from 'node:util';
 import { positiveIntervals, unionIntervals, addAll } from './intervals.mjs';
-import { WorkerdCoverage, freePort, isWorkerd, textReader, watchWorkerd } from './workerd.mjs';
+import { WorkerdCoverage, freePort, isWorkerd, textReader, wasmIndex, watchWorkerd } from './workerd.mjs';
 
 const real = (p) => { try { return realpathSync(p); } catch { return p; } };
 const configPath = process.env.CUPEL_NODE_HOOK;
@@ -119,12 +119,18 @@ async function install(cfg, mainFile) {
     if (!owners.length) addAll(setup, delta);
     else for (const t of owners) addAll(t.cov, delta);
   };
+  const recordLoads = (rels, owners) => { for (const t of owners) for (const rel of rels) t.loads.add(rel); };
   const workerdCheckpoint = async () => {
     await Promise.allSettled([...workerdPending]);
     if (!workerds.size) return;
     const owners = leaves();
-    for (const coverage of [...workerds]) recordDelta(await coverage.take().catch(() => new Map()), owners);
+    for (const coverage of [...workerds]) {
+      recordDelta(await coverage.take().catch(() => new Map()), owners);
+      recordLoads(coverage.newLoads(), owners);
+    }
   };
+  let wasmFiles = null;
+  const wasmOf = (hash) => { wasmFiles ??= wasmIndex(root); return wasmFiles.get(hash) ?? null; };
 
   before(safeAsync(async () => { checkpoint(); await workerdCheckpoint(); }));
   beforeEach(safeAsync(async (t) => {
@@ -133,7 +139,7 @@ async function install(cfg, mainFile) {
     const fullName = t.fullName ?? t.name;
     const n = seen.get(fullName) ?? 0;
     seen.set(fullName, n + 1);
-    const rec = { i: tests.length, fullName, n, interp: false, cov: new Map(), ctx: t, ...(cfg.assertions ? { assertions: bucket() } : {}) };
+    const rec = { i: tests.length, fullName, n, interp: false, cov: new Map(), loads: new Set(), ctx: t, ...(cfg.assertions ? { assertions: bucket() } : {}) };
     tests.push(rec);
     active.add(rec);
   }));
@@ -271,11 +277,11 @@ async function install(cfg, mainFile) {
     const copy = args.slice();
     copy[1] = [...argv, `--inspector-addr=127.0.0.1:${port}`];
     const child = target.apply(self, copy);
-    const coverage = new WorkerdCoverage({ port, relOf: scriptRel, sourceText, notes: workerdNotes });
+    const coverage = new WorkerdCoverage({ port, relOf: scriptRel, sourceText, notes: workerdNotes, wasmOf });
     workerdNotes.started++;
     workerds.add(coverage);
     child.once('exit', () => workerds.delete(coverage));
-    watchWorkerd(child, coverage, { owners: leaves, record: recordDelta, pending: workerdPending });
+    watchWorkerd(child, coverage, { owners: leaves, record: recordDelta, pending: workerdPending, recordLoads });
     return child;
   };
   for (const fn of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']) {
@@ -313,7 +319,7 @@ async function install(cfg, mainFile) {
       file: relative(root, mainFile).split(sep).join('/'),
       pid: process.pid,
       mode: cfg.mode,
-      tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
+      tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(t.loads.size ? { loads: [...t.loads].sort() } : {}), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
       setup: Object.fromEntries(setup),
       childDirs,
       ...(workerdNotes.started ? { workerd: workerdNotes } : {}),

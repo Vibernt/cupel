@@ -277,7 +277,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           file: d.file,
           setup: mode === 'coverage' ? toLines(d.setup) : null,
           childDirs: d.childDirs,
-          tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
+          tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, loads: t.loads ?? [], assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
         });
       }
       rmSync(out, { recursive: true, force: true });
@@ -417,7 +417,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     const tests = new Map(); // id -> test
     for (const t of first.leaves) {
       if (tests.has(t.id)) continue;
-      tests.set(t.id, { ...t, firstStatus: t.status, durationsMs: [], runStatuses: [], interp: false, lines: null });
+      tests.set(t.id, { ...t, firstStatus: t.status, durationsMs: [], runStatuses: [], interp: false, loads: new Set(), lines: null });
     }
     for (const r of all) {
       for (const t of r.leaves) {
@@ -428,6 +428,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         if (r !== first && t.status === 'failed') rec.status = 'failed';
         const h = t.hookKey ? r.index.get(`${t.file}\u0000${t.hookKey}`) : null;
         if (h?.interp) rec.interp = true;
+        for (const rel of h?.loads ?? []) rec.loads.add(rel);
         if (r === first && h) rec.assertions = h.assertions;
       }
     }
@@ -605,6 +606,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           durationsMs: t.durationsMs,
           ...(t.runStatuses.length === all.length ? { runStatuses: t.runStatuses } : {}),
           ...(t.interp ? { spawnsInterpreter: true } : {}),
+          ...(t.loads?.size ? { loads: [...t.loads].sort(cmp) } : {}),
         };
       }),
       coverage,

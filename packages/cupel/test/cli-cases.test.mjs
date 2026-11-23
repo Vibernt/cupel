@@ -43,6 +43,7 @@ function cliArgs(dir, c) {
   if (a.tests !== undefined) args.push(...a.tests);
   if (a.units !== undefined) for (const u of a.units) args.push('--units', u);
   if (a.limit !== undefined) args.push('--limit', String(a.limit));
+  if (a.allowRuntimeChange === true) args.push('--allow-runtime-change');
   if (existsSync(p('assertions.json'))) args.push('--assertions', p('assertions.json'));
   return args;
 }

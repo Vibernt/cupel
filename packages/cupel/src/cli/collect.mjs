@@ -15,6 +15,7 @@ import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
 import { mergeRunners, runnerParts } from './merge-runners.mjs';
+import { applyBuiltInto } from './built-into.mjs';
 import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
 import { mutateRuby } from './native-mutation.mjs';
@@ -296,7 +297,7 @@ async function collect(collector, opts) {
 /** Collects the working tree at `root`. The collector runs `prepare` itself. */
 export function collectTree(collector, { root, cfg, runs, recheck, log, diagnostics }) {
   log(`collecting ${root}`);
-  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics }).then((input) => stampCollection(input, root, cfg));
+  return collect(collector, { root, config: cfg, runs, recheck: recheck ?? [], log, diagnostics }).then((input) => stampCollection(applyBuiltInto(input, cfg), root, cfg));
 }
 
 /**
@@ -311,7 +312,7 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
     runPrepare(dir, cfg, log);
     const refConfig = withoutPrepare(cfg);
     const refCollector = await requireCollector(env, dir, refConfig);
-    const input = stampCollection(await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log }), dir, cfg, commit);
+    const input = stampCollection(applyBuiltInto(await collect(refCollector, { root: dir, config: refConfig, runs, recheck: [], log }), cfg), dir, cfg, commit);
     return after ? await after(dir, input, refCollector) : input;
   } finally {
     cleanup();
