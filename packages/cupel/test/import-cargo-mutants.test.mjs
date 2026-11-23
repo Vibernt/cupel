@@ -84,6 +84,42 @@ test('cargo-mutants import refuses incomplete or mismatched runs', () => {
   }
 });
 
+test('review fixes: crashed binaries, timeouts and missed-only single-package runs never yield "catches nothing"', () => {
+  const caughtOf = (o, file, text) => o.outcomes.find((x) => x.summary === 'CaughtMutant' && x.scenario.Mutant.file === file && x.scenario.Mutant.name.includes(text));
+  // A binary that crashed: the fault counts as caught, no test is credited, and the unit stops being complete evidence.
+  let dir = scratchCopy((o, d) => {
+    const c = caughtOf(o, 'core/src/secrets.rs', 'with false');
+    const log = join(d, c.log_path);
+    writeFileSync(log, readFileSync(log, 'utf8').replace(/test detects_key \.\.\. FAILED[\s\S]*?test result: FAILED[^\n]*\n/, "error: process didn't exit successfully: `x` (signal: 6, SIGABRT: process abort signal)\n")
+      .replace(/test prints_secret \.\.\. FAILED[\s\S]*?test result: FAILED[^\n]*\n/, "error: process didn't exit successfully: `y` (signal: 6, SIGABRT: process abort signal)\n"));
+  });
+  try {
+    const { mutation, notes } = importCargoMutants({ root, input, outDir: dir, listing });
+    const row = mutation.mutants.find((m) => m.description === 'replace looks_secret -> bool with false');
+    assert.equal(row.status, 'killed');
+    assert.deepEqual(row.killedBy, []);
+    assert.equal(notes.unattributed, 1);
+    assert.equal(mutation.targeted.includes(KEY), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  // A timeout: the unit holding it is not complete evidence either.
+  dir = scratchCopy((o) => { const c = caughtOf(o, 'core/src/secrets.rs', 'with false'); c.summary = 'Timeout'; });
+  try {
+    const { mutation } = importCargoMutants({ root, input, outDir: dir, listing });
+    assert.equal(mutation.targeted.includes(KEY), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  // Single-package testing is refused even when every fault was missed.
+  dir = scratchCopy((o) => {
+    o.outcomes = o.outcomes.filter((x) => x.scenario === 'Baseline' || x.summary === 'MissedMutant');
+    for (const x of o.outcomes) for (const p of x.phase_results ?? []) if (p.phase === 'Test') p.argv = [...p.argv.filter((a) => a !== '--workspace'), '--package=ws-core@0.1.0'];
+  });
+  try { assert.throws(() => importCargoMutants({ root, input, outDir: dir }), /--test-workspace=true/); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+  // nextest logs are refused rather than misread.
+  dir = scratchCopy((o) => { for (const x of o.outcomes) for (const p of x.phase_results ?? []) if (p.phase === 'Test') p.argv = ['cargo', 'nextest', 'run', '--no-fail-fast', '--workspace']; });
+  try { assert.throws(() => importCargoMutants({ root, input, outDir: dir }), /nextest/); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a test that reads source text gets no catch credit (K6: pins never earn kills)', () => {
   const pinned = { ...input, brittleness: [...(input.brittleness ?? []), { test: KEY, kind: 'source-text', line: 3 }] };
   const { mutation, notes } = importCargoMutants({ root, input: pinned, outDir });

@@ -256,7 +256,7 @@
         },
         "falseTests": {
           "type": "object",
-          "required": ["measured", "units", "unchecked", "timeoutOnly", "notFaultTested"],
+          "required": ["measured", "units", "unchecked", "timeoutOnly"],
           "additionalProperties": false,
           "properties": {
             "measured": {"type": "boolean"},
@@ -297,8 +297,7 @@
                 }
               }
             },
-            "timeoutOnly": {"type": "array", "items": {"type": "string"}},
-            "notFaultTested": { "type": "array", "items": { "type": "object", "required": ["source", "reason"], "additionalProperties": false, "properties": { "source": { "type": "string" }, "reason": { "type": "string" } } } }
+            "timeoutOnly": {"type": "array", "items": {"type": "string"}}
           }
         },
         "overlap": {

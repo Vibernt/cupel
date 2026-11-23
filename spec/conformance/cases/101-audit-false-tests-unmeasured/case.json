@@ -1,5 +1,5 @@
 {
-  "description": "Without mutation, or for a unit not targeted, nothing is called a false test: missing data is never \"catches nothing\". Code measured in workerd is listed as not fault-tested.",
+  "description": "Without mutation, or for a unit not targeted, nothing is called a false test: missing data is never \"catches nothing\".",
   "command": "audit",
   "rules": [
     {

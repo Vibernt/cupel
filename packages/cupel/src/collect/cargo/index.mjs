@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { basename, delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,7 @@ const exe = (name) => windows ? `${name}.exe` : name;
 // Coverage of dependencies and the standard library is never in scope.
 const IGNORE = '--ignore-filename-regex=[\\\\/]\\.cargo[\\\\/](registry|git)[\\\\/]|[\\\\/]rustc[\\\\/]';
 const SELECTION = ['--lib', '--bin', '--bins', '--example', '--examples', '--test', '--tests', '--bench', '--benches', '--all-targets', '--doc'];
-export const UNMEASURED = 'not compiled into any test binary or workspace program built for this host';
+export const UNMEASURED = 'not compiled into any test binary or workspace program in this collection (another target, a cfg or feature, or the test selection)';
 
 /** True when the user's cargo arguments already choose targets. */
 export function selectsTargets(args) {
@@ -179,6 +179,19 @@ export async function collectCargo({ root, runs = 2, recheck = [], tests: testGl
       names.add(owner.name);
     }
     packageArgs = [...names].sort().flatMap((name) => ['-p', name]);
+  }
+  // Each test binary is run directly, in the environment Cargo gives it. A custom
+  // Cargo runner (emulators, cross targets) would be bypassed, so it is refused.
+  if (args.some((arg) => arg === '--target' || arg.startsWith('--target='))) throw new Error('cargo test --target is not supported by the Rust collector yet; collect on the host target');
+  for (let dir = root; ; dir = dirname(dir)) {
+    for (const name of ['config.toml', 'config']) {
+      const path = join(dir, '.cargo', name);
+      if (existsSync(path)) {
+        const text = readFileSync(path, 'utf8');
+        if (/^\s*runner\s*=/m.test(text) || /\[build\][^[]*\btarget\s*=/s.test(text)) throw new Error(`${path} sets a Cargo runner or build target, which the Rust collector does not support yet`);
+      }
+    }
+    if (dirname(dir) === dir) break;
   }
   // Without a target choice, `--tests` builds and runs what `cargo test` runs, minus doctests.
   const cargoArgs = [...packageArgs, ...(selectsTargets(args) ? [] : ['--tests']), ...args];

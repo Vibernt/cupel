@@ -211,3 +211,14 @@ export async function confirmCargo({ root, input, mutation, ids, config = {}, lo
     return output;
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 }
+
+/** The full cargo-mutants listing (with each mutant's diff) for the project. */
+export async function listMutants({ root, config = {}, environment = process.env } = {}) {
+  const settings = config.runners?.cargo?.mutants ?? {};
+  const tool = findTool(settings.command ?? 'cargo-mutants', environment);
+  if (!tool) refuse(`cargo-mutants was not found: ${INSTALL}`);
+  const env = { ...environment, CARGO_NET_OFFLINE: 'true', CARGO_TERM_COLOR: 'never' };
+  const listed = await execute(tool, ['mutants', '--list', '--json', '--colors=never', ...(settings.args ?? [])], { cwd: root, env, log: noop });
+  if (listed.status !== 0) refuse(`cargo mutants --list failed (exit ${listed.status})`);
+  return JSON.parse(listed.stdout);
+}

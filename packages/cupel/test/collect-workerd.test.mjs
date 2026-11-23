@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isWorkerd, sameSource } from '../src/collect/node/workerd.mjs';
@@ -40,4 +40,28 @@ test('each test gets exactly the Worker lines it ran in workerd; two runs agree'
     assert.deepEqual(input.coverage.unstable, {});
     assert.equal(readFileSync(join(root, 'src/worker.mjs'), 'utf8'), before);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('faults in Worker code are tested inside workerd through a scratch copy; the project is never written', { skip: !miniflare && 'set CUPEL_TEST_MINIFLARE to a package.json with miniflare 5', timeout: 600_000 }, () => {
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const root = realpathSync(mkdtempSync(join(repo, '.scratch/workerd-mut-')));
+  const outDir = mkdtempSync(join(repo, '.scratch/workerd-mut-out-'));
+  try {
+    cpSync(join(repo, 'spec/conformance/adapters/workerd'), root, { recursive: true });
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { node: { tests: 'test/*.test.mjs' } }, tiers: { critical: ['src/**'] } }));
+    const before = readFileSync(join(root, 'src/worker.mjs'), 'utf8');
+    const out = join(outDir, 'input.json');
+    const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', out, '--json'],
+      { cwd: root, env: { ...process.env, CUPEL_TEST_MINIFLARE: miniflare }, encoding: 'utf8', timeout: 580_000, maxBuffer: 64 << 20 });
+    assert.equal(r.status, 0, r.stderr);
+    const rows = JSON.parse(readFileSync(out, 'utf8')).mutation.mutants;
+    const D = 'test/worker.test.mjs::doubles'; const G = 'test/worker.test.mjs::greets';
+    assert.ok(rows.length >= 10, JSON.stringify(rows));
+    assert.deepEqual(rows.filter((m) => m.status === 'survived').map((m) => [m.line, m.operator]), [[2, 'boundary']]);
+    assert.deepEqual(rows.filter((m) => m.status === 'no-coverage').map((m) => m.line), [3]);
+    assert.ok(rows.filter((m) => m.line === 5).every((m) => m.status === 'killed' && m.killedBy.join() === D));
+    assert.ok(rows.filter((m) => m.line === 9).every((m) => m.status === 'killed' && m.killedBy.join() === G));
+    assert.equal(readFileSync(join(root, 'src/worker.mjs'), 'utf8'), before);
+    assert.equal(existsSync(join(root, '.scratch')), false);
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(outDir, { recursive: true, force: true }); }
 });

@@ -10,7 +10,7 @@
 // `timeoutFloorMs` (the least a file run may take before it counts as a timeout, default 1000), and
 // `metrics` (a caller-owned counter object used by smoke tests, never part of the mutation result).
 
-import { readFileSync, realpathSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, realpathSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readdirSync, symlinkSync, readlinkSync, copyFileSync } from 'node:fs';
 import { skipFile } from '../collect/skipped.mjs';
 import { cpus, availableParallelism } from 'node:os';
 import { join } from 'node:path';
@@ -44,6 +44,28 @@ const noop = () => {};
 const defaultJobs = () => Math.max(1, Math.floor((typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) / 2));
 
 /** Whether a sorted interval list holds line n. */
+/**
+ * A working copy of the project for scratch-mode mutation: every file, except
+ * version control, build output and Cupel's own folders; node_modules folders are
+ * linked, not copied. Returns the copy's real path.
+ */
+export function copyProject(root, dest) {
+  const SKIP = new Set(['.git', '.cupel', '.scratch', 'target']);
+  mkdirSync(dest, { recursive: true });
+  const walk = (from, to) => {
+    for (const e of readdirSync(from, { withFileTypes: true })) {
+      if (SKIP.has(e.name)) continue;
+      const src = join(from, e.name); const dst = join(to, e.name);
+      if (e.name === 'node_modules' && e.isDirectory()) { symlinkSync(src, dst, 'junction'); continue; }
+      if (e.isSymbolicLink()) { symlinkSync(readlinkSync(src), dst); continue; }
+      if (e.isDirectory()) { mkdirSync(dst); walk(src, dst); }
+      else if (e.isFile()) copyFileSync(src, dst);
+    }
+  };
+  walk(root, dest);
+  return realpathSync(dest);
+}
+
 function hasLine(intervals, n) {
   let lo = 0, hi = intervals.length - 1;
   while (lo <= hi) {
@@ -63,7 +85,7 @@ function* each(intervals) {
 }
 
 /** The lines to mutate per source, from the scope (DESIGN-M3): critical sources, changed lines, targeted units. */
-function scopeLines({ input, cfg, model, scope }) {
+function scopeLines({ input, cfg, model, scope, scratch = false }) {
   const out = new Map();
   const add = (source, intervals) => {
     const info = model.sources.get(source);
@@ -101,7 +123,9 @@ function scopeLines({ input, cfg, model, scope }) {
     // Code measured inside workerd is loaded there by the harness, not through this
     // runner's module loader: a mutant served here would never run, and would look
     // unnoticed. It is left out until workerd mutation exists.
-    else if (input.sources[path]?.measuredIn) out.delete(path);
+    // In the ordinary mode they are left out; scratch mode (Phase 5) tests exactly them,
+    // by writing each mutant into a scratch copy of the project that the harness loads.
+    else if (!!input.sources[path]?.measuredIn !== scratch) out.delete(path);
   }
   return { lines: new Map([...out].sort((a, b) => cmp(a[0], b[0]))), own };
 }
@@ -109,8 +133,9 @@ function scopeLines({ input, cfg, model, scope }) {
 /** Shared machinery of one mutation session: test selection, baselines and the kill check. */
 class Session {
   constructor({ root, input, cfg, model, targetedUnits, jobs, timeoutFloorMs, log,
-    collectorKind, sourceFacts }) {
+    collectorKind, sourceFacts, scratch = false }) {
     this.root = realpathSync(root);
+    this.scratch = scratch;
     this.input = input;
     this.model = model;
     this.targetedUnits = targetedUnits;
@@ -118,9 +143,12 @@ class Session {
     this.timeoutFloorMs = timeoutFloorMs ?? 1000;
     this.log = log;
     this.sourceFacts = sourceFacts;
-    const scratch = join(this.root, '.scratch');
-    mkdirSync(scratch, { recursive: true });
-    this.tmp = mkdtempSync(join(scratch, 'cupel-mutate-'));
+    const scratchDir = join(this.root, '.scratch');
+    mkdirSync(scratchDir, { recursive: true });
+    this.tmp = mkdtempSync(join(scratchDir, 'cupel-mutate-'));
+    // Scratch mode: tests run in a copy of the project, so a mutant written there
+    // reaches code the harness loads itself (workerd). The original is never written.
+    this.runRoot = this.scratch ? copyProject(this.root, join(this.tmp, 'project')) : this.root;
     try { this.runner = collectorKind === 'vitest' ? new VitestMutantRunner(this.root, cfg, this.tmp) :
       collectorKind === 'jest' ? new JestMutantRunner(this.root, cfg, this.tmp) : null; }
     catch (error) { rmSync(this.tmp, { recursive: true, force: true }); throw error; }
@@ -195,7 +223,7 @@ class Session {
     await pool(todo, this.jobs, async (file) => {
       let r;
       for (let attempt = 0; attempt < 2; attempt++) {
-        r = await this.run({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: this.deadline });
+        r = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: this.deadline });
         if (r.cut || !this.baselineBroken(r, file)) break;
       }
       if (r.cut) return; // out of time: mutants that need this file are not run
@@ -227,7 +255,7 @@ class Session {
   async knownGood() {
     if (!this.probeFile) return true;
     const base = this.baselines.get(this.probeFile);
-    const r = await this.run({ root: this.root, file: this.probeFile, env: this.env, tmp: this.tmp, timeoutMs: Math.max(TIMEOUT_FACTOR * RECHECK_FACTOR * base.wallMs, 60000), stopAt: this.deadline });
+    const r = await this.run({ root: this.runRoot, file: this.probeFile, env: this.env, tmp: this.tmp, timeoutMs: Math.max(TIMEOUT_FACTOR * RECHECK_FACTOR * base.wallMs, 60000), stopAt: this.deadline });
     if (r.cut) return false;
     const failing = r.results.filter((x) => x.s === 'fail').length;
     if (this.baselineBroken(r, this.probeFile) || r.code !== base.code || failing !== base.failing.size) {
@@ -243,6 +271,15 @@ class Session {
 
   /** Writes the hook's spec for a mutant (in the temporary directory, never in the project). */
   spec(m, text) {
+    if (this.scratch) {
+      // Write the mutant into the copy; restore the original right after its runs.
+      const target = join(this.runRoot, m.source);
+      const original = readFileSync(target, 'utf8');
+      const seen = join(this.tmp, `seen-${++this.specs}`);
+      writeFileSync(target, text);
+      writeFileSync(seen, '');
+      return { path: null, sourcePath: null, seen, restore: () => writeFileSync(target, original) };
+    }
     const k = ++this.specs;
     const path = join(this.tmp, `mutant-${k}.json`);
     const sourcePath = join(this.tmp, `source-${k}`);
@@ -311,7 +348,7 @@ class Session {
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
     const go = async (timeoutMs) => {
-      const r = await this.run({ root: this.root, file, env: this.env, tmp: this.tmp,
+      const r = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp,
         mutantSpec: spec.path, timeoutMs, stopAt: deadline, source: m.source });
       return r.cut ? CUT : this.classify(file, r, base, covering);
     };
@@ -320,7 +357,7 @@ class Session {
     if (out.kind === 'timeout') {
       // A timeout may be the machine, not the mutant: time the file unmutated now, under the current load, and give
       // the mutant 3x the larger of the two limits before calling it a timeout.
-      const fresh = await this.run({ root: this.root, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: deadline });
+      const fresh = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: deadline });
       if (fresh.cut) return CUT;
       if (this.baselineBroken(fresh, file)) return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
       out = await go(RECHECK_FACTOR * Math.max(limit, TIMEOUT_FACTOR * fresh.wallMs));
@@ -357,7 +394,8 @@ class Session {
       const killedBy = status === 'error' ? [] : sortedUnique(outcomes.filter((o) => o.kind === 'killed' || o.kind === 'timeout').flatMap((o) => [...o.killers]));
       return { status, killedBy };
     } finally {
-      rmSync(spec.path, { force: true });
+      spec.restore?.();
+      if (spec.path) rmSync(spec.path, { force: true });
       if (spec.sourcePath) rmSync(spec.sourcePath, { force: true });
       rmSync(spec.seen, { force: true });
     }
@@ -413,13 +451,14 @@ export function wholeUnits(sites, own, cap) {
  * Mutation testing of the scope's lines. Returns `input.mutation`: { mutants, targeted, seed, sampled }.
  * Throws EnvironmentError when the unmutated tests do not run cleanly.
  */
-export async function mutateNode({ root, config = {}, input, scope = {}, log = noop, jobs, timeoutFloorMs, metrics, collectorKind, diagnostics = [] }) {
+export async function mutateNode({ root, config = {}, input, scope = {}, log = noop, jobs, timeoutFloorMs, metrics, collectorKind, diagnostics = [], scratch = false }) {
   const started = performance.now();
   const cfg = effectiveConfig(config ?? {}, CONFIG_SCHEMA);
   const { maxMutants, maxSeconds, seed } = cfg.mutation;
   const deadline = started + maxSeconds * 1000;
   const model = mutationModel(input, cfg, scope?.targeted ?? []);
-  const { lines, own } = scopeLines({ input, cfg, model, scope });
+  const { lines, own } = scopeLines({ input, cfg, model, scope, scratch });
+  if (scratch && !lines.size) return null;
   if (metrics) Object.assign(metrics, { sourceReads: 0, sourceBytesHashed: 0,
     sourceChecks: 0, factSources: 0, factBytes: 0, factHits: 0,
     lexScans: 0, bracketScans: 0, typescriptScans: 0,
@@ -463,7 +502,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
   }
 
   const session = new Session({ root, input, cfg, model, targetedUnits: new Set(own.keys()),
-    jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts });
+    jobs: scratch ? 1 : jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts, scratch });
   session.deadline = deadline;
   try {
     const invalid = new Set();

@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { definitions, harnessName, testRegions } from '../collect/cargo/tests.mjs';
+import { definitions, harnessName, testModuleFiles, testRegions } from '../collect/cargo/tests.mjs';
 import { inSourceScope } from '../collect/cargo/coverage.mjs';
 import { cmp } from '../engine/order.mjs';
 import { parseLog } from './logs.mjs';
@@ -82,8 +82,9 @@ export function importCargoMutants({ root, input, outDir, listing }) {
   // in a multi-package workspace every package's tests must run.
   const severalPackages = new Set(Object.keys(input.sources).map((file) => packageDir(root, file))).size > 1;
   for (const o of results) {
-    if (o.summary !== 'CaughtMutant') continue;
-    const argv = testPhase(o)?.argv ?? [];
+    const argv = testPhase(o)?.argv;
+    if (!argv) continue; // unviable mutants never reach the test phase
+    if (argv.some((arg) => arg === 'nextest')) refuse('cargo-mutants ran tests with nextest, whose logs Cupel cannot read per test yet; rerun with test_tool = "cargo"');
     if (!argv.includes('--no-fail-fast')) refuse('cargo-mutants ran cargo test without --no-fail-fast, so later catching tests are missing; rerun with --cargo-test-arg=--no-fail-fast');
     const onePackage = argv.some((arg) => arg.startsWith('--package=') || arg === '-p' || arg === '--package');
     if (onePackage && !argv.includes('--workspace') && severalPackages) {
@@ -102,6 +103,8 @@ export function importCargoMutants({ root, input, outDir, listing }) {
     return regions.get(file);
   };
   const pinned = new Set((input.brittleness ?? []).filter((b) => b.kind === 'source-text').map((b) => b.test));
+  const testModules = testModuleFiles(Object.keys(input.sources).filter((f) => f.endsWith('.rs') && existsSync(join(root, f)))
+    .map((f) => [f, readFileSync(join(root, f), 'utf8')]));
   const coveredLines = new Map();
   for (const row of Object.values(input.coverage?.byTest ?? {})) for (const [file, spec] of Object.entries(row)) {
     if (!coveredLines.has(file)) coveredLines.set(file, new Set());
@@ -144,6 +147,7 @@ export function importCargoMutants({ root, input, outDir, listing }) {
   };
 
   const notes = { unviable: 0, uncompiled: 0, doctestOnly: 0, pinnedCreditDropped: 0 };
+  const uncertain = new Set(); // source\0line of detected faults no test could be credited with
   const mutants = [];
   for (const o of results) {
     const m = o.scenario.Mutant;
@@ -162,6 +166,7 @@ export function importCargoMutants({ root, input, outDir, listing }) {
       mutants.push({ ...base, status: coveredLines.get(file)?.has(line) ? 'survived' : 'no-coverage' });
     } else if (o.summary === 'Timeout') {
       mutants.push({ ...base, status: 'timeout', killedBy: [] });
+      uncertain.add(`${file}\0${line}`);
     } else if (o.summary === 'CaughtMutant') {
       const parsed = logs.get(o.log_path);
       const kinds = {};
@@ -171,12 +176,21 @@ export function importCargoMutants({ root, input, outDir, listing }) {
         if (pinned.has(id)) { notes.pinnedCreditDropped++; continue; }
         const at = failure.location;
         const inTest = failure.unmetPanic || failure.returnedError || !at
-          || !inSourceScope(at.file) || regionsFor(at.file).some(([a, b]) => at.line >= a && at.line <= b);
+          || !inSourceScope(at.file) || testModules.has(at.file) || regionsFor(at.file).some(([a, b]) => at.line >= a && at.line <= b);
         // A test that failed twice keeps its strongest kind.
         if (kinds[id] !== 'assertion') kinds[id] = inTest ? 'assertion' : 'panic';
       }
       const killedBy = Object.keys(kinds).sort(cmp);
-      if (!killedBy.length && parsed.doctestFailures) notes.doctestOnly++;
+      if (parsed.nextest) refuse(`cannot read which test caught ${m.name}: nextest logs are not supported yet`);
+      if (!killedBy.length) {
+        // Detected, but no test can be credited: a doctest, or a test binary
+        // that crashed before reporting. The fault counts as caught; tests
+        // whose lines hold it are no longer complete evidence (never "catches nothing").
+        if (parsed.doctestFailures) notes.doctestOnly++;
+        else if (parsed.runs.some((run) => run.died)) notes.unattributed = (notes.unattributed ?? 0) + 1;
+        else if (!parsed.runs.some((run) => run.failed.length)) refuse(`cannot tell which test caught ${m.name} from its log; was cargo test's output changed?`);
+        uncertain.add(`${file}\0${line}`);
+      }
       mutants.push({ ...base, status: 'killed', killedBy, ...(killedBy.length ? { killKinds: Object.fromEntries(killedBy.map((id) => [id, kinds[id]])) } : {}) });
     } else refuse(`unknown cargo-mutants outcome ${o.summary} for ${m.name}`);
   }
@@ -200,7 +214,8 @@ export function importCargoMutants({ root, input, outDir, listing }) {
     }
     for (const [unit, own] of [...units].sort(([a], [b]) => cmp(a, b))) {
       const mine = listed.filter((m) => own.get(m.file)?.has(m.line));
-      if (mine.length && mine.every((m) => ran.has(m.id))) mutation.targeted.push(unit);
+      const unsure = [...own].some(([file, set]) => [...set].some((n) => uncertain.has(`${file}\0${n}`)));
+      if (mine.length && mine.every((m) => ran.has(m.id)) && !unsure) mutation.targeted.push(unit);
     }
   }
   return { mutation, notes };

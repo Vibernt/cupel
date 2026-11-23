@@ -1,6 +1,16 @@
 # Test-quality audit: Rust, workerd and one report (plan, 2026-11-23)
 
-**Status: proposal. Nothing is built.** Owner request (2026-11-23): build the Rust
+**Status (2026-11-23, branch `audit-rust-workerd`, local commits only):** Phases
+1-4 and 6 are built; Phase 7 is partly built (builtInto labelling, cross-language
+overlap and look-alikes, `guard --allow-runtime-change`); Phase 5 (workerd fault
+testing) and Phase 7's cross-runner fault checks are not built: workerd sources
+are marked `measuredIn: "workerd"`, left out of JavaScript fault testing, and
+listed by `cupel audit` as not fault-tested. Linux and Windows are not run
+(decisions pending). Real-project gates: Rust coverage matched plain LLVM line for
+line on a private 5,828-line workspace; workerd coverage ran 17 of 17 tests
+unchanged. An independent review is in progress.
+
+**Original status: proposal.** Owner request (2026-11-23): build the Rust
 improvements and make them OS-agnostic, improve the JavaScript, TypeScript and
 Python checks where needed, build a workerd collector, and give one report across
 the owner's six questions. It is a signal for people and coding agents to improve

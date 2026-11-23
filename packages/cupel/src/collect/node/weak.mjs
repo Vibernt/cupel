@@ -27,10 +27,11 @@ export function helperImports(toks) {
         q++;
       }
       const source = v(q) === 'from' ? v(q + 1) : null;
-      if (source && /^['"`]\./.test(source) && HELPER_PATH.test(source.slice(1, -1))) for (const n of found) names.add(n);
+      // A relative import that is not the code under test (outside src/ and lib/) may be a checking helper.
+      if (source && /^['"`]\./.test(source) && (HELPER_PATH.test(source.slice(1, -1)) || !/(?:^|\/)(?:src|lib)\//.test(source.slice(1, -1)))) for (const n of found) names.add(n);
     } else if (v(k) === 'require' && v(k + 1) === '(' && toks[k + 2]?.type === 'string') {
       const source = v(k + 2);
-      if (!/^['"`]\./.test(source) || !HELPER_PATH.test(source.slice(1, -1))) continue;
+      if (!/^['"`]\./.test(source) || (!HELPER_PATH.test(source.slice(1, -1)) && /(?:^|\/)(?:src|lib)\//.test(source.slice(1, -1)))) continue;
       // const { a, b } = require('./helpers') or const helper = require('./helpers')
       let q = k - 1;
       if (v(q) === '=') q--;
@@ -82,6 +83,8 @@ function argsOf(toks, pairs, open) {
 export function tautologyLines(src, toks, pairs, from, to) {
   const lines = []; const v = (k) => toks[k]?.value;
   const constantTrue = (a, b) => b - a === 1 && /^(?:true|1)$/.test(v(a));
+  // Calls can differ between evaluations (getInstance(), next()): only call-free sides are certain.
+  const callFree = (a, b) => !toks.slice(a, b).some((t) => t.value === '(');
   for (let k = from; k < to; k++) {
     if (toks[k].type !== 'name') continue;
     // assert(x) / assert.ok(x) / assert.equal(a, b) ...
@@ -91,7 +94,7 @@ export function tautologyLines(src, toks, pairs, from, to) {
       if (v(open) !== '(' || !pairs.has(open)) continue;
       const args = argsOf(toks, pairs, open);
       if ((!member || member === 'ok') && args[0] && constantTrue(...args[0])) lines.push(toks[k].line);
-      else if (member && EQUALITY.test(member) && args.length >= 2 && textOf(src, toks, ...args[0]) === textOf(src, toks, ...args[1])) lines.push(toks[k].line);
+      else if (member && EQUALITY.test(member) && args.length >= 2 && callFree(...args[0]) && textOf(src, toks, ...args[0]) === textOf(src, toks, ...args[1])) lines.push(toks[k].line);
     }
     // expect(a).toBe(b) ...
     if (v(k) === 'expect' && v(k - 1) !== '.' && v(k + 1) === '(' && pairs.has(k + 1)) {
@@ -102,7 +105,7 @@ export function tautologyLines(src, toks, pairs, from, to) {
       if (matcher === 'toBeTruthy' && constantTrue(...subject)) lines.push(toks[k].line);
       if (EXPECT_EQUALITY.test(matcher) && v(close + 3) === '(' && pairs.has(close + 3)) {
         const expected = argsOf(toks, pairs, close + 3)[0];
-        if (expected && textOf(src, toks, ...subject) === textOf(src, toks, ...expected)) lines.push(toks[k].line);
+        if (expected && callFree(...subject) && textOf(src, toks, ...subject) === textOf(src, toks, ...expected)) lines.push(toks[k].line);
       }
     }
   }

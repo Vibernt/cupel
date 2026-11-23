@@ -278,6 +278,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           setup: mode === 'coverage' ? toLines(d.setup) : null,
           childDirs: d.childDirs,
           workerdSources: d.workerdSources ?? [],
+          workerdStarted: d.workerd?.started ?? 0,
+          workerdNotes: d.workerd ?? null,
           tests: d.tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, loads: t.loads ?? [], assertions: t.assertions, lines: mode === 'coverage' ? toLines(t.cov) : null })),
         });
       }
@@ -432,6 +434,31 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         for (const rel of h?.loads ?? []) rec.loads.add(rel);
         if (r === first && h) rec.assertions = h.assertions;
       }
+    }
+    // Measuring inside workerd slows code under breakpoints, which can break a
+    // test's own time budget. Coverage must never change results: statuses and
+    // durations of files that started workerd come from one plain run of those
+    // files (no breakpoints), and coverage from the measured runs.
+    const workerdFiles = [...new Set(all.flatMap((r) => r.hook.filter((h) => h.workerdStarted > 0).map((h) => h.file)))].sort(cmp);
+    if (workerdFiles.length) {
+      const plain = await suiteRun('plain', { mode: 'spawns', files: workerdFiles });
+      const plainById = new Map(leafTests(plain.results).map((t) => [t.id, t]));
+      let changed = 0;
+      for (const rec of tests.values()) {
+        if (!workerdFiles.includes(rec.file)) continue;
+        const p = plainById.get(rec.id);
+        if (!p) continue;
+        if (p.status !== rec.status) changed++;
+        rec.status = p.status;
+        rec.runStatuses = [p.status];
+        rec.durationsMs = [Math.max(0, Math.round(p.ms ?? 0))];
+      }
+      log(`workerd: statuses and durations of ${workerdFiles.length} test files come from a plain run${changed ? `; ${changed} tests changed status only while measured` : ''}`);
+    }
+    const notes = all.flatMap((r) => r.hook.map((h) => h.workerdNotes).filter(Boolean));
+    const sum = (key) => notes.reduce((n, x) => n + (x[key] ?? 0), 0);
+    if (sum('unattached') || sum('transformed') || sum('unmatched')) {
+      log(`workerd: not measured: ${sum('unattached')} workerd processes Cupel could not attach to, ${sum('transformed')} scripts not byte-for-byte a repository file (bundled or transformed), ${sum('unmatched')} scripts outside the measured sources`);
     }
     for (const rec of tests.values()) {
       const runLines = all.map((r) => {

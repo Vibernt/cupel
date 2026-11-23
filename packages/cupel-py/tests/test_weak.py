@@ -36,6 +36,19 @@ def test_self():
     assert x == x
 
 
+def test_literal():
+    assert 3 == 3
+
+
+def test_generator_pairs():
+    g = iter(range(3))
+    assert next(g) == next(g)
+
+
+def test_check_kwarg():
+    subprocess.run(['true'], check=True)
+
+
 def test_none():
     add(1, 2)
 
@@ -67,12 +80,19 @@ class TestX:
 
     def test_mock(self, m):
         m.assert_called_once()
+
+    def check_roundtrip(self, x):
+        assert x == add(x, 0)
+
+    def test_method_helper(self):
+        self.check_roundtrip(1)
 '''
 
 EXPECTED = {
-    'test_real': [], 'test_removed': ['no-assertion'], 'test_true': ['tautology'], 'test_self': ['tautology'],
+    'test_real': [], 'test_removed': ['no-assertion'], 'test_true': ['tautology'], 'test_self': [],
+    'test_literal': ['tautology'], 'test_generator_pairs': [], 'test_check_kwarg': [], 'test_method_helper': [],
     'test_none': ['no-assertion'], 'test_helper': [], 'test_imported_helper': [], 'test_raises': [],
-    'test_raise_manual': [], 'test_eq': ['tautology'], 'test_true_method': ['tautology'], 'test_mock': [],
+    'test_raise_manual': [], 'test_eq': [], 'test_true_method': ['tautology'], 'test_mock': [],
 }
 
 
@@ -85,7 +105,7 @@ class WeakTests(unittest.TestCase):
 
     def test_findings_carry_the_new_kinds_once(self):
         tree = ast.parse(SOURCE)
-        fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == 'test_self')
+        fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == 'test_literal')
         self.assertEqual([kind for kind, _, _ in findings(SOURCE, fn, [])], ['tautology'])
 
 

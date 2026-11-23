@@ -20,6 +20,10 @@ def _same(a, b):
     return ast.dump(a, include_attributes=False) == ast.dump(b, include_attributes=False)
 
 
+def _has_call(node):
+    return any(isinstance(n, ast.Call) for n in ast.walk(node))
+
+
 def _constant_true(node):
     return isinstance(node, ast.Constant) and node.value in (True, 1) and not isinstance(node.value, str)
 
@@ -81,11 +85,29 @@ def checks(fn, mod, seen=None, depth=0):
         name, root = _call_name(node)
         if not name:
             continue
+        # subprocess.run(..., check=True) and similar raise when the check fails.
+        if any(k.arg == 'check' and isinstance(k.value, ast.Constant) and k.value.value is True for k in node.keywords):
+            return True
         if isinstance(node.func, ast.Attribute):
             if name.startswith('assert') or name in ('fail', 'raises', 'warns', 'approx', 'skip', 'xfail'):
                 return True
             if root in mod.helpers:
                 unknown = True
+                continue
+            if CHECK_CALL.match(name):
+                return True
+            # self.helper() / cls.helper(): a method of the same module may check.
+            if root in ('self', 'cls') and name in mod.functions and name not in seen:
+                if depth >= 4:
+                    unknown = True
+                    continue
+                seen.add(name)
+                for helper in mod.functions[name]:
+                    inner = checks(helper, mod, seen, depth + 1)
+                    if inner is True:
+                        return True
+                    if inner == 'unknown':
+                        unknown = True
             continue
         if CHECK_CALL.match(name):
             return True
@@ -113,11 +135,13 @@ def tautologies(fn):
             test = node.test
             if _constant_true(test):
                 lines.append(node.lineno)
-            elif isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.ops[0], (ast.Eq, ast.Is)) and _same(test.left, test.comparators[0]):
+            # `x == x` can fail (NaN, a generator, a non-deterministic call): only literals are certain.
+            elif isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.ops[0], (ast.Eq, ast.Is)) \
+                    and isinstance(test.left, ast.Constant) and _same(test.left, test.comparators[0]):
                 lines.append(node.lineno)
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             name = node.func.attr
-            if name in EQUAL_METHODS and len(node.args) >= 2 and _same(node.args[0], node.args[1]):
+            if name in EQUAL_METHODS and len(node.args) >= 2 and _same(node.args[0], node.args[1]) and not _has_call(node.args[0]):
                 lines.append(node.lineno)
             elif name == 'assertTrue' and node.args and _constant_true(node.args[0]):
                 lines.append(node.lineno)

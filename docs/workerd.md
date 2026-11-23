@@ -25,9 +25,23 @@ from the hits. On Cupel's engine this matches V8's own block coverage on 965 of
 S30 for the remaining differences. Module top-level code runs when workerd
 starts and is counted then, as module loading is in Node.
 
+**Results are never changed by measuring.** Breakpoints slow code, which can
+break a test's own time budget. After the measured runs, Cupel runs every test
+file that started workerd once more without breakpoints, and takes those tests'
+statuses and durations from that plain run; coverage comes from the measured runs.
+The collector log says how many tests changed status only while measured, and how
+many workerd processes or scripts could not be measured (bundled or transformed
+scripts, scripts outside the measured sources).
+
+**Fault testing.** Sources measured in workerd are marked `measuredIn: "workerd"`.
+Their mutants are planted in a scratch copy of the project, which the test harness
+loads into workerd, one at a time; only the tests that cover the mutated line run,
+after an unmutated baseline. The project itself is never written. Tests that read
+source text get no credit.
+
 **Cost.** Code with breakpoints runs unoptimised: light tests add about 0.6 s
-each, and request-heavy tests can take 10–20 times longer. Collect the full suite
+each, and request-heavy tests can take 10–100 times longer; on one private Workers codebase the 7 measured files took 71 minutes. The plain rerun adds the suite's ordinary time. Collect the full suite
 nightly and select changed tests per change.
 
-**Not measured.** Code compiled to WebAssembly (V8 reports no Wasm lines): Cupel records which tests loaded each repository `.wasm` file, and `builtInto` in [config](extending/config.md#code-that-another-languages-tests-run) labels the sources built into it. Also not measured:
+**Not measured.** Code compiled to WebAssembly (V8 reports no Wasm lines): Cupel records which tests loaded each repository `.wasm` file, `builtInto` in [config](extending/config.md#code-that-another-languages-tests-run) labels the sources built into it, and `crossRunner` can re-test their Rust faults with those tests. Also not measured: module top-level code is counted when the module loads, including any top-level branch that did not run; and
 tests that run inside workerd themselves (`@cloudflare/vitest-pool-workers`).

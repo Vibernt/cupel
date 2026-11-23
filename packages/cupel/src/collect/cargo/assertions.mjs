@@ -13,7 +13,7 @@
 const ASSERT_MACRO = /^(?:debug_)?assert(?:_eq|_ne|_matches)?$|^(?:panic|unreachable|todo|unimplemented)$/;
 const QUIET_MACRO = new Set(['println', 'eprintln', 'print', 'eprint', 'format', 'format_args', 'vec', 'write', 'writeln', 'dbg',
   'concat', 'stringify', 'include_str', 'include_bytes', 'env', 'option_env', 'file', 'line', 'column', 'module_path', 'matches', 'cfg']);
-const CHECKING_METHOD = /^(?:unwrap|expect|unwrap_err|expect_err|unwrap_none|expect_none)$|^assert/;
+const CHECKING_METHOD = /^(?:unwrap|expect|unwrap_err|expect_err|unwrap_none|expect_none|compile_fail|pass|run_pass|run_fail)$|^(?:assert|check|verify|expect|ensure|must|validate)/;
 const CHECK_CALL = /^(?:assert|check|verify|expect|ensure|must|validate)/i;
 const HELPER_MODULE = new Set(['common', 'helpers', 'helper', 'support', 'util', 'utils', 'fixtures', 'fixture', 'testing', 'harness', 'testutil', 'test_util', 'test_utils']);
 
@@ -71,8 +71,11 @@ export function tautologies(tokens, from, to) {
     const close = closing(tokens, i + 2);
     if (close < 0) continue;
     const args = argumentsOf(tokens, i + 3, close);
+    const calls = ([a, b]) => tokens.slice(a, b).some((t) => t.value === '(' || t.value === '!');
+    const literal = ([a, b]) => b - a === 1 && /^(?:N|S|true|false)$/.test(tokens[a].value);
     if (/assert_eq$/.test(name)) {
-      if (args.length >= 2 && text(tokens, args[0]) === text(tokens, args[1])) lines.push(tokens[i].line);
+      // Calls can differ between evaluations (render(&d), next()), so only call-free sides are certain.
+      if (args.length >= 2 && !calls(args[0]) && text(tokens, args[0]) === text(tokens, args[1])) lines.push(tokens[i].line);
     } else if (args.length >= 1) {
       const [a, b] = args[0];
       if (b - a === 1 && tokens[a].raw === 'true') lines.push(tokens[i].line);
@@ -83,7 +86,8 @@ export function tautologies(tokens, from, to) {
           if (v === '(' || v === '[' || v === '{') depth++;
           else if (v === ')' || v === ']' || v === '}') depth--;
           else if (depth === 0 && v === '=' && tokens[k + 1].value === '=' && tokens[k - 1]?.value !== '=' && tokens[k - 1]?.value !== '!' && tokens[k - 1]?.value !== '<' && tokens[k - 1]?.value !== '>') {
-            if (text(tokens, [a, k]) === text(tokens, [k + 2, b])) lines.push(tokens[i].line);
+            // `x == x` is false for NaN: only literals are certain.
+            if (literal([a, k]) && text(tokens, [a, k]) === text(tokens, [k + 2, b])) lines.push(tokens[i].line);
             break;
           }
         }
@@ -93,11 +97,29 @@ export function tautologies(tokens, from, to) {
   return lines;
 }
 
+/** Names brought in from test-helper modules (`use common::*` makes every outside call unknown). */
+export function helperImports(tokens) {
+  const names = new Set(); let glob = false;
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].value !== 'use') continue;
+    let j = i + 1; const path = [];
+    while (j < tokens.length && tokens[j].value !== ';') { path.push(tokens[j].value); j++; }
+    const segments = path.filter((v) => /^[A-Za-z_]\w*$/.test(v));
+    if (!segments.some((v) => HELPER_MODULE.has(v))) continue;
+    if (path.includes('*')) glob = true;
+    const at = path.lastIndexOf('{');
+    if (at >= 0) { for (const v of path.slice(at + 1)) if (/^[A-Za-z_]\w*$/.test(v)) names.add(v); }
+    else if (segments.length) names.add(segments.at(-1));
+    i = j;
+  }
+  return { names, glob };
+}
+
 /**
  * Does [from, to) check anything? → true, false, or 'unknown'.
  * `bodies` resolves same-file helper functions, followed up to four levels deep.
  */
-export function checks(tokens, from, to, bodies, seen = new Set(), depth = 0) {
+export function checks(tokens, from, to, bodies, seen = new Set(), depth = 0, helpers = { names: new Set(), glob: false }) {
   let unknown = false;
   for (let i = from; i < to; i++) {
     const t = tokens[i]; const next = tokens[i + 1]; const prev = tokens[i - 1];
@@ -118,12 +140,16 @@ export function checks(tokens, from, to, bodies, seen = new Set(), depth = 0) {
       if (first !== 'super' && first !== 'self' && first !== 'crate') continue;
     }
     const helper = bodies.get(t.value);
-    if (!helper) continue;
+    if (!helper) {
+      // A helper from a test module, or any outside call when one is glob-imported, may check.
+      if (helpers.names.has(t.value) || (helpers.glob && prev?.value !== ':')) unknown = true;
+      continue;
+    }
     if (seen.has(t.value)) continue;
     if (depth >= 4) { unknown = true; continue; }
     seen.add(t.value);
     for (const [open, close] of helper) {
-      const inner = checks(tokens, open + 1, close, bodies, seen, depth + 1);
+      const inner = checks(tokens, open + 1, close, bodies, seen, depth + 1, helpers);
       if (inner === true) return true;
       if (inner === 'unknown') unknown = true;
     }
@@ -132,10 +158,16 @@ export function checks(tokens, from, to, bodies, seen = new Set(), depth = 0) {
 }
 
 /** Findings for one test function: [{ kind, line }]. */
-export function assertionFindings(tokens, { attrs, signatureFrom, bodyOpen, bodyClose, line, bodies }) {
+// Tests whose check is that nothing panics (fuzzing, robustness) need no assertion.
+const NO_PANIC_NAME = /(?:^|_)(?:never|no|not|without|doesnt|does_not|cannot)_(?:panics?|crash(?:es)?|abort)(?:_|$)/;
+
+export function assertionFindings(tokens, { attrs, signatureFrom, bodyOpen, bodyClose, line, bodies, helpers, name = '' }) {
+  // An ignored test does not run in an ordinary `cargo test`: nothing to judge.
+  if (attrs.some((attr) => /^ignore\b/.test(attr))) return [];
   const findings = tautologies(tokens, bodyOpen + 1, bodyClose).map((at) => ({ kind: 'tautology', line: at }));
+  if (NO_PANIC_NAME.test(name)) return findings;
   const shouldPanic = attrs.some((attr) => /^should_panic/.test(attr));
   const returnsResult = tokens.slice(signatureFrom, bodyOpen).some((t) => t.value === 'Result');
-  if (!shouldPanic && !returnsResult && checks(tokens, bodyOpen + 1, bodyClose, bodies) === false) findings.unshift({ kind: 'no-assertion', line });
+  if (!shouldPanic && !returnsResult && checks(tokens, bodyOpen + 1, bodyClose, bodies, new Set(), 0, helpers) === false) findings.unshift({ kind: 'no-assertion', line });
   return findings;
 }

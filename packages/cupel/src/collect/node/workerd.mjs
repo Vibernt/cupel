@@ -91,7 +91,9 @@ export function sameSource(scriptSource, fileText) {
   return scriptSource.startsWith(fileText) && /^\n\/\/# sourceURL=[^\n]*\n?$/.test(scriptSource.slice(fileText.length));
 }
 
-const DRAIN = '(() => { const s = globalThis.__cupelHits; if (!s) return "[]"; const a = [...s]; s.clear(); return JSON.stringify(a); })()';
+// The hit record lives under a symbol key, so the Worker's own code never sees it by name.
+const HITS = "globalThis[Symbol.for('cupel.hits')]";
+const DRAIN = `(() => { const s = ${HITS}; if (!s) return "[]"; const a = [...s]; s.clear(); return JSON.stringify(a); })()`;
 
 /**
  * One workerd process. V8 precise coverage cannot start in workerd (it keeps
@@ -149,7 +151,7 @@ export class WorkerdCoverage {
       this.sessions.set(target.id, session);
       for (const script of scripts) {
         const rel = this.relOf(script.url);
-        if (!rel) continue;
+        if (!rel) { if (/^file:/.test(script.url)) this.notes.unmatched = (this.notes.unmatched ?? 0) + 1; continue; }
         const { scriptSource } = await session.send('Debugger.getScriptSource', { scriptId: script.scriptId });
         const text = this.sourceText(rel);
         if (!sameSource(scriptSource, text)) { this.notes.transformed++; continue; }
@@ -202,7 +204,7 @@ export class WorkerdCoverage {
     const { location } = point.info.locations[point.index] ? { location: point.info.locations[point.index] } : {};
     const result = await point.info.session.send('Debugger.setBreakpoint', {
       location: { scriptId: point.info.scriptId, lineNumber: location.line, columnNumber: location.column },
-      condition: `(globalThis.__cupelHits ??= new Set()).add(${key}), false`,
+      condition: `(${HITS} ??= new Set()).add(${key}), false`,
     });
     point.id = result.breakpointId;
   }
@@ -298,13 +300,19 @@ export function textReader(root) {
 }
 
 /** sha256 → repository path of every .wasm file under root (outside node_modules, target and dot directories). */
+const path0 = (...parts) => parts.join('/');
 export function wasmIndex(root) {
   const out = new Map();
   const walk = (dir, rel, depth) => {
     if (depth > 12) return;
     let entries; try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
-      if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'target') continue;
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      // Build output: only WebAssembly targets (target/wasm32-*/...) are looked at.
+      if (e.name === 'target' && !rel) { let t; try { t = readdirSync(path0(dir, e.name), { withFileTypes: true }); } catch { continue; }
+        for (const w of t) if (w.isDirectory() && w.name.startsWith('wasm32')) walk(path0(dir, e.name, w.name), `target/${w.name}`, depth + 2);
+        continue; }
+      if (e.name === 'target') continue;
       const path = `${dir}/${e.name}`; const r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) walk(path, r, depth + 1);
       else if (e.isFile() && e.name.endsWith('.wasm')) { try { out.set(createHash('sha256').update(readFileSync(path)).digest('hex'), r); } catch { /* unreadable */ } }

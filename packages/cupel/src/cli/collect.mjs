@@ -353,10 +353,16 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
         }
       }
       if (!mutations.length) return null;
-      const merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
+      let merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
       if (mutations.some((m) => m.sampled !== undefined)) merged.sampled = mutations.some((m) => m.sampled);
       const seeds = [...new Set(mutations.map((m) => m.seed).filter((n) => n !== undefined))];
       if (seeds.length === 1) merged.seed = seeds[0];
+      if (cfg.runners?.cargo?.mutants?.crossRunner && owners.size) {
+        // Phase 7: Rust survivors in sources built into an artifact get re-tested by the tests that load it.
+        const { crossRunner } = await import('./cross-runner.mjs');
+        const { listMutants } = await import('../mutate-cargo/run.mjs');
+        merged = await crossRunner({ root, cfg, input, mutation: merged, listing: await listMutants({ root, config: cfg }), log });
+      }
       mutationOwners.set(merged, owners);
       return merged;
     }
@@ -374,7 +380,12 @@ export async function mutate(mutator, { root, cfg, input, scope, log, collectorK
         targeted: scope.targeted ?? [] };
       return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
     }
-    return await mutator.mutateNode({ root, config: cfg, input, scope: { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] }, log, collectorKind, diagnostics });
+    const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [] };
+    const ordinary = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics });
+    // Phase 5: sources the tests run in workerd get their mutants in a scratch copy of the project.
+    if (collectorKind || !Object.values(input.sources).some((s) => s.measuredIn)) return ordinary;
+    const scratch = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics, scratch: true });
+    return mergePasses(input, ordinary, scratch);
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }
@@ -454,6 +465,29 @@ export function lostSurvivors(base, head) {
 }
 
 /** Merges a second mutation result into the first: later mutants replace earlier ones by id. */
+/**
+ * Merges an ordinary and a scratch-mode mutation pass over disjoint sources. A
+ * unit stays targeted only if every pass whose sources hold its own lines lists it.
+ */
+export function mergePasses(input, ordinary, scratch) {
+  if (!scratch) return ordinary;
+  if (!ordinary) return scratch;
+  const measured = new Set(Object.entries(input.sources).filter(([, s]) => s.measuredIn).map(([p]) => p));
+  const ownSources = new Map();
+  for (const t of input.tests) {
+    const unit = t.unit ?? t.id;
+    if (!ownSources.has(unit)) ownSources.set(unit, new Set());
+    for (const source of Object.keys(input.coverage?.byTest?.[t.id] ?? {})) ownSources.get(unit).add(source);
+  }
+  const inOrdinary = new Set(ordinary.targeted ?? []); const inScratch = new Set(scratch.targeted ?? []);
+  const targeted = [...new Set([...inOrdinary, ...inScratch])].filter((unit) => {
+    const sources = [...(ownSources.get(unit) ?? [])];
+    return (!sources.some((x) => !measured.has(x)) || inOrdinary.has(unit)) && (!sources.some((x) => measured.has(x)) || inScratch.has(unit));
+  }).sort(cmp);
+  const merged = mergeMutation(ordinary, scratch);
+  return { ...merged, targeted };
+}
+
 export function mergeMutation(a, b) {
   if (!a) return b;
   if (!b) return a;

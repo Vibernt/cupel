@@ -1450,12 +1450,11 @@ kase('100-audit-false-tests', { description: 'A targeted unit that covers faults
     ],
     unchecked: [{ source: 'src/a.mjs', lines: '3', mutants: [{ id: 'm2', line: 3, description: 'replace > with >=' }] }],
     timeoutOnly: ['m3'],
-    notFaultTested: [],
   } } } });
-kase('101-audit-false-tests-unmeasured', { description: 'Without mutation, or for a unit not targeted, nothing is called a false test: missing data is never "catches nothing". Code measured in workerd is listed as not fault-tested.',
+kase('101-audit-false-tests-unmeasured', { description: 'Without mutation, or for a unit not targeted, nothing is called a false test: missing data is never "catches nothing".',
   command: 'audit', rules: rules('-U3'),
-  input: input({ sources: { 'src/a.mjs': { coverable: '1-10' }, 'src/w.mjs': { coverable: '1-3', measuredIn: 'workerd' } }, tests: U_TESTS, cov: { a: '1-4', b: '1-4' }, mutation: { targeted: [], mutants: [m('m1', 2, 'survived')] } }),
-  expectExit: 0, expected: { audit: { falseTests: { measured: true, units: [], notFaultTested: [{ source: 'src/w.mjs', reason: 'runs in workerd; its faults are not tested yet' }] } } } });
+  input: input({ tests: U_TESTS, cov: { a: '1-4', b: '1-4' }, mutation: { targeted: [], mutants: [m('m1', 2, 'survived')] } }),
+  expectExit: 0, expected: { audit: { falseTests: { measured: true, units: [] } } } });
 kase('102-audit-overlap', { description: 'Units that catch the same faults form an overlap group, marked when their runners differ.',
   command: 'audit', rules: rules('+U4'),
   input: input({

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { scanRust, shape } from './lex.mjs';
-import { assertionFindings, functionBodies } from './assertions.mjs';
+import { assertionFindings, functionBodies, helperImports } from './assertions.mjs';
 
 // `test`, `tokio::test`, `async_std::test` and similar harness attributes, with or without arguments.
 const TEST_ATTRIBUTE = /^(?:[A-Za-z_][A-Za-z0-9_]*::)*test(?:\(.*\))?$/s;
@@ -23,6 +23,7 @@ export function definitions(root, sourceBytes) {
     const source = sourceBytes ? sourceBytes.get(name).toString('utf8') : readFileSync(file, 'utf8'); const lines = source.split('\n');
     const tokens = scanRust(source).tokens;
     const bodies = functionBodies(tokens);
+    const helpers = helperImports(tokens);
     const scopes = []; let depth = 0;
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
@@ -64,7 +65,7 @@ export function definitions(root, sourceBytes) {
           const reads = doc || /\.rs["#]/.test(readPath);
           const asserts = /\b(?:assert(?:_eq|_ne)?!|debug_assert!|panic!|expect\s*\()/s.test(rawBody);
           const pins = reads && asserts ? [{ test: id, kind: doc ? 'doc-wording' : 'source-text', line: token.line }] : [];
-          const weak = assertionFindings(tokens, { attrs, signatureFrom: j + 2, bodyOpen: open, bodyClose: end - 1, line: tokens[j].line, bodies })
+          const weak = assertionFindings(tokens, { attrs, signatureFrom: j + 2, bodyOpen: open, bodyClose: end - 1, line: tokens[j].line, bodies, helpers, name: tokens[j + 1].value })
             .map((finding) => ({ test: id, ...finding }));
           found.push({ fullName, id, file: path, name: fullName, ...(tag ? { tags: [tag] } : {}), shape: shape(body),
             brittleness: [...pins, ...weak] });
@@ -122,4 +123,22 @@ export function testRegions(source) {
     }
   }
   return regions;
+}
+
+/**
+ * Files that are test code as a whole: they start with `#![cfg(test)]`, or another
+ * file declares them with `#[cfg(test)] mod name;`. A panic inside them is the test's own check.
+ */
+export function testModuleFiles(files) {
+  const out = new Set();
+  for (const [file, source] of files) {
+    if (/^\s*#!\[cfg\(test\)\]/m.test(source.split('\n').slice(0, 20).join('\n'))) out.add(file);
+    for (const match of source.matchAll(/#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_]\w*)\s*;/g)) {
+      const dir = file.replace(/[^/]*$/, '');
+      const stem = file.split('/').pop().replace(/\.rs$/, '');
+      const base = ['lib', 'main', 'mod'].includes(stem) ? dir : `${dir}${stem}/`;
+      out.add(`${base}${match[1]}.rs`); out.add(`${base}${match[1]}/mod.rs`);
+    }
+  }
+  return out;
 }

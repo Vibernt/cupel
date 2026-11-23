@@ -720,6 +720,7 @@ function scratchRoots(argv, io) {
   const roots = new Set([resolve(io.cwd ?? process.cwd())]);
   const at = argv.indexOf('--root');
   if (at >= 0 && argv[at + 1]) roots.add(resolve(io.cwd ?? process.cwd(), argv[at + 1]));
+  for (const arg of argv) if (arg.startsWith('--root=')) roots.add(resolve(io.cwd ?? process.cwd(), arg.slice('--root='.length)));
   return [...roots];
 }
 

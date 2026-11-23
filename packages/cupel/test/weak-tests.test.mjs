@@ -40,7 +40,7 @@ mod tests {
 `);
     const got = Object.fromEntries(definitions(root).map((d) => [d.fullName.replace('tests::', ''), d.brittleness.map((b) => b.kind)]));
     assert.deepEqual(got, {
-      real: [], removed_assertions: ['no-assertion'], always_true: ['tautology'], self_compare: ['tautology'], same_expr: ['tautology'],
+      real: [], removed_assertions: ['no-assertion'], always_true: ['tautology'], self_compare: ['tautology'], same_expr: [],
       no_assertion: ['no-assertion'], via_helper: [], via_two_helpers: [], via_unwrap: [], via_question: [], via_common: [], via_macro: [],
       panics: [], prints_only: ['no-assertion'], inequality_is_not_a_tautology: [],
     });
@@ -77,7 +77,7 @@ test('inequality', () => { assert.notEqual(add(1, 2), add(2, 2)); });
   const got = Object.fromEntries(analyseTestFile(src).filter((d) => d.title !== 'inner').map((d) => [d.title, d.flags.map((f) => f.kind)]));
   assert.deepEqual(got, {
     real: [], 'removed assertions': ['no-assertion'], 'always true': ['tautology'], 'bare true': ['tautology'], 'self compare': ['tautology'],
-    'expect same': ['tautology'], 'expect truthy': ['tautology'], 'no assertion': ['no-assertion'], 'via helper': [], 'via arrow helper': [],
+    'expect same': [], 'expect truthy': ['tautology'], 'no assertion': ['no-assertion'], 'via helper': [], 'via arrow helper': [],
     'via imported helper': [], 'via required helper': [], subtests: [], throws: [], plan: [], rejects: [], inequality: [],
   });
 });

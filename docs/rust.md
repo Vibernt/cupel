@@ -11,7 +11,7 @@ execution is unsupported.
 
 ## Coverage
 
-Run `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]`. Configure `runners.cargo` in `cupel.json` to select it for `report`, `check`, `guard`, `plan`, `label` and `review`. A configured `runners.cargo.tests` glob selects Cargo packages and test files and accepts brace alternatives; the direct CLI also accepts `--tests GLOB`. Cupel uses the user's Cargo and rustup environment without changing `CARGO_HOME` or `RUSTUP_HOME`. When `CARGO_TARGET_DIR` is set, builds use a repository-specific subdirectory inside it, so cached binaries from another checkout never attribute coverage to stale paths. Cargo is forced offline (`CARGO_NET_OFFLINE=true`, `--offline`): install dependencies first. The collector needs `llvm-profdata` and `llvm-cov` matching rustc's LLVM major version, from the rustup sysroot (`rustup component add llvm-tools-preview`) or from `PATH`; otherwise it exits 3 with that installation command.
+Run `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]`. Configure `runners.cargo` in `cupel.json` to select it for `report`, `check`, `guard`, `plan`, `label` and `review`. A configured `runners.cargo.tests` glob selects Cargo packages and test files and accepts brace alternatives; the direct CLI also accepts `--tests GLOB`. Cupel uses the user's Cargo and rustup environment without changing `CARGO_HOME` or `RUSTUP_HOME`. When `CARGO_TARGET_DIR` is set, builds use a repository-specific subdirectory inside it, so cached binaries from another checkout never attribute coverage to stale paths. Cargo is forced offline (`CARGO_NET_OFFLINE=true`, `--offline`): install dependencies first. A custom Cargo runner or build target (`.cargo/config.toml`, `--target`) is refused, because tests run directly on the host. The collector needs `llvm-profdata` and `llvm-cov` matching rustc's LLVM major version, from the rustup sysroot (`rustup component add llvm-tools-preview`) or from `PATH`; otherwise it exits 3 with that installation command.
 
 How it runs:
 
@@ -30,6 +30,7 @@ How it runs:
 **Test ids and findings.** Ids are `<test source file>::<module > test name>`. Source scanning finds test functions with any run of attributes (`#[test]`, `#[tokio::test]`, `#[should_panic]`, `#[ignore]`, in any order), `// cupel:critical|standard|minor` tags on the line above, and four-token FNV-1a body shapes. Findings:
 
 - `source-text` / `doc-wording`: the test asserts on text read from a source or document file (`include_str!`, `std::fs::read_to_string`).
+- Ignored tests (`#[ignore]`) are not judged, and tests named for not panicking (`..._never_panics`, `no_panic_...`) need no assertion.
 - `no-assertion`: the test checks nothing — no assertion macro, no `unwrap`/`expect`, no `?`, no `#[should_panic]`, no `Result` return, no check-named call, no same-file helper that checks. Reported only when that is certain: a custom macro or a call into `common::`, `helpers::` and similar test-helper modules suppresses it.
 - `tautology`: an assertion that cannot fail, such as `assert!(true)`, `assert_eq!(x, x)` or `assert!(a == a)`.
 
@@ -47,7 +48,8 @@ All keys are optional: `command` defaults to `cargo-mutants` on `PATH`, `jobs` t
 - re-runs every **timeout** once, alone, with ten times the limit, and keeps that result. A timeout never credits a test;
 - gives **no credit** to a test that reads source text (K6: pins never earn kills);
 - leaves out faults on lines the coverage input cannot count (code not built for this host), which cargo-mutants would otherwise call missed, and marks missed faults on lines no test covers as `no-coverage`;
-- refuses results whose sources changed since the run, runs without `--no-fail-fast`, single-package test runs in a multi-package workspace, and catching tests the coverage input does not have.
+- refuses results whose sources changed since the run, runs without `--no-fail-fast`, single-package test runs in a multi-package workspace (whatever the outcome), nextest logs (not readable per test yet), logs it cannot attribute, and catching tests the coverage input does not have;
+- counts a fault caught by a test binary that crashed, or only by a timeout, as detected without crediting any test, and then no test whose lines hold it is treated as complete evidence (it is never called "catches nothing").
 
 `cupel import --format cargo-mutants` reads a `mutants.out` you produced yourself, with the same rules (see the [CLI reference](cli.md)).
 

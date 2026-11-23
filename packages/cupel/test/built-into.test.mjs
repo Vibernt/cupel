@@ -40,3 +40,19 @@ test('without builtInto or loads nothing changes, and an unloaded artifact says 
   const out = applyBuiltInto(rust, cfg);
   assert.equal(out.sources['crates/wasm/src/lib.rs'].unmeasured, 'built into cloud/src/prill.wasm; no measured test loads it');
 });
+
+test('cross-runner faults: cargo-mutants diffs apply exactly to the original source', async () => {
+  const { applyDiff } = await import('../src/cli/cross-runner.mjs');
+  const fixture = new URL('../../../spec/conformance/adapters/cargo-workspace/', import.meta.url);
+  const listing = JSON.parse(readFileSync(new URL('fixtures/cargo-mutants-ws/listing.json', import.meta.url), 'utf8'));
+  let applied = 0;
+  for (const m of listing.filter((x) => x.file !== 'core/src/wasm_only.rs')) {
+    const original = readFileSync(new URL(m.file, fixture), 'utf8');
+    const mutated = applyDiff(original, m.diff);
+    assert.notEqual(mutated, original, m.name);
+    assert.ok(mutated.includes('/* ~ changed by cargo-mutants ~ */'), m.name);
+    assert.equal(mutated.split('\n').length - original.split('\n').length, m.diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).length - m.diff.split('\n').filter((l) => l.startsWith('-') && !l.startsWith('---')).length, m.name);
+    applied++;
+  }
+  assert.ok(applied >= 15);
+});

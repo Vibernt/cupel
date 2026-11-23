@@ -43,3 +43,21 @@ example "built into cloud/src/prill.wasm, which 72 tests load; lines inside
 WebAssembly are not measured", instead of looking untested. A source that its own
 tests do reach keeps its measured coverage. Rust faults in such sources are left
 out of fault testing, since no Rust test can run them.
+
+### Re-testing Rust faults with the tests that load the artifact
+
+Rust faults that `cargo test` did not catch, in sources that are also built into
+the artifact, can get a second chance with the tests that load it. This is opt-in
+and capped, because every fault costs a build and a test run:
+
+```json
+{ "runners": { "cargo": { "mutants": { "crossRunner": {
+  "sources": "crates/core/**", "artifact": "cloud/src/prill.wasm",
+  "build": "sh tools/build-wasm.sh", "maxMutants": 20 } } } } }
+```
+
+In a scratch copy of the project, Cupel plants each fault, runs `build`, then runs
+the test files whose tests loaded `artifact`, after one unmutated baseline. A test
+that now fails catches the fault and is credited. A fault the build rejects is
+skipped. Faults in sources that are only built into the artifact (and so are
+`unmeasured`) have no lines to attach results to and are not re-tested.

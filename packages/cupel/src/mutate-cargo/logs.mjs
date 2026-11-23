@@ -35,10 +35,11 @@ export function parseLog(text) {
   const compiled = new Map();
   const runs = [];
   let phase = null; let current = null; let doc = false; let section = null;
-  let doctestFailures = 0;
+  let doctestFailures = 0; let nextest = false;
   const lines = text.split('\n').map((line) => line.replace(/\r$/, ''));
   for (const line of lines) {
     if (line.startsWith('*** ')) {
+      if (/\snextest\s/.test(line)) { nextest = true; phase = null; current = null; section = null; continue; }
       if (/\stest\s.*--no-run(?:\s|$)/.test(line)) phase = 'build';
       else if (/\stest(?:\s|$)/.test(line)) phase = 'test';
       else if (line.startsWith('*** result:')) phase = null;
@@ -73,5 +74,5 @@ export function parseLog(text) {
     if (/^note: test did not panic as expected/.test(line)) section.unmetPanic = true;
     if (/^Error: /.test(line)) section.returnedError = true;
   }
-  return { compiled, runs, doctestFailures };
+  return { compiled, runs, doctestFailures, nextest };
 }
