@@ -34,7 +34,9 @@ so `--json` prints exactly the engine's report (`spec/schemas/report.schema.json
 | `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]` | Collects [Rust](rust.md) tests with isolated LLVM coverage |
 | `cupel collect-node [--root DIR] [--out FILE] [--junit FILE] [--runs N] [--shard I/N \| --tests FILE ...] [-- <node test flags>...]` | Runs node:test as the CI test step and writes complete collection input; default one run |
 | `cupel merge-inputs <shard.json...> --out FILE [--json]` | Validates and merges all disjoint shards of one suite |
-| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7) |
+| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--runner NAME] [--shard I/N]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7). `--runner` limits it to one runner; `--shard I/N` runs slice I of the plan's N slices ([slicing](speed.md#slicing-across-ci-machines)) |
+| `cupel mutate --input FILE --plan [--out FILE] [--runner NAME] [--cores N] [--startup-seconds S] [--target-minutes M] [--max-shards N] [--json]` | Plans fault testing without running it: faults per runner, an estimate and the suggested number of slices |
+| `cupel merge-mutations --input FILE --out FILE <part.json...>` | Joins slices and whole runs of the same collected input into one input; refuses mismatched, missing or doubled slices |
 
 `cupel mcp [--root <dir>]` starts the [local MCP server](mcp.md) over stdio.
 
@@ -64,6 +66,7 @@ Per command:
 | `--base-input <file>`, `--head-input <file>` | check, guard | Saved inputs for either side (`check` also takes the head as `--input`) |
 | `--approvals <file>` | guard | A JSON list of `{ "action": "remove" \| "downgrade", "id", "by" }`, or an object with that list as `approvals` |
 | `--changed <ref>` | plan, guard, mutate | Changed lines from `git diff --unified=0 <ref>`. For guard, only with `--base-input` (with `--base`, the base ref gives them) |
+| `--first-catch` | mutate | Stop each fault at its first catching test; the result (`mutation.catches: "first"`) is accepted only as guard's head (I6). `guard` does this for its own head unless config `guard.firstCatch` is false |
 | `--reuse <file>` | report, review, audit, check, guard, mutate | Copy fault results from this earlier input when nothing they depend on changed ([K15](../spec/SPEC.md), [reuse](speed.md#reuse-earlier-results)). Default: `.cupel/input.json` when present. A missing file means every fault runs |
 | `--no-reuse` | report, review, audit, check, guard, mutate | Run every fault |
 | `--changed-lines <file>` | plan | Changed lines as JSON: `{ "path": "line set" }`, `""` for a whole file |

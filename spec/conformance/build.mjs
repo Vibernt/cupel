@@ -1477,6 +1477,17 @@ kase('111-audit-overlap-partial-kills', { description: 'Units not in targeted ma
     mutation: { targeted: [], mutants: [m('m1', 2, 'killed', ['a']), m('m2', 3, 'killed', ['c'])] },
   }),
   expectExit: 0, expected: { audit: { overlap: [{ basis: 'lines', units: ['a', 'c'], crossRunner: false }] } } });
+kase('112-guard-first-catch-head', { description: 'Guard accepts a head that stopped at the first catch: G6 reads only whether each fault was detected.',
+  command: 'guard', rules: rules('+I6 +G6'), base: gBase(),
+  head: gBase({ mutation: { catches: 'first', mutants: [m('m1', 2, 'killed', ['d'], 'src/auth.mjs'), m('m2', 1, 'killed', ['d'])] } }),
+  expectExit: 0, expected: { guard: { pass: true } } });
+kase('113-guard-first-catch-base', { description: 'Guard refuses a base that stopped at the first catch: removed tests are described by their unique kills.',
+  command: 'guard', rules: rules('-I6'), base: gBase({ mutation: { catches: 'first', mutants: [m('m1', 2, 'killed', ['d'], 'src/auth.mjs'), m('m2', 1, 'killed', ['d'])] } }), head: gBase(),
+  expectExit: 2, expected: { diagnostics: [{ code: 'partial-catches', severity: 'error', path: '/mutation/catches' }], guard: '$absent' } });
+kase('114-report-first-catch', { description: 'Report refuses fault results that stopped at the first catch: unique kills would be wrong.',
+  command: 'report', rules: rules('-I6'),
+  input: input({ tests: [t('t1', 'tests/a.test.mjs')], cov: { t1: '1-2' }, mutation: { catches: 'first', mutants: [m('m1', 2, 'killed', ['t1'])] } }),
+  expectExit: 2, expected: { diagnostics: [{ code: 'partial-catches', severity: 'error' }], suite: '$absent' } });
 kase('104-audit-combine', { description: 'Same-file groups carry a form for their language; same-language look-alikes across files are suggested as a shared helper.',
   command: 'audit', rules: rules('+U5'),
   input: input({

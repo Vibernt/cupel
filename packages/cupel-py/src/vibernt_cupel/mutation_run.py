@@ -59,6 +59,7 @@ class Session:
     def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000, targeted=()):
         self.root, self.input, self.config, self.tmp, self.deadline = root, input_data, config, tmp, deadline
         self.targeted = set(targeted)
+        self.first_catch = False
         self.facts = facts
         self.floor_ms = floor_ms
         self.tests = {t['id']: t for t in input_data['tests']}
@@ -127,7 +128,8 @@ class Session:
                                          'device': fact.path.device, 'inode': fact.path.inode,
                                          'edits': site.edits, 'seen': str(seen_path),
                                          'units': units, 'ignore': sorted(baseline_failures),
-                                         'stop': not any(u in self.targeted for u in units.values())}), encoding='utf-8')
+                                         'stop': not any(u in self.targeted for u in units.values()),
+                                         'stopAfter': 1 if self.first_catch else 2}), encoding='utf-8')
         def classify(run):
             if run['cut']:
                 return None
@@ -165,12 +167,86 @@ class Session:
             seen_path.unlink(missing_ok=True)
 
 
-def _entry(site, result):
+def _entry(site, result, duration=None):
     status, killers = result
     row = {'id': site.id, 'source': site.source, 'line': site.line, 'operator': site.operator, 'status': status}
     if killers:
         row['killedBy'] = killers
+    if duration is not None:
+        row['durationMs'] = duration
     return row
+
+
+def _reused(site, reuse):
+    row = reuse[site.id]
+    if not isinstance(row, dict) or row.get('id') != site.id or 'status' not in row:
+        raise ValueError(f'scope.reuse: {site.id} is not a mutant row with that id')
+    return json.loads(json.dumps(row))
+
+
+def _median(values):
+    values = sorted(v for v in values or [] if isinstance(v, (int, float)) and not isinstance(v, bool))
+    if not values:
+        return 0
+    mid = len(values) // 2
+    return values[mid] if len(values) % 2 else (values[mid - 1] + values[mid]) / 2
+
+
+def _choose(ordered, texts, reuse, session, cap, functions, primary_by_function):
+    """The faults a run picks when time is no limit, in run order, as (site, text, kind, reused row).
+
+    The same walk as the run loop in `mutate`: up to `cap` compiling sites; a function's second variant only when
+    its first is picked and not known (from reuse) to have been anything but survived. It never reads the clock."""
+    chosen, invalid, kinds, known = [], set(), {}, {}
+    for site in ordered:
+        if len(chosen) >= cap:
+            break
+        if functions and site.variant == 1:
+            primary = primary_by_function.get(site.function_key)
+            if primary not in kinds or known.get(primary, 'survived') != 'survived':
+                continue
+        text = apply(texts[site.source], site)
+        try:
+            compile(text, site.source, 'exec')
+        except (SyntaxError, ValueError):
+            invalid.add(site.id)
+            continue
+        row = None
+        if site.id in reuse and not session.needs_full(site):
+            row = _reused(site, reuse)
+            kind = 'reused'
+            known[site.id] = row['status']
+        elif not session.select(site):
+            kind = 'no-coverage'
+            known[site.id] = kind
+        else:
+            kind = 'run'
+        kinds[site.id] = kind
+        chosen.append((site, text, kind, row))
+    return chosen, invalid, known
+
+
+def _eligible(candidates, functions, primary_by_function, status):
+    if not functions:
+        return candidates
+    return [s for s in candidates if s.variant == 0 or status(primary_by_function.get(s.function_key)) == 'survived']
+
+
+def _plan(chosen, candidates, invalid, known, session, history, functions, primary_by_function, seed):
+    picked = {site.id for site, *_ in chosen}
+    plan = []
+    for site, _, kind, _ in chosen:
+        entry = {'id': site.id, 'source': site.source, 'line': site.line, 'kind': kind, 'estimateMs': 0}
+        if kind == 'run':
+            entry['estimateMs'] = (int(history[site.id]) if site.id in history else
+                                   int(round(sum(_median(t.get('durationsMs')) for t in session.select(site)))) + 1000)
+        if functions and site.variant == 1:
+            entry['after'] = primary_by_function.get(site.function_key)
+        plan.append(entry)
+    # A second variant whose first is still to run is left to the slice that runs it (see `only`).
+    certain = _eligible(candidates, functions, primary_by_function,
+                        lambda pid: known.get(pid) if pid in picked else None)
+    return {'plan': plan, 'sampled': any(s.id not in picked and s.id not in invalid for s in certain), 'seed': seed}
 
 
 def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=1000):
@@ -183,6 +259,13 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
     reuse = scope.get('reuse') or {}
     if not isinstance(reuse, dict):
         raise ValueError('scope.reuse must map mutant ids to mutant rows')
+    history = scope.get('history') or {}
+    if not isinstance(history, dict):
+        raise ValueError('scope.history must map mutant ids to milliseconds')
+    only = scope.get('only')
+    if only is not None and (not isinstance(only, list) or not all(isinstance(i, str) for i in only)):
+        raise ValueError('scope.only must list mutant ids')
+    timed = bool(scope.get('timings')) or only is not None
     wanted, own = scope_lines(input_data, scope, config)
     facts = SourceFacts(root, input_data)
     candidates, texts = [], {}
@@ -220,12 +303,22 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
         ordered = preferred + _draw([s for s in targeted if s.id not in chosen], len(targeted), seed) + _draw([s for s in other if s.id not in chosen], len(other), seed)
     else:
         ordered = candidates
+    functions = bool(scope.get('functions'))
+    if scope.get('plan'):
+        session = Session(root, input_data, config, None, deadline, facts, timeout_floor_ms, scope.get('targeted', []))
+        chosen, invalid, known = _choose(ordered, texts, reuse, session, cap, functions, primary_by_function)
+        facts.assert_all_fresh()
+        return _plan(chosen, candidates, invalid, known, session, history, functions, primary_by_function, seed)
     jobs = max(1, jobs or (os.cpu_count() or 2) // 2)
-    results, invalid, reused = {}, set(), {}
+    if only is not None:
+        return _only(root, input_data, config, scope, facts, deadline, timeout_floor_ms, jobs, ordered, texts, reuse,
+                     cap, functions, primary_by_function, candidates, own, set(only), seed)
+    results, invalid, reused, durations = {}, set(), {}, {}
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
         session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms, scope.get('targeted', []))
+        session.first_catch = bool(scope.get('firstCatch'))
         cursor = 0
         while cursor < len(ordered) and len(results) < cap and time.monotonic() < deadline:
             phase_end = next((i for i in range(cursor, len(ordered)) if scope.get('functions') and
@@ -246,27 +339,20 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
                 # Not when a targeted unit covers it: that unit needs every test run, and the earlier row may have stopped early.
                 if site.id in reuse and not session.needs_full(site):
                     # A row from an earlier run stands in for this run, in its place and counted against the cap.
-                    row = reuse[site.id]
-                    if not isinstance(row, dict) or row.get('id') != site.id or 'status' not in row:
-                        raise ValueError(f'scope.reuse: {site.id} is not a mutant row with that id')
-                    reused[site.id] = json.loads(json.dumps(row))
+                    reused[site.id] = row = _reused(site, reuse)
                     results[site.id] = (row['status'], list(row.get('killedBy', [])))
                 else:
                     valid.append((site, text))
-            def check(item):
-                site, text = item
-                facts.assert_fresh(site.source)
-                selected = session.select(site)
-                if not selected:
-                    return ('no-coverage', [])
-                return session.once(site, selected)
             with ThreadPoolExecutor(max_workers=jobs) as executor:
-                done = list(executor.map(check, valid))
-            for (site, _), result in zip(valid, done):
+                done = list(executor.map(lambda item: _check(session, facts, item[0]), valid))
+            for (site, _), (result, ms) in zip(valid, done):
                 if result is not None:
                     results[site.id] = result
+                    if timed and ms is not None:
+                        durations[site.id] = ms
         facts.assert_all_fresh()
-    mutants = [reused[site.id] if site.id in reused else _entry(site, results[site.id]) for site in candidates if site.id in results]
+    mutants = [reused[site.id] if site.id in reused else _entry(site, results[site.id], durations.get(site.id))
+               for site in candidates if site.id in results]
     eligible = ([s for s in candidates if s.variant == 0 or
                  results.get(primary_by_function.get(s.function_key), (None,))[0] == 'survived']
                 if scope.get('functions') else candidates)
@@ -277,6 +363,73 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
             complete.append(uid)
     return {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
             'sampled': any(s.id not in results and s.id not in invalid for s in eligible)}
+
+
+def _check(session, facts, site):
+    """One fault's kill check: (result or None when cut, wall ms of the check or None when nothing ran)."""
+    facts.assert_fresh(site.source)
+    selected = session.select(site)
+    if not selected:
+        return ('no-coverage', []), None
+    start = time.monotonic()
+    result = session.once(site, selected)
+    return result, int(round((time.monotonic() - start) * 1000))
+
+
+def _only(root, input_data, config, scope, facts, deadline, floor_ms, jobs, ordered, texts, reuse, cap, functions,
+          primary_by_function, candidates, own, only, seed):
+    """Run one slice: the plan's chosen faults listed in `only`, in plan order, within this run's time."""
+    results, reused, durations = {}, {}, {}
+    scratch = Path(root, '.scratch')
+    scratch.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
+        session = Session(root, input_data, config, tmp, deadline, facts, floor_ms, scope.get('targeted', []))
+        session.first_catch = bool(scope.get('firstCatch'))
+        chosen, invalid, _ = _choose(ordered, texts, reuse, session, cap, functions, primary_by_function)
+        picked = {site.id for site, *_ in chosen}
+        unknown = sorted(only - picked)
+        if unknown:
+            raise ValueError(f'scope.only: {unknown[0]} is not in the plan')
+        todo = [item for item in chosen if item[0].id in only]
+        cursor = 0
+        while cursor < len(todo) and time.monotonic() < deadline:
+            phase_end = next((i for i in range(cursor, len(todo)) if functions and
+                              todo[cursor][0].variant == 0 and todo[i][0].variant == 1), len(todo))
+            batch = todo[cursor:cursor + min(jobs, phase_end - cursor)]
+            cursor += len(batch)
+            valid = []
+            for site, _, kind, row in batch:
+                if functions and site.variant == 1:
+                    # Its first variant must have survived here; when it ran in another slice it is not known here.
+                    if results.get(primary_by_function.get(site.function_key), (None,))[0] != 'survived':
+                        continue
+                if kind == 'reused':
+                    reused[site.id] = row
+                    results[site.id] = (row['status'], list(row.get('killedBy', [])))
+                elif kind == 'no-coverage':
+                    results[site.id] = ('no-coverage', [])
+                else:
+                    valid.append(site)
+            with ThreadPoolExecutor(max_workers=jobs) as executor:
+                done = list(executor.map(lambda site: _check(session, facts, site), valid))
+            for site, (result, ms) in zip(valid, done):
+                if result is not None:
+                    results[site.id] = result
+                    if ms is not None:
+                        durations[site.id] = ms
+        facts.assert_all_fresh()
+    mutants = [reused[site.id] if site.id in reused else _entry(site, results[site.id], durations.get(site.id))
+               for site in candidates if site.id in results]
+    eligible = _eligible(candidates, functions, primary_by_function, lambda pid: results.get(pid, (None,))[0])
+    # Chosen faults outside `only` belong to another slice; faults the plan left out still count, as in a full run.
+    mine_here = [s for s in eligible if s.id in only or s.id not in picked]
+    complete = []
+    for uid, paths in own.items():
+        mine = [s for s in mine_here if s.line in paths.get(s.source, set()) and s.id not in invalid]
+        if all(s.id in results and results[s.id][0] != 'error' for s in mine):
+            complete.append(uid)
+    return {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
+            'sampled': any(s.id not in results and s.id not in invalid for s in mine_here)}
 
 
 def confirm(root, input_data, mutation, ids, config=None, jobs=None, timeout_floor_ms=1000):

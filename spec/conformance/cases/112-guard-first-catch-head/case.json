@@ -1,0 +1,15 @@
+{
+  "description": "Guard accepts a head that stopped at the first catch: G6 reads only whether each fault was detected.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "I6",
+      "polarity": "positive"
+    },
+    {
+      "id": "G6",
+      "polarity": "positive"
+    }
+  ],
+  "expectExit": 0
+}

@@ -233,7 +233,7 @@ test('report: evidence pass is opt-in and adds review evidence', () => {
 
   const basic = cli(dir, ['report', '--json'], env);
   assert.equal(basic.status, 0, basic.stderr);
-  assert.deepEqual(logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', l.scope])), [
+  assert.deepEqual(logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', (({ timings: _t, ...scope }) => scope)(l.scope)])), [
     ['collect', [], 2],
     ['mutate', { critical: true, changed: null, targeted: [] }],
   ]);
@@ -250,7 +250,7 @@ test('report: evidence pass is opt-in and adds review evidence', () => {
   assert.deepEqual(report.units.find((u) => u.id === 'r').hints, ['no-unique-evidence']);
 
   // The first report's .cupel/input.json is the earlier input now (K15): its unchanged row m1 is offered for reuse.
-  const calls = logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', (({ reuse: _r, ...scope }) => scope)(l.scope)]));
+  const calls = logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', (({ reuse: _r, timings: _t, history: _h, ...scope }) => scope)(l.scope)]));
   assert.deepEqual(calls, [
     ['collect', [], 2],
     ['mutate', { critical: true, changed: null, targeted: [] }],

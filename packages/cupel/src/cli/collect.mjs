@@ -326,15 +326,23 @@ export async function collectRef({ root, ref, cfg, runs, log, env = process.env 
  * run, and every row of the result gets its basis for the next run.
  */
 export async function mutate(mutator, options) {
-  const { root, cfg, input, scope, log, previous, ownFiles = [] } = options;
-  if (!mutationRequested(scope)) return null;
-  if (!reuseEnabled(cfg)) return mutateRuns(mutator, options);
+  const { root, cfg, input, log, previous, ownFiles = [] } = options;
+  if (!mutationRequested(options.scope)) return null;
+  // Each fault's measured time from the earlier input sharpens plan estimates; every run records its own.
+  const history = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => Number.isInteger(m.durationMs)).map((m) => [m.id, m.durationMs]));
+  const scope = { ...options.scope, timings: true, ...(Object.keys(history).length ? { history } : {}) };
+  if (!reuseEnabled(cfg)) {
+    const result = await mutateRuns(mutator, { ...options, scope });
+    return result && scope.firstCatch && !scope.plan ? { ...result, catches: 'first' } : result;
+  }
   const basis = new ReuseBasis({ root, input, cfg, ownFiles });
-  const reuse = previous ? reusableRows({ previous, basis }) : {};
+  // Rows from a first-catch run have partial catching-test lists: only another first-catch run may reuse them.
+  const usable = previous && (previous.mutation?.catches !== 'first' || scope.firstCatch) ? previous : null;
+  const reuse = usable ? reusableRows({ previous: usable, basis }) : {};
   if (previous) log(`reuse: ${Object.keys(reuse).length} of ${previous.mutation.mutants.length} earlier fault results still hold`);
   const result = await mutateRuns(mutator, { ...options, scope: Object.keys(reuse).length ? { ...scope, reuse } : scope });
-  if (!result) return result;
-  const stamped = stampBasis(result, basis, new Set(Object.keys(reuse)));
+  if (!result || scope.plan) return result;
+  const stamped = stampBasis(scope.firstCatch ? { ...result, catches: 'first' } : result, basis, new Set(Object.keys(reuse)));
   if (mutationOwners.has(result)) mutationOwners.set(stamped, mutationOwners.get(result));
   return stamped;
 }
@@ -360,7 +368,19 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
         }
         return { name, part, selected };
       });
+      if (scope.runner && !plans.some((p) => p.name === scope.runner)) throw environment(`no runner named ${scope.runner} in this input`);
+      if (scope.plan) {
+        const out = {};
+        for (const { name, part, selected } of plans) {
+          if (scope.runner && name !== scope.runner) continue;
+          if (!mutationRequested(selected)) { out[name] = { plan: [], sampled: false }; continue; }
+          const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
+          out[name] = await planPart(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
+        }
+        return { plans: out };
+      }
       for (const { name, part, selected } of plans) {
+        if (scope.runner && name !== scope.runner) continue;
         if (!mutationRequested(selected)) continue;
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
         const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
@@ -386,6 +406,13 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
       mutationOwners.set(merged, owners);
       return merged;
     }
+    if (scope.plan && !scope.backendPlan) {
+      const name = runnerNameOf(input, cfg, collectorKind);
+      if (scope.runner && scope.runner !== name) throw environment(`no runner named ${scope.runner} in this input`);
+      return { plans: { [name]: await planPart(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) } };
+    }
+    if (scope.runner && runnerNameOf(input, cfg, collectorKind) !== scope.runner) throw environment(`no runner named ${scope.runner} in this input`);
+    if ((scope.plan || scope.only) && !sliceable(input, cfg)) throw environment(`runner ${runnerNameOf(input, cfg, collectorKind)}: slices are not available for this runner`);
     assertLiveMutationRunner(input, cfg, collectorKind);
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, scope });
     if (input.runtime.name === 'go') {
@@ -401,15 +428,38 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
         targeted: scope.targeted ?? [] };
       return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
     }
-    const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [], ...(scope.reuse ? { reuse: scope.reuse } : {}) };
+    const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [],
+      ...Object.fromEntries(['reuse', 'plan', 'only', 'history', 'timings', 'firstCatch'].filter((k) => scope[k] !== undefined).map((k) => [k, scope[k]])) };
     const ordinary = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics });
     // Phase 5: sources the tests run in workerd get their mutants in a scratch copy of the project.
     if (collectorKind || !Object.values(input.sources).some((s) => s.measuredIn)) return ordinary;
     const scratch = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics, scratch: true });
+    if (scope.plan) return { plan: [...(ordinary?.plan ?? []), ...(scratch?.plan ?? [])], sampled: !!(ordinary?.sampled || scratch?.sampled), seed: ordinary?.seed };
     return mergePasses(input, ordinary, scratch);
   } catch (e) {
     throw environment(`mutation failed: ${String(e?.message ?? e).split('\n')[0]}`);
   }
+}
+
+/** The runner name of a single-runner input. */
+function runnerNameOf(input, cfg, collectorKind) {
+  const configured = Object.keys(cfg.runners ?? {});
+  if (configured.length === 1) return configured[0];
+  return input.tests?.find((t) => t.runner)?.runner ?? collectorKind
+    ?? ({ python: 'pytest', node: 'node', go: 'go', rust: 'cargo', ruby: 'minitest' }[input.runtime?.name] ?? input.runtime?.name);
+}
+
+/** Runners whose mutators can plan and run slices: node, Vitest, Jest, pytest, and Rust through cargo-mutants or Cupel. */
+function sliceable(input, cfg) {
+  if (['go', 'ruby'].includes(input.runtime?.name)) return false;
+  return !(input.runtime?.name === 'rust' && cfg.runners?.cargo?.mutants?.backend === 'cupel-rust');
+}
+
+/** One runner's plan, or why it has none. */
+async function planPart(mutator, options) {
+  if (!sliceable(options.input, options.cfg)) return { plan: null, unsupported: 'this runner cannot plan slices; it runs whole' };
+  const result = await mutateRuns(mutator, { ...options, scope: { ...options.scope, plan: true, backendPlan: true } });
+  return result?.plans ? Object.values(result.plans)[0] : result;
 }
 
 /** Rust mutation: cargo-mutants by default (D19), or the restricted built-in mutator on request. */
@@ -428,6 +478,10 @@ async function rustMutation(action, { root, cfg, input, scope, mutation, ids, lo
   }
   const cargo = await loadModule('cargoMutants');
   if (!cargo) throw environment('cargo-mutants mutation module is not available');
+  if (settings.backend === 'cupel' && action === 'mutate') {
+    const { mutateCargoFast } = await import('../mutate-cargo/fast.mjs');
+    return await mutateCargoFast({ root, config: cfg, input, scope, log });
+  }
   return action === 'mutate'
     ? await cargo.mutateCargo({ root, config: cfg, input, scope, log })
     : await cargo.confirmCargo({ root, config: cfg, input, mutation, ids, log });

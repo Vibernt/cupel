@@ -141,9 +141,16 @@ const COMMANDS = {
     options: { out: S }, positionals: true,
   },
   mutate: {
-    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE] [--reuse FILE | --no-reuse]',
-    about: 'mutate a precollected input from the working tree',
-    options: { input: S, out: S, 'base-input': S, changed: S, root: S, reuse: S, 'no-reuse': B },
+    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE] [--reuse FILE | --no-reuse] [--runner NAME] [--shard I/N] [--first-catch]\n       cupel mutate --input FILE --plan [--out FILE] [--changed REF] [--reuse FILE] [--runner NAME] [--cores N] [--startup-seconds S] [--target-minutes M] [--max-shards N] [--json]',
+    about: 'mutate a precollected input from the working tree; plan slices for CI and run one',
+    options: { input: S, out: S, 'base-input': S, changed: S, root: S, reuse: S, 'no-reuse': B, plan: B, shard: S, runner: S, 'first-catch': B,
+      cores: S, 'startup-seconds': S, 'target-minutes': S, 'max-shards': S },
+  },
+  'merge-mutations': {
+    usage: 'cupel merge-mutations --input FILE --out FILE <slice.json...>',
+    about: 'join the results of mutate --shard slices (and whole runs of other runners) into one input',
+    options: { input: S, out: S },
+    positionals: true,
   },
   mcp: {
     usage: 'cupel mcp [--root <dir>]',
@@ -311,7 +318,9 @@ async function collectHead(ctx, { collector, mutator, cfg, changed }) {
   let input = await collectTree(collector, { root: ctx.root, cfg, runs: ctx.runs(), log: ctx.log, diagnostics: ctx.skipped });
   if (mutator) {
     const changedScope = cfg.mutation.changedLines ? changed ?? null : null;
-    const m = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
+    // Guard needs only whether each head fault was caught (G6), so its head stops at the first catch by default.
+    const firstCatch = ctx.command === 'guard' && cfg.guard.firstCatch !== false;
+    const m = await mutate(mutator, { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, scope: { critical: cfg.mutation.critical, changed: changedScope, ...(firstCatch ? { firstCatch } : {}) }, log: ctx.log, collectorKind: collector.kind, diagnostics: ctx.skipped });
     if (m) input = inheritRunnerParts(input, { ...input, mutation: m });
   }
   return input;

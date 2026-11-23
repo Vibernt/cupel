@@ -13,7 +13,7 @@ import { makeProject } from './mutate-helpers.mjs';
 const CONFIG_SCHEMA = JSON.parse(readFileSync(new URL('../schemas/config.schema.json', import.meta.url), 'utf8'));
 const row = { id: 'src/calc.mjs:2:9:cmp:abc', source: 'src/calc.mjs', line: 2, operator: 'cmp', status: 'killed' };
 const basisNow = (p, cfg = {}) => new ReuseBasis({ root: p.root, input: p.input, cfg, env: {} }).of(row);
-const strip = (m) => m.mutants.map(({ basis: _b, reused: _r, ...rest }) => rest);
+const strip = (m) => m.mutants.map(({ basis: _b, reused: _r, durationMs: _d, ...rest }) => rest);
 
 test('the basis changes with what the tests read, and not with what they never run', (t) => {
   const p = makeProject({ 'README.md': 'one\n', 'tests/helper.mjs': 'export const x = 1;\n' });

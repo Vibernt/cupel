@@ -67,6 +67,42 @@ Then Cupel:
 
 On Apple Silicon, an Intel-only cargo-mutants runs under Rosetta and its child processes inherit Intel; Cupel then starts Cargo natively so C build scripts target the right architecture.
 
+## Cupel's own fault runner (`backend: "cupel"`)
+
+`"runners": { "cargo": { "mutants": { "backend": "cupel" } } }` keeps cargo-mutants'
+fault list (it must be installed) and the same rows and catch credit, but runs the
+faults itself in a scratch copy with its own `target/` folder:
+
+- only the test targets (each `tests/*.rs` file, or the library's unit tests) that
+  hold a passed test running the faulty line are built, and only those tests run,
+  by exact name;
+- targets run most relevant and fastest first, and a fault stops after two
+  targets caught it (all run when a targeted unit covers it);
+- faults the rewriter can bound exactly are compiled into one build and switched
+  on one at a time with `CUPEL_FAULT`. Trust is decided per test target: a
+  target is used with the switched build only if, with every switch off, its tests
+  pass and fail exactly as unmodified. A target that differs (typically a test with
+  a time budget, since every switch adds a check) runs only for the faults that
+  still need it after the others, on a build of that fault alone. Faults inside
+  macros, `const` code, attributes, patterns or types, and operands it cannot
+  bound exactly, get their own incremental build. A batch build that fails drops
+  the faults near each error and tries again; a file that fails twice runs all its
+  faults one build each. `"schemata": false` turns switching off.
+
+An operator fault whose new operator binds differently from the original
+(`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) is never switched: changing
+the source text lets Rust regroup the whole expression (`a && b && c && d` with
+one `&&` made `||` reads `(a && b) || (c && d)`), which a switch around the
+original operands cannot reproduce. Those faults get a build of their own.
+
+With `guard` (or `cupel mutate --first-catch`), each fault stops at its first
+catching target instead of the second (see [Faster fault testing](speed.md#pull-requests-stop-at-the-first-catch)).
+
+Known differences from one build per fault: a switched operator's temporaries are
+dropped at the end of the switch, not at the end of the statement, and panic
+columns (not lines) can shift. `#![no_std]` crates cannot read `CUPEL_FAULT`; their
+faults run one build each. Doctests are not run (Cupel does not credit them).
+
 ## Restricted built-in mutator (`backend: "cupel-rust"`)
 
 The earlier built-in mutator remains available with `"mutants": { "backend": "cupel-rust" }`. It is unchanged, accepts only the closed grammar below, and needs the fixed toolchain it was built against.

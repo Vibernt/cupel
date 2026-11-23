@@ -17,7 +17,7 @@ import { CargoMutantsError, baseRow, importCargoMutants, mutantId, targetedUnits
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const noop = () => {};
 const refuse = (message) => { throw new CargoMutantsError(message); };
-const INSTALL = 'install cargo-mutants (for example `cargo install --locked cargo-mutants`) or set runners.cargo.mutants.command';
+export const INSTALL = 'install cargo-mutants (for example `cargo install --locked cargo-mutants`) or set runners.cargo.mutants.command';
 
 const lines = (ranges) => ranges.flatMap(([a, b]) => Array.from({ length: b - a + 1 }, (_, i) => a + i));
 
@@ -174,6 +174,33 @@ export function planCargoMutants({ input, cfg, wanted, listing, scope = {} }) {
 }
 
 /**
+ * Plans and slices for CI (`cupel mutate --plan`, `--shard`). `planEntries` lists the plan's faults with a
+ * time estimate: the fault's measured time last run (`scope.history`), else the median durations of the
+ * tests it would run plus `perFaultMs` (a build). `slicePlan` keeps the faults `scope.only` names; the
+ * others are another slice's, and count as settled for `targeted`.
+ */
+export function planEntries({ plan, input, scope = {}, perFaultMs, testsMs }) {
+  const history = scope.history ?? {};
+  const median = (t) => { const d = [...(t.durationsMs ?? [])].sort((a, b) => a - b); return d.length ? d[Math.floor(d.length / 2)] : 0; };
+  const byFile = new Map();
+  for (const t of input.tests) if (t.status === 'passed') byFile.set(t.file, (byFile.get(t.file) ?? 0) + median(t));
+  const entries = [
+    ...plan.noCoverage.map((m) => ({ id: m.id, source: m.source, line: m.line, kind: 'no-coverage', estimateMs: 0 })),
+    ...plan.reused.map((m) => ({ id: m.id, source: m.source, line: m.line, kind: 'reused', estimateMs: 0 })),
+    ...plan.run.map((c) => ({ id: c.id, source: c.source, line: c.line, kind: 'run',
+      estimateMs: Math.round(history[c.id] ?? (perFaultMs + (testsMs ? testsMs(c) : [...c.files].reduce((n, f) => n + (byFile.get(f) ?? 0), 0)))) })),
+  ];
+  return entries.sort((a, b) => cmp(a.id, b.id));
+}
+
+export function slicePlan(plan, only) {
+  const keep = new Set(only);
+  const elsewhere = [...plan.noCoverage, ...plan.reused, ...plan.run].map((m) => m.id).filter((id) => !keep.has(id));
+  return { ...plan, noCoverage: plan.noCoverage.filter((m) => keep.has(m.id)), reused: plan.reused.filter((m) => keep.has(m.id)),
+    run: plan.run.filter((c) => keep.has(c.id)), elsewhere };
+}
+
+/**
  * The `--test-package` names for a run, or null for `--test-workspace=true`.
  * `packages` is the workspace's [{ name, dir }]; each test file belongs to the
  * package with the deepest directory holding it (as the cargo collector maps
@@ -201,7 +228,7 @@ async function workspacePackages(root, env) {
   } catch { return null; }
 }
 
-function findTool(command, env) {
+export function findTool(command, env) {
   if (command.includes('/') || command.includes('\\')) return existsSync(command) ? command : null;
   const names = process.platform === 'win32' ? [`${command}.exe`, command] : [command];
   for (const dir of (env.PATH ?? env.Path ?? '').split(delimiter).filter(Boolean)) {
@@ -219,7 +246,7 @@ export function intelOnlyMachO(path) {
   return false;
 }
 
-function execute(command, args, { cwd, env, log }) {
+export function execute(command, args, { cwd, env, log }) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = ''; let stderr = '';
@@ -241,7 +268,7 @@ async function runCargoMutants({ tool, root, env, scratch, name, extra, log, tes
   return join(out, 'mutants.out');
 }
 
-function environmentFor(root, scratch, base, tool) {
+export function environmentFor(root, scratch, base, tool) {
   const env = { ...base, CARGO_NET_OFFLINE: 'true', CARGO_TERM_COLOR: 'never' };
   delete env.CARGO_TARGET_DIR; // cargo-mutants builds inside its own copy
   if (process.platform === 'darwin' && process.arch === 'arm64' && intelOnlyMachO(tool)) {
@@ -280,13 +307,19 @@ export async function mutateCargo({ root, input, config = {}, scope = {}, log = 
     const listed = await execute(tool, ['mutants', '--list', '--json', '--colors=never', ...(settings.args ?? [])], { cwd: root, env, log: noop });
     if (listed.status !== 0) refuse(`cargo mutants --list failed (exit ${listed.status}): ${listed.stderr.trim().split('\n').slice(-3).join(' | ')}`);
     const listing = JSON.parse(listed.stdout);
-    const plan = planCargoMutants({ input, cfg, wanted, listing, scope });
+    let plan = planCargoMutants({ input, cfg, wanted, listing, scope });
+    if (scope.plan) {
+      // cargo-mutants runs the chosen packages' whole suites for each fault, after a build.
+      const suiteMs = planEntries({ plan: { noCoverage: [], reused: [], run: [{ id: '', files: new Set(input.tests.map((t) => t.file)) }] }, input, perFaultMs: 0 })[0].estimateMs;
+      return { plan: planEntries({ plan, input, scope, perFaultMs: 60_000, testsMs: () => suiteMs }), sampled: plan.sampled, seed: plan.seed };
+    }
+    if (scope.only) plan = slicePlan(plan, scope.only);
     if (plan.noCoverage.length) log(`mutate-cargo: ${plan.noCoverage.length} mutant(s) on lines no passed test runs are no-coverage, not run`);
     if (plan.sampled) log(`mutate-cargo: sampled ${plan.chosen.length} of ${plan.candidates.length} mutants on covered lines (seed ${plan.seed})`);
     if (plan.reused.length) log(`mutate-cargo: ${plan.reused.length} result(s) reused from an earlier run`);
     // Settled without running here: no-coverage and reused rows.
     const toRun = new Set(plan.run.map((c) => c.id));
-    const ran = new Set([...plan.noCoverage.map((m) => m.id), ...plan.chosen.filter((c) => !toRun.has(c.id)).map((c) => c.id)]);
+    const ran = new Set([...plan.noCoverage.map((m) => m.id), ...plan.chosen.filter((c) => !toRun.has(c.id)).map((c) => c.id), ...(plan.elsewhere ?? [])]);
     let imported = [];
     if (plan.run.length) {
       // Only the packages holding a passed test that runs a mutated line are

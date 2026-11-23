@@ -85,6 +85,9 @@ An input MAY contain `collection`. Its required `runs` is a positive integer cou
 - `description`: optional, a human-readable description of the fault, such as `replace > with >= in looks_secret`.
 - `basis`: optional, `sha256:` and 64 hex digits: what the row's outcome depends on (K15). The engine does not read it.
 - `reused`: optional, `true` when the row was copied from an earlier input under K15 instead of being run. The engine treats a reused row like any other.
+- `durationMs`: optional, the wall time in milliseconds this fault's tests took when it was run (retries included). The engine does not read it; plans use it as the fault's estimate next time.
+- `mutation.catches`: optional, `first` when each fault stopped at its first catching test (I6).
+- `mutation.shard`: optional, present on a slice (`cupel mutate --shard`): `runner` (or `*` for every runner), `index`, `total`, `plan` (`sha256:` over the planned faults and the number of slices) and `assigned` (the faults given to this slice). Slices of one plan are joined by `merge-mutations`, which removes it. The engine does not read it.
 
 A mutant is **detected** when its status is `killed` or `timeout`.
 
@@ -116,6 +119,7 @@ A mutant is **detected** when its status is `killed` or `timeout`.
 - **I3** Every line in a coverage or mutation entry MUST be a coverable line of a source in `sources`, and every range (in `sources`, coverage, mutation and argument `changed`) MUST have start ≤ end. A source with `unmeasured` MUST have no coverable lines (`unmeasured-coverable`). Otherwise the diagnostic is `line-not-coverable`, `unknown-source`, `bad-range` or `unmeasured-coverable`, and the exit code is 2.
 - **I4** Review's `units` must resolve to at least one unit, row or test file for each name; unknown names produce `unknown-unit`. The optional assertion sidecar must match the input identity and have structurally valid recordings; otherwise `invalid-assertions` exits 2. Optional function sites must match their mutants and source ranges; otherwise `invalid-function-site` exits 2.
 - **I5** A collection shard's index MUST NOT exceed its total, and an input MUST NOT contain both `collection.shard` and `collection.subset`. Violations are `invalid-input` with exit 2. Guard, report and review MUST refuse a subset input with `subset-input` (severity error, path `/collection/subset`, exit 2); with two inputs the message names `base:` or `head:`. Check, plan and label MAY use subsets, because they judge only named units or the available inventory. A subset head cannot be used for whole-suite guard: it would count unselected tests' lines as lost.
+- **I6** An input whose `mutation.catches` is `first` stopped testing each fault at its first catching test: every status is exact, but `killedBy` and `killKinds` may name fewer tests than catch the fault, so unique kills and overlaps cannot be computed from it. Every command except `validate` refuses such an input with the diagnostic `partial-catches` (exit 2), except `guard` for its head, where G6 reads only whether each fault was detected.
 
 **Diagnostics.**
 - There is one diagnostic per problem, with `path` as a JSON pointer into the document when there is one.

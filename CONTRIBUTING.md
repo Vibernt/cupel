@@ -57,7 +57,7 @@ Do not modify `/Users/vid/cri-ci` or `/Users/vid/codecrystal`; those repositorie
 are read-only references. Use an ignored `.scratch/` copy for experiments.
 
 The owner authorized public GitHub source publication for `Vibernt/cupel` on
-**2026-10-26**, under [MIT](LICENSE). Source version is **0.3.0** (npm package; the Python collector is 0.2.0); npm and PyPI
+**2026-10-26**, under [MIT](LICENSE). Source version is **0.4.0** (npm package; the Python collector is 0.3.0); npm and PyPI
 remain unpublished. Keep npm `private: true` and Python `Private :: Do Not Upload`.
 Registry uploads, publishing releases/tags and social posting still require
 separate explicit owner approval. Preserve the [NOTICE](NOTICE) and applicable

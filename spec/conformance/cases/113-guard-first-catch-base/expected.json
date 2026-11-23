@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "code": "partial-catches",
+      "severity": "error",
+      "path": "/mutation/catches"
+    }
+  ],
+  "guard": "$absent"
+}

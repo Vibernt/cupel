@@ -49,7 +49,30 @@ In `cupel.json` (full list in the [config schema](../spec/schemas/config.schema.
 | `mutation.seed` | fixed | Changes which sample is taken. Keep it fixed so runs stay comparable. |
 | `mutation.reuse` | on | `false` switches reuse off. `ignore` lists files whose changes can never change a test result, such as docs no test reads. `env` adds environment variables whose values change test results. |
 | `runners.cargo.mutants.wholeWorkspace` | false | Test every workspace package for every Rust fault. Use it when Cargo features differ between one package alone and the whole workspace. |
+| `guard.firstCatch` | true | `guard` collects the head's faults stopping at the first catching test (see below). `false` records catches fully. |
 | `runners.cargo.mutants.jobs` | 1 | Rust faults built and tested in parallel. Each job needs its own build and memory. |
+
+## Pull requests: stop at the first catch
+
+A pull request's guard needs one answer per fault: was it caught? It never needs
+*which* tests caught it, or whether only one test does. So `guard` collects the
+head with each fault stopping at its **first** catching test file (JavaScript),
+test (Python) or test target (Rust), instead of the second. Statuses are exactly
+the same; the list of catching tests is shorter.
+
+This matters most where one test is the only one catching a fault: proving it is
+the only one means running every other test that runs the line, slow ones
+included. On a private Rust workspace that was 60% of all fault-testing time.
+
+The result is marked `mutation.catches: "first"`. Because unique catches and
+overlaps cannot be computed from it, every command refuses it (rule I6) except
+`guard`, for its head; reuse and `merge-mutations` never mix it with full results.
+The base side of `guard` always records catches fully, since a removed test is
+described by what only it caught. Turn the mode off with
+`"guard": { "firstCatch": false }`; use `cupel mutate --first-catch` to produce
+such a head for `guard --head-input` in CI. `report`, `audit`, `review` and
+`check` always record catches fully. The cargo-mutants backend runs every test
+anyway; the gain is for JavaScript, Python and `backend: "cupel"`.
 
 ## Reuse earlier results
 
@@ -192,6 +215,113 @@ Fault testing runs in a scratch copy of the project, one fault at a time, and
 each fault restarts workerd. Keep critical Worker files small and focused, and
 prefer `changedLines` on pull requests. See [workerd](workerd.md).
 
+## Rust: Cupel's own fault runner
+
+With `"runners": { "cargo": { "mutants": { "backend": "cupel" } } }`, Cupel takes
+cargo-mutants' list of faults (so fault ids and the way catches are credited match the default backend; doctests are not run, so a fault only a doctest catches is reported unnoticed)
+and tests them itself:
+
+1. **Only the test targets that run the line.** Each test file is its own build
+   target; only the targets holding a test that runs the faulty line are built,
+   and inside them only those tests run (by exact name).
+2. **Fastest first, stop after two.** Those targets run with the most relevant and
+   quickest first, and a fault stops once two targets caught it, the same rule as
+   JavaScript and Python. A unit under review gets every target run.
+3. **One build for many faults.** Faults the rewriter is certain about are compiled
+   into one build, each switched on by a number in the `CUPEL_FAULT` environment
+   variable. With every switch off, each test target must behave exactly as
+   unmodified, or that target is not run on the switched build: timing-budget
+   tests usually differ, and run only for faults the other targets did not settle,
+   on a build of that fault alone. Any fault the rewriter is unsure of
+   (inside macros, `const` code, or expressions it cannot bound exactly) gets its
+   own incremental build instead. Turn switching off with `"schemata": false`.
+
+Everything happens in a scratch copy of the project with its own `target/`
+folder; the project is never changed. cargo-mutants must still be installed: Cupel
+uses its fault list.
+
+## Slicing across CI machines
+
+Fault testing splits cleanly: every fault is independent. Cupel plans, runs one
+slice and merges; your CI starts the machines, hands each its slice, moves the
+files and retries. Cupel never starts a machine or uses the network.
+
+**Decide with the estimate.** Collect once, then ask for the plan:
+
+```sh
+cupel report --no-mutation --out .cupel/collected.json
+cupel mutate --input .cupel/collected.json --plan --reuse .cupel/main.json
+```
+
+For each runner the plan shows the faults to run, reused and skipped, an estimate
+of the fault-testing time, and the suggested number of slices. The estimate uses
+each fault's measured time from the `--reuse` file when present (every run records
+`durationMs` per fault), and otherwise the measured durations of the tests the
+fault would run.
+
+**The default rule**, per runner:
+
+- if the estimate (divided by the processes one machine runs at once) fits the
+  target time, **one machine**;
+- otherwise **⌈time ÷ (target − startup)⌉ slices**, at most `--max-shards`.
+
+Defaults: target 10 minutes (`--target-minutes`), 60 seconds of startup per
+machine (`--startup-seconds`, measure yours), at most 20 slices; `--cores` is the
+CI machine's core count. Most JavaScript, TypeScript and Python suites need one
+machine: slicing them only adds startup time and cost. Rust usually benefits most,
+because each fault needs a build. In a mixed repository, only the runners that
+need slices get them.
+
+**Run the slices** (the same `--input`, config and `--reuse` file on every machine):
+
+```sh
+cupel mutate --input .cupel/collected.json --runner cargo --shard 3/8 --reuse .cupel/main.json --out slice-3.json
+cupel mutate --input .cupel/collected.json --runner node --reuse .cupel/main.json --out node.json
+```
+
+**Merge** the slices and whole runs into one input, then guard or audit it:
+
+```sh
+cupel merge-mutations --input .cupel/collected.json --out .cupel/head.json node.json slice-*.json
+cupel guard --base-input .cupel/main.json --head-input .cupel/head.json
+```
+
+Merge refuses anything that does not fit: a different collected input, slices from
+different plans, a missing or doubled slice, or a fault in two slices. Every
+machine must compute the same plan, so use the same input, config, Cupel version
+and `--reuse` file everywhere. A GitHub Actions sketch:
+
+```yaml
+jobs:
+  plan:
+    outputs:
+      slices: ${{ steps.plan.outputs.slices }}
+    steps:
+      # checkout, toolchains, restore .cupel/main.json from the main-branch cache
+      - run: cupel report --no-mutation --out .cupel/collected.json
+      - id: plan
+        run: |
+          cupel mutate --input .cupel/collected.json --plan --runner cargo --reuse .cupel/main.json --json > plan.json
+          echo "slices=$(jq -c '[range(1; .runners[0].suggestedShards + 1)]' plan.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with: { name: collected, path: .cupel/collected.json }
+  rust:
+    needs: plan
+    strategy:
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.slices) }}
+    steps:
+      # checkout, toolchains, the same .cupel/main.json, download the collected artifact
+      - run: cupel mutate --input .cupel/collected.json --runner cargo --shard ${{ matrix.index }}/${{ strategy.job-total }} --reuse .cupel/main.json --out slice-${{ matrix.index }}.json
+      - uses: actions/upload-artifact@v4
+        with: { name: 'slice-${{ matrix.index }}', path: 'slice-${{ matrix.index }}.json' }
+  merge:
+    needs: rust
+    steps:
+      # download every slice artifact and the collected input
+      - run: cupel merge-mutations --input .cupel/collected.json --out .cupel/head.json slice-*.json
+```
+
 ## What is not done, and why
 
 - **Stopping at the very first catch.** It would save a little more, but Cupel
@@ -202,6 +332,5 @@ prefer `changedLines` on pull requests. See [workerd](workerd.md).
 - **Re-collecting coverage only for changed tests.** This is how a suite can look
   green while missing something; Cupel's experimental selective mode keeps it
   separate and never lets it approve a whole suite.
-- **One build for many Rust faults** (all faults compiled into one program and
-  switched on one at a time). It would remove most of Rust's cost but is a large
-  project; it is not built yet.
+- **Shipping one Rust build to every slice.** Each slice compiles its own
+  switched build today; sharing one build between machines is future work.

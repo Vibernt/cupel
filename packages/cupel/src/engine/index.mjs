@@ -86,6 +86,17 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     if (diagnostics.length) return stop(diagnostics, EXIT_USAGE);
   }
 
+  // I6: fault results that stopped at the first catch have partial catching-test lists. Only guard's
+  // head may use them: G6 reads whether each fault was caught, never who caught it.
+  if (command !== 'validate') {
+    for (const [label, doc] of docs) {
+      if (doc.mutation?.catches !== 'first' || (command === 'guard' && label === 'head')) continue;
+      diagnostics.push({ code: 'partial-catches', severity: 'error', path: '/mutation/catches',
+        message: `${label ? `${label}: ` : ''}these fault results stopped at the first catching test, so who caught each fault is incomplete; only guard's head can use them` });
+    }
+    if (diagnostics.length) return stop(diagnostics, EXIT_USAGE);
+  }
+
   // I2, I3
   for (const [label, doc] of docs) diagnostics.push(...integrityDiagnostics(doc, label));
   if (command === 'check') {
