@@ -21,6 +21,7 @@ experimental selection outside the supported first release.
 
 - Core: [Jest](jest.md), [Vitest](vitest.md), [Python/pytest](python.md); `node:test` uses the [CLI](cli.md) and [config](extending/config.md).
 - Bounded previews: [Go](go.md), [Ruby/Minitest](ruby.md), [Rust/Cargo](rust.md). Each page retains its exact restrictions.
+- Preview: [Worker code in workerd](workerd.md), per-test coverage of Worker code that node:test tests run in workerd.
 
 ## Extensions
 

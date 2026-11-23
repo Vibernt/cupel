@@ -141,6 +141,15 @@ before-and-after hash check on every assessed project. Then an independent revie
 by a fresh agent with no access to this plan's reasoning, before any claim that it
 works.
 
+### Phase 7: mixed-language repositories (owner request, 2026-11-23)
+
+| Gap | Resolution |
+| --- | --- |
+| Code built in one language and run by another's tests (Rust compiled to Wasm, run in workerd by JavaScript tests) | The workerd collector records which tests load each Wasm module. `cupel.json` names the crates a module is built from; their lines become `unmeasured` with that reason and the tests that ran it. Per-line Rust coverage inside Wasm (a Cupel-built debug copy plus DWARF line tables) is a later follow-up |
+| Faults that only another language's tests catch | Opt-in cross-runner fault checks: Rust faults that survive `cargo test` in named crates are applied in a scratch copy, the named build step runs, then the named test command; catches are credited to those tests |
+| Look-alike tests across languages | Not mergeable by nature. The audit reports cross-language overlap (same lines or same caught faults) and same-language look-alikes across files |
+| `guard` across toolchain versions | `guard --base <ref>` already rebuilds the base locally. New explicit `--allow-runtime-change` runs every check that does not depend on exact lines and reports the line checks as not compared; never the default |
+
 ## Owner decisions
 
 | # | Decision | Recommendation |
