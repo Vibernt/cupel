@@ -1,5 +1,7 @@
 # Agent rules for Cupel
 
+**Resuming work? Start with [`plans/HANDOFF.md`](plans/HANDOFF.md)**: current state, what each version added, decisions, how to test and release, open items.
+
 The plans in `plans/` are the source of truth. The locked decisions in `plans/DECISIONS.md` (L1 to L7) are not to be reopened.
 
 ## Rules

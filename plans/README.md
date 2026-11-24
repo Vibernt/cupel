@@ -1,5 +1,7 @@
 # Cupel plans
 
+**Resuming? Read [HANDOFF.md](HANDOFF.md) first** (state at 0.4.0, decisions, testing, releasing, open items).
+
 **Cupel**: know which tests protect you. A cupel is the dish assayers use in cupellation: it shows what a sample is really made of. Cupel assays a test suite: which tests actually catch faults, where the gaps are, and whether a change has weakened it.
 
 A private, MIT-licensed local tool for people and coding agents. It measures test evidence, labels tests critical, standard or minor, finds observed protection gaps, and compares suite changes. It never advises test removal (D5). Selective PR execution remains experimental and outside the supported first release. Public launch is a future owner decision.
