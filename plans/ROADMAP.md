@@ -1,5 +1,9 @@
 # Roadmap
 
+**Current (2026-11-24): version 0.4.0.** For the present state, what 0.2–0.4 added, the
+decisions behind them and the open items, see [HANDOFF.md](HANDOFF.md). The sections
+below are the historical first-release roadmap.
+
 ## Frozen first-release scope (2026-10-26)
 
 The owner selected **JS/TS/Python core full guard**, **bounded Go/Ruby/Rust
