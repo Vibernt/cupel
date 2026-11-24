@@ -1,71 +1,119 @@
 <p align="center">
-  <img src="docs/assets/cupel-logo.png" alt="Cupel logo: a code-bracket assay cup holding a fault marker" width="96" height="96">
+  <img src="docs/assets/cupel-logo.png" alt="Cupel logo: a code-bracket assay cup holding a fault marker" width="88" height="88">
 </p>
 
 <h1 align="center">Cupel</h1>
 
-**See which tests catch faults, then check that a test change keeps that protection.**
+<p align="center">
+  <strong>Know what your tests actually protect, and keep it when people or agents change them.</strong><br>
+  MIT · version <code>0.4.0</code> · JavaScript & TypeScript · Python · Rust · Cloudflare Workers · Go and Ruby previews
+</p>
 
-Cupel runs a project's tests, attributes source coverage to individual tests, and
-introduces small source faults (mutants) to see which tests fail. It turns those
-observations into a report and a bounded review pack. Its `guard` compares a Git
-baseline with a proposed change and fails on lost coverage, lost critical
-mutation protection, or a protected test removal without human approval. Its
-`audit` answers six questions about an existing suite in one read-only report.
-Cupel never changes or deletes your tests or code: its output is a signal for
-the people and agents who do.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/protection-dark.png">
+  <img src="docs/assets/protection.png" width="100%" alt="Green tests can hide lost protection. An edit weakens one assertion; ordinary CI still shows 51 of 51 tests passing and coverage at 92.75%. Cupel's guard keeps coverage but finds critical faults caught dropping from 11 to 10, so the guard fails with exit 1. Measured on a real Jest repository.">
+</picture>
 
-![An agent weakens an assertion while tests stay green. Cupel collects per-test evidence, introduces small faults and compares with the Git baseline. In the scoped Jest example, 51 tests still pass and coverage stays at 92.75%, but critical mutants caught drop from 11 to 10, so guard fails.](docs/assets/agentic-test-protection.png)
+A passing suite can quietly stop protecting your code. An assertion gets weaker,
+a refactor stops checking a boundary, or a generated test runs the right lines
+without noticing the wrong behaviour. Coverage cannot see it; the tests stay green.
 
-*Illustrative workflow; measured numbers from the [real-project Jest validation](plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls).
-The example covers 11 tested mutations across two declared critical API paths.*
-
-**Open-source under MIT · version `0.4.0`.** Get the source from
-[GitHub](https://github.com/Vibernt/cupel). npm and PyPI packages are not published;
-use the local installation below. See the [0.4.0 release record](plans/results/2026-11-23-0.4.0-release.md), the [0.3.0 record](plans/results/2026-11-23-0.3.0-release.md) and the
-[0.2.0 record](plans/results/2026-11-23-0.2.0-candidate.md) for what changed and what is verified, the [first verified candidate record](plans/results/2026-10-26-private-candidate.md)
-for artifact checks, and [historical evidence](docs/private-use.md#artifact-provenance).
-
-Cupel supplies a Node CLI, a local stdio MCP server, and a pure JavaScript engine.
-It makes no model calls and has no telemetry or analytics. The engine produces
-the same report for the same inputs. Collection executes your project's tests
-and configured preparation commands; their timings, side effects and network
-behavior belong to that project. Cupel's own shipped runtime makes no network
-calls and does not install project dependencies.
-
-## Why add Cupel to your workflow?
-
-A passing test suite can become less protective while staying green. An assertion
-can get weaker, a refactor can stop checking a boundary, or an AI-generated test
-can execute the right lines without detecting the wrong behavior. Coverage shows
-which code ran; mutation testing checks whether tests notice particular faults.
-
-Cupel gives you evidence to review those changes:
-
-- **Understand existing tests.** See per-test coverage, mutation kills, timing,
-  and gaps before deciding what to improve.
-- **Protect test refactors.** Compare the proposed suite with a Git baseline
-  and detect lost coverage or critical fault detection within the measured scope.
-- **Review agent-written tests.** Give your coding agent a local CLI/MCP feedback
-  loop, then inspect the evidence before accepting its changes.
-
-Make protection review part of the workflow: **run tests → inspect Cupel evidence
-→ edit → run full guard → review the diff**. Use it alongside your normal tests
-and code review, especially when changing assertions or critical-path tests.
+Cupel runs your own tests, records which lines each test runs, and plants small
+faults in the code to see which tests notice. From that evidence it **guards**
+changes (fail when protection is lost), **audits** the suite (six questions, one
+report) and gives reviewers and agents the **evidence** behind each test. It never
+changes or deletes your tests or code, makes no model calls, and has no telemetry:
+its output is a signal for the people and agents who do the work.
 
 ## How it works
 
-1. **Collect:** run the supported test runner and attribute source coverage to
-   individual tests.
-2. **Challenge:** introduce small faults in the configured mutation scope and
-   record which tests fail. A detected fault is called a killed mutant.
-3. **Compare:** use `guard --base <ref>` to compare measured protection before
-   and after a change. Lost coverage, lost critical kills and unapproved protected
-   test removal can fail the guard even when the ordinary tests still pass.
-4. **Audit:** `audit` reads the same evidence and lists possibly wrong tests,
-   tests that catch no faults (or only because the code crashed), tests of the
-   same thing, tests that could be combined, coverage with unmeasured code kept
-   apart, and where test time goes.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-dark.png">
+  <img src="docs/assets/how-it-works.png" width="100%" alt="How Cupel works, in four stages. Collect: per-test coverage from node:test, Vitest, Jest, pytest, Rust with Cargo on any OS, Worker code in workerd (preview), and Go and Ruby (previews). Plant faults: only the tests that run each line, stopping once answered, reusing unchanged results, and many Rust faults in one build. Decide: guard (protection kept?), audit (six questions) and review over MCP for agents. Scale in CI: estimate with --plan, run slices with --shard, merge.">
+</picture>
+
+1. **Collect.** Run the supported test runner and attribute coverage to each test.
+2. **Plant faults.** Change one small thing at a time (a `>` to `>=`, a return
+   value) and record which tests fail. Only the tests that run that line are run,
+   and results whose code and tests have not changed are reused.
+3. **Decide.**
+   - `guard --base <ref>` compares with an earlier commit and fails on lost
+     coverage, a critical fault that is no longer caught, or a protected test
+     removed without approval, even when every test still passes.
+   - `audit` answers six questions: possibly wrong tests, tests that catch no
+     faults, code whose faults go unnoticed, tests of the same thing, tests that
+     could be combined, and where test time goes.
+4. **Scale.** `cupel mutate --plan` estimates the work and suggests how many CI
+   machines each runner needs; `--shard I/N` runs one slice and
+   `merge-mutations` joins them.
+
+## Quick start
+
+You need Node **22+**, Git, and the project's own dependencies installed. pytest
+also needs Python **3.12+** and the Python collector ([installation](docs/install.md));
+Rust needs rustup's LLVM tools and, for fault testing, cargo-mutants.
+
+Install the release package offline (download `vibernt-cupel-0.4.0.tgz` from the
+[v0.4.0 release](https://github.com/Vibernt/cupel/releases/tag/v0.4.0)), or run
+straight from a clone:
+
+```sh
+npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.4.0.tgz
+CUPEL=~/.cupel/node_modules/.bin/cupel
+
+# or, from source
+git clone https://github.com/Vibernt/cupel.git
+CUPEL="node $PWD/cupel/packages/cupel/bin/cupel.mjs"
+```
+
+Then, in the Git root of the project you want to assess:
+
+```sh
+$CUPEL report                       # collect, plant faults, save .cupel/input.json
+$CUPEL audit --input .cupel/input.json
+$CUPEL guard --base HEAD            # after changing tests: is the protection still there?
+```
+
+Exit codes: `0` OK, `1` a guard or check failed, `2` invalid usage or input, `3`
+an environment problem. Mark critical code and choose runners in `cupel.json`
+([config guide](docs/extending/config.md)). Packages are not on npm or PyPI.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `report`, `review` | Collect and plant faults; per-test coverage, catches, timing and review hints. |
+| `audit` | One read-only report on six questions about the suite. |
+| `guard --base <ref>` | Compare protection with an earlier commit; fail when it is lost. |
+| `check <tests>` | What a new or changed test adds or loses. |
+| `mutate --plan`, `--shard I/N`, `merge-mutations` | Plan fault testing, run one CI slice, join slices. |
+| `label`, `plan`, `import`, `validate`, `mcp` | Tiers, test order, JUnit and cargo-mutants import, schema checks, the MCP server. |
+
+The [CLI reference](docs/cli.md) has every option.
+
+## Fast enough for every pull request
+
+Fault testing is the slow part. Cupel saves time without guessing, and never
+reports a fault as caught or missed when a full run would say otherwise:
+
+- **Only relevant tests.** A fault runs only the tests whose coverage includes its
+  line; a fault on a line no test runs is reported without running anything.
+- **Stop once answered.** Most relevant and fastest first, stopping after two
+  catches (enough to know whether one test is the only one). On pull requests,
+  `guard` stops at the first catch: it only needs to know whether each fault was
+  caught.
+- **Reuse.** Results whose code, tests and test inputs are unchanged are copied
+  from the last run (`.cupel/input.json` locally; `--reuse <file>` from your CI cache).
+- **Rust, built for it.** `"backend": "cupel"` builds only the test targets that run
+  the line and compiles many faults into one switchable build. On one critical
+  file of a private Rust workspace (90 faults), fault testing took about 27 minutes
+  as a pull-request guard and 60 with full results, against about 3 hours
+  estimated for cargo-mutants; statuses were identical. Your times depend on your tests.
+- **Slices.** When one machine is not enough, `mutate --plan` says how many, per runner.
+
+[Faster fault testing](docs/speed.md) has the settings and CI recipes;
+[best practices](docs/best-practices.md) covers what to run when and how to read
+the results.
 
 ## What is supported
 
@@ -73,173 +121,56 @@ The [support matrix](docs/support.md) is the authoritative version and scope con
 
 | Scope | Runners | Evidence and limits |
 | --- | --- | --- |
-| Core ordinary full guard | `node:test`, Vitest, narrow Jest, pytest | Source and installed acceptance; exact runtime, loader and transform limits apply. |
-| Bounded preview | Go, Ruby/Minitest, Rust/Cargo | Installed fixture acceptance; real-repository acceptance is unrun as a recorded gate. Rust coverage works on any OS with rustup's LLVM tools; Rust fault testing uses your cargo-mutants. |
-| Preview | Worker code in workerd (node:test tests that start Miniflare, wrangler or workerd) | Per-test coverage and fault testing of repository files workerd runs unchanged; bundled or compiled Worker code and tests inside workerd are not measured. |
+| Core: full guard | `node:test`, Vitest, narrow Jest, pytest | Source and installed acceptance; exact runtime, loader and transform limits apply. |
+| Preview | Rust/Cargo, Go, Ruby/Minitest | Fixture acceptance; Rust coverage matched plain LLVM line for line on a real workspace. Real-repository acceptance is not yet a recorded gate. |
+| Preview | Worker code in workerd (node:test tests that start Miniflare, wrangler or workerd) | Per-test coverage and fault testing of Worker files workerd runs as they are; bundled or compiled Worker code is reported as not measured. |
 | Experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
-| Local integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted Action required checks and branch protection remain unverified. |
+| Integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted required checks and branch protection are unverified. |
 
-Real-repository Jest acceptance retained the original **51 tests / 4 files** and
-killed all **11 valid unsampled critical mutants**. Weakening one assertion kept
-the tests passing but made live CLI/MCP guard fail. See the
-[pinned evidence](plans/results/2026-10-26-jest-acceptance.md).
+**Mixed-language repositories.** One `cupel.json` can name several runners; their
+evidence merges into one report. Code another language's tests run, such as Rust
+built into a WebAssembly module that Worker tests load, is labelled with those
+tests (`builtInto`) instead of looking untested.
 
-A lack of unique coverage or kills does **not** prove a test is redundant.
-Cupel never advises deleting a test. Review results do not establish cleanup
-savings, and no generic CI speedup is claimed. `plan` orders tests; experimental
-selective results cannot approve the whole suite.
-
-**Repositories with several languages.** One `cupel.json` can name several
-runners (for example node:test, pytest and Cargo); their evidence is merged into
-one report. Code another language's tests run, such as Rust compiled to a
-WebAssembly module that JavaScript tests load, is labelled with those tests
-(`builtInto`) and never counted as uncovered. Opt-in `crossRunner` re-tests
-Rust faults no Rust test caught with the tests that load the module. See the
-[config guide](docs/extending/config.md).
-
-## Run locally
-
-You need Node **22+**, Git for baseline comparisons, and the assessed project's
-dependencies already installed. Use the project's supported Vitest/Jest version;
-pytest also needs Python **3.12+** and the separate Python collector. See
-[installation](docs/install.md) for the Python wheel and exact tested versions.
-
-Clone the repository, then run directly from source:
-
-```sh
-git clone https://github.com/Vibernt/cupel.git
-cd cupel
-CUPEL_REPO="$PWD"
-node "$CUPEL_REPO/packages/cupel/bin/cupel.mjs" --help
-```
-
-Or pack and install this checkout into a local directory, entirely offline:
-
-```sh
-mkdir -p .scratch/local-package
-npm pack --offline --ignore-scripts ./packages/cupel \
-  --pack-destination .scratch/local-package
-npm install --offline --ignore-scripts --no-audit --no-fund \
-  --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.4.0.tgz
-CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
-"$CUPEL" --version
-```
-
-This installs a local tarball; there is no published registry installation.
-No build step is needed for the JavaScript package. The
-[artifact smoke tests](docs/development.md#installed-artifact-gates) check the
-actual tarball, wheel, CLI and MCP entry points.
-
-## Review a test change
-
-Set `CUPEL` with the installation above, then enter the Git root of the project
-you want to assess (replace the example path):
-
-```sh
-cd /absolute/path/to/your/project
-"$CUPEL" report --runs 2
-"$CUPEL" review --input .cupel/input.json --limit 10 --json
-```
-
-`report` collects the suite, runs configured mutation, and saves its input to
-`.cupel/input.json`. `review --input` reads that saved evidence. Read the named
-tests and their assertions before changing them. Configure `cupel.json` to mark
-critical paths and select runners when needed; see the
-[config guide](docs/extending/config.md) and [CLI reference](docs/cli.md).
-
-To read the whole suite's health from the same saved evidence, run:
-
-```sh
-"$CUPEL" audit --input .cupel/input.json
-```
-
-It prints Markdown (or JSON with `--json`) and changes nothing. When the saved
-input has no mutation results, the fault questions say they were not measured.
-
-After an uncommitted test change, compare against the commit containing the
-original tests:
-
-```sh
-"$CUPEL" guard --base HEAD --runs 2
-```
-
-For an already committed change, use its actual earlier baseline ref. The
-baseline runs in a fresh Git archive; prepare its project dependencies and build
-steps as described in [baseline collection](docs/cli.md#baseline-dependencies).
-Keep mutation enabled for a protection check. Unsupported collection or mutation
-stops with a reason; Cupel does not silently switch to coverage-only collection.
-Exit codes are `0` OK, `1` a guardrail/check failed, `2` invalid usage/input, and
-`3` an environment failure. A passing guard covers its measured scope and rules.
-
-| Command | Purpose |
-| --- | --- |
-| `report`, `review` | Inspect measured coverage, mutation, timings and review hints. |
-| `audit` | One read-only report on six questions: possibly wrong tests, tests that catch no faults, tests of the same thing, tests to combine, coverage, and where time goes. |
-| `check <tests>` | Inspect evidence added or lost by named tests. |
-| `guard --base <ref>` | Compare protection with an earlier commit. |
-| `label`, `plan` | Inspect tiers and test execution order. |
-| `import`, `validate` | Read JUnit/Cupel data and validate spec documents. |
-
-## Faster runs and best practices
-
-Fault testing is the slow part. Cupel keeps it fast without guessing:
-
-- it runs only the tests that run a faulty line, and stops once two test files
-  (JavaScript) or two different tests (Python) have caught the fault;
-- time limits come from each test file's measured time;
-- faults on lines no test runs are reported without being run, and for Rust only
-  the packages whose tests run the code are tested;
-- faults whose code, tests and test inputs are unchanged since the last run reuse
-  the earlier answer. Locally that is `.cupel/input.json`; on CI machines that
-  start empty, keep the input file in the CI cache and pass it back with
-  `--reuse <file>`. `guard`, `check` and `mutate` reuse only a file named this
-  way, never one the change itself could contain.
-
-On pull requests, `guard` stops each fault at its first catching test: the guard
-only needs to know whether each fault was caught.
-
-For Rust, `"backend": "cupel"` runs cargo-mutants' faults with only the tests that
-run each line, fastest first, and compiles many faults into one build. Large
-suites can be split across CI machines: `cupel mutate --plan` estimates the time
-and suggests how many slices each runner needs (usually one for JavaScript and
-Python), `--shard I/N` runs one, and `merge-mutations` joins them.
-
-On pull requests, test only changed lines (`"mutation": { "critical": false }`)
-and run critical files in full nightly. [Faster fault testing](docs/speed.md) has
-the settings and CI recipes; [best practices](docs/best-practices.md) covers what
-to run when, how to read the audit, agents, mixed-language repositories, Rust and
-Workers.
+Real-repository Jest acceptance kept the original **51 tests in 4 files** and
+caught all **11 planted critical faults**; weakening one assertion kept every test
+passing and made the guard fail ([evidence](plans/results/2026-10-26-jest-acceptance.md)).
+Linux and Windows are not verified for the 0.2–0.4 features.
 
 ## Use with an agent
 
-Start the installed MCP server over stdio with an explicit target root:
-
 ```sh
-"$CUPEL" mcp --root /absolute/path/to/your/project
+$CUPEL mcp --root /absolute/path/to/your/project
 ```
 
-Configure your MCP client to start that executable with the same arguments.
-[MCP setup](docs/mcp.md) covers Claude Code, Cursor and Codex, available tools,
-pagination and retained report snapshots. Agents can inspect evidence through
-`cupel_review` and run a fresh `cupel_guard`; Cupel does not create human approvals.
+Point your MCP client at that command. Agents read `cupel_review` and
+`cupel_audit` before changing tests and run a fresh `cupel_guard` afterwards;
+Cupel never creates the human approvals that removing a critical test needs.
+[MCP setup](docs/mcp.md) covers Claude Code, Cursor and Codex.
 
-## Develop and extend
+## Honest limits
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) for checks, repository rules and
-[development tooling](docs/development.md). The [docs index](docs/README.md)
-groups usage, runners, extension contracts and acceptance evidence.
+- Coverage says what ran and caught faults say what was noticed; neither says an
+  expected value is right. That needs a person or a reviewer.
+- A test with no unique coverage or catches is not proven redundant. Overlap is
+  evidence to read, and Cupel never advises deleting a test.
+- A passing guard covers the measured scope and rules, nothing more.
 
-| Path | Contains |
+## Learn more
+
+| | |
 | --- | --- |
-| `packages/cupel/` | JavaScript engine, collectors, mutation backends, CLI and MCP. |
-| `packages/cupel-py/`, `packages/cupel-ruby/` | Python and Ruby collector runtimes. |
-| `spec/` | `cupel-spec/1`, schemas and positive/negative conformance cases. |
-| `action/`, `scripts/`, `bench/` | Action wrapper, local verification and audited benchmarks. |
-| `docs/`, `plans/` | User/developer docs; decisions, plans and historical evidence. |
+| [Docs index](docs/README.md) | Usage, runners, extension contracts and evidence. |
+| [Best practices](docs/best-practices.md), [Faster fault testing](docs/speed.md) | What to run when; settings, reuse, slices and CI recipes. |
+| [Rust](docs/rust.md), [workerd](docs/workerd.md), [Python](docs/python.md) | Runner details and limits. |
+| [Release records](plans/results/2026-11-23-0.4.0-release.md) | What each version adds and what was verified ([0.3.0](plans/results/2026-11-23-0.3.0-release.md), [0.2.0](plans/results/2026-11-23-0.2.0-candidate.md), [first candidate](plans/results/2026-10-26-private-candidate.md), [history](docs/private-use.md#artifact-provenance)). |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Checks, repository rules and [development tooling](docs/development.md). |
+
+The README artwork is code: Fire components rendered by
+`scripts/render-readme-art.mjs` ([sources](docs/assets/README.md)).
 
 ## Licence
 
-First-party Cupel code is licensed under [MIT](LICENSE). See [NOTICE](NOTICE)
-for attribution and third-party material. The source repository is public;
-package registry publication is managed separately.
+First-party Cupel code is licensed under [MIT](LICENSE). See [NOTICE](NOTICE) for
+attribution and third-party material. The source repository is public; package
+registry publication is managed separately.

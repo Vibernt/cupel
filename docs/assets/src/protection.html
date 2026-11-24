@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Green tests can hide lost protection</title>
+<link rel="stylesheet" href="/fire/fire.css">
+<link rel="stylesheet" href="art.css">
+<script src="/fire/boot.js"></script>
+<script type="module" src="/fire/fire.js"></script>
+</head>
+<body>
+<!-- README hero. Numbers: plans/results/2026-10-26-jest-acceptance.md (real jest-junit repository). -->
+<main id="art" class="art">
+  <header class="art-head">
+    <img class="art-logo" src="../cupel-logo.png" alt="">
+    <div>
+      <p class="art-kicker">Cupel</p>
+      <h1 class="art-title">Green tests can hide lost protection.</h1>
+      <p class="art-sub">An edit weakened one assertion. Every test still passed and coverage did not move. Cupel planted small faults, compared with the base commit, and the guard failed.</p>
+    </div>
+  </header>
+
+  <div class="art-pipe">
+    <div class="fd-pipeline" data-orientation="horizontal" role="group" aria-label="From an agent's change to Cupel's guard">
+      <ol class="fd-pipeline-stages">
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">The change</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="git-pull-request"></i><span class="fd-pipeline-job-name">Edits code and tests</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="warning"><i data-icon="triangle-alert"></i><span class="fd-pipeline-job-name">One assertion weaker</span></span></li>
+          </ul>
+        </li>
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">Ordinary CI</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="success"><i data-icon="circle-check"></i><span class="fd-pipeline-job-name">Tests pass</span><span class="fd-pipeline-job-meta">51 / 51</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="success"><i data-icon="circle-check"></i><span class="fd-pipeline-job-name">Coverage</span><span class="fd-pipeline-job-meta">92.75%</span></span></li>
+          </ul>
+        </li>
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">cupel guard</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="success"><i data-icon="circle-check"></i><span class="fd-pipeline-job-name">Coverage held</span><span class="fd-pipeline-job-meta">0 lines lost</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="danger"><i data-icon="circle-x"></i><span class="fd-pipeline-job-name">Critical faults</span><span class="fd-pipeline-job-meta">11 → 10</span></span></li>
+          </ul>
+        </li>
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">Verdict</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="danger"><i data-icon="octagon-alert"></i><span class="fd-pipeline-job-name">Guard fails</span><span class="fd-pipeline-job-meta">exit 1</span></span></li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="art-stats">
+    <div class="fd-stats">
+      <div class="fd-stat-tile">
+        <span class="fd-stat-label">Tests passing</span>
+        <span class="fd-stat">51 / 51</span>
+        <span class="fd-stat-sub">before and after the edit</span>
+      </div>
+      <div class="fd-stat-tile">
+        <span class="fd-stat-label">Coverage</span>
+        <span class="fd-stat">92.75%</span>
+        <span class="fd-stat-sub">unchanged</span>
+      </div>
+      <div class="fd-stat-tile">
+        <span class="fd-stat-label">Critical faults caught</span>
+        <span class="fd-stat">11 → 10</span>
+        <span class="fd-stat-sub">one lost: the guard fails</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="art-foot"><strong>Measured on a real Jest repository:</strong> 51 tests in 4 files, 11 planted faults on 2 declared critical API paths. The weakened assertion is the measured change; its wording here is illustrative.</p>
+</main>
+</body>
+</html>

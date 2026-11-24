@@ -1,9 +1,31 @@
 # Cupel README artwork
 
-- `cupel-logo.png`: assay cup / code-bracket mark with an amber fault marker. The opaque ivory tile works on light and dark backgrounds; the outside is transparent.
-- `agentic-test-protection.png`: conceptual workflow and the measured Jest protection-loss example. It is an illustration, not a terminal screenshot. The assertion edit is illustrative.
+- `cupel-logo.png`: assay cup / code-bracket mark with an amber fault marker. The opaque ivory tile works on light and dark backgrounds; the outside is transparent. Created with the built-in imagegen tool (prompt below).
+- `protection.png`, `protection-dark.png`: the README hero, "Green tests can hide lost protection", with the measured numbers of the [real-repository Jest acceptance](../../plans/results/2026-10-26-jest-acceptance.md) (51 tests, coverage 92.75% unchanged, critical faults caught 11 → 10, guard fails). The wording of the weakened assertion is illustrative.
+- `how-it-works.png`, `how-it-works-dark.png`: Cupel's four stages (collect, plant faults, decide, scale in CI) as of 0.4.0.
 
-Created with the built-in imagegen tool, then copied into this repository. First-party assets use the repository's [MIT licence](../../LICENSE). No runtime dependencies were added. See [Jest evidence](../../plans/results/2026-10-26-private-candidate.md#fresh-real-project-jest-controls) for the scoped numbers. Human visual review checks text, numbers, causal order and readability; `scripts/readme-assets.test.mjs` checks README image references, alternatives and PNG headers/dimensions.
+## The diagrams are code
+
+The two diagrams are HTML in [`src/`](src) built from the components and tokens of
+[Fire](https://github.com/vidhatanand/firedesign) (`fire-design`, MIT, 0.12.3) in its default look:
+`fd-pipeline` for the flow, `fd-stats` for the numbers, Fire's type, icons and
+colours, and a few lines of frame layout in `src/art.css` that use only Fire
+tokens. Render them, light and dark, at twice the CSS size:
+
+```sh
+node scripts/render-readme-art.mjs --fire /path/to/firedesign
+```
+
+The script needs a Fire checkout (its `fire/` styles, fonts and icons and its
+`playwright-core`) and a Chromium (`--browser`, or Playwright's cache). It serves the
+pages from disk through request routing, refuses any other request, and writes
+`docs/assets/<name>.png` and `<name>-dark.png`. Cupel itself gains no dependency.
+Change a number or a capability in the HTML, re-render, and review both images.
+`scripts/readme-assets.test.mjs` checks the README's image references, alternative
+text and PNG headers and sizes.
+
+The earlier generated explainer (`agentic-test-protection.png`) was replaced by
+these diagrams in 0.4.0; its prompts are kept below for the record.
 
 ## Generation prompts
 
@@ -18,7 +40,7 @@ Palette: teal #087F8C and amber #E8A23A. Place the symbol on a warm ivory #F7F4E
 Output one production-ready PNG with true alpha outside the tile. Do not add any text.
 ```
 
-### Explainer
+### Explainer (retired in 0.4.0)
 
 ```text
 Use case: infographic-diagram.

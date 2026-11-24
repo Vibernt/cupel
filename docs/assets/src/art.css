@@ -1,0 +1,42 @@
+/* Frame for Cupel's README artwork. Everything else comes from Fire's own components
+   (fd-pipeline, fd-stats, fd-badge) and tokens, in Fire's default look. */
+html, body { margin: 0; background: transparent; }
+body { padding: 24px; }
+.art {
+  width: 1180px;
+  box-sizing: border-box;
+  padding: 44px 48px 36px;
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-line);
+  border-radius: var(--fd-radius-2xl);
+  color: var(--fd-text);
+  font-family: var(--fd-font-sans);
+}
+.art-head { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 32px; }
+.art-logo { width: 64px; height: 64px; flex: none; }
+.art-kicker {
+  margin: 2px 0 6px;
+  font-family: var(--fd-eyebrow-font, var(--fd-font-mono));
+  font-size: var(--fd-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fd-text-3);
+}
+.art-title { margin: 0 0 8px; font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; }
+.art-sub { margin: 0; font-size: var(--fd-text-lg); color: var(--fd-text-2); max-width: 820px; line-height: 1.45; }
+.art-pipe { margin: 0 0 28px; }
+.art-pipe .fd-pipeline { overflow: visible; }
+/* Stages share the frame's width equally (Fire's pipeline sizes to content by default). */
+.art-pipe .fd-pipeline-stages { inline-size: 100%; grid-auto-columns: minmax(0, 1fr); }
+.art-pipe .fd-pipeline-stage { max-inline-size: none; }
+.art-stats { margin: 0 0 22px; }
+.art-foot {
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--fd-line-faint);
+  font-size: var(--fd-text-sm);
+  color: var(--fd-text-3);
+  line-height: 1.5;
+}
+.art-foot strong { color: var(--fd-text-2); font-weight: 500; }
+.art-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
