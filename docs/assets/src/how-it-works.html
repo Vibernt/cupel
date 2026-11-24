@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Cupel works</title>
+<link rel="stylesheet" href="/fire/fire.css">
+<link rel="stylesheet" href="art.css">
+<script src="/fire/boot.js"></script>
+<script type="module" src="/fire/fire.js"></script>
+</head>
+<body>
+<!-- README "how it works". Capabilities: docs/support.md, docs/speed.md, docs/rust.md (0.4.0). -->
+<main id="art" class="art">
+  <header class="art-head">
+    <img class="art-logo" src="../cupel-logo.png" alt="">
+    <div>
+      <p class="art-kicker">How Cupel works</p>
+      <h1 class="art-title">Measure what your tests protect, then keep it.</h1>
+      <p class="art-sub">Cupel runs your own tests, records which lines each test runs, plants small faults to see which tests notice, and turns that into a guard, an audit and evidence for reviewers. It never changes your tests or code.</p>
+    </div>
+  </header>
+
+  <div class="art-pipe">
+    <div class="fd-pipeline" data-orientation="horizontal" role="group" aria-label="Collect, plant faults, decide and scale">
+      <ol class="fd-pipeline-stages">
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">1 · Collect</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="braces"></i><span class="fd-pipeline-job-name">node:test · Vitest · Jest</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="flask-conical"></i><span class="fd-pipeline-job-name">pytest</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="cpu"></i><span class="fd-pipeline-job-name">Rust · Cargo</span><span class="fd-pipeline-job-meta">any OS</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="cloud"></i><span class="fd-pipeline-job-name">Workers in workerd</span><span class="fd-pipeline-job-meta">preview</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="blocks"></i><span class="fd-pipeline-job-name">Go · Ruby</span><span class="fd-pipeline-job-meta">preview</span></span></li>
+          </ul>
+        </li>
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">2 · Plant faults</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="info"><i data-icon="target"></i><span class="fd-pipeline-job-name">Only tests that run the line</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="info"><i data-icon="fast-forward"></i><span class="fd-pipeline-job-name">Stop once answered</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="info"><i data-icon="history"></i><span class="fd-pipeline-job-name">Reuse unchanged results</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="info"><i data-icon="layers"></i><span class="fd-pipeline-job-name">Rust: many faults, one build</span></span></li>
+          </ul>
+        </li>
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">3 · Decide</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="success"><i data-icon="shield-check"></i><span class="fd-pipeline-job-name">guard</span><span class="fd-pipeline-job-meta">protection kept?</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="violet"><i data-icon="list-checks"></i><span class="fd-pipeline-job-name">audit</span><span class="fd-pipeline-job-meta">six questions</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="violet"><i data-icon="bot"></i><span class="fd-pipeline-job-name">review · MCP</span><span class="fd-pipeline-job-meta">for agents</span></span></li>
+          </ul>
+        </li>
+        <li class="fd-pipeline-stage">
+          <p class="fd-pipeline-stage-label">4 · Scale in CI</p>
+          <ul class="fd-pipeline-jobs">
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="gauge"></i><span class="fd-pipeline-job-name">Estimate</span><span class="fd-pipeline-job-meta">--plan</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="split"></i><span class="fd-pipeline-job-name">Run slices</span><span class="fd-pipeline-job-meta">--shard</span></span></li>
+            <li><span class="fd-pipeline-job" data-tone="neutral"><i data-icon="git-compare"></i><span class="fd-pipeline-job-name">Merge</span></span></li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <p class="art-foot"><strong>The audit answers six questions:</strong> which tests may be wrong, which catch no faults, where faults go unnoticed, which tests protect the same thing, which could be combined, and where test time goes. Overlap is evidence for a person or agent to read, never advice to delete.</p>
+</main>
+</body>
+</html>
