@@ -402,10 +402,14 @@ class Runner {
       if (st.done.has(key) || (only && !only.has(key))) continue;
       const { target, names } = byTarget.get(key);
       const limit = Math.max(TIMEOUT_FACTOR * ms(key), TIMEOUT_FLOOR_MS);
-      let r = await this.runTarget(target, [...names].sort(cmp), fault, limit);
-      // A timeout may be the machine: one more try with three times the limit.
-      if (r.timedOut) r = await this.runTarget(target, [...names].sort(cmp), fault, TIMEOUT_FACTOR * limit);
       const failing = this.baseline.get(key)?.failing ?? new Set();
+      let r = await this.runTarget(target, [...names].sort(cmp), fault, limit);
+      // A timeout may be the machine: one more try with three times the limit, unless the run already caught the
+      // fault (a test that passes unmutated reported FAILED before the limit): a catch decides the status whatever
+      // the rest of the target does, so waiting longer could only add credits, never change the answer.
+      if (r.timedOut && !r.parsed.runs.some((x) => x.failed.some((f) => !failing.has(f.name)))) {
+        r = await this.runTarget(target, [...names].sort(cmp), fault, TIMEOUT_FACTOR * limit);
+      } else if (r.timedOut) this.caughtBeforeTimeout = (this.caughtBeforeTimeout ?? 0) + 1;
       // Neither timed out nor caught, yet some named test reported nothing: not a pass. Try once more.
       const incomplete = (x) => !x.timedOut && (x.code === 0 || x.parsed.runs.length) && !x.parsed.runs.some((y) => y.failed.some((f) => !failing.has(f.name)) || y.died) && missingResults(x.parsed, names).missing.length > 0;
       if (incomplete(r)) {
@@ -846,7 +850,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
         switchesOffReused: sessionStats.off[0], switchesOffTotal: sessionStats.off[1],
         switched: counts.switched, switchedOperators: counts.switched - counts.bodies, switchedBodies: counts.bodies, individual: counts.individual,
         faults: faults.length, faultBuildMs: Math.round(sum('buildMs')), faultTestMs: Math.round(sum('testMs')),
-        cargoCalls: runner.cargoCalls, cargoMs: Math.round(runner.cargoMs), retries: runner.retries ?? 0,
+        cargoCalls: runner.cargoCalls, cargoMs: Math.round(runner.cargoMs), retries: runner.retries ?? 0, caughtBeforeTimeout: runner.caughtBeforeTimeout ?? 0,
         perFault: Object.fromEntries([...faultTimes].sort((a, b) => cmp(a[0], b[0])).map(([id, f]) => [id, { buildMs: Math.round(f.buildMs), testMs: Math.round(f.testMs) }])),
       };
       const sessionText = `, session ${report.session}, prepared ${report.prepared}, baselines reused ${sessionStats.baselines[0]}/${sessionStats.baselines[1]}, switches-off reused ${sessionStats.off[0]}/${sessionStats.off[1]}`;

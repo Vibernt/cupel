@@ -226,7 +226,7 @@ test('a second run in the same project reuses the build session: warm, baselines
   const project = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-fast-session-')));
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
-  writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
+  writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel', sessionEnvIgnore: ['REUSE_IGNORED_*'] } } } }));
   const cache = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cache-')));
   const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-session'), CUPEL_CACHE_DIR: cache };
   const once = () => {
@@ -256,11 +256,18 @@ test('a second run in the same project reuses the build session: warm, baselines
 
     // Anything else that can change a test's outcome must stop reuse: a test environment variable, and a data file of the
     // same size (the test executables stay the same).
-    env.CUPEL_REUSE_PROBE = '1';
+    env.REUSE_PROBE = '1';
     const withEnv = once();
     assert.match(withEnv.timings, /baselines reused 0\/\d+/, withEnv.timings);
     assert.match(withEnv.timings, /switches-off reused 0\/\d+/, withEnv.timings);
-    delete env.CUPEL_REUSE_PROBE;
+    delete env.REUSE_PROBE;
+    // Cupel's own variables and the ones sessionEnvIgnore names do not count (the passes above were measured again with
+    // REUSE_PROBE set, so first a run that records them without it).
+    once();
+    env.CUPEL_REUSE_PROBE = '1'; env.REUSE_IGNORED_JOB = '7';
+    const ignored = once();
+    assert.match(ignored.timings, /baselines reused (\d+)\/\1, switches-off reused (\d+)\/\2/, ignored.timings);
+    delete env.CUPEL_REUSE_PROBE; delete env.REUSE_IGNORED_JOB;
     const data = join(project, 'core/data/greeting.txt');
     const kept = readFileSync(data, 'utf8');
     writeFileSync(data, kept.replace('hello', 'jello'));

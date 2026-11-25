@@ -246,6 +246,14 @@ real catching tests (`killedBy`), so it can only find a real catch sooner. With 
 stop-after rule, a fault whose earlier targets only timed out may then be reported caught
 instead of timed out; both mean the fault is detected.
 
+Time limits: a fault's run of a test target may take three times that target's unmutated
+time, at least 10 seconds. A run that hits the limit is tried once more with three times
+the limit, because a busy machine can look like a hang, unless it had already caught the
+fault: a test that passes unmutated reported `FAILED` before the limit. A catch decides the
+status whatever the rest of the target does, so the retry could only add credits; the
+credited tests are the ones that failed before the limit. The timing JSON counts these as
+`caughtBeforeTimeout`.
+
 With `guard` (or `cupel mutate --first-catch`), each fault stops at its first
 catching target instead of the second (see [Faster fault testing](speed.md#pull-requests-stop-at-the-first-catch)).
 
