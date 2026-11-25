@@ -127,3 +127,15 @@ Found while testing: the warm-run test must not leave report files in the projec
 rebuilt executables are not bit-identical (incremental compilation), so the switches-off key uses each baseline's recorded
 first key, not this run's hashes; and re-copying a dirty file that is already identical would force a rebuild, hence the
 byte comparison.
+
+## Acceptance on a second workspace (2026-11-25, one library package on sqlx and tokio, 13 tests, 6 files, 56 faults to run)
+
+| Run | Total | Notes |
+| --- | --- | --- |
+| cargo-mutants (one build per fault, all tests) | 138 s | reference |
+| `backend: "cupel"`, cold session | 42 s | first build 15 s; 30 faults switched (2 body variants), 26 individual |
+| `backend: "cupel"`, warm session | 26 s | baselines 1/1, switches-off 1/1 reused |
+
+All three gave identical rows (34 caught, 7 unnoticed, 43 no coverage). Per-fault builds were cheap here
+(26 individual builds in ~11 s), so this workspace is build-heavy only in its dependencies, which the session
+keeps; a workspace whose own crates take long to rebuild would gain more from body variants and sessions.
