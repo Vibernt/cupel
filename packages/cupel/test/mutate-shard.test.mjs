@@ -90,7 +90,8 @@ test('mutate parses --cache-dir and refuses invalid prepare combinations before 
   const inside = run('mutate', '--input', '.cupel/collected.json', '--out', '.cupel/x.json', '--cache-dir', join(p.root, '.cache'));
   assert.equal(inside.status, 2); assert.match(inside.stderr, /cache folder .* is inside the assessed project/);
   const ordinary = run('mutate', '--input', '.cupel/collected.json', '--out', '.cupel/x.json', '--cache-dir', cache, '--no-reuse');
-  assert.equal(ordinary.status, 0, ordinary.stderr);
+  // Without a Rust runner on backend "cupel" the folder would do nothing, so it is refused rather than ignored.
+  assert.equal(ordinary.status, 2); assert.match(ordinary.stderr, /--cache-dir is only used by a Rust runner/);
   const shard = run('mutate', '--input', '.cupel/collected.json', '--runner', 'cargo', '--prepare', '--shard', '1/2', '--cache-dir', cache);
   assert.equal(shard.status, 2); assert.match(shard.stderr, /--prepare cannot be combined with --shard/);
   const backend = run('mutate', '--input', '.cupel/collected.json', '--runner', 'node', '--prepare', '--cache-dir', cache);

@@ -174,9 +174,13 @@ Byte-identical restored project files are not rewritten even when their inode or
 ctime changed, so their session-copy mtimes remain usable.
 
 A slice of a prepared session sets up exactly as the preparation did (the same
-test targets and test names for the whole plan), so its builds are no-ops and the
-unmutated passes and the switches-off verdict are reused; it still runs only its
-own faults. The timing line says `prepared true` when that happened. Reuse needs
+test targets and test names for the whole plan and the same faults), so it skips the
+cold build (only the crates holding faults are rebuilt when the switches go in) and
+reuses the unmutated passes and the switches-off verdict; it still runs only its own
+faults. A copy that links to content outside itself (`node_modules`, a link out of the
+project) reuses no earlier pass, because that content is not in the digest; links that
+point inside the project point inside the copy instead, so nothing run there can write
+into the project. The timing line says `prepared true` when that happened. Reuse needs
 the same test environment too, and CI jobs differ in variables such as
 `GITHUB_JOB`, `RUNNER_NAME` or job ids. List the ones your tests, build scripts and
 started programs never read:

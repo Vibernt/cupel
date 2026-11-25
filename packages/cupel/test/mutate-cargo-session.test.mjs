@@ -482,3 +482,34 @@ test('eviction and clean rename the session to a tombstone under the lock, and l
     assert.equal(existsSync(sessionsRoot(env)), false);
   } finally { rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
 });
+
+test('links: one into the project points into the copy, one outside stays and marks the copy linked; node_modules too', () => {
+  const root = tmp();
+  put(root, 'Cargo.toml', '[workspace]\n');
+  put(root, 'data/flag', 'on\n');
+  const outside = tmp();
+  put(outside, 'shared', 'external\n');
+  symlinkSync(join(root, 'data/flag'), join(root, 'abs-flag')); // absolute, back into the project
+  symlinkSync('data/flag', join(root, 'rel-flag')); // relative, inside
+  symlinkSync('../../x', join(root, 'data/up')); // relative, but resolves outside the project
+  symlinkSync(join(outside, 'shared'), join(root, 'ext')); // outside the project
+  const dest = join(tmp(), 'copy');
+  const manifest = join(dest, '..', 'sync.json');
+  const first = syncProject(root, dest, manifest);
+  assert.equal(readlinkSync(join(dest, 'abs-flag')), 'data/flag');
+  assert.equal(realpathSync(join(dest, 'abs-flag')), realpathSync(join(dest, 'data/flag')));
+  assert.equal(readlinkSync(join(dest, 'ext')), join(outside, 'shared'));
+  assert.equal(first.linked, true);
+  // Writing through the copy's link never reaches the project.
+  writeFileSync(join(dest, 'abs-flag'), 'off\n');
+  assert.equal(readFileSync(join(root, 'data/flag'), 'utf8'), 'on\n');
+
+  assert.equal(readlinkSync(join(dest, 'rel-flag')), 'data/flag');
+  rmSync(join(root, 'ext')); rmSync(join(root, 'data/up'));
+  const second = syncProject(root, dest, manifest);
+  assert.equal(second.linked, false);
+  assert.equal(readFileSync(join(dest, 'data/flag'), 'utf8'), 'on\n'); // the planted write is undone by the sync
+
+  mkdirSync(join(root, 'web/node_modules/pkg'), { recursive: true });
+  assert.equal(syncProject(root, dest, manifest).linked, true);
+});

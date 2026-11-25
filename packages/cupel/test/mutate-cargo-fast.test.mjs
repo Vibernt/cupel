@@ -264,10 +264,15 @@ test('a second run in the same project reuses the build session: warm, baselines
     // Cupel's own variables and the ones sessionEnvIgnore names do not count (the passes above were measured again with
     // REUSE_PROBE set, so first a run that records them without it).
     once();
-    env.CUPEL_REUSE_PROBE = '1'; env.REUSE_IGNORED_JOB = '7';
+    env.CUPEL_DEBUG_RUST = '1'; env.REUSE_IGNORED_JOB = '7';
     const ignored = once();
     assert.match(ignored.timings, /baselines reused (\d+)\/\1, switches-off reused (\d+)\/\2/, ignored.timings);
-    delete env.CUPEL_REUSE_PROBE; delete env.REUSE_IGNORED_JOB;
+    delete env.CUPEL_DEBUG_RUST; delete env.REUSE_IGNORED_JOB;
+    // Any other CUPEL_* variable is the project's own and counts.
+    env.CUPEL_PROJECT_MODE = 'other';
+    const projectVar = once();
+    assert.match(projectVar.timings, /baselines reused 0\/\d+/, projectVar.timings);
+    delete env.CUPEL_PROJECT_MODE;
     const data = join(project, 'core/data/greeting.txt');
     const kept = readFileSync(data, 'utf8');
     writeFileSync(data, kept.replace('hello', 'jello'));

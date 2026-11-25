@@ -12,7 +12,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, copyFileSync, existsSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CargoMutantsError } from './import.mjs';
 
 export const DEFAULT_CAP_GB = 10;
@@ -204,6 +204,8 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
   const counts = { copied: 0, deleted: 0, unchanged: 0 };
   mkdirSync(dest, { recursive: true });
   const remove = (path) => { rmSync(path, { recursive: true, force: true }); counts.deleted++; };
+  const rootPath = resolve(root); const rootReal = realpathSync(root);
+  let linked = false; // the copy reaches content outside itself (node_modules, external links)
   const walk = (from, to, rel) => {
     const list = readdirSync(from, { withFileTypes: true }).filter((e) => !SKIP.has(e.name));
     const names = new Set(list.map((e) => e.name));
@@ -220,8 +222,17 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
         }
         entries.push(['l', path, target]);
       };
-      if (e.name === 'node_modules' && e.isDirectory()) link(src);
-      else if (e.isSymbolicLink()) link(readlinkSync(src));
+      if (e.name === 'node_modules' && e.isDirectory()) { linked = true; link(src); }
+      else if (e.isSymbolicLink()) {
+        // A link that resolves inside the project points at the same place in the copy, so nothing run in the copy
+        // can write through it into the project; a link to anything outside the project stays, and its content is not
+        // part of the digest, so the session reuses no earlier pass while one exists.
+        const target = readlinkSync(src);
+        const resolved = resolve(dirname(src), target);
+        const base = [rootPath, rootReal].find((r) => resolved === r || resolved.startsWith(`${r}${sep}`));
+        if (base) link(relative(dirname(dst), join(dest, relative(base, resolved))) || '.');
+        else { linked = true; link(target); }
+      }
       else if (e.isDirectory()) {
         if (d && !d.isDirectory()) remove(dst);
         else if (d?.isSymbolicLink()) remove(dst);
@@ -260,7 +271,7 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
   writeAtomic(manifestFile, `${JSON.stringify({ files })}\n`);
   rmSync(dirtyFile, { force: true });
   entries.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[0] < b[0] ? -1 : 1));
-  return { ...counts, project: realpathSync(dest), digest: sha(JSON.stringify(entries)) };
+  return { ...counts, linked, project: realpathSync(dest), digest: sha(JSON.stringify(entries)) };
 }
 
 // ---- sessions ----

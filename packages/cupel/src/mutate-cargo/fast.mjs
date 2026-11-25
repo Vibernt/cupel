@@ -34,6 +34,10 @@ const noop = () => {};
 const cupelVersion = () => JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 const refuse = (message) => { throw new CargoMutantsError(message); };
 const TIMEOUT_FACTOR = 3;
+// Cupel's own run-control variables: they steer Cupel (where to cache, what to log), never what a test sees.
+// Every other variable, other CUPEL_* ones included, counts toward the environment digest.
+const CUPEL_RUN_CONTROL = new Set(['CUPEL_FAULT', 'CUPEL_CACHE_DIR', 'CUPEL_RUST_TIMINGS', 'CUPEL_RUST_VERIFY_SWITCHED', 'CUPEL_DEBUG_RUST',
+  'CUPEL_GO_TIMINGS', 'CUPEL_GO_VERIFY_SWITCHED', 'CUPEL_MUTATION_TIMINGS', 'CUPEL_DEBUG_WORKERD', 'CUPEL_CARGO_MUTANTS']);
 const TIMEOUT_FLOOR_MS = 10_000;
 const STOP_AFTER_TARGETS = 2;
 const MAX_BODY_FAULTS = 8; // per function, as in batches.mjs and schemata-body.mjs
@@ -546,14 +550,15 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       // preparation did: the same targets and test names, so its builds are no-ops and its verdicts are reused.
       // Faults still run only this slice. An unprepared slice sets up for its own faults only.
       const prepared = session?.meta.prepared;
-      if (scope.only && !scope.prepare && prepared?.digest === session.sync.digest) {
+      const planDigest = sha(JSON.stringify(wholePlan.run.map((c) => c.id).sort(cmp)));
+      if (scope.only && !scope.prepare && prepared?.digest === session.sync.digest && prepared.plan === planDigest) {
         const whole = neededOf(wholePlan.run);
         if (neededDigest(whole) === prepared.needed) {
           needed = whole;
           owners = [...new Set(wholePlan.run.map((c) => byName.get(c.name)?.package).filter(Boolean))];
         }
       }
-      sessionStats.prepared = Boolean(prepared && prepared.digest === session.sync.digest && neededDigest(needed) === prepared.needed);
+      sessionStats.prepared = Boolean(prepared && prepared.digest === session.sync.digest && prepared.plan === planDigest && neededDigest(needed) === prepared.needed);
       const targets = [...needed.values()].map((x) => x.target);
       log(`mutate-rust: ${plan.run.length} fault(s); building ${targets.length} test target(s) of ${new Set(targets.map((t) => t.pkg)).size} package(s) once`);
       const first = await clock('firstBuildMs', () => runner.build(targets, owners));
@@ -564,13 +569,13 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       const sameNames = (a, b) => a.length === b.length && a.every((n, i) => n === b[i]);
       const nameList = (names) => [...names].sort(cmp);
       // Every variable counts (a test may read any), except Cupel's own and the ones the configuration says no test reads.
-      const ignored = (k) => k.startsWith('CUPEL_') || (settings.sessionEnvIgnore ?? []).some((p) => (p.endsWith('*') ? k.startsWith(p.slice(0, -1)) : k === p));
+      const ignored = (k) => CUPEL_RUN_CONTROL.has(k) || (settings.sessionEnvIgnore ?? []).some((p) => (p.endsWith('*') ? k.startsWith(p.slice(0, -1)) : k === p));
       const envDigest = sha(JSON.stringify(Object.entries(runner.env).filter(([k]) => !ignored(k)).sort(([a], [b]) => cmp(a, b))));
       const contextOf = () => { const built = session ? runner.builtDigest() : null; return built ? sha(JSON.stringify([session.sync.digest, envDigest, built])) : null; };
       const fullKey = (hash, context) => (hash && context ? sha(JSON.stringify([hash, context])) : null);
       const stored = (key, names, full) => {
         const rec = session?.meta.baselines?.[key];
-        if (!rec || !full || !(rec.keys ?? []).includes(full) || !sameNames(rec.names ?? [], nameList(names))) return null;
+        if (session?.sync.linked || !rec || !full || !(rec.keys ?? []).includes(full) || !sameNames(rec.names ?? [], nameList(names))) return null;
         return { ms: rec.ms, failing: new Set(rec.failing) };
       };
       const firstHashes = session ? runner.hashes(needed.keys()) : new Map();
@@ -601,7 +606,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       if (settings.schemata !== false) {
         let schemata = null; let bodies = null;
         try { schemata = await import('./schemata.mjs'); } catch { schemata = null; }
-        if (settings.bodyVariants === true) { try { bodies = await import('./schemata-body.mjs'); } catch { bodies = null; } } // opt-in: panic line numbers differ
+        if (settings.bodyVariants === true) bodies = await import('./schemata-body.mjs'); // opt-in (panic line numbers differ): an import failure is an error, never a silent fallback
         let numbers = null; let listed = null;
         if (schemata) {
           try {
@@ -689,7 +694,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
             // executables of the unmodified build). A baseline that was not reused is a new record, so it changes the key;
             // one that was reused matched this very build. The switched executables' own hashes never repeat, these do.
             const baseKeys = [...needed.keys()].sort(cmp).map((k) => [k, session?.meta.baselines[k]?.keys?.[0] ?? null]);
-            const digest = session && baseKeys.every(([, v]) => v) ? sha(JSON.stringify([session.meta.sessionId, session.sync.digest, envDigest, selectorDigest(numbers), sha(schemata.faultModule()),
+            const digest = session && !session.sync.linked && baseKeys.every(([, v]) => v) ? sha(JSON.stringify([session.meta.sessionId, session.sync.digest, envDigest, selectorDigest(numbers), sha(schemata.faultModule()),
               [...originals.keys()].sort(cmp).map((f) => [f, sha(readFileSync(join(src, f), 'utf8'))]), baseKeys])) : null;
             const offKnown = new Map();
             const recs = session?.meta.switched;
@@ -824,14 +829,22 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       }
       if (session) {
         // The session's target must end on the unmodified project: a build of the last fault would be reused as it is.
-        if (rest.length || verify || switched.size) await clock('restoreBuildMs', () => runner.build(targets, owners));
+        if (rest.length || verify || switched.size) {
+          const restored = await clock('restoreBuildMs', () => runner.build(targets, owners));
+          if (!restored.ok) {
+            // The target may still hold a fault's build: nothing in this session may be reused from it.
+            session.meta.baselines = {}; session.meta.switched = {}; delete session.meta.prepared;
+            session.save();
+            refuse(`the unmodified project no longer builds after the fault runs: ${restored.log.trim().split('\n').slice(-3).join(' | ')}`);
+          }
+        }
         const final = runner.hashes(needed.keys());
         const finalContext = contextOf();
         for (const [key, rec] of Object.entries(session.meta.baselines)) { // the unmodified build that ends this run is also the baseline's executable
           const full = fullKey(final.get(key), finalContext);
           if (full && !(rec.keys ??= []).includes(full)) rec.keys.push(full);
         }
-        if (scope.prepare) session.meta.prepared = { digest: session.sync.digest, needed: neededDigest(needed) };
+        if (scope.prepare) session.meta.prepared = { digest: session.sync.digest, plan: planDigest, needed: neededDigest(needed) };
         session.save();
       }
     }

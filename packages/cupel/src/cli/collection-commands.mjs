@@ -137,6 +137,8 @@ export const collectionCommands = {
       if (runner?.mutants?.backend !== 'cupel') throw usage(`--prepare needs runner ${ctx.o.runner} to use runners.${ctx.o.runner}.mutants.backend: "cupel"`);
       if (runner.mutants.session === false) throw usage(`--prepare needs a persistent Rust session; runners.${ctx.o.runner}.mutants.session is false`);
     }
+    if (ctx.o['cache-dir'] !== undefined && !Object.values(cfg.runners ?? {}).some((r) => r?.mutants?.backend === 'cupel' && r.mutants.session !== false))
+      throw usage('--cache-dir is only used by a Rust runner with mutants.backend "cupel" and a persistent session');
     const mutator = await ctx.mutator();
     const changed = ctx.o.changed && cfg.mutation.changedLines ? changedLines(ctx.root, ctx.o.changed) : null;
     // --first-catch: only whether each fault was caught, for guard --head-input (mutation.catches 'first').
