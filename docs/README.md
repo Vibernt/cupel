@@ -1,12 +1,13 @@
 # Cupel documentation
 
-Start with the [README](../README.md). The [support matrix](support.md) defines
-core JS/TS/Python ordinary full guard, bounded Go/Ruby/Rust previews, the
-workerd preview and experimental selection outside the supported first release.
-What 0.2.0 adds (`cupel audit`, Rust on any OS with cargo-mutants, Worker code in
-workerd, mixed-language labelling) is in the
-[0.2.0 record](../plans/results/2026-11-23-0.2.0-candidate.md); 0.3.0 makes fault testing
-faster ([0.3.0 record](../plans/results/2026-11-23-0.3.0-release.md), [Faster fault testing](speed.md)).
+The documentation is also published at **[vibernt.github.io/cupel](https://vibernt.github.io/cupel/)**.
+Start with the [README](../README.md) for what Cupel does and a first run. The
+[support matrix](support.md) is the contract: core JS/TS/Python ordinary full guard,
+bounded Go, Ruby and Rust previews, the workerd preview, and experimental selection
+outside the supported first release. What each version adds and what was verified is
+in the release records, newest first: [0.5.0](../plans/results/2026-11-25-0.5.0-release.md),
+[0.4.0](../plans/results/2026-11-23-0.4.0-release.md), [0.3.0](../plans/results/2026-11-23-0.3.0-release.md),
+[0.2.0](../plans/results/2026-11-23-0.2.0-candidate.md).
 
 ## Getting started
 

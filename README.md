@@ -5,8 +5,20 @@
 <h1 align="center">Cupel</h1>
 
 <p align="center">
-  <strong>Know what your tests actually protect, and keep it when people or agents change them.</strong><br>
-  MIT · version <code>0.5.0</code> · JavaScript & TypeScript · Python · Rust · Cloudflare Workers · Go and Ruby previews
+  <strong>Know what your tests actually protect, and keep it when people or agents change them.</strong>
+</p>
+
+<p align="center">
+  MIT · version <code>0.5.0</code> · zero dependencies · JavaScript & TypeScript · Python · Rust · Go · Ruby · Cloudflare Workers
+</p>
+
+<p align="center">
+  <a href="https://vibernt.github.io/cupel/">Documentation</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#fast-enough-for-every-pull-request">Speed</a> ·
+  <a href="#languages">Languages</a> ·
+  <a href="https://github.com/Vibernt/cupel/releases">Releases</a>
 </p>
 
 <picture>
@@ -14,16 +26,92 @@
   <img src="docs/assets/protection.png" width="100%" alt="Green tests can hide lost protection. An edit weakens one assertion; ordinary CI still shows 51 of 51 tests passing and coverage at 92.75%. Cupel's guard keeps coverage but finds critical faults caught dropping from 11 to 10, so the guard fails with exit 1. Measured on a real Jest repository.">
 </picture>
 
-A passing suite can quietly stop protecting your code. An assertion gets weaker,
-a refactor stops checking a boundary, or a generated test runs the right lines
-without noticing the wrong behaviour. Coverage cannot see it; the tests stay green.
+A passing suite can quietly stop protecting your code. An assertion gets weaker, a
+refactor stops checking a boundary, or a generated test runs the right lines without
+noticing the wrong behaviour. Coverage cannot see it, and the tests stay green.
 
-Cupel runs your own tests, records which lines each test runs, and plants small
-faults in the code to see which tests notice. From that evidence it **guards**
-changes (fail when protection is lost), **audits** the suite (six questions, one
-report) and gives reviewers and agents the **evidence** behind each test. It never
-changes or deletes your tests or code, makes no model calls, and has no telemetry:
-its output is a signal for the people and agents who do the work.
+Cupel runs **your own tests**, records which lines each test runs, then plants small
+faults in the code (a `>=` becomes `>`, a `&&` becomes `||`) and records which tests
+notice. That evidence lets it **guard** a change (fail when protection is lost),
+**audit** a suite, and show reviewers and agents what each test is worth. It never
+changes or deletes your tests or code, makes no model calls, sends nothing off your
+machine, and has no dependencies and no telemetry.
+
+## See it
+
+A two-test project with 100% line coverage. `cupel report` plants 10 faults and two
+of them go unnoticed:
+
+```console
+$ cupel report
+cupel: run 1/2 (coverage): 2 tests, 2 passed, 0.1 s
+cupel: run 2/2 (coverage): 2 tests, 2 passed, 0.1 s
+cupel: mutate: 10 valid, 0 invalid, 10 run with 5 processes
+2 tests, 2 units, coverage 100% (4/4), mutation score 80%
+
+$ cupel audit --input .cupel/input.json
+Code that runs but where a fault went unnoticed:
+- `src/price.mjs` lines 2
+  - line 2: src/price.mjs:2:27:logical:928cbdab
+  - line 2: src/price.mjs:2:36:boundary:2ec6ba8b
+```
+
+Now weaken one assertion, from `equal(…, 90)` to `ok(… > 0)`. Every test still
+passes and coverage is unchanged, but the guard sees what was lost:
+
+```console
+$ cupel guard --base HEAD
+pass  head-passes
+pass  coverage-ratio  100% -> 100%
+FAIL  critical-mutation  lost mutants src/price.mjs:2:14:cmp-flip:fcf391f9, …
+guard failed                                              # exit code 1
+```
+
+(Real output from Cupel 0.5.0, shortened.)
+
+## Quick start
+
+You need Node **22+** and Git, with the project's own dependencies installed (pytest
+projects also need Python **3.12+** and the Python collector). Download
+`vibernt-cupel-0.5.0.tgz` from the [v0.5.0 release](https://github.com/Vibernt/cupel/releases/tag/v0.5.0)
+and install it offline:
+
+```sh
+npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.5.0.tgz
+alias cupel=~/.cupel/node_modules/.bin/cupel
+```
+
+Then, in the Git root of the project you want to assess:
+
+```sh
+cupel report                          # collect coverage, plant faults, save .cupel/input.json
+cupel audit --input .cupel/input.json # six questions about the suite, one report
+cupel guard --base main               # in a pull request: is the protection still there?
+```
+
+Mark the code that matters in `cupel.json` (`{ "tiers": { "critical": ["src/billing/**"] } }`).
+Exit codes: `0` ok, `1` a guard or check failed, `2` invalid usage, `3` an environment
+problem. Running from a clone, pytest's collector, Rust's tools and the other options are in
+[Installation](https://vibernt.github.io/cupel/install.html). The packages are not on npm or PyPI.
+
+## What you get
+
+- **A guard for every change.** `guard --base <ref>` fails on lost coverage, a critical
+  fault that is no longer caught, or a protected test removed without approval, even
+  when every test passes. [Guide](docs/private-use.md)
+- **An audit of the suite.** Possibly wrong tests, tests that catch nothing, code whose
+  faults go unnoticed, tests of the same thing, tests that could be combined, and where
+  the time goes. [Best practices](docs/best-practices.md)
+- **Evidence for each test.** Lines it runs, faults it alone catches, overlap, and review
+  hints (`cupel review`, `cupel check <tests>`). [CLI reference](docs/cli.md)
+- **Built for agents.** A local MCP server gives coding agents the same evidence before
+  and after they edit tests; Cupel never creates the human approvals a critical test's
+  removal needs. [MCP setup](docs/mcp.md)
+- **Many languages, one report.** JavaScript and TypeScript, Python, Rust, Go, Ruby and
+  Worker code in workerd; one `cupel.json` merges them. [Support matrix](docs/support.md)
+- **Fast enough for pull requests**, without guessing (below). [Faster fault testing](docs/speed.md)
+- **Deterministic and offline.** The same input gives the same result; nothing leaves
+  your machine.
 
 ## How it works
 
@@ -32,179 +120,98 @@ its output is a signal for the people and agents who do the work.
   <img src="docs/assets/how-it-works.png" width="100%" alt="How Cupel works, in four stages. Collect: per-test coverage from node:test, Vitest, Jest, pytest, Rust with Cargo on any OS, Worker code in workerd (preview), and Go and Ruby (previews). Plant faults: only the tests that run each line, stopping once answered, reusing unchanged results, and many Rust faults in one build. Decide: guard (protection kept?), audit (six questions) and review over MCP for agents. Scale in CI: estimate with --plan, run slices with --shard, merge.">
 </picture>
 
-1. **Collect.** Run the supported test runner and attribute coverage to each test.
-2. **Plant faults.** Change one small thing at a time (a `>` to `>=`, a return
-   value) and record which tests fail. Only the tests that run that line are run,
-   and results whose code and tests have not changed are reused.
-3. **Decide.**
-   - `guard --base <ref>` compares with an earlier commit and fails on lost
-     coverage, a critical fault that is no longer caught, or a protected test
-     removed without approval, even when every test still passes.
-   - `audit` answers six questions: possibly wrong tests, tests that catch no
-     faults, code whose faults go unnoticed, tests of the same thing, tests that
-     could be combined, and where test time goes.
-4. **Scale.** `cupel mutate --plan` estimates the work and suggests how many CI
-   machines each runner needs; `--shard I/N` runs one slice and
-   `merge-mutations` joins them.
-
-## Quick start
-
-You need Node **22+**, Git, and the project's own dependencies installed. pytest
-also needs Python **3.12+** and the Python collector ([installation](docs/install.md));
-Rust needs rustup's LLVM tools and, for fault testing, cargo-mutants.
-
-Install the release package offline (download `vibernt-cupel-0.5.0.tgz` from the
-[v0.5.0 release](https://github.com/Vibernt/cupel/releases/tag/v0.5.0)), or run
-straight from a clone:
-
-```sh
-npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.5.0.tgz
-CUPEL=~/.cupel/node_modules/.bin/cupel
-
-# or, from source
-git clone https://github.com/Vibernt/cupel.git
-CUPEL="node $PWD/cupel/packages/cupel/bin/cupel.mjs"
-```
-
-Then, in the Git root of the project you want to assess:
-
-```sh
-$CUPEL report                       # collect, plant faults, save .cupel/input.json
-$CUPEL audit --input .cupel/input.json
-$CUPEL guard --base HEAD            # after changing tests: is the protection still there?
-```
-
-Exit codes: `0` OK, `1` a guard or check failed, `2` invalid usage or input, `3`
-an environment problem. Mark critical code and choose runners in `cupel.json`
-([config guide](docs/extending/config.md)). Packages are not on npm or PyPI.
-
-## Commands
-
-| Command | What it does |
-| --- | --- |
-| `report`, `review` | Collect and plant faults; per-test coverage, catches, timing and review hints. |
-| `audit` | One read-only report on six questions about the suite. |
-| `guard --base <ref>` | Compare protection with an earlier commit; fail when it is lost. |
-| `check <tests>` | What a new or changed test adds or loses. |
-| `mutate --plan`, `--shard I/N`, `merge-mutations` | Plan fault testing, run one CI slice, join slices. |
-| `label`, `plan`, `import`, `validate`, `mcp` | Tiers, test order, JUnit and cargo-mutants import, schema checks, the MCP server. |
-
-The [CLI reference](docs/cli.md) has every option.
+1. **Collect.** Run your test runner and attribute coverage to each test.
+2. **Plant faults.** Change one small thing at a time and record which tests fail. A
+   fault that a test catches is *caught*; one that no test notices is *unnoticed*, and
+   points at a weak spot.
+3. **Decide.** Guard a change, audit the suite, or hand the evidence to a reviewer or agent.
+4. **Scale.** Estimate the work, split it across CI machines and merge the slices.
 
 ## Fast enough for every pull request
 
-Fault testing is the slow part. Cupel saves time without guessing, and never
-reports a fault as caught or missed when a full run would say otherwise:
+Fault testing is the slow part. Cupel saves time only where the answer is already
+known, so a fault is never reported caught or unnoticed when running it fully would say
+otherwise:
 
-- **Only relevant tests.** A fault runs only the tests whose coverage includes its
-  line; a fault on a line no test runs is reported without running anything.
-- **Likely catchers first, stop once answered.** The tests that caught a fault last
-  time run first, then the tests written for its own file, then the most relevant and
-  fastest; a fault stops after two catches (enough to know whether one test is the
-  only one). Every runner, Go and Ruby included. On pull requests,
-  `guard` stops at the first catch: it only needs to know whether each fault was
-  caught.
-- **Reuse.** Results whose code, tests and test inputs are unchanged are copied
-  from the last run (`.cupel/input.json` locally; `--reuse <file>` from your CI cache).
-- **One build for many faults.** Rust (`"backend": "cupel"`) and Go compile many faults
-  into one switchable build, and only the test targets or packages that run the line.
-  Rust keeps that build between runs in your cache, so an unchanged project starts in
-  seconds. On one critical file of a private Rust workspace (89 faults), a pull-request
-  guard went from 27 minutes (0.4.0) to 21 with the build kept; trying each fault's own
-  unit tests first cut its fault-test time by more than half, and an unchanged project's
-  setup fell from about 9 minutes to 5 seconds. On a second Rust workspace: 42 s cold and
-  26 s warm against 138 s for cargo-mutants, with identical results. Your times depend
-  on your tests.
-- **Slices.** When one machine is not enough, `mutate --plan` says how many, per runner;
-  for Rust one CI job can `--prepare` the build and every slice reuses it.
+- **Only the tests that run the line.** A fault on a line no test runs is reported
+  without running anything.
+- **Likely catchers first, stop once answered.** Tests that caught the fault last time,
+  then the tests written for its own file; stop after two catches, or one in a
+  pull-request guard.
+- **Reuse.** Answers whose code, tests and test inputs are unchanged are copied from the
+  last run.
+- **One build for many faults.** Rust and Go compile many faults into one switchable
+  build; Rust keeps it between runs, so an unchanged project starts in seconds.
+- **Slices for CI.** `mutate --plan` says how many machines each runner needs; Rust can
+  prepare its build once and share it with every slice.
 
-[Faster fault testing](docs/speed.md) has the settings and CI recipes;
-[best practices](docs/best-practices.md) covers what to run when and how to read
-the results.
+Measured on one machine (Apple silicon, macOS); your times depend on your tests:
 
-## What is supported
-
-The [support matrix](docs/support.md) is the authoritative version and scope contract.
-
-| Scope | Runners | Evidence and limits |
+| Workload | Before | With Cupel 0.5.0 |
 | --- | --- | --- |
-| Core: full guard | `node:test`, Vitest, narrow Jest, pytest | Source and installed acceptance; exact runtime, loader and transform limits apply. |
-| Preview | Rust/Cargo, Go, Ruby/Minitest | Fixture acceptance; Rust coverage matched plain LLVM line for line on a real workspace. Real-repository acceptance is not yet a recorded gate. |
-| Preview | Worker code in workerd (node:test tests that start Miniflare, wrangler or workerd) | Per-test coverage and fault testing of Worker files workerd runs as they are; bundled or compiled Worker code is reported as not measured. |
-| Experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
-| Integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted required checks and branch protection are unverified. |
+| Private Rust workspace, one critical file, 89 faults, pull-request guard | 27 min (Cupel 0.4.0) | 21 min with the build kept; setup 527 s → 5 s when nothing changed; fault tests 1,272 s → 584 s |
+| Second Rust workspace (sqlx, tokio), 56 faults | 138 s (cargo-mutants) | 42 s cold, 26 s warm, identical results |
+| Go test fixture | one build per fault | 3.9 s → 2.8 s, `go test -c` calls 4 → 1, identical results |
 
-### By language: what fault testing does, and what was measured
-
-| Language (runner) | Support | Only the tests that run the line | Likely catchers first, stop after two | One build for many faults | Reuse of earlier answers |
-| --- | --- | --- | --- | --- | --- |
-| JavaScript / TypeScript (node:test, Vitest, Jest) | Core | Yes, per test file | Yes | Not needed (no compile step) | Yes |
-| Python (pytest) | Core | Yes, per test | Yes | Not needed | Yes |
-| Rust (Cargo) | Preview | Yes, per test target and test (`backend: "cupel"`) | Yes | Yes, kept between runs; prepared once for CI slices | Yes |
-| Go | Preview | Yes, per package with `-run` | Yes | Yes, with a per-package check and fallback | Yes, when every compiled test file is in the basis |
-| Ruby (Minitest) | Preview | Yes, per test | Yes | Not needed | Not yet (installed gems are not in the basis) |
-| Worker code in workerd | Preview | Yes, per test | Not verified for workerd | Not needed | Not verified for workerd |
-
-Measured in recorded runs (one machine, macOS; your times depend on your tests):
-
-| Language | Workload | Result |
-| --- | --- | --- |
-| Rust | One critical file of a private workspace, 89 faults, pull-request guard | 27 min in 0.4.0, 21 min in 0.5.0 with the build kept; setup 527 s cold, 5 s warm; fault tests 1,272 s to 584 s with own-file tests first; statuses identical in every run |
-| Rust | Same file, verify mode | All 75 faults in the shared build agree with their own separate builds |
-| Rust | A second workspace (sqlx and tokio dependencies), 56 faults | cargo-mutants 138 s; Cupel 42 s cold, 26 s warm; identical results |
-| Go | Test fixture (Go 1.27.1) | Covering-only matches a whole-module run with fewer Go commands; shared build 3.9 s to 2.8 s, `go test -c` calls 4 to 1, identical results |
-| Ruby | Test fixture (MRI 4.0.7, Minitest 6.0.0) | All runtime and mutation tests pass; no real-project timing yet |
-| JavaScript | Test fixture | The unmutated pass is 8% of a run; no real-project timing recorded yet |
-| Python | Test fixture | The unmutated pass is 29% of a run; no real-project timing recorded yet |
-| Rust + Workers | Full audit of a private codebase (205 Rust and 7 workerd test files), 0.2.0 | 71 minutes; 91.97% of 7,142 lines covered |
-
-Not yet verified: Linux and Windows; real Go and Ruby repositories. Details:
+Every switched Rust fault in that workspace (75 of 89) agreed with its own separate
+build in a verification run. Method and raw numbers: the
 [0.5.0 release record](plans/results/2026-11-25-0.5.0-release.md).
 
-**Mixed-language repositories.** One `cupel.json` can name several runners; their
-evidence merges into one report. Code another language's tests run, such as Rust
-built into a WebAssembly module that Worker tests load, is labelled with those
-tests (`builtInto`) instead of looking untested.
+## Languages
 
-Real-repository Jest acceptance kept the original **51 tests in 4 files** and
-caught all **11 planted critical faults**; weakening one assertion kept every test
-passing and made the guard fail ([evidence](plans/results/2026-10-26-jest-acceptance.md)).
-Linux and Windows are not verified for the 0.2–0.4 features.
+| Language (runner) | Support | Only covering tests | Likely catchers first, early stop | One build for many faults | Reuse | Verified on |
+| --- | --- | --- | --- | --- | --- | --- |
+| JavaScript / TypeScript (node:test, Vitest, Jest) | Core | Yes | Yes | Not needed | Yes | Fixtures; a real Jest repository (51 tests, 11 of 11 critical faults caught) |
+| Python (pytest) | Core | Yes | Yes | Not needed | Yes | Fixtures |
+| Rust (Cargo) | Preview | Yes | Yes | Yes, kept between runs | Yes | Fixtures; two real workspaces |
+| Go | Preview | Yes | Yes | Yes | Yes, guarded | Fixtures (Go 1.27.1) |
+| Ruby (Minitest) | Preview | Yes | Yes | Not needed | Not yet | Fixtures (MRI 4.0.7) |
+| Worker code in workerd | Preview | Yes | Not verified | Not needed | Not verified | A private Workers codebase |
 
-## Use with an agent
+*Core* runs the full guard with installed acceptance; a *preview* is bounded to the
+documented profile. The [selective PR commands](docs/selective-pr.md) are experimental:
+a Node 26.7.0 profile outside the supported first release. macOS only so far: Linux and Windows are not verified. The
+[support matrix](docs/support.md) is the authoritative contract, and each runner has its
+own page: [Vitest](docs/vitest.md), [Jest](docs/jest.md), [Python](docs/python.md),
+[Rust](docs/rust.md), [Go](docs/go.md), [Ruby](docs/ruby.md), [workerd](docs/workerd.md).
+
+## With coding agents
 
 ```sh
-$CUPEL mcp --root /absolute/path/to/your/project
+cupel mcp --root /absolute/path/to/your/project
 ```
 
-Point your MCP client at that command. Agents read `cupel_review` and
-`cupel_audit` before changing tests and run a fresh `cupel_guard` afterwards;
-Cupel never creates the human approvals that removing a critical test needs.
-[MCP setup](docs/mcp.md) covers Claude Code, Cursor and Codex.
+Point Claude Code, Cursor or Codex at that command. Agents read `cupel_review` and
+`cupel_audit` before changing tests and run a fresh `cupel_guard` afterwards.
+[MCP setup](docs/mcp.md)
 
 ## Honest limits
 
 - Coverage says what ran and caught faults say what was noticed; neither says an
-  expected value is right. That needs a person or a reviewer.
-- A test with no unique coverage or catches is not proven redundant. Overlap is
-  evidence to read, and Cupel never advises deleting a test.
+  expected value is right. That still needs a person or a reviewer.
+- A test with no unique coverage or catches is not proven redundant. Cupel never advises
+  deleting a test.
 - A passing guard covers the measured scope and rules, nothing more.
+- Fault testing costs time on large suites: mark few files critical and use
+  changed-lines mode on pull requests ([best practices](docs/best-practices.md)).
+- Flaky tests make any fault result unreliable; Cupel reports instability it sees but
+  cannot fix it.
 
-## Learn more
+## Documentation
 
-| | |
-| --- | --- |
-| [Docs index](docs/README.md) | Usage, runners, extension contracts and evidence. |
-| [Best practices](docs/best-practices.md), [Faster fault testing](docs/speed.md) | What to run when; settings, reuse, slices and CI recipes. |
-| [Rust](docs/rust.md), [workerd](docs/workerd.md), [Python](docs/python.md) | Runner details and limits. |
-| [Release records](plans/results/2026-11-25-0.5.0-release.md) | What each version adds and what was verified ([0.4.0](plans/results/2026-11-23-0.4.0-release.md), [0.3.0](plans/results/2026-11-23-0.3.0-release.md), [0.2.0](plans/results/2026-11-23-0.2.0-candidate.md), [first candidate](plans/results/2026-10-26-private-candidate.md), [history](docs/private-use.md#artifact-provenance)). |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Checks, repository rules and [development tooling](docs/development.md). |
+The full documentation is at **[vibernt.github.io/cupel](https://vibernt.github.io/cupel/)**
+and in [`docs/`](docs/README.md): installation, guides, CI recipes, every runner, the CLI
+and config reference, and the extension contracts. What each version adds and what was
+verified is in the [release records](plans/results/2026-11-25-0.5.0-release.md); design
+decisions are in [`plans/DECISIONS.md`](plans/DECISIONS.md).
 
-The README artwork is code: Fire components rendered by
+## Contributing
+
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the checks
+and repository rules, and [development](docs/development.md) the tooling. The README
+diagrams are code: [Fire](https://github.com/vidhatanand/firedesign) components rendered by
 `scripts/render-readme-art.mjs` ([sources](docs/assets/README.md)).
 
 ## Licence
 
-First-party Cupel code is licensed under [MIT](LICENSE). See [NOTICE](NOTICE) for
-attribution and third-party material. The source repository is public; package
-registry publication is managed separately.
+[MIT](LICENSE). See [NOTICE](NOTICE) for attribution and third-party material.
