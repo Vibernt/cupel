@@ -238,14 +238,14 @@ and tests them itself:
 
 Everything happens in a copy of the project with its own `target/` folder; the
 project is never changed. That copy is a **persistent session** under
-`.scratch/cupel-rust-sessions/`: the second run in a project skips the cold
+`<cache>/rust-sessions/` in the per-user cache folder (`CUPEL_CACHE_DIR`): the second run in a project skips the cold
 dependency build, and skips each test target's unmutated baseline (and switches-off
 check) whose executable and test names are unchanged. The timing line reports
-`session warm` and `baselines reused n/m`. The sessions of a project share a disk cap
+`session warm` and `baselines reused n/m`. The sessions of all projects share a disk cap
 of 10 GB (`runners.cargo.mutants.sessionCapGB`, least recently used removed first);
-`cupel clean --rust-sessions` removes them all and `"session": false` goes back to a
+`cupel clean --rust-sessions` removes them all (`--project`: this project's) and `"session": false` goes back to a
 throwaway copy. CI that starts empty gets no benefit unless it caches
-`.scratch/cupel-rust-sessions`. cargo-mutants must still be installed: Cupel
+the session cache folder. cargo-mutants must still be installed: Cupel
 uses its fault list.
 
 ## Slicing across CI machines

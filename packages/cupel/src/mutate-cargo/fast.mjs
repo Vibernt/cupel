@@ -427,7 +427,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           root, rustc: rustcV, cargo: await probe(cargo, ['--version']), host: `${process.platform}-${process.arch} ${/^host: (.*)$/m.exec(rustcV)?.[1] ?? ''}`,
           rustflags: flags.RUSTFLAGS ?? '', encodedRustflags: flags.CARGO_ENCODED_RUSTFLAGS ?? '', runner: config.runners?.cargo ?? {}, version: cupelVersion(),
         });
-        session = await openSession({ root, id });
+        session = await openSession({ root, id, env: environment });
         work = session.dir;
         src = session.project;
         env = rustflags({ ...base, CARGO_TARGET_DIR: session.target });
@@ -657,7 +657,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
     return { mutants, targeted, sampled: plan.sampled, ...(plan.sampled ? { seed: plan.seed } : {}) };
   } finally {
     if (session) {
-      try { enforceCap(root, { capBytes: (settings.sessionCapGB ?? DEFAULT_CAP_GB) * 1024 ** 3, keep: basename(session.dir) }); } catch { /* the cap is housekeeping */ }
+      try { enforceCap({ env: environment, capBytes: (settings.sessionCapGB ?? DEFAULT_CAP_GB) * 1024 ** 3, keep: basename(session.dir) }); } catch { /* the cap is housekeeping */ }
       session.release();
     }
     rmSync(scratch, { recursive: true, force: true });

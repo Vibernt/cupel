@@ -87,7 +87,7 @@ function report(backend, extra = {}) {
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend, ...extra } } } }));
-  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, `.scratch/cargo-fast-target-${backend}`) };
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, `.scratch/cargo-fast-target-${backend}`), CUPEL_CACHE_DIR: join(project, '.scratch/cache') };
   const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', 'out.json', '--json', '--no-reuse'],
     { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
   try {
@@ -101,7 +101,7 @@ function firstCatch() {
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
-  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-first') };
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-first'), CUPEL_CACHE_DIR: join(project, '.scratch/cache') };
   const cli = (...args) => spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), ...args], { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
   try {
     const c = cli('report', '--runs', '1', '--no-mutation', '--out', 'collected.json', '--json');
@@ -137,7 +137,8 @@ test('a second run in the same project reuses the build session: warm, baselines
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
-  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-session') };
+  const cache = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-fast-cache-')));
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-session'), CUPEL_CACHE_DIR: cache };
   const once = () => {
     const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', 'out.json', '--json', '--no-reuse'],
       { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
@@ -148,7 +149,8 @@ test('a second run in the same project reuses the build session: warm, baselines
     const cold = once();
     assert.match(cold.timings, /session cold, baselines reused 0\/\d+/);
     assert.deepEqual(cold.rows, reference.rows);
-    const sessions = join(project, '.scratch/cupel-rust-sessions');
+    const sessions = join(cache, 'rust-sessions');
+    assert.equal(existsSync(join(project, '.scratch/cupel-rust-sessions')), false, 'nothing is kept in the project');
     const [id] = readdirSync(sessions);
     assert.ok(existsSync(join(sessions, id, 'target')) && existsSync(join(sessions, id, 'meta.json')));
     const warm = once();
@@ -166,5 +168,5 @@ test('a second run in the same project reuses the build session: warm, baselines
     assert.equal(readFileSync(planted, 'utf8'), original);
     assert.deepEqual(healed.rows, cold.rows);
     assert.equal(readFileSync(join(fixture, 'core/src/lib.rs'), 'utf8'), original, 'the assessed project was not touched');
-  } finally { rmSync(project, { recursive: true, force: true }); }
+  } finally { rmSync(project, { recursive: true, force: true }); rmSync(cache, { recursive: true, force: true }); }
 });

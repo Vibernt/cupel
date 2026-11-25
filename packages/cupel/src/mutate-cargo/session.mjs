@@ -1,6 +1,7 @@
 // Persistent build sessions for Cupel's own Rust fault runner (`backend: "cupel"`).
 //
-// A session is `<project>/.scratch/cupel-rust-sessions/<sessionId>/{project,target,meta.json,sync.json,lock}`.
+// A session is `<cache>/rust-sessions/<sessionId>/{project,target,meta.json,sync.json,lock}`, where <cache> is the
+// per-user cache folder (cacheDir), never inside the assessed project.
 // `project` is a byte-identical copy of the assessed project (the same skips and links as copyProject),
 // brought up to date before every use; `target` keeps its build between runs; `meta.json` keeps the
 // unmutated test passes of the last runs (see fast.mjs) so a later run can reuse them.
@@ -10,6 +11,7 @@
 
 import { createHash } from 'node:crypto';
 import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { CargoMutantsError } from './import.mjs';
 
@@ -30,7 +32,16 @@ function writeAtomic(path, text) {
 const stable = (value) => JSON.stringify(value, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)
   ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v));
 
-export const sessionsRoot = (root) => join(root, '.scratch', 'cupel-rust-sessions');
+/** The per-user cache folder: CUPEL_CACHE_DIR, else $XDG_CACHE_HOME/cupel, else the platform's usual place. */
+export function cacheDir(env = process.env) {
+  if (env.CUPEL_CACHE_DIR) return env.CUPEL_CACHE_DIR;
+  if (env.XDG_CACHE_HOME) return join(env.XDG_CACHE_HOME, 'cupel');
+  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Caches', 'cupel');
+  if (process.platform === 'win32' && env.LOCALAPPDATA) return join(env.LOCALAPPDATA, 'cupel');
+  return join(homedir(), '.cache', 'cupel');
+}
+
+export const sessionsRoot = (env = process.env) => join(cacheDir(env), 'rust-sessions');
 
 /**
  * The session id: sha256 over the project's real path, the Rust toolchain (rustc -vV, cargo version, host),
@@ -177,8 +188,8 @@ const emptyMeta = (id) => ({ version: META_VERSION, sessionId: id, lastUsed: 0, 
  * Returns { dir, project, target, warm, meta, save(), release() }. `warm` is true when the session was
  * used before (its meta is kept; meta of any other session id is never read).
  */
-export async function openSession({ root, id, waitMs, pollMs, now = () => Date.now() }) {
-  const dir = join(sessionsRoot(root), id);
+export async function openSession({ root, id, env = process.env, waitMs, pollMs, now = () => Date.now() }) {
+  const dir = join(sessionsRoot(env), id);
   mkdirSync(dir, { recursive: true });
   const release = await acquireLock(join(dir, 'lock'), { waitMs, pollMs });
   try {
@@ -188,6 +199,7 @@ export async function openSession({ root, id, waitMs, pollMs, now = () => Date.n
     const meta = usable ? { ...emptyMeta(id), ...stored } : emptyMeta(id);
     if (!usable) rmSync(join(dir, 'target'), { recursive: true, force: true }); // a target without its meta was built for who knows what
     meta.lastUsed = now();
+    meta.project = realpathSync(root);
     mkdirSync(join(dir, 'target'), { recursive: true });
     const synced = syncProject(root, join(dir, 'project'), join(dir, 'sync.json'));
     const session = {
@@ -209,21 +221,22 @@ export function folderSize(path) {
   return total;
 }
 
-function listSessions(root) {
-  const base = sessionsRoot(root);
+function listSessions(env) {
+  const base = sessionsRoot(env);
   if (!existsSync(base)) return [];
   return readdirSync(base, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => {
     const dir = join(base, e.name);
-    return { id: e.name, dir, lastUsed: readJson(join(dir, 'meta.json'))?.lastUsed ?? 0, bytes: folderSize(dir), locked: lockHeld(join(dir, 'lock')) };
+    const meta = readJson(join(dir, 'meta.json'));
+    return { id: e.name, dir, project: meta?.project ?? null, lastUsed: meta?.lastUsed ?? 0, bytes: folderSize(dir), locked: lockHeld(join(dir, 'lock')) };
   });
 }
 
 /**
  * Removes the least recently used sessions until all together fit under the cap. The session named by
- * `keep` and any locked session are never removed. Returns { removed: [ids], bytes: total after }.
+ * `keep` and any locked session are never removed. Returns { removed: [ids], bytes: total after }. The cap covers the sessions of every project on the machine.
  */
-export function enforceCap(root, { capBytes = DEFAULT_CAP_GB * GB, keep = null } = {}) {
-  const all = listSessions(root);
+export function enforceCap({ env = process.env, capBytes = DEFAULT_CAP_GB * GB, keep = null } = {}) {
+  const all = listSessions(env);
   let total = all.reduce((a, s) => a + s.bytes, 0);
   const removed = [];
   for (const s of all.filter((x) => x.id !== keep && !x.locked).sort((a, b) => (a.lastUsed - b.lastUsed) || (a.id < b.id ? -1 : 1))) {
@@ -235,9 +248,10 @@ export function enforceCap(root, { capBytes = DEFAULT_CAP_GB * GB, keep = null }
   return { removed, bytes: total };
 }
 
-/** `cupel clean --rust-sessions`: removes every session that is not in use. */
-export function cleanSessions(root) {
-  const all = listSessions(root);
+/** `cupel clean --rust-sessions`: removes every session that is not in use (with `project`, only that project's). */
+export function cleanSessions({ env = process.env, project = null } = {}) {
+  const real = project ? realpathSync(project) : null;
+  const all = listSessions(env).filter((s) => !real || s.project === real);
   const removed = []; const busy = [];
   let bytes = 0;
   for (const s of all) {
@@ -245,6 +259,6 @@ export function cleanSessions(root) {
     rmSync(s.dir, { recursive: true, force: true });
     removed.push(s.id); bytes += s.bytes;
   }
-  try { if (!readdirSync(sessionsRoot(root)).length) rmSync(sessionsRoot(root), { recursive: true, force: true }); } catch { /* none */ }
+  try { if (!readdirSync(sessionsRoot(env)).length) rmSync(sessionsRoot(env), { recursive: true, force: true }); } catch { /* none */ }
   return { removed, busy, bytes };
 }

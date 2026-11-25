@@ -108,9 +108,9 @@ const COMMANDS = {
     positionals: true,
   },
   clean: {
-    usage: 'cupel clean --rust-sessions [--root DIR]',
-    about: 'remove the persistent Rust build sessions under .scratch/cupel-rust-sessions',
-    options: { 'rust-sessions': B, root: S },
+    usage: 'cupel clean --rust-sessions [--project] [--root DIR]',
+    about: 'remove the persistent Rust build sessions in the per-user cache (--project: only this project\'s)',
+    options: { 'rust-sessions': B, project: B, root: S },
   },
   validate: {
     usage: 'cupel validate <file>',
@@ -579,7 +579,7 @@ const commands = {
   async clean(ctx) {
     if (ctx.positionals.length || !ctx.o['rust-sessions']) throw usage(`clean needs --rust-sessions\nusage: ${COMMANDS.clean.usage}`);
     const { cleanSessions } = await import('../mutate-cargo/session.mjs');
-    const r = cleanSessions(ctx.root);
+    const r = cleanSessions({ env: ctx.env, project: ctx.o.project ? ctx.root : null });
     const mb = (r.bytes / 1048576).toFixed(1);
     ctx.io.out(`removed ${r.removed.length} Rust build session(s), ${mb} MB${r.busy.length ? `; ${r.busy.length} in use, left alone` : ''}\n`);
     return EXIT_OK;

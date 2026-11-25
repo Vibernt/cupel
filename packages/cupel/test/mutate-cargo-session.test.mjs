@@ -6,9 +6,10 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { acquireLock, cleanSessions, enforceCap, hashFile, openSession, sessionId, sessionsRoot, syncProject } from '../src/mutate-cargo/session.mjs';
+import { acquireLock, cacheDir, cleanSessions, enforceCap, hashFile, openSession, sessionId, sessionsRoot, syncProject } from '../src/mutate-cargo/session.mjs';
 import { copyProject } from '../src/mutate/index.mjs';
 
+const cacheEnv = () => ({ ...process.env, CUPEL_CACHE_DIR: realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cache-'))) });
 const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), 'cupel-session-')));
 const put = (root, path, text, mode) => {
   mkdirSync(join(root, path, '..'), { recursive: true });
@@ -159,74 +160,78 @@ test('lock: a second run waits then refuses clearly; a lock of a dead process is
 });
 
 test('openSession: cold then warm, meta of another session id is never reused, and the project is only read', async () => {
-  const root = project();
+  const root = project(); const env = cacheEnv();
   try {
     const before = snapshot(root);
-    const a = await openSession({ root, id: 'aaaa' });
+    const a = await openSession({ root, id: 'aaaa', env });
     assert.equal(a.warm, false);
     a.meta.baselines.k = { hashes: ['h'], names: ['t'], ms: 5, failing: [] };
     a.save(); a.release();
-    const warm = await openSession({ root, id: 'aaaa' });
+    const warm = await openSession({ root, id: 'aaaa', env });
     assert.equal(warm.warm, true);
     assert.deepEqual(warm.meta.baselines.k.hashes, ['h']);
     assert.equal(existsSync(join(warm.dir, 'target')), true);
     warm.release();
     // Meta copied under another id (as if the folder were moved) is not trusted.
-    rmSync(join(sessionsRoot(root), 'bbbb'), { recursive: true, force: true });
-    mkdirSync(join(sessionsRoot(root), 'bbbb'));
-    writeFileSync(join(sessionsRoot(root), 'bbbb', 'meta.json'), readFileSync(join(warm.dir, 'meta.json')));
-    const b = await openSession({ root, id: 'bbbb' });
+    rmSync(join(sessionsRoot(env), 'bbbb'), { recursive: true, force: true });
+    mkdirSync(join(sessionsRoot(env), 'bbbb'));
+    writeFileSync(join(sessionsRoot(env), 'bbbb', 'meta.json'), readFileSync(join(warm.dir, 'meta.json')));
+    const b = await openSession({ root, id: 'bbbb', env });
     assert.equal(b.warm, false);
     assert.deepEqual(b.meta.baselines, {});
     b.release();
     const after = snapshot(root);
     for (const key of Object.keys(before)) assert.deepEqual(after[key], before[key], key);
-    assert.deepEqual(Object.keys(after).filter((k) => !Object.hasOwn(before, k) && !k.startsWith('.scratch/cupel-rust-sessions')), []);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    assert.deepEqual(Object.keys(after), Object.keys(before), 'nothing is added to the project');
+    assert.equal(warm.dir.startsWith(env.CUPEL_CACHE_DIR), true);
+    assert.equal(JSON.parse(readFileSync(join(warm.dir, 'meta.json'), 'utf8')).project, root);
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
 });
 
-function fakeSession(root, id, lastUsed, bytes) {
-  const dir = join(sessionsRoot(root), id);
+function fakeSession(env, id, lastUsed, bytes, project = null) {
+  const dir = join(sessionsRoot(env), id);
   mkdirSync(join(dir, 'target'), { recursive: true });
-  writeFileSync(join(dir, 'meta.json'), JSON.stringify({ version: 1, sessionId: id, lastUsed }));
+  writeFileSync(join(dir, 'meta.json'), JSON.stringify({ version: 1, sessionId: id, lastUsed, project }));
   writeFileSync(join(dir, 'target', 'blob'), Buffer.alloc(bytes));
   return dir;
 }
 
 test('eviction removes least recently used sessions first, never the current or a locked one, and stops under the cap', async () => {
-  const root = tmp();
+  const env = cacheEnv();
   try {
-    for (const [id, used] of [['s1', 100], ['s2', 300], ['s3', 200], ['s4', 400], ['s5', 50]]) fakeSession(root, id, used, 1000);
-    const total = (names) => names.length * 1000;
-    const size = (r) => r.bytes;
+    for (const [id, used] of [['s1', 100], ['s2', 300], ['s3', 200], ['s4', 400], ['s5', 50]]) fakeSession(env, id, used, 1000);
     // s5 (oldest) is in use, s4 is the current one.
-    const holder = await acquireLock(join(sessionsRoot(root), 's5', 'lock'));
-    const r = enforceCap(root, { capBytes: 3200, keep: 's4' });
+    const holder = await acquireLock(join(sessionsRoot(env), 's5', 'lock'));
+    const r = enforceCap({ env, capBytes: 3600, keep: 's4' });
     assert.deepEqual(r.removed, ['s1', 's3']);
-    assert.ok(size(r) <= 3500 && size(r) > total(['s2', 's4', 's5']) - 1);
-    assert.equal(existsSync(join(sessionsRoot(root), 's5')), true);
-    assert.equal(existsSync(join(sessionsRoot(root), 's4')), true);
-    // Under the cap nothing more goes.
-    assert.deepEqual(enforceCap(root, { capBytes: 10 ** 9, keep: 's4' }).removed, []);
-    // A cap nothing can meet still leaves the current and locked ones.
-    assert.deepEqual(enforceCap(root, { capBytes: 0, keep: 's4' }).removed, ['s2']);
+    assert.ok(r.bytes <= 3600 && r.bytes >= 2999);
+    assert.equal(existsSync(join(sessionsRoot(env), 's5')), true);
+    assert.equal(existsSync(join(sessionsRoot(env), 's4')), true);
+    assert.deepEqual(enforceCap({ env, capBytes: 10 ** 9, keep: 's4' }).removed, [], 'under the cap nothing more goes');
+    assert.deepEqual(enforceCap({ env, capBytes: 0, keep: 's4' }).removed, ['s2'], 'the current and locked ones stay');
     holder();
-    const cleaned = cleanSessions(root);
-    assert.deepEqual(cleaned.removed.sort(), ['s4', 's5']);
-    assert.equal(existsSync(sessionsRoot(root)), false);
-    assert.deepEqual(cleanSessions(root).removed, [], 'nothing to clean is fine');
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    assert.deepEqual(cleanSessions({ env }).removed.sort(), ['s4', 's5']);
+    assert.equal(existsSync(sessionsRoot(env)), false);
+    assert.deepEqual(cleanSessions({ env }).removed, [], 'nothing to clean is fine');
+  } finally { rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
 });
 
-test('clean leaves a session in use alone', async () => {
-  const root = tmp();
+test('clean leaves a session in use alone, and --project limits it to one project', async () => {
+  const env = cacheEnv(); const a = tmp(); const b = tmp();
   try {
-    fakeSession(root, 'old', 1, 10); fakeSession(root, 'busy', 2, 10);
-    const release = await acquireLock(join(sessionsRoot(root), 'busy', 'lock'));
-    const r = cleanSessions(root);
+    fakeSession(env, 'old', 1, 10, a); fakeSession(env, 'busy', 2, 10, a); fakeSession(env, 'other', 3, 10, b);
+    const release = await acquireLock(join(sessionsRoot(env), 'busy', 'lock'));
+    const r = cleanSessions({ env, project: a });
     assert.deepEqual(r.removed, ['old']); assert.deepEqual(r.busy, ['busy']);
+    assert.equal(existsSync(join(sessionsRoot(env), 'other')), true);
     release();
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally { for (const d of [env.CUPEL_CACHE_DIR, a, b]) rmSync(d, { recursive: true, force: true }); }
+});
+
+test('the cache folder follows CUPEL_CACHE_DIR, then XDG_CACHE_HOME', () => {
+  assert.equal(cacheDir({ CUPEL_CACHE_DIR: '/x', XDG_CACHE_HOME: '/y' }), '/x');
+  assert.equal(cacheDir({ XDG_CACHE_HOME: '/y' }), join('/y', 'cupel'));
+  assert.match(cacheDir({}), /cupel$/);
 });
 
 test('hashFile is the SHA-256 of the content', () => {
@@ -237,16 +242,20 @@ test('hashFile is the SHA-256 of the content', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('cupel clean --rust-sessions removes every session', async () => {
-  const root = tmp();
+test('cupel clean --rust-sessions removes every session, --project only the current project\'s', async () => {
+  const root = tmp(); const other = tmp(); const env = cacheEnv();
   try {
     mkdirSync(join(root, '.git'));
-    fakeSession(root, 'x1', 1, 2048);
+    fakeSession(env, 'x1', 1, 2048, root); fakeSession(env, 'x2', 2, 2048, other);
     const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
-    const r = spawnSync(process.execPath, [bin, 'clean', '--rust-sessions', '--root', root], { cwd: root, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /removed 1 Rust build session/);
-    assert.equal(existsSync(sessionsRoot(root)), false);
-    assert.equal(spawnSync(process.execPath, [bin, 'clean', '--root', root], { cwd: root, encoding: 'utf8' }).status, 2);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    const cli = (...args) => spawnSync(process.execPath, [bin, 'clean', ...args, '--root', root], { cwd: root, env, encoding: 'utf8' });
+    const mine = cli('--rust-sessions', '--project');
+    assert.equal(mine.status, 0, mine.stderr);
+    assert.match(mine.stdout, /removed 1 Rust build session/);
+    assert.equal(existsSync(join(sessionsRoot(env), 'x2')), true);
+    const all = cli('--rust-sessions');
+    assert.match(all.stdout, /removed 1 Rust build session/);
+    assert.equal(existsSync(sessionsRoot(env)), false);
+    assert.equal(cli().status, 2);
+  } finally { for (const d of [root, other, env.CUPEL_CACHE_DIR]) rmSync(d, { recursive: true, force: true }); }
 });

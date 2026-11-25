@@ -27,7 +27,7 @@ so `--json` prints exactly the engine's report (`spec/schemas/report.schema.json
 | `cupel guard --base <ref> [--approvals <file>]` | Fails if coverage or critical mutation fell between the base and the working tree. `--base-input <file>` and `--head-input <file>` replace either side with a saved input |
 | `cupel plan [--changed <ref> \| --changed-lines <file>] [--input <file>]` | Priority order for a run: critical first, then tests affected by the change, then the rest |
 | `cupel label [--input <file>]` | Shows each unit's tier and why. Exits 1 on an unknown tag |
-| `cupel clean --rust-sessions` | Removes the persistent Rust build sessions under `.scratch/cupel-rust-sessions` (sessions in use are left) |
+| `cupel clean --rust-sessions` | Removes the persistent Rust build sessions in the per-user cache (`--project`: only this project's; sessions in use are left) |
 | `cupel import <file…> [--format cupel\|junit] [--out <file>]` | Writes a valid input to standard output or `--out` |
 | `cupel validate <file>` | Checks an input, report or config against the spec schemas |
 | `cupel conformance --adapter "<command>" [--fixtures <dir>]` | Runs an adapter in each fixture of `spec/conformance/adapters/` and matches its output against `expected.json` |
