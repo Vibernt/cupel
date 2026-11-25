@@ -61,6 +61,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.27.1'
+          cache: false # no go.mod at the repository root; the Go fixtures need no module cache
 
       - name: Prepare Ruby 4.0.7
         uses: ruby/setup-ruby@v1
@@ -94,7 +95,8 @@ jobs:
       - name: Export cargo-mutants path
         run: |
           node -e 'const fs=require("node:fs"),p=require("node:path"); const name=process.platform==="win32"?"cargo-mutants.exe":"cargo-mutants"; fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_CARGO_MUTANTS="+p.resolve(".scratch/tools/cargo-mutants/bin",name)+"\n")'
-          ".scratch/tools/cargo-mutants/bin/cargo-mutants${{ runner.os == 'Windows' && '.exe' || '' }}" --version
+          # A cargo subcommand binary run directly needs its subcommand name first, as Cargo passes it.
+          ".scratch/tools/cargo-mutants/bin/cargo-mutants${{ runner.os == 'Windows' && '.exe' || '' }}" mutants --version
 
       - name: Prepare Python package tools and offline wheels
         run: |
@@ -141,7 +143,7 @@ jobs:
             python -m pytest --version
             rustc --version
             cargo --version
-            "$CUPEL_CARGO_MUTANTS" --version
+            "$CUPEL_CARGO_MUTANTS" mutants --version
           } 2>&1 | tee .scratch/ci-output/toolchains.log
 
       - name: Check repository rules

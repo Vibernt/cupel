@@ -198,3 +198,13 @@ code), updated docs with a best-practice guide, and a new release. That covers
 bumping the npm package to **0.3.0** and the Python collector to **0.2.0**,
 merging, tagging **v0.3.0** and a GitHub release. npm and PyPI publishing remain
 unapproved.
+
+## Owner v0.5.0 release approval (2026-11-25)
+
+The owner asked, in chat, for the Rust build reuse, the Go and Ruby runner work, likely-catchers-first order in
+every runner, a rewritten README with a documentation site on GitHub Pages, and hosted CI on GitHub Actions for
+Linux, Windows and macOS; then approved pushing the branch with `--no-verify` (the local hook fails only on known
+missing-tool tests), opening the pull request, and "merge and deploy and release": merging, enabling GitHub
+Pages for the documentation, tagging **v0.5.0** and a GitHub release with the npm tarball. npm 0.5.0 and the
+Python collector 0.4.0. npm and PyPI publishing remain unapproved.
+
