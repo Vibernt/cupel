@@ -11,11 +11,12 @@
 //      by the CUPEL_FAULT environment variable (schemata.mjs); with every switch off the
 //      covering tests must pass exactly as unmodified, or no switch is used. Every other
 //      fault gets its own incremental build (the A+B path).
-// All builds and runs happen in a scratch copy of the project with its own target folder.
+// All builds and runs happen in a copy of the project with its own target folder: by default a persistent
+// session (session.mjs) kept between runs, with `"session": false` a throwaway scratch copy.
 
 import { spawn } from 'node:child_process';
-import { appendFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { appendFileSync, chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { effectiveConfig } from '../engine/config.mjs';
 import { cmp } from '../engine/order.mjs';
@@ -23,9 +24,11 @@ import { copyProject } from '../mutate/index.mjs';
 import { attributeOutcomes, baseRow, CargoMutantsError, mutantId, targetedUnits } from './import.mjs';
 import { parseLog } from './logs.mjs';
 import { environmentFor, execute, findTool, INSTALL, planCargoMutants, planEntries, slicePlan, wantedLines } from './run.mjs';
+import { DEFAULT_CAP_GB, enforceCap, hashFile, openSession, sessionId } from './session.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const noop = () => {};
+const cupelVersion = () => JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
 const refuse = (message) => { throw new CargoMutantsError(message); };
 const TIMEOUT_FACTOR = 3;
 const TIMEOUT_FLOOR_MS = 10_000;
@@ -176,6 +179,7 @@ class Runner {
     this.targets = new Map(); // test file -> target
     this.baseline = new Map(); // target key -> { ms, failing: Set(name) }
     this.compiled = new Map();
+    this.exes = new Map(); // target key -> test executable of the latest build
     this.stopAfter = STOP_AFTER_TARGETS;
     this.cargoCalls = 0; this.cargoMs = 0; this.runMs = 0; // every cargo invocation of builds and runs, for the timing line
   }
@@ -239,9 +243,16 @@ class Runner {
     const r = await run(this.cargo, args, { cwd: this.src, env: this.env });
     this.cargoCalls++; this.cargoMs += r.ms;
     const errors = [];
+    this.exes = new Map();
     for (const line of r.stdout.split('\n')) {
       if (!line.startsWith('{')) continue;
       let msg; try { msg = JSON.parse(line); } catch { continue; }
+      if (msg.reason === 'compiler-artifact' && msg.profile?.test && msg.executable) {
+        const pkg = this.packages.find((p) => p.manifest === msg.manifest_path);
+        const kind = msg.target?.kind ?? [];
+        const k = kind.includes('test') ? 'test' : kind.includes('bin') ? 'bin' : 'lib';
+        if (pkg) this.exes.set(`${pkg.name}\0${k}\0${msg.target.name}`, msg.executable);
+      }
       if (msg.reason === 'compiler-message' && msg.message?.level === 'error') {
         for (const s of msg.message.spans ?? []) if (s.is_primary) errors.push({ file: toPosix(s.file_name), line: s.line_start });
       }
@@ -249,6 +260,13 @@ class Runner {
     const log = `*** cargo ${args.join(' ')}\n${r.text.split('\n').filter((l) => !l.startsWith('{')).join('\n')}\n`;
     for (const [binary, info] of parseLog(log).compiled) this.compiled.set(binary, info);
     return { ok: r.code === 0, errors, log, ms: r.ms };
+  }
+
+  /** The SHA-256 of each wanted target's test executable from the latest build (a target without one is left out). */
+  hashes(keys) {
+    const out = new Map();
+    for (const key of keys) { try { if (this.exes.has(key)) out.set(key, hashFile(this.exes.get(key))); } catch { /* not built */ } }
+    return out;
   }
 
   /** One run of a target with the named tests; fault 0 means none. */
@@ -263,9 +281,15 @@ class Runner {
   }
 
   /** The unmutated run of every target: time (for the time limit) and the tests that fail without any fault. */
-  async measure(targetNames, fault = 0) {
+  async measure(targetNames, fault = 0, known = null) {
     const out = new Map();
     for (const [key, { target, names }] of targetNames) {
+      if (known?.has(key)) { // a stored result for this very executable and these tests
+        const { ms, failing } = known.get(key);
+        if (failing.size && !fault) this.log(`mutate-rust: ${target.name}: ${[...failing].join(', ')} fail(s) unmutated here although the input says passed; those failures are not catches`);
+        out.set(key, { ms, failing: new Set(failing) });
+        continue;
+      }
       const r = await this.runTarget(target, [...names].sort(cmp), fault, 30 * 60_000);
       if (r.timedOut) refuse(`the unmutated tests of ${target.name} did not finish in 30 minutes`);
       const failing = new Set(r.parsed.runs.flatMap((x) => x.failed.map((f) => f.name)));
@@ -362,6 +386,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
   if (!tool) refuse(`cargo-mutants was not found (Cupel uses its fault listing): ${INSTALL}`);
   mkdirSync(join(root, '.scratch'), { recursive: true });
   const scratch = mkdtempSync(join(root, '.scratch', 'cupel-rust-'));
+  let session = null;
   try {
     const base = environmentFor(root, scratch, environment, tool);
     const listed = await execute(tool, ['mutants', '--list', '--json', '--colors=never', ...(settings.args ?? [])], { cwd: root, env: base, log: noop });
@@ -377,21 +402,44 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
     const ran = new Set([...plan.noCoverage.map((m) => m.id), ...plan.reused.map((m) => m.id), ...(plan.elsewhere ?? [])]);
     const outcomes = [];
     const timings = new Map();
-    const phases = { firstBuildMs: 0, baselineMs: 0, switchedBuildMs: 0, switchesOffMs: 0 };
+    const phases = { firstBuildMs: 0, baselineMs: 0, switchedBuildMs: 0, switchesOffMs: 0, restoreBuildMs: 0 };
+    const sessionStats = { baselines: [0, 0], off: [0, 0] };
     const faultTimes = new Map(); // fault id -> { buildMs, testMs }
     const addFault = (id, build, test) => { const f = faultTimes.get(id) ?? { buildMs: 0, testMs: 0 }; f.buildMs += build; f.testMs += test; faultTimes.set(id, f); };
     const clock = async (key, work) => { const t = performance.now(); try { return await work(); } finally { phases[key] += performance.now() - t; } };
     const partial = new Map(); // fault id -> evaluation still owing timing-sensitive targets
     const byName = new Map(listing.map((m) => [m.name, m]));
     let runner = null;
+    let work = scratch; // where files may be written: the session or the throwaway scratch
     if (plan.run.length) {
       const cargo = base.CARGO ?? findTool('cargo', base);
       if (!cargo) refuse('cargo is not on PATH');
-      const src = copyProject(root, join(scratch, 'project'));
-      const env = rustflags({ ...base, CARGO_TARGET_DIR: join(scratch, 'target') });
+      let src; let env; let cargoTool = cargo;
+      if (settings.session === false) {
+        src = copyProject(root, join(scratch, 'project'));
+        env = rustflags({ ...base, CARGO_TARGET_DIR: join(scratch, 'target') });
+      } else {
+        const flags = rustflags(base);
+        const rustc = findTool('rustc', base);
+        const probe = async (tool, args) => { try { const r = tool ? await execute(tool, args, { cwd: root, env: base, log: noop }) : null; return r?.status === 0 ? r.stdout : ''; } catch { return ''; } };
+        const rustcV = await probe(rustc, ['-vV']);
+        const id = sessionId({
+          root, rustc: rustcV, cargo: await probe(cargo, ['--version']), host: `${process.platform}-${process.arch} ${/^host: (.*)$/m.exec(rustcV)?.[1] ?? ''}`,
+          rustflags: flags.RUSTFLAGS ?? '', encodedRustflags: flags.CARGO_ENCODED_RUSTFLAGS ?? '', runner: config.runners?.cargo ?? {}, version: cupelVersion(),
+        });
+        session = await openSession({ root, id, env: environment });
+        work = session.dir;
+        src = session.project;
+        env = rustflags({ ...base, CARGO_TARGET_DIR: session.target });
+        if (base.CARGO && base.CARGO.startsWith(scratch)) { // the Rosetta shim lives with the session, so its path never changes
+          cargoTool = join(session.dir, 'native-cargo');
+          copyFileSync(base.CARGO, cargoTool); chmodSync(cargoTool, 0o755);
+          env.CARGO = cargoTool;
+        }
+      }
       delete env.CUPEL_FAULT;
-      const packages = await workspace(cargo, src, env);
-      runner = new Runner({ root, src, input, env, cargo, packages, log, targeted: scope.targeted ?? [] });
+      const packages = await workspace(cargoTool, src, env);
+      runner = new Runner({ root, src, input, env, cargo: cargoTool, packages, log, targeted: scope.targeted ?? [] });
       if (scope.firstCatch) runner.stopAfter = 1;
 
       // Targets and test names every fault needs, for the baseline build and runs.
@@ -406,7 +454,28 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       log(`mutate-rust: ${plan.run.length} fault(s); building ${targets.length} test target(s) of ${new Set(targets.map((t) => t.pkg)).size} package(s) once`);
       const first = await clock('firstBuildMs', () => runner.build(targets, owners));
       if (!first.ok) refuse(`the unmutated test targets do not build: ${first.log.trim().split('\n').slice(-3).join(' | ')}`);
-      runner.baseline = await clock('baselineMs', () => runner.measure(needed));
+      // The unmutated pass of a target is reused when the session saw this very executable with these very tests.
+      const sameNames = (a, b) => a.length === b.length && a.every((n, i) => n === b[i]);
+      const nameList = (names) => [...names].sort(cmp);
+      const stored = (table, key, names, hash) => {
+        const rec = session?.meta[table]?.[key];
+        if (!rec || !hash || !(rec.hashes ?? [rec.hash]).includes(hash) || !sameNames(rec.names ?? [], nameList(names))) return null;
+        return { ms: rec.ms, failing: new Set(rec.failing) };
+      };
+      const firstHashes = session ? runner.hashes(needed.keys()) : new Map();
+      const known = new Map();
+      for (const [key, { names }] of needed) { const rec = stored('baselines', key, names, firstHashes.get(key)); if (rec) known.set(key, rec); }
+      sessionStats.baselines = [known.size, needed.size];
+      runner.baseline = await clock('baselineMs', () => runner.measure(needed, 0, known));
+      if (session) {
+        for (const [key, { names }] of needed) {
+          const { ms, failing } = runner.baseline.get(key);
+          const hash = firstHashes.get(key);
+          if (hash) session.meta.baselines[key] = { hashes: [hash], names: nameList(names), ms, failing: [...failing].sort(cmp) };
+          else delete session.meta.baselines[key];
+        }
+        session.save();
+      }
 
       // C: switchable faults in one build, when the rewriter is certain and the tests agree.
       const single = new Set(plan.run.map((c) => c.id));
@@ -426,7 +495,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
             const faults = byFile.get(file).filter((c) => !excluded.has(c.id) && switchable(text, byName.get(c.name)))
               .map((c) => ({ number: numbers.get(c.id), ...byName.get(c.name) }));
             const r = schemata.switchFaults(text, faults);
-            scratchWrite(scratch, join(src, file), r.text);
+            scratchWrite(work, join(src, file), r.text);
             return r;
           };
           // The switch module goes at the end of every library and program root of the package; a root
@@ -439,13 +508,13 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
               const text = readFileSync(path, 'utf8');
               if (/#!\[\s*no_std\s*\]/.test(text)) return false;
               if (!originals.has(t.src)) originals.set(t.src, text);
-              if (!text.includes('pub mod __cupel_faults')) scratchWrite(scratch, path, `${text.endsWith('\n') ? '' : '\n'}${schemata.faultModule()}\n`, { append: true });
+              if (!text.includes('pub mod __cupel_faults')) scratchWrite(work, path, `${text.endsWith('\n') ? '' : '\n'}${schemata.faultModule()}\n`, { append: true });
             }
             return true;
           };
           const excluded = new Set();
           var sensitive = new Set();
-          const restore = () => { for (const [file, text] of originals) scratchWrite(scratch, join(src, file), text); };
+          const restore = () => { for (const [file, text] of originals) scratchWrite(work, join(src, file), text); };
           let ok = false;
           const failedBefore = new Set();
           for (let round = 0; round < 8 && files.length; round++) {
@@ -471,7 +540,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
               if (failedBefore.has(f) || !near.length) {
                 for (const c of byFile.get(f)) excluded.add(c.id);
                 files = files.filter((x) => x !== f);
-                scratchWrite(scratch, join(src, f), originals.get(f));
+                scratchWrite(work, join(src, f), originals.get(f));
               } else {
                 for (const c of near) excluded.add(c.id);
                 failedBefore.add(f);
@@ -480,7 +549,19 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           }
           if (ok) {
             // Every switch off must mean the original: the covering tests behave exactly as unmodified.
-            const off = await clock('switchesOffMs', () => runner.measure(needed));
+            const offHashes = session ? runner.hashes(needed.keys()) : new Map();
+            const offKnown = new Map();
+            for (const [key, { names }] of needed) { const rec = stored('switched', key, names, offHashes.get(key)); if (rec) offKnown.set(key, rec); }
+            sessionStats.off = [offKnown.size, needed.size];
+            const off = await clock('switchesOffMs', () => runner.measure(needed, 0, offKnown));
+            if (session) {
+              session.meta.switched = {};
+              for (const [key, { names }] of needed) {
+                const hash = offHashes.get(key);
+                if (hash) session.meta.switched[key] = { hashes: [hash], names: nameList(names), ms: off.get(key).ms, failing: [...off.get(key).failing].sort(cmp) };
+              }
+              session.save();
+            }
             for (const key of needed.keys()) {
               const a = runner.baseline.get(key).failing; const b = off.get(key).failing;
               if (a.size !== b.size || ![...a].every((n) => b.has(n))) sensitive.add(key);
@@ -520,7 +601,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
         const original = readFileSync(path, 'utf8');
         const t0 = performance.now();
         try {
-          scratchWrite(scratch, path, applyMutant(original, mutant));
+          scratchWrite(work, path, applyMutant(original, mutant));
           const before = partial.get(c.id);
           const own = runner.coveringCandidate(c).map((t) => runner.target(t.file)).filter((t) => !before || before.pending.includes(t.key));
           const built = await runner.build(own, [mutant.package].filter(Boolean));
@@ -535,7 +616,17 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           addFault(c.id, 0, st.testMs - t1);
           outcomes.push({ mutant, ...Runner.outcome(st) });
           ran.add(c.id);
-        } finally { scratchWrite(scratch, path, original); timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
+        } finally { scratchWrite(work, path, original); timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
+      }
+      if (session) {
+        // The session's target must end on the unmodified project: a build of the last fault would be reused as it is.
+        if (rest.length) await clock('restoreBuildMs', () => runner.build(targets, owners));
+        const final = runner.hashes(needed.keys());
+        for (const [key, rec] of Object.entries(session.meta.baselines)) { // the unmodified build that ends this run is also the baseline's executable
+          const hash = final.get(key);
+          if (hash && !rec.hashes.includes(hash)) rec.hashes.push(hash);
+        }
+        session.save();
       }
     }
     let rows = outcomes.length ? attributeOutcomes({ root, input, listing, compiled: runner?.compiled ?? new Map(), outcomes }).mutation.mutants : [];
@@ -549,19 +640,28 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       const report = {
         totalMs: Math.round(performance.now() - started),
         firstBuildMs: Math.round(phases.firstBuildMs), baselineMs: Math.round(phases.baselineMs),
-        switchedBuildMs: Math.round(phases.switchedBuildMs), switchesOffMs: Math.round(phases.switchesOffMs),
+        switchedBuildMs: Math.round(phases.switchedBuildMs), switchesOffMs: Math.round(phases.switchesOffMs), restoreBuildMs: Math.round(phases.restoreBuildMs),
+        session: session ? (session.warm ? 'warm' : 'cold') : 'off', baselinesReused: sessionStats.baselines[0], baselinesTotal: sessionStats.baselines[1],
+        switchesOffReused: sessionStats.off[0], switchesOffTotal: sessionStats.off[1],
         faults: faults.length, faultBuildMs: Math.round(sum('buildMs')), faultTestMs: Math.round(sum('testMs')),
         cargoCalls: runner.cargoCalls, cargoMs: Math.round(runner.cargoMs), retries: runner.retries ?? 0,
         perFault: Object.fromEntries([...faultTimes].sort((a, b) => cmp(a[0], b[0])).map(([id, f]) => [id, { buildMs: Math.round(f.buildMs), testMs: Math.round(f.testMs) }])),
       };
-      log(`mutate-rust: timings first-build ${sec(report.firstBuildMs)}s, baseline ${sec(report.baselineMs)}s, switched-build ${sec(report.switchedBuildMs)}s, switches-off ${sec(report.switchesOffMs)}s, faults ${faults.length} (build ${sec(report.faultBuildMs)}s, test ${sec(report.faultTestMs)}s), cargo ${report.cargoCalls} call(s) ${sec(report.cargoMs)}s, total ${sec(report.totalMs)}s`);
+      const sessionText = session ? `, session ${session.warm ? 'warm' : 'cold'}, baselines reused ${sessionStats.baselines[0]}/${sessionStats.baselines[1]}${sessionStats.off[1] ? `, switches-off reused ${sessionStats.off[0]}/${sessionStats.off[1]}` : ''}` : '';
+      log(`mutate-rust: timings first-build ${sec(report.firstBuildMs)}s, baseline ${sec(report.baselineMs)}s, switched-build ${sec(report.switchedBuildMs)}s, switches-off ${sec(report.switchesOffMs)}s, faults ${faults.length} (build ${sec(report.faultBuildMs)}s, test ${sec(report.faultTestMs)}s), cargo ${report.cargoCalls} call(s) ${sec(report.cargoMs)}s, total ${sec(report.totalMs)}s${sessionText}`);
       if (environment.CUPEL_RUST_TIMINGS) { try { writeFileSync(environment.CUPEL_RUST_TIMINGS, `${JSON.stringify(report, null, 2)}\n`); } catch { /* developer aid only */ } }
     }
     const mutants = [...plan.noCoverage, ...plan.reused, ...rows].sort((a, b) => cmp(a.id, b.id));
     for (let i = 1; i < mutants.length; i++) if (mutants[i].id === mutants[i - 1].id) refuse(`duplicate mutant id ${mutants[i].id}`);
     const targeted = targetedUnits({ input, listing, ran, rows: mutants });
     return { mutants, targeted, sampled: plan.sampled, ...(plan.sampled ? { seed: plan.seed } : {}) };
-  } finally { rmSync(scratch, { recursive: true, force: true }); }
+  } finally {
+    if (session) {
+      try { enforceCap({ env: environment, capBytes: (settings.sessionCapGB ?? DEFAULT_CAP_GB) * 1024 ** 3, keep: basename(session.dir) }); } catch { /* the cap is housekeeping */ }
+      session.release();
+    }
+    rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 export { baseRow, mutantId };

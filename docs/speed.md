@@ -236,8 +236,16 @@ and tests them itself:
    (inside macros, `const` code, or expressions it cannot bound exactly) gets its
    own incremental build instead. Turn switching off with `"schemata": false`.
 
-Everything happens in a scratch copy of the project with its own `target/`
-folder; the project is never changed. cargo-mutants must still be installed: Cupel
+Everything happens in a copy of the project with its own `target/` folder; the
+project is never changed. That copy is a **persistent session** under
+`<cache>/rust-sessions/` in the per-user cache folder (`CUPEL_CACHE_DIR`): the second run in a project skips the cold
+dependency build, and skips each test target's unmutated baseline (and switches-off
+check) whose executable and test names are unchanged. The timing line reports
+`session warm` and `baselines reused n/m`. The sessions of all projects share a disk cap
+of 10 GB (`runners.cargo.mutants.sessionCapGB`, least recently used removed first);
+`cupel clean --rust-sessions` removes them all (`--project`: this project's) and `"session": false` goes back to a
+throwaway copy. CI that starts empty gets no benefit unless it caches
+the session cache folder. cargo-mutants must still be installed: Cupel
 uses its fault list.
 
 ## Slicing across CI machines

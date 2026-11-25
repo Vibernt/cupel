@@ -89,6 +89,33 @@ faults itself in a scratch copy with its own `target/` folder:
   the faults near each error and tries again; a file that fails twice runs all its
   faults one build each. `"schemata": false` turns switching off.
 
+### Persistent build sessions
+
+By default the runner keeps its build between runs. The copy of the project, its
+`target/` folder and the unmutated test results live in
+`<cache>/rust-sessions/<id>/` in the per-user cache folder (`CUPEL_CACHE_DIR`, else `$XDG_CACHE_HOME/cupel`, else `~/Library/Caches/cupel` on macOS, `%LOCALAPPDATA%\cupel` on Windows, `~/.cache/cupel`), never in the project, where the id is a hash of the project path,
+`rustc -vV`, the cargo version, the host, the Rust flags Cupel builds with, the
+`runners.cargo` config (without `mutants`) and Cupel's version. It is not a hash of the
+sources, so a later commit finds the same session warm. A run:
+
+- takes an exclusive lock (a second run waits a few seconds, then refuses; a lock of a
+  process that no longer exists is taken over);
+- first brings the session's copy of the project in line with the project: only files
+  whose size, time or content changed are copied, files that no longer exist are
+  deleted, and a file a crashed run left modified is restored. The assessed project is
+  only read;
+- reuses the two unmutated passes: a test target's baseline when its test executable
+  (SHA-256) and the named tests are the same as last time, and its switches-off check
+  when the switched executable is the same. Anything different is measured as before.
+  Reuse never crosses sessions. The timing line ends with `session warm|cold` and
+  `baselines reused n/m`.
+
+All sessions of all projects on the machine together stay under 10 GB: after a run the least recently
+used ones are removed until they fit (never the current or one in use). Set
+`runners.cargo.mutants.sessionCapGB` to change the cap, `"session": false` for the
+throwaway scratch copy of earlier versions, and run `cupel clean --rust-sessions`
+to remove every session (`--project`: only the current project's).
+
 Every run must show its work: each named test has to report `ok`, `FAILED` or
 `ignored`. If a run that did not time out and caught nothing reports no result for
 some named test (a name filter that matched nothing, a binary that died

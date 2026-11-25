@@ -107,6 +107,11 @@ const COMMANDS = {
     options: { format: S, out: S, 'runtime-name': S, 'runtime-version': S, input: S, root: S, listing: S },
     positionals: true,
   },
+  clean: {
+    usage: 'cupel clean --rust-sessions [--project] [--root DIR]',
+    about: 'remove the persistent Rust build sessions in the per-user cache (--project: only this project\'s)',
+    options: { 'rust-sessions': B, project: B, root: S },
+  },
   validate: {
     usage: 'cupel validate <file>',
     about: 'check an input, report or config against the spec schemas',
@@ -571,6 +576,14 @@ const commands = {
     return ctx.emit(ctx.engine('guard', { base, head }, args));
   },
 
+  async clean(ctx) {
+    if (ctx.positionals.length || !ctx.o['rust-sessions']) throw usage(`clean needs --rust-sessions\nusage: ${COMMANDS.clean.usage}`);
+    const { cleanSessions } = await import('../mutate-cargo/session.mjs');
+    const r = cleanSessions({ env: ctx.env, project: ctx.o.project ? ctx.root : null });
+    const mb = (r.bytes / 1048576).toFixed(1);
+    ctx.io.out(`removed ${r.removed.length} Rust build session(s), ${mb} MB${r.busy.length ? `; ${r.busy.length} in use, left alone` : ''}\n`);
+    return EXIT_OK;
+  },
   async validate(ctx) {
     if (ctx.positionals.length !== 1) throw usage(`validate needs exactly one file\nusage: ${COMMANDS.validate.usage}`);
     const file = ctx.positionals[0];

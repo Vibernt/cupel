@@ -38,6 +38,8 @@
           "properties": {
             "backend": { "enum": ["cargo-mutants", "cupel", "cupel-rust"], "description": "cargo-mutants (default) runs each fault with cargo-mutants; cupel runs cargo-mutants' faults itself: only the test targets and tests that run the faulty line, fastest first, stopping after two catching targets, with certain faults switched in one build (D21); cupel-rust is the restricted built-in mutator." },
             "schemata": { "type": "boolean", "description": "backend cupel: compile faults the rewriter is certain about into one build, switched by CUPEL_FAULT (default true)." },
+            "session": { "type": "boolean", "description": "backend cupel: keep a persistent build session under .scratch/cupel-rust-sessions (default true): the target folder and the unmutated test passes survive between runs. false uses a throwaway scratch copy, as before." },
+            "sessionCapGB": { "type": "number", "minimum": 0, "description": "backend cupel: the most disk, in GB, all build sessions of the project may use together (default 10); after a run the least recently used sessions are removed until they fit." },
             "command": { "type": "string", "minLength": 1, "description": "The cargo-mutants executable; default cargo-mutants on PATH." },
             "jobs": { "type": "integer", "minimum": 1, "description": "Parallel cargo-mutants jobs; default 1." },
             "wholeWorkspace": { "type": "boolean", "description": "Test every workspace package for every fault (--test-workspace=true) instead of only the packages whose tests run the faulty lines; use when features differ between a package alone and the whole workspace." },
