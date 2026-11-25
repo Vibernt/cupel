@@ -117,7 +117,8 @@ sources, so a later commit finds the same session warm. A run:
   baseline is reused when the key over its test executable (SHA-256) is the same, together
   with a digest of the complete synced project (the path, mode and content hash of every
   file the sync copies, taken while syncing), a digest of the test environment Cupel
-  passes (every variable except `CUPEL_FAULT`), a digest of **all** executables the
+  passes (every variable except Cupel's own `CUPEL_*` and the ones listed in
+  `runners.cargo.mutants.sessionEnvIgnore`), a digest of **all** executables the
   build produced (a program a test starts through `CARGO_BIN_EXE_*` can change outcomes
   while the test executable stays the same), and the same named tests. Anything different
   is measured as before. Reuse never crosses sessions. Files written into the project
@@ -171,6 +172,23 @@ absolute project or cache path differs, Cupel refuses it and explains that the
 bundle moved; compiled tests can embed paths such as `CARGO_MANIFEST_DIR`.
 Byte-identical restored project files are not rewritten even when their inode or
 ctime changed, so their session-copy mtimes remain usable.
+
+A slice of a prepared session sets up exactly as the preparation did (the same
+test targets and test names for the whole plan), so its builds are no-ops and the
+unmutated passes and the switches-off verdict are reused; it still runs only its
+own faults. The timing line says `prepared true` when that happened. Reuse needs
+the same test environment too, and CI jobs differ in variables such as
+`GITHUB_JOB`, `RUNNER_NAME` or job ids. List the ones your tests, build scripts and
+started programs never read:
+
+```json
+{ "runners": { "cargo": { "mutants": { "backend": "cupel",
+  "sessionEnvIgnore": ["GITHUB_*", "RUNNER_*", "INDEX", "HOSTNAME"] } } } }
+```
+
+Without them a slice still skips the cold build, but measures the unmutated passes
+again. A wrong entry (a variable a test does read) can reuse a stale pass, so name
+only variables you know are unused.
 
 Every run must show its work: each named test has to report `ok`, `FAILED` or
 `ignored`. If a run that did not time out and caught nothing reports no result for

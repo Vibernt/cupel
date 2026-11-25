@@ -471,6 +471,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
     let plan = planCargoMutants({ input, cfg, wanted, listing, scope });
     // A fault's own build costs about this much without switches; with them, one build serves all.
     if (scope.plan) return { plan: planEntries({ plan, input, scope, perFaultMs: settings.schemata === false ? 20_000 : 2_000 }), sampled: plan.sampled, seed: plan.seed };
+    const wholePlan = plan; // before slicing: a prepared session was set up for all of it
     if (scope.only) plan = slicePlan(plan, scope.only);
     if (plan.noCoverage.length) log(`mutate-rust: ${plan.noCoverage.length} fault(s) on lines no passed test runs are no-coverage, not built`);
     if (plan.sampled) log(`mutate-rust: sampled ${plan.chosen.length} of ${plan.candidates.length} faults on covered lines (seed ${plan.seed})`);
@@ -523,13 +524,30 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       if (scope.firstCatch) runner.stopAfter = 1;
 
       // Targets and test names every fault needs, for the baseline build and runs.
-      const needed = new Map();
-      for (const c of plan.run) for (const t of runner.coveringCandidate(c)) {
-        const target = runner.target(t.file);
-        if (!needed.has(target.key)) needed.set(target.key, { target, names: new Set() });
-        needed.get(target.key).names.add(libtestName(t));
+      const neededOf = (run) => {
+        const out = new Map();
+        for (const c of run) for (const t of runner.coveringCandidate(c)) {
+          const target = runner.target(t.file);
+          if (!out.has(target.key)) out.set(target.key, { target, names: new Set() });
+          out.get(target.key).names.add(libtestName(t));
+        }
+        return out;
+      };
+      const neededDigest = (map) => sha(JSON.stringify([...map].map(([k, v]) => [k, [...v.names].sort(cmp)]).sort((a, b) => cmp(a[0], b[0]))));
+      let needed = neededOf(plan.run);
+      let owners = [...new Set(plan.run.map((c) => byName.get(c.name)?.package).filter(Boolean))];
+      // A slice of a session prepared (--prepare) for this exact project and whole plan sets up exactly as the
+      // preparation did: the same targets and test names, so its builds are no-ops and its verdicts are reused.
+      // Faults still run only this slice. An unprepared slice sets up for its own faults only.
+      const prepared = session?.meta.prepared;
+      if (scope.only && !scope.prepare && prepared?.digest === session.sync.digest) {
+        const whole = neededOf(wholePlan.run);
+        if (neededDigest(whole) === prepared.needed) {
+          needed = whole;
+          owners = [...new Set(wholePlan.run.map((c) => byName.get(c.name)?.package).filter(Boolean))];
+        }
       }
-      const owners = [...new Set(plan.run.map((c) => byName.get(c.name)?.package).filter(Boolean))];
+      sessionStats.prepared = Boolean(prepared && prepared.digest === session.sync.digest && neededDigest(needed) === prepared.needed);
       const targets = [...needed.values()].map((x) => x.target);
       log(`mutate-rust: ${plan.run.length} fault(s); building ${targets.length} test target(s) of ${new Set(targets.map((t) => t.pkg)).size} package(s) once`);
       const first = await clock('firstBuildMs', () => runner.build(targets, owners));
@@ -539,7 +557,9 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       // test starts, not only the test executable) and the same named tests.
       const sameNames = (a, b) => a.length === b.length && a.every((n, i) => n === b[i]);
       const nameList = (names) => [...names].sort(cmp);
-      const envDigest = sha(JSON.stringify(Object.entries(runner.env).filter(([k]) => k !== 'CUPEL_FAULT').sort(([a], [b]) => cmp(a, b))));
+      // Every variable counts (a test may read any), except Cupel's own and the ones the configuration says no test reads.
+      const ignored = (k) => k.startsWith('CUPEL_') || (settings.sessionEnvIgnore ?? []).some((p) => (p.endsWith('*') ? k.startsWith(p.slice(0, -1)) : k === p));
+      const envDigest = sha(JSON.stringify(Object.entries(runner.env).filter(([k]) => !ignored(k)).sort(([a], [b]) => cmp(a, b))));
       const contextOf = () => { const built = session ? runner.builtDigest() : null; return built ? sha(JSON.stringify([session.sync.digest, envDigest, built])) : null; };
       const fullKey = (hash, context) => (hash && context ? sha(JSON.stringify([hash, context])) : null);
       const stored = (key, names, full) => {
@@ -798,14 +818,14 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       }
       if (session) {
         // The session's target must end on the unmodified project: a build of the last fault would be reused as it is.
-        if (rest.length || verify) await clock('restoreBuildMs', () => runner.build(targets, owners));
+        if (rest.length || verify || switched.size) await clock('restoreBuildMs', () => runner.build(targets, owners));
         const final = runner.hashes(needed.keys());
         const finalContext = contextOf();
         for (const [key, rec] of Object.entries(session.meta.baselines)) { // the unmodified build that ends this run is also the baseline's executable
           const full = fullKey(final.get(key), finalContext);
           if (full && !(rec.keys ??= []).includes(full)) rec.keys.push(full);
         }
-        if (scope.prepare) session.meta.prepared = session.sync.digest;
+        if (scope.prepare) session.meta.prepared = { digest: session.sync.digest, needed: neededDigest(needed) };
         session.save();
       }
     }
@@ -818,7 +838,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       const faults = [...faultTimes.values()];
       const sum = (key) => faults.reduce((a, f) => a + f[key], 0);
       const report = {
-        prepared: Boolean(session && session.meta.prepared === session.sync.digest),
+        prepared: Boolean(sessionStats.prepared),
         totalMs: Math.round(performance.now() - started),
         firstBuildMs: Math.round(phases.firstBuildMs), baselineMs: Math.round(phases.baselineMs),
         switchedBuildMs: Math.round(phases.switchedBuildMs), switchesOffMs: Math.round(phases.switchesOffMs), restoreBuildMs: Math.round(phases.restoreBuildMs),
