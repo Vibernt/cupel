@@ -76,7 +76,31 @@ the release.
 - Phase 5 (body variants): integrated. Regrouping `BinaryOperator` faults are answered in the switched build;
   operator switches on the same line are shifted by the inserted text (`bodyVariants` returns `insertions`);
   faults beyond 8 per function get individual builds. Acceptance bar: `CUPEL_RUST_VERIFY_SWITCHED=1` reruns each
-  switched answer on its own build and refuses on any difference in status, catchers or kinds.
+  switched fault on its own build with the same stop rule; the status must agree (caught and timed out are both
+  detected) and the tests the switched build credited, run alone on that build, must fail with the same kind.
+  Credits themselves depend on target order and stop rule, so they are not compared one to one.
+- Phase 6 (CI bundles, v1): `mutate --prepare --cache-dir DIR` sets up the whole plan once; a slice of a session
+  prepared for the same project content and whole plan sets up exactly as the preparation did (no-op builds, both
+  unmutated passes reused) and runs only its faults. Moved sessions are refused. `sessionEnvIgnore` names CI
+  variables no test reads; Cupel's own `CUPEL_*` never count. After any switched build the unmodified build is
+  rebuilt, so the next run's first build is a no-op (rebuilds here are not bit-identical, so reuse needs it).
+- Phase 4 (timeouts) and 7 (direct execution): not started.
+
+## Acceptance on the private workspace (2026-11-25, first-catch, one source file, 89 faults)
+
+| Run | Setup to first fault | Faults | Total | Reuse |
+| --- | --- | --- | --- | --- |
+| 0.4.0 | ~500 s | | ~27 min | none |
+| Cold session (fresh cache) | 527 s | ~1,220 s | 1,753 s | 0/16 |
+| Warm session (same cache, nothing changed) | 5 s | ~1,220 s | 1,230 s | baselines 16/16, switches-off 16/16 |
+| Verify mode | | | 3,312 s | 75 switched faults agree with their own builds |
+
+75 of 89 faults ran in the one switched build (47 operator switches, 28 body variants). Statuses were identical
+in all three runs (71 caught, 12 unnoticed, 6 timed out, 1 no coverage). One row's credited test differed between
+cold and warm: a fault that reached the timing-sensitive target after a timeout, credited to a timing test in one
+run and to an assertion test in the other; both say caught by assertion. Timing-dependent credits are phase 4's
+subject. What remains is test time: about 1,190 s of fault tests, a large share in timeouts and in the
+timing-sensitive target that runs on individual builds.
 - Switches-off verdict is reused across runs, keyed on a digest of the session, selector table, rewritten sources
   and the unmodified build.
 
