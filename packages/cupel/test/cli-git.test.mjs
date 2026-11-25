@@ -250,7 +250,9 @@ test('report: evidence pass is opt-in and adds review evidence', () => {
   assert.deepEqual(report.units.find((u) => u.id === 'r').hints, ['no-unique-evidence']);
 
   // The first report's .cupel/input.json is the earlier input now (K15): its unchanged row m1 is offered for reuse.
-  const calls = logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', (({ reuse: _r, timings: _t, history: _h, ...scope }) => scope)(l.scope)]));
+  // reuse, timings, history and catchers are hints from the earlier input (results to copy, estimates, which tests
+  // caught each fault last time, tried first): checked separately below.
+  const calls = logOf(log).map((l) => (l.call === 'collectNode' ? ['collect', l.recheck, l.runs] : ['mutate', (({ reuse: _r, timings: _t, history: _h, catchers: _c, ...scope }) => scope)(l.scope)]));
   assert.deepEqual(calls, [
     ['collect', [], 2],
     ['mutate', { critical: true, changed: null, targeted: [] }],
@@ -258,6 +260,7 @@ test('report: evidence pass is opt-in and adds review evidence', () => {
     ['mutate', { critical: false, changed: null, targeted: ['r'] }],
   ]);
   for (const l of logOf(log).filter((l) => l.call !== 'collectNode')) assert.equal(l.scope.reuse?.m1?.reused, true);
+  for (const l of logOf(log).filter((l) => l.call !== 'collectNode')) assert.deepEqual(l.scope.catchers, { m1: ['k', 'r'] });
 
   // Replaying the written input gives the same report.
   const replay = cli(dir, ['report', '--input', join(dir, '.cupel', 'input.json'), '--json']);
