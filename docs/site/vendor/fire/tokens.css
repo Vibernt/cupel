@@ -1,0 +1,664 @@
+/* ==========================================================================
+   Fire — design tokens
+   --------------------------------------------------------------------------
+   One ink, one accent, hairlines instead of boxes.
+
+   Theming uses the CSS light-dark() function, so every token is declared
+   once and resolves against the nearest `color-scheme`:
+     <html>                      follows the OS
+     <html data-theme="dark">    forced dark   (also works on any subtree)
+     <html data-theme="light">   forced light
+   Accent:   data-accent="ember | volt | iris | ocean | forest | ink"
+   Density:  data-density="comfortable | compact | spacious"
+   Palette:  data-palette="<name>" (fire/palettes.css) · Contrast: data-contrast="high" · Text: data-text-size="sm | lg"
+   Structure: data-surfaces="flat | outlined" · data-elevation="none | lifted" · data-controls="outlined | filled"
+             · data-headings="upper | mono" (the default of each needs no attribute; see "Structure" below)
+   Breakpoints (named; contract/fire-contract.json "breakpoints"): phone < 640px · tablet 640–899px · desktop ≥ 900px ·
+             wide ≥ 1200px. Components measure a container where they can (the app shell, the docs kit, .fd-site).
+   ========================================================================== */
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/geist-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/geist-mono-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Layout parameters are read by the element they are set on and must not reach its descendants:
+   a gap given to a stack is not the gap of the rows inside it. */
+@property --fd-gap { syntax: "*"; inherits: false; }
+@property --fd-min { syntax: "*"; inherits: false; }
+@property --fd-cols { syntax: "*"; inherits: false; }
+
+:root { color-scheme: light dark; }
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+:root {
+  /* ---------- Type ---------- */
+  /* Geist is the closest open-source face to Suisse Int'l, the face this look was drawn for: the same flat
+     terminals and closed apertures, stems within 2% at weight 500, and line widths within 2% once display
+     sizes are tracked at -0.02em (measured against the reference). */
+  --fd-font-sans: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fd-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* size / line-height / tracking. UI text is 14px; nothing interactive goes below 12px. */
+  --fd-text-display: 2.5rem;   --fd-lh-display: 2.75rem;  --fd-ls-display: -0.02em;  /* 40/44 page hero */
+  --fd-text-h1: 2rem;          --fd-lh-h1: 2.25rem;       --fd-ls-h1: -0.02em;       /* 32/36 */
+  --fd-text-h2: 1.5rem;        --fd-lh-h2: 2rem;          --fd-ls-h2: -0.015em;      /* 24/32 */
+  --fd-text-h3: 1.25rem;       --fd-lh-h3: 1.75rem;       --fd-ls-h3: -0.005em;      /* 20/28 section title, weight 450 */
+  --fd-text-title: 1rem;       --fd-lh-title: 1.5rem;     --fd-ls-title: 0em;        /* 16/24 card title */
+  --fd-text-lg: 1rem;          --fd-lh-lg: 1.5rem;        --fd-ls-lg: -0.006em;      /* 16/24 reading text */
+  --fd-text-md: 0.875rem;      --fd-lh-md: 1.25rem;                                  /* 14/20 default UI */
+  --fd-text-sm: 0.8125rem;     --fd-lh-sm: 1.25rem;                                  /* 13/20 secondary */
+  --fd-text-xs: 0.75rem;       --fd-lh-xs: 1rem;                                     /* 12/16 captions */
+  --fd-text-2xs: 0.6875rem;    --fd-lh-2xs: 1rem;         --fd-ls-eyebrow: 0.06em;   /* 11/16 eyebrows */
+  --fd-text-3xs: 0.625rem;                                                           /* 10px: solid "NEW" tags, tile initials only */
+  --fd-text-stat: 1.5rem;      --fd-lh-stat: 2rem;        --fd-ls-stat: -0.01em;     /* 24/32 figures */
+
+  --fd-text-3xl: 2.25rem;      --fd-lh-3xl: 2.5rem;                                  /* 36/40 documentation page title */
+  --fd-text-xl: 1.125rem;      --fd-lh-xl: 1.75rem;                                  /* 18/28 lead paragraph */
+  --fd-text-compose: 0.9375rem;                                                      /* 15px composer and chat prose */
+  --fd-text-4xs: 0.5625rem;                                                          /* 9px: the "NEW" tag only */
+  --fd-lh-prose: 1.75rem;      --fd-lh-prose-sm: 1.375rem;                           /* 28 reading line · 22 dense reference line */
+  --fd-lh-code: 1.6;                                                                 /* code and long answers */
+  --fd-ls-body: 0.01em;        /* 14px body and inputs */
+  --fd-ls-tag: 0.025em;        /* tiny uppercase tags */
+  --fd-ls-caps: 0.05em;        /* uppercase sans labels */
+  --fd-ls-tight: -0.01em;      /* figures and compact titles */
+
+  --fd-font-display: var(--fd-font-sans);   /* headings; point it at the mono or a serif to change the voice */
+  --fd-weight-display: var(--fd-weight-medium);   /* headings; a type set may ask for a heavier or lighter cut */
+
+  --fd-weight-regular: 400;
+  --fd-weight-label: 450;   /* the house weight: labels, buttons, nav, card titles */
+  --fd-weight-medium: 500;  /* headings, figures */
+  --fd-weight-semibold: 600; /* rare: emphasis inside prose only */
+
+  /* ---------- Scales: the knobs that change the system's character ----------
+     Every space, radius and duration token is its base value times one of these. */
+  --fd-space-scale: 1;     /* 0.875 tight · 1 · 1.125 roomy */
+  --fd-radius-scale: 1;    /* 0 square · 1 · 1.6 round */
+  --fd-motion: 1;          /* 0 none · 1 · 1.5 lively */
+  --fd-texture: 1;         /* strength of the generative textures, 0–1.6 */
+  --fd-hairline: 1px;      /* the width of every rule, edge and ring */
+
+  /* ---------- Control metrics ---------- */
+  --fd-control-xs: 24px;
+  --fd-control-sm: 28px;
+  --fd-control-md: 36px;
+  --fd-control-lg: 40px;
+  --fd-control-xl: 44px;
+  --fd-control-px: 12px;      /* horizontal padding of a default control */
+  --fd-icon-xs: 12px;
+  --fd-icon-sm: 14px;
+  --fd-icon: 16px;            /* default icon size */
+  --fd-icon-lg: 20px;
+  --fd-icon-xl: 24px;
+  --fd-icon-stroke: 1.5;      /* Lucide at 1.5 reads lighter and more precise than the default 2 */
+  --fd-row: 44px;             /* table / list row height */
+  --fd-row-px: 16px;
+
+  /* ---------- Layout ---------- */
+  --fd-sidebar-w: 256px;
+  --fd-rail-w: 64px;
+  --fd-topbar-h: 64px;
+  --fd-panel-w: 320px;
+  --fd-subnav-w: 280px;
+  --fd-gutter: 24px;          /* page gutter; 16px on phones */
+  --fd-content-max: 1140px;   /* the framed column */
+  --fd-measure: 68ch;         /* longest comfortable line of prose */
+
+  /* Sizes: a shared ladder of lengths for components to build on (a dialog's width, a panel's height, a
+     grid's narrowest column). Markup does not set widths: structure does (see layout.css and .fd-column). */
+  --fd-size-4xs: 24px;
+  --fd-size-3xs: 48px;
+  --fd-size-2xs: 64px;
+  --fd-size-xs: 96px;
+  --fd-size-sm: 160px;
+  --fd-size-md: 240px;
+  --fd-size-lg: 320px;
+  --fd-size-xl: 400px;
+  --fd-size-2xl: 480px;
+  --fd-size-3xl: 560px;
+  --fd-size-4xl: 640px;
+  --fd-size-5xl: 768px;
+  --fd-size-6xl: 960px;
+  --fd-size-phone: 375px;    /* a phone preview frame */
+
+  /* ---------- Motion ---------- */
+  --fd-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --fd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --fd-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --fd-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);   /* long, soft landing: sheets, dialogs */
+  --fd-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);    /* slight overshoot: thumbs, toggles, pops */
+  --fd-press-scale: 0.98;
+  /* Loops: only things that report live work repeat. */
+  --fd-loop-spin: 0.7s;       /* spinners */
+  --fd-loop-shimmer: 1.6s;    /* skeleton and status shimmer */
+  --fd-loop-pulse: 1.8s;      /* live dots, pending states */
+  --fd-loop-blink: 1.1s;      /* carets */
+  --fd-loop-dots: 1.2s;       /* typing dots */
+  --fd-stagger: 40ms;         /* delay between siblings entering together */
+
+  /* ---------- Layers ---------- */
+  --fd-z-base: 0;
+  --fd-z-raised: 1;
+  --fd-z-sticky: 10;
+  --fd-z-topbar: 30;
+  --fd-z-sidebar: 40;
+  --fd-z-overlay: 50;
+  --fd-z-dialog: 60;
+  --fd-z-popover: 70;
+  --fd-z-toast: 80;
+  --fd-z-tooltip: 90;
+
+  /* ======================================================================
+     Colour
+     ====================================================================== */
+
+  /* The ink. Every neutral in the system is this colour at some opacity,
+     so fills, text and hover states stay correct on any surface. */
+  --fd-ink: light-dark(#262626, #f5f5f5);
+  --fd-ink-inverse: light-dark(#ffffff, #0a0a0a);
+
+  /* Low steps (a1–a24) are washes of --fd-wash; high steps (a32–a88) are washes of --fd-ink-wash.
+     A palette changes these two colours and every fill, hover, muted text and edge follows. */
+  --fd-wash: light-dark(#000000, #ffffff);
+  --fd-ink-wash: light-dark(#262626, #ffffff);
+
+  /* Surfaces: an off-white page, white things on top of it. */
+  --fd-bg: light-dark(#f9f9f9, #0a0a0a);               /* the page */
+  --fd-bg-sunken: light-dark(#f4f4f4, #060606);        /* wells behind content: code, drop zones */
+  --fd-surface: light-dark(#ffffff, #141414);          /* cards, inputs, table bodies */
+  --fd-surface-raised: light-dark(#ffffff, #1c1c1c);   /* menus, dialogs, toasts, thumbs */
+  --fd-surface-inverse: light-dark(#262626, #f5f5f5);  /* tooltips, the inverse button */
+  --fd-scrim: light-dark(rgb(249 249 249 / 0.72), rgb(0 0 0 / 0.64));  /* behind dialogs (pair with blur) */
+
+  --fd-thumb: light-dark(#ffffff, #f5f5f5);            /* switch and slider thumbs */
+
+  /* Text */
+
+  /* Hairlines */
+  --fd-line-faint: light-dark(#ededed, #1f1f1f);   /* structure: rails, section dividers, card edges */
+  --fd-line: light-dark(#e8e8e8, #2a2a2a);         /* table rules, dividers inside objects */
+  --fd-line-strong: light-dark(#d4d4d4, #3d3d3d);  /* control hover, emphasised edges */
+
+  /* The edge of an input: an inside line that darkens on hover and turns accent on focus. */
+
+  /* Fills for neutral controls: rest / hover / pressed / selected */
+
+  /* Status. `-solid` for dots, lines, chart marks and icons; `-fill` for a fill that carries text (the danger
+     button, a solid badge, a tile) with `-contrast` as its label at 4.5:1 or more; `-text` for words (AA on
+     surfaces); `-bg` for tinted backgrounds; `-line` for tinted edges. Danger, info and violet keep a white label
+     on a fill a little darker than the solid; success and warning keep the solid and take a tinted near-black.
+     These are ember's. Every other palette derives its own success, warning, danger and info from them (fire/js/
+     palettes.js deriveColours, written to palettes.css): the hue leans toward the palette's temperature inside the
+     tone's range, chroma follows the palette's energy, and a tone whose colour family holds the accent moves until
+     it is 0.10 OKLab apart from it. Violet is not derived. build-palettes.mjs --check holds every rule. */
+  --fd-success-solid: light-dark(#2fb457, #4ccd75);
+  --fd-success-text: light-dark(#1a7a3a, #6fdc91);
+  --fd-success-bg: light-dark(rgb(47 180 87 / 0.1), rgb(76 205 117 / 0.12));
+  --fd-success-line: light-dark(rgb(47 180 87 / 0.28), rgb(76 205 117 / 0.28));
+  --fd-success-fill: var(--fd-success-solid);
+  --fd-success-contrast: #0e1910;
+
+  --fd-warning-solid: light-dark(#e8a917, #f0c550);
+  --fd-warning-text: light-dark(#8a5c00, #f0c550);
+  --fd-warning-bg: light-dark(rgb(232 169 23 / 0.12), rgb(240 197 80 / 0.12));
+  --fd-warning-line: light-dark(rgb(232 169 23 / 0.36), rgb(240 197 80 / 0.28));
+  --fd-warning-fill: var(--fd-warning-solid);
+  --fd-warning-contrast: #1a1200;
+
+  --fd-danger-solid: light-dark(#e5372b, #f05545);
+  --fd-danger-text: light-dark(#c2271c, #ff7a6b);
+  --fd-danger-bg: light-dark(rgb(229 55 43 / 0.08), rgb(240 85 69 / 0.13));
+  --fd-danger-line: light-dark(rgb(229 55 43 / 0.28), rgb(240 85 69 / 0.32));
+  --fd-danger-fill: light-dark(#de2f25, #d63c2f);
+  --fd-danger-contrast: #ffffff;
+
+  --fd-info-solid: light-dark(#2a6dfb, #5a8ffc);
+  --fd-info-text: light-dark(#1d55d6, #84adff);
+  --fd-info-bg: light-dark(rgb(42 109 251 / 0.08), rgb(90 143 252 / 0.14));
+  --fd-info-line: light-dark(rgb(42 109 251 / 0.26), rgb(90 143 252 / 0.32));
+  --fd-info-fill: light-dark(#286bf9, #3e70db);
+  --fd-info-contrast: #ffffff;
+
+  --fd-violet-solid: light-dark(#8a5cf6, #a07aff);
+  --fd-violet-text: light-dark(#6b3fe0, #b79cff);
+  --fd-violet-bg: light-dark(rgb(138 92 246 / 0.08), rgb(160 122 255 / 0.14));
+  --fd-violet-line: light-dark(rgb(138 92 246 / 0.26), rgb(160 122 255 / 0.32));
+  --fd-violet-fill: light-dark(#8456ef, #845bde);
+  --fd-violet-contrast: #ffffff;
+
+  /* Categorical series for charts (ordered; the accent always leads). Ember's, as fire/js/palettes.js derives them for
+     every palette: series 3–6 around the accent, each 3:1 on the page and the surface, every pair apart in normal and
+     simulated colour-blind vision, no olive in the light scheme (build-palettes.mjs --check holds it). */
+  --fd-chart-1: var(--fd-accent);
+  --fd-chart-2: light-dark(#262626, #f5f5f5);
+  --fd-chart-3: light-dark(#00786d, #00c5b6);
+  --fd-chart-4: light-dark(#b556b5, #c360bd);
+  --fd-chart-5: light-dark(#006517, #cbd549);
+  --fd-chart-6: light-dark(#2679dc, #549bff);
+
+  /* Syntax (code blocks, JSON viewer). Deliberately few hues. */
+  --fd-syntax-plain: var(--fd-text);
+  --fd-syntax-comment: var(--fd-text-3);   /* comments inform: AA like any muted text */
+  --fd-syntax-punct: var(--fd-text-3);
+  --fd-syntax-keyword: var(--fd-accent-text);
+  --fd-syntax-string: light-dark(#1a7a3a, #8fdca8);
+  --fd-syntax-number: light-dark(#1d55d6, #98c5f2);
+  --fd-syntax-key: var(--fd-text);
+  --fd-syntax-fn: light-dark(#6b3fe0, #b79cff);
+
+  /* Elevation. Shadows are layered and short; a 1px ring replaces the border on floating things. */
+  --fd-shadow-xs: 0 1px 2px light-dark(rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.4));
+  --fd-shadow-sm: 0 1px 2px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.5)), 0 1px 1px light-dark(rgb(0 0 0 / 0.03), rgb(0 0 0 / 0.3));
+  --fd-shadow-md: 0 4px 12px -2px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.5)), 0 2px 4px -2px light-dark(rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.4));
+  --fd-shadow-lg: 0 0 0 1px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08)), 0 12px 32px -8px light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.7)), 0 4px 10px -4px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.5));
+  --fd-shadow-xl: 0 0 0 1px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08)), 0 32px 64px -16px light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.8)), 0 8px 20px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.6));
+  /* The lifted thumb of a segmented control or switch. */
+  --fd-shadow-thumb: 0 0 0 0.5px light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.1)), 0 1px 2px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.5)), 0 2px 6px -2px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+  /* The recessed track of a segmented control. */
+  --fd-shadow-inset-control: inset 0 6px 12px light-dark(rgb(0 0 0 / 0.02), rgb(0 0 0 / 0.2)), inset 0 0.75px 0.75px light-dark(rgb(0 0 0 / 0.02), rgb(0 0 0 / 0.2)), inset 0 0.25px 0.25px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.3));
+  /* The composer: a hairline of lift and a long soft drop. */
+  --fd-shadow-composer: 0 1px 2px light-dark(rgb(0 0 0 / 0.03), rgb(0 0 0 / 0.4)), 0 8px 24px -12px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.6));
+  /* Pressed-in wells. */
+  --fd-shadow-inset: inset 0 1px 2px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.5));
+  /* The drop of an object on the page (a card, a table, a form section): none until data-elevation="lifted". */
+  --fd-shadow-object: 0 0 0 0 rgb(0 0 0 / 0);
+}
+
+/* Small labels: eyebrows, column headers, keys, group labels in menus and lists; data-headings moves them.
+   Redeclared on [data-type] so a type set on any element hands its mono face to the labels inside it. */
+:root, [data-type] {
+  --fd-eyebrow-font: var(--fd-font-mono);
+  --fd-eyebrow-case: uppercase;
+  --fd-eyebrow-ls: var(--fd-ls-eyebrow);     /* the tracked labels: column headers, keys, menu groups */
+  --fd-eyebrow-ls-tight: 0em;                /* the eyebrow itself, stat and decision labels: untracked */
+  --fd-eyebrow-weight: var(--fd-weight-regular);
+  /* Section labels: the sidebar's group labels ("Playground", "Account"), in the sans, in capitals. */
+  --fd-section-label-font: var(--fd-font-sans);
+  --fd-section-label-ls: var(--fd-ls-caps);
+}
+
+/* ---------- Accent ----------------------------------------------------------
+   Declared on :root and on every [data-accent] and [data-palette] so derived steps follow overrides.
+   --fd-accent           solid fill (buttons, switches, active dots, chart lead)
+   --fd-accent-hover     solid fill, hovered: moves away from the label (lighter under a dark one, darker under white)
+   --fd-accent-contrast  text/icon on the solid fill: white or a near-black tinted to the accent, whichever
+                         reaches 4.5:1 (white when both do and the accent asks for it)
+   --fd-accent-text      accent used AS text: 4.5:1 on the page, on surfaces and on the 8% accent wash over them
+   --fd-focus            the focus ring: the accent where it reaches 3:1 on the page, the well and the surfaces,
+                         else the accent text (fire/js/palettes.js focusOf; build-palettes.mjs --check holds it)
+   -------------------------------------------------------------------------- */
+:root,
+[data-accent="ember"] {
+  --fd-accent: light-dark(#fa5d19, #fb6a2a);
+  --fd-accent-hover: light-dark(#ff6d37, #ff7c42);   /* lighter in both modes: away from the dark label */
+  --fd-accent-contrast: #20120e;   /* white reaches only 3.2:1 on this orange; the brown-black reaches 5.8 */
+  --fd-accent-text: light-dark(#be4000, #fb6a2a);   /* the orange itself is 3:1 on the light page */
+  --fd-accent-glow: light-dark(rgb(250 60 25 / 0.28), rgb(250 60 25 / 0.36)); /* warm inner shade of the primary button */
+  --fd-focus: light-dark(#be4000, #fb6a2a);   /* the orange is 2.9:1 on the light well: the ring takes the accent text */
+}
+[data-accent="volt"] {
+  --fd-accent: light-dark(#b8f02c, #c6f63f);
+  --fd-accent-hover: light-dark(#c2fa3d, #d3fb62);
+  --fd-accent-contrast: #141412;
+  --fd-accent-text: light-dark(#4d6b00, #c6f63f);
+  --fd-accent-glow: light-dark(rgb(120 170 0 / 0.3), rgb(120 170 0 / 0.3));
+  --fd-focus: light-dark(#4d6b00, #c6f63f);   /* lime is 1.3:1 on a light page: the ring takes the accent text */
+}
+[data-accent="iris"] {
+  --fd-accent: light-dark(#6a5cff, #8478ff);
+  --fd-accent-hover: light-dark(#5a4bf5, #978dff);
+  --fd-accent-contrast: light-dark(#ffffff, #151521);
+  --fd-accent-text: light-dark(#5140e6, #a79eff);
+  --fd-accent-glow: light-dark(rgb(70 40 230 / 0.3), rgb(70 40 230 / 0.4));
+  --fd-focus: light-dark(#6a5cff, #8478ff);
+}
+[data-accent="ocean"] {
+  --fd-accent: light-dark(#1f6feb, #4b8ff5);
+  --fd-accent-hover: light-dark(#1a62d4, #68a2f8);
+  --fd-accent-contrast: light-dark(#ffffff, #0f1621);
+  --fd-accent-text: light-dark(#1a5bc4, #7fb0fa);
+  --fd-accent-glow: light-dark(rgb(10 60 200 / 0.3), rgb(10 60 200 / 0.4));
+  --fd-focus: light-dark(#1f6feb, #4b8ff5);
+}
+[data-accent="forest"] {
+  --fd-accent: light-dark(#1f9d55, #3cc47a);
+  --fd-accent-hover: light-dark(#2ea65e, #55d18e);
+  --fd-accent-contrast: light-dark(#0f1911, #0e1912);
+  --fd-accent-text: light-dark(#167a41, #5fd896);
+  --fd-accent-glow: light-dark(rgb(0 110 50 / 0.3), rgb(0 110 50 / 0.4));
+  --fd-focus: light-dark(#167a41, #3cc47a);   /* the green is 2.8:1 on a light well's fill: the ring takes the accent text */
+}
+[data-accent="ink"] {
+  --fd-accent: light-dark(#262626, #f5f5f5);
+  --fd-accent-hover: light-dark(#1e1e1e, #ffffff);
+  --fd-accent-contrast: light-dark(#ffffff, #0a0a0a);
+  --fd-accent-text: light-dark(#262626, #f5f5f5);
+  --fd-accent-glow: light-dark(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.1));
+  --fd-focus: light-dark(#262626, #f5f5f5);
+}
+:root,
+[data-accent],
+[data-palette] {
+  /* Accent washes: the same ladder idea as the ink, for tints behind accent text. */
+  --fd-accent-4: color-mix(in srgb, var(--fd-accent) 4%, transparent);
+  --fd-accent-8: color-mix(in srgb, var(--fd-accent) 8%, transparent);
+  --fd-accent-12: color-mix(in srgb, var(--fd-accent) 12%, transparent);
+  --fd-accent-16: color-mix(in srgb, var(--fd-accent) 16%, transparent);
+  --fd-accent-24: color-mix(in srgb, var(--fd-accent) 24%, transparent);
+  --fd-accent-40: color-mix(in srgb, var(--fd-accent) 40%, transparent);
+  /* Focus ring: a gap in the page colour, then --fd-focus (each palette sets it: the accent where it reaches 3:1 on
+     the page, the well and the surfaces, else the accent text). */
+  --fd-ring: 0 0 0 2px var(--fd-bg), 0 0 0 4px var(--fd-focus);
+  --fd-ring-inset: inset 0 0 0 2px var(--fd-focus);
+  /* The primary button: inner shade + a short stack of tinted contact shadows. */
+  --fd-shadow-accent:
+    inset 0 -6px 12px 0 var(--fd-accent-glow),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.18),
+    0 2px 4px 0 color-mix(in srgb, var(--fd-accent) 14%, transparent),
+    0 1px 1px 0 color-mix(in srgb, var(--fd-accent) 14%, transparent),
+    0 0.5px 0.5px 0 color-mix(in srgb, var(--fd-accent) 20%, transparent);
+}
+
+/* ---------- The ink ladder ----------
+   Derived from --fd-wash and --fd-ink-wash, and redeclared on [data-palette] so a palette set on any
+   element recolours every neutral inside it. */
+:root, [data-palette] {
+  --fd-a1: light-dark(color-mix(in srgb, var(--fd-wash) 1.2%, transparent), color-mix(in srgb, var(--fd-wash) 1.6%, transparent));
+  --fd-a2: light-dark(color-mix(in srgb, var(--fd-wash) 2%, transparent), color-mix(in srgb, var(--fd-wash) 2.8%, transparent));
+  --fd-a3: light-dark(color-mix(in srgb, var(--fd-wash) 3%, transparent), color-mix(in srgb, var(--fd-wash) 4%, transparent));
+  --fd-a4: light-dark(color-mix(in srgb, var(--fd-wash) 4%, transparent), color-mix(in srgb, var(--fd-wash) 5.5%, transparent));
+  --fd-a5: light-dark(color-mix(in srgb, var(--fd-wash) 5%, transparent), color-mix(in srgb, var(--fd-wash) 6.5%, transparent));
+  --fd-a6: light-dark(color-mix(in srgb, var(--fd-wash) 6%, transparent), color-mix(in srgb, var(--fd-wash) 8%, transparent));
+  --fd-a7: light-dark(color-mix(in srgb, var(--fd-wash) 7%, transparent), color-mix(in srgb, var(--fd-wash) 9%, transparent));
+  --fd-a8: light-dark(color-mix(in srgb, var(--fd-wash) 8%, transparent), color-mix(in srgb, var(--fd-wash) 10%, transparent));
+  --fd-a10: light-dark(color-mix(in srgb, var(--fd-wash) 10%, transparent), color-mix(in srgb, var(--fd-wash) 12%, transparent));
+  --fd-a12: light-dark(color-mix(in srgb, var(--fd-wash) 12%, transparent), color-mix(in srgb, var(--fd-wash) 14%, transparent));
+  --fd-a16: light-dark(color-mix(in srgb, var(--fd-wash) 16%, transparent), color-mix(in srgb, var(--fd-wash) 18%, transparent));
+  --fd-a20: light-dark(color-mix(in srgb, var(--fd-wash) 20%, transparent), color-mix(in srgb, var(--fd-wash) 22%, transparent));
+  --fd-a24: light-dark(color-mix(in srgb, var(--fd-wash) 24%, transparent), color-mix(in srgb, var(--fd-wash) 26%, transparent));
+  --fd-a32: light-dark(color-mix(in srgb, var(--fd-ink-wash) 32%, transparent), color-mix(in srgb, var(--fd-ink-wash) 34%, transparent));
+  --fd-a40: light-dark(color-mix(in srgb, var(--fd-ink-wash) 40%, transparent), color-mix(in srgb, var(--fd-ink-wash) 42%, transparent));
+  --fd-a48: light-dark(color-mix(in srgb, var(--fd-ink-wash) 48%, transparent), color-mix(in srgb, var(--fd-ink-wash) 50%, transparent));
+  --fd-a56: light-dark(color-mix(in srgb, var(--fd-ink-wash) 56%, transparent), color-mix(in srgb, var(--fd-ink-wash) 56%, transparent));
+  --fd-a64: light-dark(color-mix(in srgb, var(--fd-ink-wash) 64%, transparent), color-mix(in srgb, var(--fd-ink-wash) 62%, transparent));
+  --fd-a72: light-dark(color-mix(in srgb, var(--fd-ink-wash) 72%, transparent), color-mix(in srgb, var(--fd-ink-wash) 72%, transparent));
+  --fd-a88: light-dark(color-mix(in srgb, var(--fd-ink-wash) 88%, transparent), color-mix(in srgb, var(--fd-ink-wash) 88%, transparent));
+
+  /* Text steps. Every step that carries information reaches 4.5:1 on the page, the sunken well, surfaces,
+     neutral fills (a segmented track on a well) and the accent wash, in every palette, light and dark: --fd-text, -2 and -3.
+     --fd-text-4 is for placeholders, disabled text and decoration only, at 3:1 or more; --fd-text-5 is never
+     text (rules, dots, decorative marks). Hierarchy below -3 comes from size, weight, case and spacing, not
+     from lightness. scripts/build-palettes.mjs --check measures all of this. Light mode needs more ink than
+     the ladder steps give (a56 is 3.5:1 on the page), so -3 and -4 mix their own amounts. */
+  --fd-text: var(--fd-ink);
+  --fd-text-2: var(--fd-a72);      /* body copy beside a heading */
+  --fd-text-3: light-dark(color-mix(in srgb, var(--fd-ink-wash) 67%, transparent), color-mix(in srgb, var(--fd-ink-wash) 56%, transparent));   /* muted: meta, captions, labels, counts, keys */
+  --fd-text-4: light-dark(color-mix(in srgb, var(--fd-ink-wash) 52%, transparent), color-mix(in srgb, var(--fd-ink-wash) 42%, transparent));   /* placeholders, disabled, decorative icons: 3:1 */
+  --fd-text-5: var(--fd-a24);      /* never text: rules, dots, decorative marks */
+  --fd-text-inverse: var(--fd-ink-inverse);
+  --fd-control-line: var(--fd-a8);
+  --fd-control-line-hover: var(--fd-a12);
+  --fd-fill: var(--fd-a4);
+  --fd-fill-hover: var(--fd-a6);
+  --fd-fill-active: var(--fd-a8);
+  --fd-fill-subtle: var(--fd-a3);    /* wells, quiet cards */
+  --fd-fill-disabled: var(--fd-a3);
+  --fd-chart-grid: var(--fd-a8);
+  --fd-chart-axis: var(--fd-text-3);
+
+  /* Structure: what the structural dials (below) move. Components read these, never the dial attributes. */
+  --fd-surface-edge: var(--fd-line-faint);   /* the edge of an object: a card, a table, a form section */
+  --fd-surface-flush: var(--fd-bg);          /* an object that sits flush with the page: an interactive card */
+  --fd-surface-head: var(--fd-bg);           /* the head strip of an object: a table's header row */
+  --fd-field: var(--fd-surface);             /* inside an input */
+  --fd-field-hover: color-mix(in srgb, var(--fd-surface) 55%, var(--fd-bg-sunken));
+  --fd-control-bg: var(--fd-fill);           /* the secondary button, the soft select, the filter trigger */
+  --fd-control-bg-hover: var(--fd-fill-hover);
+  --fd-control-bg-active: var(--fd-fill-active);
+  --fd-control-edge: transparent;            /* their edge: none while controls are soft */
+  --fd-control-edge-hover: transparent;
+}
+
+/* ---------- Scaled tokens ----------
+   Declared here (not only on :root) so they are recomputed on any element that overrides a scale:
+   a compact panel inside a comfortable page, a squarer card inside a round one. */
+:root, [data-density], [data-scale] {
+  /* ---------- Space (4px grid, with 2/6/10/14 half steps) ---------- */
+  --fd-space-0: 0;
+  --fd-space-0-5: calc(2px * var(--fd-space-scale));
+  --fd-space-1: calc(4px * var(--fd-space-scale));
+  --fd-space-1-5: calc(6px * var(--fd-space-scale));
+  --fd-space-2: calc(8px * var(--fd-space-scale));
+  --fd-space-2-5: calc(10px * var(--fd-space-scale));
+  --fd-space-3: calc(12px * var(--fd-space-scale));
+  --fd-space-3-5: calc(14px * var(--fd-space-scale));
+  --fd-space-4: calc(16px * var(--fd-space-scale));
+  --fd-space-5: calc(20px * var(--fd-space-scale));
+  --fd-space-6: calc(24px * var(--fd-space-scale));
+  --fd-space-8: calc(32px * var(--fd-space-scale));
+  --fd-space-10: calc(40px * var(--fd-space-scale));
+  --fd-space-12: calc(48px * var(--fd-space-scale));
+  --fd-space-16: calc(64px * var(--fd-space-scale));
+  --fd-space-20: calc(80px * var(--fd-space-scale));
+  --fd-space-24: calc(96px * var(--fd-space-scale));
+
+  /* ---------- Radius ---------- */
+  --fd-radius-xs: calc(4px * var(--fd-radius-scale));    /* checkboxes, tiny tags */
+  --fd-radius-sm: calc(6px * var(--fd-radius-scale));    /* chips, segmented thumb, kbd */
+  --fd-radius-md: calc(8px * var(--fd-radius-scale));    /* menu items, small buttons */
+  --fd-radius-lg: calc(10px * var(--fd-radius-scale));   /* controls: buttons, inputs, nav items */
+  --fd-radius-xl: calc(12px * var(--fd-radius-scale));   /* cards, popovers, wells */
+  --fd-radius-2xl: calc(16px * var(--fd-radius-scale));  /* dialogs, composer, large cards */
+  --fd-radius-3xl: calc(20px * var(--fd-radius-scale));  /* sheets, hero media */
+  --fd-radius-full: 999px;
+
+  /* durations */
+  --fd-dur-1: calc(100ms * var(--fd-motion));   /* press, tiny colour shifts */
+  --fd-dur-2: calc(160ms * var(--fd-motion));   /* hover, focus */
+  --fd-dur-3: calc(220ms * var(--fd-motion));   /* default: menus, toggles, thumbs */
+  --fd-dur-4: calc(320ms * var(--fd-motion));   /* dialogs, drawers, accordions */
+  --fd-dur-5: calc(520ms * var(--fd-motion));   /* page entrance, chart grow */
+}
+
+/* ---------- Density ---------- */
+[data-density="compact"] {
+  --fd-control-sm: 24px;
+  --fd-control-md: 32px;
+  --fd-control-lg: 36px;
+  --fd-control-px: 10px;
+  --fd-row: 36px;
+  --fd-row-px: 12px;
+  --fd-gutter: 20px;
+  --fd-space-scale: 0.875;
+}
+[data-density="spacious"] {
+  --fd-control-sm: 32px;
+  --fd-control-md: 40px;
+  --fd-control-lg: 44px;
+  --fd-control-px: 14px;
+  --fd-row: 52px;
+  --fd-row-px: 20px;
+  --fd-gutter: 32px;
+  --fd-space-scale: 1.125;
+}
+
+/* ---------- Contrast: stronger muted text and edges (each text step at least one ladder step up) ----------
+   Also on a palette inside a high-contrast page, which redeclares the default text steps. */
+[data-contrast="high"],
+[data-contrast="high"] [data-palette] {
+  --fd-text-2: var(--fd-a88);
+  --fd-text-3: var(--fd-a72);
+  --fd-text-4: var(--fd-a64);
+  --fd-text-5: var(--fd-a40);
+  --fd-line-faint: light-dark(#dcdcdc, #333333);
+  --fd-line: light-dark(#cfcfcf, #404040);
+  --fd-line-strong: light-dark(#b0b0b0, #5a5a5a);
+  --fd-control-line: var(--fd-a20);
+  --fd-control-line-hover: var(--fd-a32);
+}
+
+/* ==========================================================================
+   Structure: four dials that change how a page is built, not its colours.
+   Each is an attribute on <html> (or any subtree) with three values; the first is Fire's default and needs no
+   attribute. They set the semantic tokens above, so components follow without a selector of their own.
+     data-surfaces   objects · flat · outlined     white objects with a hairline on an off-white page · tinted areas,
+                                                   no edges, separation by fill · drawn boxes: page and surface one
+                                                   colour, visible edges, inputs edged at 3:1
+     data-elevation  soft · none · lifted          today's short shadows · no shadows (floating things take an edge)
+                                                   · deeper shadows, and objects lift off the page
+     data-controls   soft · outlined · filled      the 4% ink wash · an edge at 3:1 on a clear fill · a stronger wash
+                                                   (the primary button keeps its depth in every value)
+     data-headings   sentence · upper · mono       mono capitals for eyebrows, sans capitals for the sidebar's group
+                                                   labels · every small label in tracked sans capitals · every small
+                                                   label in the mono, as written
+   scripts/build-palettes.mjs --check measures every text step on the grounds each value makes, in every palette.
+   ========================================================================== */
+
+/* A surfaces value moves the page and surface colours themselves. Overriding a palette colour on the element that sets
+   it would refer to itself, so the element with the attribute (and every palette inside it) names the pair it was
+   given, and its children take the new pair from those names. Everything a component paints sits inside <body>, a
+   child of <html>; a toned palette's inline colours on <html> feed the names like any other. */
+[data-surfaces="flat"],
+[data-surfaces="flat"] [data-palette] {
+  /* Light: the page takes the surface's white and objects the page's tint, the darkest ground a palette's accent text
+     is held to. Dark: the default pair already separates by fill. */
+  --fd-flat-page: light-dark(var(--fd-surface), var(--fd-bg));
+  --fd-flat-object: light-dark(var(--fd-bg), var(--fd-surface));
+}
+[data-surfaces="flat"] > *,
+[data-surfaces="flat"] [data-palette] > * {
+  --fd-bg: var(--fd-flat-page);
+  --fd-surface: var(--fd-flat-object);
+  --fd-surface-edge: transparent;
+  --fd-surface-flush: var(--fd-surface);
+  --fd-surface-head: color-mix(in srgb, var(--fd-wash) 3%, var(--fd-surface));
+  --fd-field: var(--fd-a5);
+  --fd-field-hover: var(--fd-a7);
+  --fd-control-line: transparent;
+  --fd-control-line-hover: var(--fd-a8);
+  --fd-ring: 0 0 0 2px var(--fd-bg), 0 0 0 4px var(--fd-focus);
+}
+[data-surfaces="outlined"] > *,
+[data-surfaces="outlined"] [data-palette] > * {
+  --fd-bg: var(--fd-surface);
+  --fd-surface-edge: var(--fd-line-strong);
+  --fd-surface-flush: var(--fd-bg);
+  --fd-surface-head: var(--fd-bg);
+  --fd-control-line: var(--fd-text-4);         /* 3:1 on every ground: the input's edge is how it is found */
+  --fd-control-line-hover: var(--fd-text-3);
+  --fd-ring: 0 0 0 2px var(--fd-bg), 0 0 0 4px var(--fd-focus);
+}
+
+[data-elevation="none"] {
+  --fd-shadow-xs: 0 0 0 0 transparent;
+  --fd-shadow-sm: 0 0 0 0 transparent;
+  --fd-shadow-md: 0 0 0 0 transparent;
+  /* Floating things keep an edge instead of a shadow. */
+  --fd-shadow-lg: 0 0 0 var(--fd-hairline) var(--fd-line-strong);
+  --fd-shadow-xl: 0 0 0 var(--fd-hairline) var(--fd-line-strong);
+  --fd-shadow-thumb: 0 0 0 var(--fd-hairline) var(--fd-line-strong);
+  --fd-shadow-inset-control: inset 0 0 0 0 transparent;
+  --fd-shadow-composer: 0 0 0 0 transparent;
+  --fd-shadow-inset: inset 0 0 0 0 transparent;
+  --fd-shadow-object: 0 0 0 0 transparent;
+}
+[data-elevation="lifted"] {
+  --fd-shadow-xs: 0 1px 2px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.5)), 0 1px 1px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.3));
+  --fd-shadow-sm: 0 2px 4px -1px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.55)), 0 1px 2px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.4));
+  --fd-shadow-md: 0 10px 24px -6px light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.6)), 0 3px 6px -3px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.5));
+  --fd-shadow-lg: 0 0 0 1px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.1)), 0 24px 48px -12px light-dark(rgb(0 0 0 / 0.24), rgb(0 0 0 / 0.8)), 0 8px 16px -8px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.6));
+  --fd-shadow-xl: 0 0 0 1px light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.1)), 0 48px 96px -24px light-dark(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.85)), 0 16px 32px -12px light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.6));
+  --fd-shadow-thumb: 0 0 0 0.5px light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.12)), 0 2px 4px light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.55)), 0 4px 10px -2px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.45));
+  --fd-shadow-composer: 0 2px 4px light-dark(rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.45)), 0 16px 40px -16px light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.7));
+  --fd-shadow-object: 0 1px 2px light-dark(rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.4)), 0 8px 20px -10px light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.6));
+}
+
+/* The control tokens derive from the ink ladder, which every palette redeclares. */
+[data-controls="outlined"],
+[data-controls="outlined"] [data-palette] {
+  --fd-control-bg: transparent;
+  --fd-control-bg-hover: var(--fd-fill);
+  --fd-control-bg-active: var(--fd-fill-hover);
+  --fd-control-edge: var(--fd-text-4);         /* 3:1 on every ground */
+  --fd-control-edge-hover: var(--fd-text-3);
+}
+[data-controls="filled"],
+[data-controls="filled"] [data-palette] {
+  --fd-control-bg: var(--fd-a7);              /* hover stops at a8: muted text on it keeps 4.5:1 on the sunken well */
+  --fd-control-bg-hover: var(--fd-a8);
+  --fd-control-bg-active: var(--fd-a10);
+}
+
+[data-headings="upper"],
+[data-headings="upper"] [data-type] {
+  --fd-eyebrow-font: var(--fd-font-sans);
+  --fd-eyebrow-ls: var(--fd-ls-eyebrow);
+  --fd-eyebrow-ls-tight: var(--fd-ls-eyebrow);
+  --fd-eyebrow-weight: var(--fd-weight-medium);
+}
+[data-headings="mono"],
+[data-headings="mono"] [data-type] {
+  --fd-eyebrow-case: none;
+  --fd-eyebrow-ls: 0em;
+  --fd-section-label-font: var(--fd-font-mono);
+  --fd-section-label-ls: 0em;
+}
+
+/* ---------- Text size: scales everything set in rem ---------- */
+:root[data-text-size="sm"] { font-size: 93.75%; }
+:root[data-text-size="lg"] { font-size: 106.25%; }
+
+/* Touch: every default control grows to a 40px+ target. */
+@media (pointer: coarse) {
+  :root {
+    --fd-control-sm: 32px;
+    --fd-control-md: 40px;
+    --fd-control-lg: 44px;
+    --fd-row: 48px;
+  }
+}
+@media (max-width: 639.98px) {
+  :root {
+    --fd-gutter: 16px;
+    --fd-text-display: 2rem;   --fd-lh-display: 2.25rem;
+    --fd-text-h1: 1.75rem;     --fd-lh-h1: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fd-motion: 0;
+    --fd-press-scale: 1;
+  }
+}

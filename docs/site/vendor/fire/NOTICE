@@ -1,0 +1,5 @@
+Fire is under the MIT License (LICENSE). Parts it carries keep their own licences:
+
+Fonts in fire/fonts/ are under the SIL Open Font License 1.1 (fire/fonts/licenses/, fire/fonts/LICENSE-geist.txt).
+Icons in fire/js/icons.js are a subset of Lucide, ISC License (fire/LICENSE-lucide.txt).
+Lit, bundled in fire/elements.js, is under the BSD 3-Clause License (fire/LICENSE-lit.txt).

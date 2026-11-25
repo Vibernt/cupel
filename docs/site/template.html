@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-base="{{BASE}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{DESCRIPTION}}">
+  <meta name="robots" content="{{ROBOTS}}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Cupel documentation">
+  <meta property="og:title" content="{{TITLE}}">
+  <meta property="og:description" content="{{DESCRIPTION}}">
+  <meta property="og:url" content="{{CANONICAL}}">
+  <meta property="og:image" content="{{OG_IMAGE}}">
+  <link rel="canonical" href="{{CANONICAL}}">
+  <link rel="icon" type="image/png" href="{{BASE}}assets/cupel-logo.png">
+  <link rel="stylesheet" href="{{BASE}}vendor/fire/tokens.css">
+  <link rel="stylesheet" href="{{BASE}}vendor/fire/base.css">
+  <link rel="stylesheet" href="{{BASE}}site.css">
+  <title>{{TITLE}}</title>
+  <script id="search-index" type="application/json">{{SEARCH_INDEX}}</script>
+  <script src="{{BASE}}site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="{{BASE}}index.html" aria-label="Cupel documentation home">
+      <img src="{{BASE}}assets/cupel-logo.png" width="36" height="36" alt="">
+      <span>Cupel</span>
+      <small>v{{VERSION}}</small>
+    </a>
+    <div class="topbar-actions">
+      <div class="search" role="search">
+        <label class="visually-hidden" for="site-search">Search documentation</label>
+        <input id="site-search" type="search" placeholder="Search docs" autocomplete="off" aria-controls="search-results" aria-expanded="false">
+        <kbd aria-hidden="true">/</kbd>
+        <div id="search-results" class="search-results" role="listbox" hidden></div>
+      </div>
+      <button class="icon-button mobile-menu" type="button" aria-controls="site-sidebar" aria-expanded="false">Menu</button>
+      <button class="icon-button theme-toggle" type="button" aria-label="Toggle light and dark theme">Theme</button>
+      <a class="github-link" href="https://github.com/Vibernt/cupel">GitHub</a>
+    </div>
+  </header>
+  <div class="site-shell">
+    <aside class="sidebar" id="site-sidebar" aria-label="Documentation navigation">
+      <nav>{{SIDEBAR}}</nav>
+    </aside>
+    <main class="main" id="main-content" tabindex="-1">
+      <article class="prose">{{CONTENT}}</article>
+      {{PAGINATION}}
+      <a class="edit-link" href="{{EDIT_URL}}">Edit this page on GitHub</a>
+    </main>
+    <aside class="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <nav>{{TOC}}</nav>
+    </aside>
+  </div>
+</body>
+</html>
