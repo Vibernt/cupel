@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { jsonObjects } from '../collect/go/process.mjs';
+import { scanGo } from '../collect/go/lex.mjs';
 import { definitions } from '../collect/go/tests.mjs';
 import { refuse } from './errors.mjs';
 import { safeListedGoName } from './path.mjs';
@@ -12,6 +13,20 @@ const CHANNELS = [
 ];
 const topLevel = (name) => /^Test[A-Z0-9_]/.test(name);
 const rel = (root, path) => relative(root, path).split(sep).join('/');
+
+/** Extra Go harness entry points that must accompany an exact TestX selection. */
+function supplementalTests(files, contents) {
+  const found = { examples: false, fuzz: false };
+  for (const file of files.filter((entry) => !entry.production)) {
+    const tokens = scanGo(contents.get(file.path)).tokens;
+    for (let i = 0; i + 2 < tokens.length; i++) {
+      if (tokens[i].value !== 'func' || tokens[i + 2].value !== '(') continue;
+      if (/^Example/.test(tokens[i + 1].value)) found.examples = true;
+      if (/^Fuzz[A-Z0-9_]/.test(tokens[i + 1].value)) found.fuzz = true;
+    }
+  }
+  return found;
+}
 
 function listedFile(root, dir, file) {
   safeListedGoName(file);
@@ -32,6 +47,7 @@ export function parseInventory(root, listing, input, metrics) {
   const testsByPackage = new Map();
   const testPackages = [];
   const allFiles = [];
+  const contents = new Map();
   const packageByImport = new Map();
   for (const pkg of packages) {
     if (pkg.Error || pkg.DepsErrors?.length) refuse('inventory', `go list failed for ${pkg.ImportPath}`);
@@ -44,13 +60,15 @@ export function parseInventory(root, listing, input, metrics) {
     packageByImport.set(pkg.ImportPath, { name: pkg.Name, dir: resolve(pkg.Dir), files });
   }
   for (const { path, name } of allFiles) {
-      const contents = readFileSync(path, 'utf8');
+      const text = readFileSync(path, 'utf8');
+      contents.set(path, text);
       if (metrics) metrics.inventoryReads = (metrics.inventoryReads ?? 0) + 1;
-      if (/\/\/go:embed\b|import\s*(?:\(\s*)?"C"/.test(contents))
+      if (/\/\/go:embed\b|import\s*(?:\(\s*)?"C"/.test(text))
         refuse('unsupported-go-channel', `${name} uses cgo or go:embed`);
-      if (/^\s*\/\/(?:go:build|\s*\+build|line\b)/m.test(contents))
+      if (/^\s*\/\/(?:go:build|\s*\+build|line\b)/m.test(text))
         refuse('unsupported-go-channel', `${name} uses build or line directives`);
   }
+  for (const pkg of packageByImport.values()) pkg.supplemental = supplementalTests(pkg.files, contents);
   for (const pkg of packages) {
     for (const file of pkg.GoFiles ?? []) sourcePkg.set(listedFile(root, pkg.Dir, file).name, pkg.ImportPath);
     const testFiles = [...(pkg.TestGoFiles ?? []), ...(pkg.XTestGoFiles ?? [])];

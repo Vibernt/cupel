@@ -235,7 +235,9 @@ func main() {
 		return
 	}
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, req.Source, req.Text, parser.AllErrors)
+	// functionReason needs directive comments. ParseComments only adds comment
+	// nodes; the site and declaration walks below continue to ignore them.
+	file, err := parser.ParseFile(fset, req.Source, req.Text, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		json.NewEncoder(os.Stdout).Encode(response{Error: err.Error()})
 		return

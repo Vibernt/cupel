@@ -2,13 +2,13 @@
 // runner.mjs owns compilation and the switches-off trust check.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { cmp } from '../engine/order.mjs';
 import { goBodyVariants, goFaultHelper } from './schemata.mjs';
 
 export const GO_FAULT_HELPER = '_cupelFaultActive';
 const STATE_NAMES = [GO_FAULT_HELPER, `${GO_FAULT_HELPER}Value`];
-const HELPER_FILE = 'zz_cupel_fault.go';
+const HELPER_FILE = '0000_cupel_fault.go';
 const word = (value) => new RegExp(`(^|[^A-Za-z0-9_])${value}([^A-Za-z0-9_]|$)`);
 
 /** Stable numbers depend on the whole scoped file set, never the run subset. */
@@ -23,6 +23,9 @@ export function goPackageSwitchReason(pkg) {
   if (!pkg || typeof pkg.name !== 'string' || typeof pkg.dir !== 'string') return 'package';
   if (existsSync(join(pkg.dir, HELPER_FILE))) return 'helper-file';
   for (const file of pkg.files ?? []) {
+    // The captured switch must initialize before project variables that may
+    // clear CUPEL_FAULT. Refuse packages with an even earlier compiled name.
+    if (Buffer.compare(Buffer.from(basename(file.path)), Buffer.from(HELPER_FILE)) < 0) return 'helper-order';
     const text = readFileSync(file.path, 'utf8');
     if (STATE_NAMES.some((name) => word(name).test(text))) return 'helper-name';
     if (/\.\s*(?:Caller|Callers|CallersFrames|FuncForPC)\s*\(/.test(text)) return 'position';

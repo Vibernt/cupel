@@ -6,6 +6,8 @@ import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 import { collectGo } from '../src/collect/go/index.mjs';
 import { mutateGo } from '../src/mutate-go/index.mjs';
+import { goBodyVariants } from '../src/mutate-go/schemata.mjs';
+import { buildHelper, sourceSites } from '../src/mutate-go/sites.mjs';
 import { goPackageSwitchReason } from '../src/mutate-go/switched.mjs';
 
 const fixture = resolve(import.meta.dirname, 'fixtures/mutate-go');
@@ -161,6 +163,36 @@ func TestPositive(t *testing.T) {
   assert.equal(metrics.individual, 0);
 });
 
+test('Go switched helper captures the fault before package initialization clears it', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+import "os"
+
+var _ = os.Unsetenv("CUPEL_FAULT")
+
+func Positive(n int) bool { return n > 0 }
+`;
+  const tests = `package fixture
+
+import "testing"
+
+func TestPositive(t *testing.T) {
+	if Positive(0) { t.Fatal("zero is not positive") }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const scope = { changed: { 'value.go': '7' } };
+  const individual = await mutateGo({ root, input, scope, config: config(false) });
+  const metrics = {};
+  const switched = await mutateGo({ root, input, scope, config: config(true), metrics });
+  assert.deepEqual(switched, individual);
+  assert.equal(switched.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+});
+
 test('Go switching refuses short declarations that redeclare parameters', { timeout: 120_000 }, async (t) => {
   if (!hasVerifiedGo(t)) return;
   const source = `package fixture
@@ -203,6 +235,30 @@ func TestWait(t *testing.T) { if !Wait(context.Background(), time.Second) { t.Fa
   assert.equal(metrics.switched, 0);
   assert.equal(metrics.individual, 2);
   assert.equal(metrics.timing.prepared.refusalReasons.redeclare, 2);
+});
+
+test('Go AST-to-switch path refuses a block line directive inside a function', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+func Choose(n int) int {
+	/*line x.go:1*/
+	return n + 1
+}
+`;
+  const tests = 'package fixture\n\nimport "testing"\nfunc TestChoose(t *testing.T) { _ = Choose(2) }\n';
+  const root = project(t, source, tests);
+  const helperScratch = join(root, '.scratch', 'ast-helper');
+  mkdirSync(helperScratch, { recursive: true });
+  const env = { ...process.env, GOPROXY: 'off', GOSUMDB: 'off', GOWORK: 'off', GOTOOLCHAIN: 'local' };
+  delete env.CUPEL_FAULT;
+  const helper = await buildHelper(helperScratch, env, 120_000);
+  const sites = await sourceSites(helper, 'value.go', Buffer.from(source), null, root, env, 30_000);
+  assert.equal(sites.length, 1);
+  const rendered = goBodyVariants(source, [{ ...sites[0], number: 1 }]);
+  assert.deepEqual(rendered.switched, []);
+  assert.deepEqual(rendered.refused, [{ number: 1, reason: 'directive' }]);
+  assert.equal(rendered.text, source);
 });
 
 test('Go renderer refusal runs the fault on an individual build', { timeout: 120_000 }, async (t) => {
@@ -280,6 +336,11 @@ test('Go package switching refuses helper collisions and source-position readers
   assert.equal(goPackageSwitchReason(pkg), 'position');
   pkg.files[0].production = false;
   assert.equal(goPackageSwitchReason(pkg), null);
-  writeFileSync(join(root, 'zz_cupel_fault.go'), 'package fixture\n');
+  writeFileSync(join(root, '0000_cupel_fault.go'), 'package fixture\n');
   assert.equal(goPackageSwitchReason(pkg), 'helper-file');
+  rmSync(join(root, '0000_cupel_fault.go'));
+  const earlier = join(root, '0.go');
+  writeFileSync(earlier, 'package fixture\n');
+  pkg.files.push({ path: earlier, production: true });
+  assert.equal(goPackageSwitchReason(pkg), 'helper-order');
 });

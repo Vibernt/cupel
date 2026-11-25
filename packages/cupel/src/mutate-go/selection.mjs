@@ -9,11 +9,12 @@ import { refuse } from './errors.mjs';
 const covers = (value, line) => parseLines(value ?? '').some(([a, b]) => a <= line && line <= b);
 const escaped = (name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** An anchored Go `-run` expression selecting only these top-level names. */
-export function goRunRegex(names) {
+/** Exact TestX names plus package Examples/fuzz seeds, whose failures are package errors. */
+export function goRunRegex(names, { examples = false, fuzz = false } = {}) {
   const unique = [...new Set(names)].sort(cmp);
   if (!unique.length) throw new TypeError('goRunRegex needs at least one test name');
-  return unique.length === 1 ? `^${escaped(unique[0])}$` : `^(?:${unique.map(escaped).join('|')})$`;
+  const tests = unique.length === 1 ? `^${escaped(unique[0])}$` : `^(?:${unique.map(escaped).join('|')})$`;
+  return [tests, ...(examples ? ['^Example'] : []), ...(fuzz ? ['^Fuzz'] : [])].join('|');
 }
 
 /** Tests and packages whose recorded coverage can observe `site`. */
