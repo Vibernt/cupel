@@ -330,7 +330,7 @@ export async function mutate(mutator, options) {
   if (!mutationRequested(options.scope)) return null;
   // Each fault's measured time from the earlier input sharpens plan estimates; every run records its own.
   const history = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => Number.isInteger(m.durationMs)).map((m) => [m.id, m.durationMs]));
-  // Which tests caught each fault last time: the Rust runner tries their targets first (order only, never results).
+  // Which tests caught each fault last time: supported runners try them first (order only, never results).
   const catchers = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => m.killedBy?.length).map((m) => [m.id, m.killedBy]));
   const scope = { ...options.scope, timings: true, ...(Object.keys(history).length ? { history } : {}), ...(Object.keys(catchers).length ? { catchers } : {}) };
   if (!reuseEnabled(cfg)) {
@@ -431,7 +431,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
       return mutateRuby({ runner: externalRunner(root, cfg), root, cfg, input, scope: nativeScope });
     }
     const nodeScope = { ...(scope.functions ? { functions: true } : {}), critical: !!scope.critical, changed: scope.changed ?? null, targeted: scope.targeted ?? [],
-      ...Object.fromEntries(['reuse', 'plan', 'only', 'history', 'timings', 'firstCatch'].filter((k) => scope[k] !== undefined).map((k) => [k, scope[k]])) };
+      ...Object.fromEntries(['reuse', 'plan', 'only', 'history', 'catchers', 'timings', 'firstCatch'].filter((k) => scope[k] !== undefined).map((k) => [k, scope[k]])) };
     const ordinary = await mutator.mutateNode({ root, config: cfg, input, scope: nodeScope, log, collectorKind, diagnostics });
     // Phase 5: sources the tests run in workerd get their mutants in a scratch copy of the project.
     if (collectorKind || !Object.values(input.sources).some((s) => s.measuredIn)) return ordinary;

@@ -15,12 +15,17 @@ known.
 | Step | What it means | Runners |
 | --- | --- | --- |
 | **Only the tests that run the line** | A fault on line 40 is tested only with the tests whose coverage includes line 40. Other tests cannot notice it. | node:test, Vitest, Jest, pytest. Rust: by package (below) |
+| **Previous catchers, then own-file tests** | When an earlier input says which tests caught this exact fault, those test files or units run first. Next come tests named for the faulty source: JavaScript uses colocated or mirrored `.test`/`.spec` files; Python uses `test_<module>.py` or `<module>_test.py`. This changes only which catches are recorded before the stop rule, never the status. | node:test, Vitest, Jest, pytest; Rust with `backend: "cupel"` |
 | **Most relevant, fastest tests first** | Test files that run the line most come first, then the quickest. | node:test, Vitest, Jest |
 | **Stop once the answer is known** | A fault stops running after two different tests (two test files in JavaScript, two units in Python) have caught it. Two, not one, so Cupel still knows whether a test is the only one that catches it. A unit that a review is asking about always gets every test run. | node:test, Vitest, Jest, pytest |
 | **Time limits from measured times** | Each test file (or pytest selection) is first run once unmutated. A fault run may take three times that, with a floor of one second; a run that times out is retried once with a longer limit before it counts as a timeout. | node:test, Vitest, Jest, pytest; cargo-mutants sets its own limits from its baseline |
 | **Skip what no test runs** | A fault on a line no passing test runs is reported as `no-coverage` without being run. For Rust this saves a full build and test run per fault. | node:test, Vitest, Jest, pytest, Rust |
 | **Only the Rust packages whose tests run the code** | When the tests that run the faulty lines all live in some workspace packages, only those packages' tests run, plus the package that owns the faulty file (`--test-package`). A test elsewhere does not run the line. If Cargo features change when one package is built alone, set `wholeWorkspace`. | Rust (cargo-mutants) |
 | **Reuse earlier answers** | A fault whose code, covering tests and everything those tests read are unchanged since the last run copies its earlier result. See [Reuse](#reuse-earlier-results). | node:test, Vitest, Jest, pytest, Rust (cargo-mutants). Go, Ruby and the restricted Rust backend record fingerprints but run every fault |
+
+For development measurements, `CUPEL_MUTATION_TIMINGS=1` adds an opt-in timing
+line for JavaScript and Python mutation: total run wall time, unmutated baseline
+wall time, and its percentage. Measured times never enter the result or order.
 
 ## Settings
 
@@ -74,6 +79,10 @@ such a head for `guard --head-input` in CI. `report`, `audit`, `review` and
 `check` always record catches fully. The cargo-mutants backend runs every test
 anyway; the gain is for JavaScript, Python and `backend: "cupel"`.
 
+Within those covering tests, Cupel first tries tests that caught the same fault
+in the earlier input, then tests named for the faulty source. In first-catch mode
+this can change the credited catcher, but not whether the fault is caught.
+
 ## Reuse earlier results
 
 Every fault result Cupel writes carries a `basis`: a fingerprint of everything
@@ -116,6 +125,9 @@ Where the earlier results come from:
   never read the in-tree default.
 - **A missing `--reuse` file** is not an error: every fault runs. Use this in CI.
 - **Never:** `--no-reuse`, or `"mutation": { "reuse": false }`.
+
+Even when an earlier row cannot be reused, its `killedBy` list remains useful as
+catch history: current covering tests that caught that fault are tried first.
 
 **Trust.** A fingerprint is a checksum, not a signature: anyone can compute one.
 Reuse only results your own runs produced, such as a CI cache written by runs on
