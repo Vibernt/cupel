@@ -1,0 +1,57 @@
+{
+  "sections": [
+    {
+      "title": "Get started",
+      "pages": [
+        { "source": "site/home.md", "title": "Home" },
+        { "source": "install.md", "title": "Install" },
+        { "source": "private-use.md", "title": "Review and protect a change" },
+        { "source": "best-practices.md", "title": "Best practices" }
+      ]
+    },
+    {
+      "title": "Speed and CI",
+      "pages": [
+        { "source": "speed.md", "title": "Faster fault testing" }
+      ]
+    },
+    {
+      "title": "Runners",
+      "pages": [
+        { "source": "vitest.md", "title": "Vitest" },
+        { "source": "jest.md", "title": "Jest" },
+        { "source": "python.md", "title": "Python and pytest" },
+        { "source": "rust.md", "title": "Rust" },
+        { "source": "go.md", "title": "Go" },
+        { "source": "ruby.md", "title": "Ruby and Minitest" },
+        { "source": "workerd.md", "title": "Worker code in workerd" }
+      ]
+    },
+    {
+      "title": "Reference",
+      "pages": [
+        { "source": "cli.md", "title": "CLI reference" },
+        { "source": "extending/config.md", "title": "Configuration" },
+        { "source": "mcp.md", "title": "Local MCP server" },
+        { "source": "support.md", "title": "Support contract" },
+        { "source": "selective-pr.md", "title": "Selective PR checks" }
+      ]
+    },
+    {
+      "title": "Extending",
+      "pages": [
+        { "source": "extending/README.md", "title": "Extend Cupel" },
+        { "source": "extending/input.md", "title": "Public input format" },
+        { "source": "extending/collectors.md", "title": "External collectors" },
+        { "source": "extending/adapter-template.md", "title": "Framework adapter template" },
+        { "source": "extending/stability.md", "title": "Version and compatibility" }
+      ]
+    },
+    {
+      "title": "Project",
+      "pages": [
+        { "source": "development.md", "title": "Development" }
+      ]
+    }
+  ]
+}

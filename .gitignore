@@ -2,6 +2,7 @@
 node_modules/
 dist/
 build/
+_site/
 *.tgz
 coverage/
 .nyc_output/
