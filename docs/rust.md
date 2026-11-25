@@ -181,9 +181,12 @@ The timing line reports `switched n (operators a, bodies b)` and `individual m`.
 
 To check the switched answers, set `CUPEL_RUST_VERIFY_SWITCHED=1`: every fault that used
 the switched build (operator switches and body variants, also those continued on their own
-build for timing-sensitive targets) is run again standalone, on its own build with all its
-covering targets, the same stop rule and mode, and its final status, catching tests and
-catch kinds must be equal to the reported ones, or the run refuses naming the fault and both outcomes. It logs
+build for timing-sensitive targets) is run again standalone, on its own build, through all its
+covering targets with no early stop. Which tests a run credits depends on target order and
+the stop rule, so the check is about meaning: the status must match (a reported catch must
+be a catch; a reported timeout may turn out caught, both are detected), and every test the
+switched build credited must really catch the fault on its own build, with the same catch
+kind. Otherwise the run refuses, naming the fault and both outcomes. It logs
 `mutate-rust: verified N switched fault(s) against individual builds: all agree`. This
 is slow (one build per fault); use it to validate Cupel changes, not in CI.
 

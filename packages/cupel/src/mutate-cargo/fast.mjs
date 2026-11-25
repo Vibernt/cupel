@@ -744,17 +744,28 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       const verify = environment.CUPEL_RUST_VERIFY_SWITCHED === '1' && finals.size > 0;
       if (verify) {
         // Acceptance check: EVERY fault that used the switched build (also those continued on their own build for
-        // timing-sensitive targets) is run again standalone, on its own build with all its covering targets, the same
-        // stop rule and mode; its final outcome must equal the one reported.
+        // timing-sensitive targets) is run again standalone on its own build, through ALL its covering targets (no early
+        // stop). Which tests a run credits depends on target order and the stop rule, so the check is semantic: the same
+        // status (a reported catch must be a catch; a reported timeout may turn out caught, both are detected), every
+        // credited test must really catch the fault on its own build, with the same catch kind.
         const individual = new Map();
-        for (const id of finals.keys()) individual.set(id, await individually(plan.run.find((x) => x.id === id), null, { record: false }));
+        const stopAfter = runner.stopAfter;
+        runner.stopAfter = Infinity;
+        try {
+          for (const id of finals.keys()) individual.set(id, await individually(plan.run.find((x) => x.id === id), null, { record: false }));
+        } finally { runner.stopAfter = stopAfter; }
         const rowsOf = (list) => new Map(attributeOutcomes({ root, input, listing, compiled: runner.compiled, outcomes: list }).mutation.mutants.map((r) => [r.id, r]));
         const viaSwitch = rowsOf([...finals.values()]);
         const viaBuild = rowsOf([...individual.values()].filter((o) => o.summary !== 'Unviable'));
-        const shape = (r) => (r ? { status: r.status, killedBy: r.killedBy ?? [], killKinds: r.killKinds ?? null } : { status: 'unviable' });
+        const shape = (r) => (r ? { status: r.status, killedBy: r.killedBy ?? [], killKinds: r.killKinds ?? {} } : { status: 'unviable', killedBy: [], killKinds: {} });
+        const agrees = (a, b) => {
+          const detected = (x) => x === 'killed' || x === 'timeout';
+          if (a.status === 'timeout' ? !detected(b.status) : a.status !== b.status) return false;
+          return a.killedBy.every((t) => b.killedBy.includes(t) && (a.killKinds[t] ?? null) === (b.killKinds[t] ?? null));
+        };
         for (const id of finals.keys()) {
           const a = shape(viaSwitch.get(id)); const b = shape(viaBuild.get(id));
-          if (JSON.stringify(a) !== JSON.stringify(b)) {
+          if (!agrees(a, b)) {
             refuse(`CUPEL_RUST_VERIFY_SWITCHED: ${individual.get(id).mutant.name} (${id}) differs: switched build ${JSON.stringify(a)}, individual build ${JSON.stringify(b)}`);
           }
         }
