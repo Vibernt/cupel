@@ -242,7 +242,10 @@ each must fail, with the same catch kind. Otherwise the run refuses, naming the 
 is slow (one build per fault); use it to validate Cupel changes, not in CI.
 
 Catch-history order (targets whose tests caught the fault last time go first) only uses
-real catching tests (`killedBy`), so it can only find a real catch sooner. With the
+real catching tests (`killedBy`), so it can only find a real catch sooner. Without history,
+targets holding a test written in the fault's own source file (the module's unit tests) go
+next, then the rest by the input rule; broad integration suites cover nearly everything and
+are often the slowest, so trying them last finds most catches sooner. With the
 stop-after rule, a fault whose earlier targets only timed out may then be reported caught
 instead of timed out; both mean the fault is detected.
 

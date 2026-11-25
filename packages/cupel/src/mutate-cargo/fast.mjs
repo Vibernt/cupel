@@ -388,10 +388,12 @@ class Runner {
     const ms = (key) => this.baseline.get(key)?.ms ?? 0;
     // Only inputs decide the order (as in the JavaScript runner), so the same faults stop on the same targets
     // on every run and machine: most covering tests first, then the input's durations, then the name.
-    // Targets holding a test that caught this fault last time go first (order only); the rest by the input.
+    // Targets holding a test that caught this fault last time go first, then those holding a test of the fault's own
+    // source file (order only, see order.mjs); the rest by the input.
     const testFile = new Map(this.input.tests.map((t) => [t.id, t.file]));
     const order = orderTargets({ keys: [...byTarget.keys()], namesByKey: new Map([...byTarget].map(([k, v]) => [k, v.names])),
       inputMs: (k) => this.inputMs(k), previousCatchers: this.catchers?.[candidate.id] ?? [],
+      nearKeys: [...new Set(tests.filter((t) => t.file === candidate.source).map((t) => this.target(t.file).key))],
       keyOfTest: (id) => { const file = testFile.get(id); if (!file) return undefined; try { return this.target(file).key; } catch { return undefined; } } });
     const full = tests.some((t) => this.targetedUnits.has(t.unit ?? t.id));
     const st = state ?? { catching: 0, timedOut: false, runs: [], done: new Set(), testMs: 0 };

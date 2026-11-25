@@ -69,3 +69,12 @@ test('deterministic: the same inputs give the same order', () => {
 test('empty keys give an empty order', () => {
   assert.deepEqual(orderTargets({ keys: [], namesByKey: new Map(), inputMs: () => 0, previousCatchers: ['t1'], keyOfTest }), []);
 });
+
+test('targets with a test from the fault\'s own file come after previous catchers and before the rest', () => {
+  // Without near keys: B, D, C, A. A near key moves A ahead of the rest; a previous catcher still goes first.
+  assert.deepEqual(orderTargets({ keys: [A, B, C, D], namesByKey: names, inputMs, nearKeys: [A] }), [A, B, D, C]);
+  // Several near targets keep the input rule among themselves (C has more covering tests than A), whatever their order given.
+  assert.deepEqual(orderTargets({ keys: [A, B, C, D], namesByKey: names, inputMs, nearKeys: [A, C] }), [C, A, B, D]);
+  assert.deepEqual(orderTargets({ keys: [A, B, C, D], namesByKey: names, inputMs, nearKeys: [C, A] }), [C, A, B, D]);
+  assert.deepEqual(orderTargets({ keys: [A, B, C, D], namesByKey: names, inputMs, nearKeys: [A, 'missing'], previousCatchers: ['t-d'], keyOfTest: (id) => (id === 't-d' ? D : undefined) }), [D, A, B, C]);
+});
