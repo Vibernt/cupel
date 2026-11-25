@@ -134,6 +134,33 @@ The [support matrix](docs/support.md) is the authoritative version and scope con
 | Experimental | Selective PR commands | Outside the supported first release; Node 26.7.0 profile only; Node 22 refuses. |
 | Integration | MCP; GitHub Action wrapper | MCP is tested locally. Hosted required checks and branch protection are unverified. |
 
+### By language: what fault testing does, and what was measured
+
+| Language (runner) | Support | Only the tests that run the line | Likely catchers first, stop after two | One build for many faults | Reuse of earlier answers |
+| --- | --- | --- | --- | --- | --- |
+| JavaScript / TypeScript (node:test, Vitest, Jest) | Core | Yes, per test file | Yes | Not needed (no compile step) | Yes |
+| Python (pytest) | Core | Yes, per test | Yes | Not needed | Yes |
+| Rust (Cargo) | Preview | Yes, per test target and test (`backend: "cupel"`) | Yes | Yes, kept between runs; prepared once for CI slices | Yes |
+| Go | Preview | Yes, per package with `-run` | Yes | Yes, with a per-package check and fallback | Yes, when every compiled test file is in the basis |
+| Ruby (Minitest) | Preview | Yes, per test | Yes | Not needed | Not yet (installed gems are not in the basis) |
+| Worker code in workerd | Preview | Yes, per test | Not verified for workerd | Not needed | Not verified for workerd |
+
+Measured in recorded runs (one machine, macOS; your times depend on your tests):
+
+| Language | Workload | Result |
+| --- | --- | --- |
+| Rust | One critical file of a private workspace, 89 faults, pull-request guard | 27 min in 0.4.0, 21 min in 0.5.0 with the build kept; setup 527 s cold, 5 s warm; fault tests 1,272 s to 584 s with own-file tests first; statuses identical in every run |
+| Rust | Same file, verify mode | All 75 faults in the shared build agree with their own separate builds |
+| Rust | A second workspace (sqlx and tokio dependencies), 56 faults | cargo-mutants 138 s; Cupel 42 s cold, 26 s warm; identical results |
+| Go | Test fixture (Go 1.27.1) | Covering-only matches a whole-module run with fewer Go commands; shared build 3.9 s to 2.8 s, `go test -c` calls 4 to 1, identical results |
+| Ruby | Test fixture (MRI 4.0.7, Minitest 6.0.0) | All runtime and mutation tests pass; no real-project timing yet |
+| JavaScript | Test fixture | The unmutated pass is 8% of a run; no real-project timing recorded yet |
+| Python | Test fixture | The unmutated pass is 29% of a run; no real-project timing recorded yet |
+| Rust + Workers | Full audit of a private codebase (205 Rust and 7 workerd test files), 0.2.0 | 71 minutes; 91.97% of 7,142 lines covered |
+
+Not yet verified: Linux and Windows; real Go and Ruby repositories. Details:
+[0.5.0 release record](plans/results/2026-11-25-0.5.0-release.md).
+
 **Mixed-language repositories.** One `cupel.json` can name several runners; their
 evidence merges into one report. Code another language's tests run, such as Rust
 built into a WebAssembly module that Worker tests load, is labelled with those
