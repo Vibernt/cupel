@@ -7,7 +7,7 @@ import { cmp } from '../engine/order.mjs';
 import { goBodyVariants, goFaultHelper } from './schemata.mjs';
 
 export const GO_FAULT_HELPER = '_cupelFaultActive';
-const STATE_NAMES = [GO_FAULT_HELPER, `${GO_FAULT_HELPER}Once`, `${GO_FAULT_HELPER}Value`];
+const STATE_NAMES = [GO_FAULT_HELPER, `${GO_FAULT_HELPER}Value`];
 const HELPER_FILE = 'zz_cupel_fault.go';
 const word = (value) => new RegExp(`(^|[^A-Za-z0-9_])${value}([^A-Za-z0-9_]|$)`);
 

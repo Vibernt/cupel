@@ -15,12 +15,63 @@ function siteAt(text, number, needle, replacement, occurrence = 0, within = need
   const local = needle.indexOf(within);
   if (local < 0) throw new Error(`${within} is not in ${needle}`);
   const start = found + local;
+  const declarations = [...text.matchAll(/^func\b/gm)].map((match) => {
+    const fnStart = match.index;
+    const bodyStart = text.indexOf('{', fnStart);
+    let depth = 0;
+    let bodyEnd = -1;
+    for (let at = bodyStart; at < text.length; at++) {
+      if (text[at] === '{') depth++;
+      else if (text[at] === '}' && --depth === 0) { bodyEnd = at; break; }
+    }
+    return { fnStart, bodyStart, bodyEnd };
+  });
+  const declaration = declarations.find((fn) => start > fn.bodyStart && start < fn.bodyEnd);
+  let functionFact = null;
+  let functionLiteral = false;
+  if (declaration) {
+    const signature = text.slice(declaration.fnStart, declaration.bodyStart);
+    let at = signature.indexOf('(');
+    const close = () => {
+      let depth = 0;
+      for (; at < signature.length; at++) {
+        if (signature[at] === '(') depth++;
+        else if (signature[at] === ')' && --depth === 0) return at++;
+      }
+      return -1;
+    };
+    let paramsClose = close();
+    if (/^func\s*\(/.test(signature)) { at = signature.indexOf('(', at); paramsClose = close(); }
+    const body = text.slice(declaration.bodyStart + 1, declaration.bodyEnd);
+    const beforeSite = text.slice(declaration.bodyStart + 1, start);
+    functionLiteral = /func\s*\([^)]*\)[^{]*\{[^}]*$/s.test(beforeSite);
+    let reason = null;
+    if (/\/\/(?:go:|line(?:\s|$))|\/\*(?:go:|line(?:\s|$))/m.test(text.slice(declaration.fnStart, declaration.bodyEnd))
+      || /(?:\/\/(?:go:|line(?:\s|$))[^\n]*|\/\*(?:go:|line(?:\s|$))[\s\S]*?\*\/)\s*$/m.test(text.slice(0, declaration.fnStart))) reason = 'directive';
+    else if (/\bgoto\b|\b[_\p{L}][\p{L}\p{Nd}_]*\s*:/u.test(body)) reason = 'label';
+    else if (/\brecover\s*\(\s*\)/.test(body)) reason = 'recover';
+    else if (/\bpanic\s*\(/.test(body)) reason = 'position';
+    functionFact = {
+      start: Buffer.byteLength(text.slice(0, declaration.fnStart)),
+      bodyStart: Buffer.byteLength(text.slice(0, declaration.bodyStart)),
+      bodyEnd: Buffer.byteLength(text.slice(0, declaration.bodyEnd)),
+      results: signature.slice(paramsClose + 1).trim() !== '', generic: /func\s+\w+\s*\[/.test(signature),
+      receivers: [], parameters: [], resultNames: [], redeclare: false, ...(reason ? { reason } : {}),
+    };
+  }
+  let fileReason = null;
+  if (/^[ \t]*\/\/(?:go:build|[ \t]*\+build)\b/m.test(text)) fileReason = 'build-tag';
+  else if (/\bimport\s*(?:\(\s*)?"C"/.test(text)) fileReason = 'cgo';
+  else if (/\.(?:Helper|Caller|Callers|CallersFrames|FuncForPC|Stack)\s*\(/.test(text)) fileReason = 'position';
   return {
     number,
     start: Buffer.byteLength(text.slice(0, start)),
     end: Buffer.byteLength(text.slice(0, start + within.length)),
     original: within,
     replacement,
+    function: functionFact,
+    functionLiteral,
+    fileReason,
   };
 }
 
@@ -129,11 +180,13 @@ test('validates site numbers and byte spans, including Unicode before a site', (
   assert.equal(reason(goBodyVariants(source, [{ ...valid, original: undefined }]), 1), 'span');
 });
 
-test('renders a package-local helper that reads CUPEL_FAULT once as uint32', () => {
+test('renders a package-local helper that captures CUPEL_FAULT during package initialization', () => {
   const helper = goFaultHelper('fixture');
   assert.match(helper, /^package fixture\n/);
-  assert.match(helper, /sync\.Once/);
+  assert.doesNotMatch(helper, /sync\.Once/);
+  assert.match(helper, /var _cupelFaultActiveValue = func\(\) uint32/);
   assert.match(helper, /strconv\.ParseUint\(os\.Getenv\("CUPEL_FAULT"\), 10, 32\)/);
+  assert.match(helper, /if err != nil \{\n\t\treturn 0/);
   assert.match(helper, /func _cupelFaultActive\(\) uint32/);
   assert.throws(() => goFaultHelper('bad-name'), /package identifier/);
   assert.throws(() => goFaultHelper('package'), /package identifier/);
@@ -209,4 +262,43 @@ func main() {
   for (const site of sites) {
     assert.equal(run({ ...environment, CUPEL_FAULT: String(site.number) }), individual.get(site.number), `fault ${site.number}`);
   }
+});
+
+test('no-result method after a function type has exact switched and individual parity', { timeout: 120_000 }, (t) => {
+  const version = spawnSync('go', ['version'], { encoding: 'utf8' });
+  if (version.error?.code === 'ENOENT') return t.skip('go is not on PATH');
+  assert.equal(version.status, 0, version.stderr);
+
+  const scratch = resolve('.scratch', 'mutate-go-schemata-tests');
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(join(scratch, 'function-type-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'go.mod'), 'module example.com/cupel-function-type-parity\n\ngo 1.22\n');
+  const source = `package main
+
+import "fmt"
+
+type C struct { total int }
+type Visitor func(int)
+func (c *C) Add(n int) { if n > 0 { c.total += n } }
+
+func main() { c := &C{}; c.Add(1); fmt.Println(c.total) }
+`;
+  const site = siteAt(source, 1, 'if n > 0', '>=', 0, '>');
+  const environment = { ...process.env, GOPROXY: 'off', GOSUMDB: 'off', GOWORK: 'off' };
+  delete environment.CUPEL_FAULT;
+  const run = (env = environment) => {
+    const result = spawnSync('go', ['run', '.'], { cwd: root, env, encoding: 'utf8', timeout: 60_000 });
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+    return result.stdout;
+  };
+
+  writeFileSync(join(root, 'main.go'), applyGoSite(Buffer.from(source), site));
+  const individual = run();
+  const switched = goBodyVariants(source, [site]);
+  assert.deepEqual(switched.switched, [1]);
+  assert.deepEqual(switched.refused, []);
+  writeFileSync(join(root, 'main.go'), switched.text);
+  writeFileSync(join(root, 'cupel_fault.go'), goFaultHelper('main'));
+  assert.equal(run({ ...environment, CUPEL_FAULT: '1' }), individual);
 });

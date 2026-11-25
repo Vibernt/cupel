@@ -30,6 +30,20 @@ export async function sourceSites(helper, source, bytes, lines, root, env, timeo
   catch { refuse('go-helper', `Go AST helper returned invalid JSON for ${source}`); }
   if (response.error) refuse('source-parse', `Go source does not parse: ${source}: ${response.error}`);
   if (!Array.isArray(response.sites)) refuse('go-helper', `Go AST helper returned no site list for ${source}`);
+  if (!Array.isArray(response.functions) || !Array.isArray(response.literals))
+    refuse('go-helper', `Go AST helper returned no function facts for ${source}`);
+  const validSpan = ({ start, end }) => Number.isSafeInteger(start) && Number.isSafeInteger(end)
+    && start >= 0 && end > start && end <= bytes.length;
+  for (const fn of response.functions) {
+    if (!Number.isSafeInteger(fn.start) || !Number.isSafeInteger(fn.bodyStart) || !Number.isSafeInteger(fn.bodyEnd)
+      || fn.start < 0 || fn.bodyStart < fn.start || fn.bodyEnd <= fn.bodyStart || fn.bodyEnd >= bytes.length
+      || bytes[fn.bodyStart] !== 0x7b || bytes[fn.bodyEnd] !== 0x7d
+      || typeof fn.results !== 'boolean' || typeof fn.generic !== 'boolean' || typeof fn.redeclare !== 'boolean'
+      || !Array.isArray(fn.receivers) || !Array.isArray(fn.parameters) || !Array.isArray(fn.resultNames)
+      || ![fn.reason, response.fileReason].every((reason) => reason === undefined || typeof reason === 'string'))
+      refuse('go-helper', `Go AST function offset mismatch for ${source}`);
+  }
+  if (!response.literals.every(validSpan)) refuse('go-helper', `Go AST literal offset mismatch for ${source}`);
   const out = [];
   for (const site of response.sites) {
     if (lines && !lines.has(site.line)) continue;
@@ -37,8 +51,12 @@ export async function sourceSites(helper, source, bytes, lines, root, env, timeo
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > bytes.length ||
         bytes.subarray(start, end).toString('utf8') !== original)
       refuse('go-helper', `Go AST site offset mismatch for ${source}:${line}`);
+    const enclosing = response.functions.filter((fn) => start > fn.bodyStart && end <= fn.bodyEnd);
+    const functionLiteral = response.literals.some((literal) => start >= literal.start && end <= literal.end);
     const id = `${source}:${line}:${column}:${operator}:${shortHash(`${original}\0${replacement}`)}`;
-    out.push({ id, source, line, column, operator, start, end, original, replacement });
+    out.push({ id, source, line, column, operator, start, end, original, replacement,
+      function: enclosing.length === 1 ? enclosing[0] : null, functionLiteral,
+      fileReason: response.fileReason ?? null });
   }
   return out.sort((a, b) => a.start - b.start || cmp(a.operator, b.operator) || cmp(a.id, b.id));
 }

@@ -104,6 +104,107 @@ test('Go switched verification agrees with an individual build and credited test
   }
 });
 
+test('Go switched method after a function type matches the individual no-result mutant', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+type Visitor func(int)
+
+type C struct { total int }
+
+func (c *C) Add(n int) { if n > 0 { c.total += n } }
+`;
+  const tests = `package fixture
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	c := &C{}
+	c.Add(1)
+	if c.total != 1 { t.Fatalf("total = %d", c.total) }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const scope = { changed: { 'value.go': '7' } };
+  const individual = await mutateGo({ root, input, scope, config: config(false) });
+  const metrics = {};
+  const switched = await mutateGo({ root, input, scope, config: config(true), metrics });
+  assert.deepEqual(switched, individual);
+  assert.equal(switched.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+});
+
+test('Go switched helper keeps the selected fault when a test unsets CUPEL_FAULT', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = 'package fixture\n\nfunc Positive(n int) bool { return n > 0 }\n';
+  const tests = `package fixture
+
+import (
+	"os"
+	"testing"
+)
+
+func TestPositive(t *testing.T) {
+	os.Unsetenv("CUPEL_FAULT")
+	if Positive(0) { t.Fatal("zero is not positive") }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants[0].status, 'killed');
+  assert.deepEqual(mutation.mutants[0].killedBy, ['value_test.go::TestPositive']);
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+});
+
+test('Go switching refuses short declarations that redeclare parameters', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+import (
+	"context"
+	"time"
+)
+
+func grow(buf []byte) (int, []byte) { return len(buf), append(buf, 1) }
+
+func Grow(buf []byte) int {
+	n, buf := grow(buf)
+	if n > 0 { return len(buf) }
+	return 0
+}
+
+func Wait(ctx context.Context, d time.Duration) bool {
+	ctx, cancel := context.WithTimeout(ctx, d)
+	defer cancel()
+	return ctx != nil
+}
+`;
+  const tests = `package fixture
+
+import (
+	"context"
+	"testing"
+	"time"
+)
+
+func TestGrow(t *testing.T) { if Grow([]byte{1}) != 2 { t.Fatal("grow") } }
+func TestWait(t *testing.T) { if !Wait(context.Background(), time.Second) { t.Fatal("wait") } }
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '12,19' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants.length, 2);
+  assert.equal(metrics.switched, 0);
+  assert.equal(metrics.individual, 2);
+  assert.equal(metrics.timing.prepared.refusalReasons.redeclare, 2);
+});
+
 test('Go renderer refusal runs the fault on an individual build', { timeout: 120_000 }, async (t) => {
   if (!hasVerifiedGo(t)) return;
   const source = 'package fixture\n\nfunc Choose(n int) int {\nagain:\n\tif n < 0 { goto again }\n\treturn n + 1\n}\n';
@@ -118,7 +219,7 @@ test('Go renderer refusal runs the fault on an individual build', { timeout: 120
   assert.equal(metrics.timing.prepared.refused, 2);
 });
 
-test('Go switches-off mismatch makes the package use individual builds', { timeout: 120_000 }, async (t) => {
+test('Go package initialization ignores a test-time CUPEL_FAULT change', { timeout: 120_000 }, async (t) => {
   if (!hasVerifiedGo(t)) return;
   const source = 'package fixture\n\nfunc Choose(n int) int { return n + 1 }\n';
   const tests = `package fixture
@@ -135,9 +236,9 @@ func TestChoose(t *testing.T) {
   const metrics = {};
   const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } }, config: config(true), metrics });
   assert.equal(mutation.mutants[0].status, 'killed');
-  assert.equal(metrics.switched, 0);
-  assert.equal(metrics.individual, 1);
-  assert.equal(metrics.timing.prepared.sensitive, 1);
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+  assert.equal(metrics.timing.prepared.sensitive, 0);
 });
 
 test('Go switched compile failure falls back to the individual fault build', { timeout: 120_000 }, async (t) => {
