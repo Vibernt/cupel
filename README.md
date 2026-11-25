@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Know what your tests actually protect, and keep it when people or agents change them.</strong><br>
-  MIT · version <code>0.4.0</code> · JavaScript & TypeScript · Python · Rust · Cloudflare Workers · Go and Ruby previews
+  MIT · version <code>0.5.0</code> · JavaScript & TypeScript · Python · Rust · Cloudflare Workers · Go and Ruby previews
 </p>
 
 <picture>
@@ -53,12 +53,12 @@ You need Node **22+**, Git, and the project's own dependencies installed. pytest
 also needs Python **3.12+** and the Python collector ([installation](docs/install.md));
 Rust needs rustup's LLVM tools and, for fault testing, cargo-mutants.
 
-Install the release package offline (download `vibernt-cupel-0.4.0.tgz` from the
-[v0.4.0 release](https://github.com/Vibernt/cupel/releases/tag/v0.4.0)), or run
+Install the release package offline (download `vibernt-cupel-0.5.0.tgz` from the
+[v0.5.0 release](https://github.com/Vibernt/cupel/releases/tag/v0.5.0)), or run
 straight from a clone:
 
 ```sh
-npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.4.0.tgz
+npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.5.0.tgz
 CUPEL=~/.cupel/node_modules/.bin/cupel
 
 # or, from source
@@ -98,18 +98,25 @@ reports a fault as caught or missed when a full run would say otherwise:
 
 - **Only relevant tests.** A fault runs only the tests whose coverage includes its
   line; a fault on a line no test runs is reported without running anything.
-- **Stop once answered.** Most relevant and fastest first, stopping after two
-  catches (enough to know whether one test is the only one). On pull requests,
+- **Likely catchers first, stop once answered.** The tests that caught a fault last
+  time run first, then the tests written for its own file, then the most relevant and
+  fastest; a fault stops after two catches (enough to know whether one test is the
+  only one). Every runner, Go and Ruby included. On pull requests,
   `guard` stops at the first catch: it only needs to know whether each fault was
   caught.
 - **Reuse.** Results whose code, tests and test inputs are unchanged are copied
   from the last run (`.cupel/input.json` locally; `--reuse <file>` from your CI cache).
-- **Rust, built for it.** `"backend": "cupel"` builds only the test targets that run
-  the line and compiles many faults into one switchable build. On one critical
-  file of a private Rust workspace (90 faults), fault testing took about 27 minutes
-  as a pull-request guard and 60 with full results, against about 3 hours
-  estimated for cargo-mutants; statuses were identical. Your times depend on your tests.
-- **Slices.** When one machine is not enough, `mutate --plan` says how many, per runner.
+- **One build for many faults.** Rust (`"backend": "cupel"`) and Go compile many faults
+  into one switchable build, and only the test targets or packages that run the line.
+  Rust keeps that build between runs in your cache, so an unchanged project starts in
+  seconds. On one critical file of a private Rust workspace (89 faults), a pull-request
+  guard went from 27 minutes (0.4.0) to 21 with the build kept; trying each fault's own
+  unit tests first cut its fault-test time by more than half, and an unchanged project's
+  setup fell from about 9 minutes to 5 seconds. On a second Rust workspace: 42 s cold and
+  26 s warm against 138 s for cargo-mutants, with identical results. Your times depend
+  on your tests.
+- **Slices.** When one machine is not enough, `mutate --plan` says how many, per runner;
+  for Rust one CI job can `--prepare` the build and every slice reuses it.
 
 [Faster fault testing](docs/speed.md) has the settings and CI recipes;
 [best practices](docs/best-practices.md) covers what to run when and how to read
@@ -163,7 +170,7 @@ Cupel never creates the human approvals that removing a critical test needs.
 | [Docs index](docs/README.md) | Usage, runners, extension contracts and evidence. |
 | [Best practices](docs/best-practices.md), [Faster fault testing](docs/speed.md) | What to run when; settings, reuse, slices and CI recipes. |
 | [Rust](docs/rust.md), [workerd](docs/workerd.md), [Python](docs/python.md) | Runner details and limits. |
-| [Release records](plans/results/2026-11-23-0.4.0-release.md) | What each version adds and what was verified ([0.3.0](plans/results/2026-11-23-0.3.0-release.md), [0.2.0](plans/results/2026-11-23-0.2.0-candidate.md), [first candidate](plans/results/2026-10-26-private-candidate.md), [history](docs/private-use.md#artifact-provenance)). |
+| [Release records](plans/results/2026-11-25-0.5.0-release.md) | What each version adds and what was verified ([0.4.0](plans/results/2026-11-23-0.4.0-release.md), [0.3.0](plans/results/2026-11-23-0.3.0-release.md), [0.2.0](plans/results/2026-11-23-0.2.0-candidate.md), [first candidate](plans/results/2026-10-26-private-candidate.md), [history](docs/private-use.md#artifact-provenance)). |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Checks, repository rules and [development tooling](docs/development.md). |
 
 The README artwork is code: Fire components rendered by

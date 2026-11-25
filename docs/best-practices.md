@@ -75,8 +75,20 @@ to keep results between runs on CI machines that start empty.
 ## 7. Rust
 
 - Install cargo-mutants yourself; Cupel never downloads it.
-- Cache `target/` in CI; mark few files critical; raise `jobs` only with memory
-  to spare.
+- Prefer `"backend": "cupel"`: it keeps its build session in your cache between runs,
+  so repeat runs on an unchanged project start in seconds. Clear it with
+  `cupel clean --rust-sessions`; it never grows past `sessionCapGB` (10 GB).
+- Pass the last result with `--reuse` (`cupel report` also reads `.cupel/input.json`): besides
+  copying unchanged answers, it tells Cupel which tests caught each fault last time,
+  and those run first.
+- In CI with slices, run `mutate --prepare --cache-dir DIR` once, archive `DIR` with
+  `tar` (it keeps the mtimes Cargo needs) and restore it at the same path in every
+  slice. List job-specific variables your tests never read, such as `GITHUB_*` or
+  `RUNNER_*`, in `sessionEnvIgnore`, or slices measure the unmutated tests again.
+- Turn on `bodyVariants` to put more operator faults into the shared build; leave it
+  off if your tests read panic line numbers.
+- Without a prepared session, cache `target/` in CI; mark few files critical; raise
+  `jobs` (cargo-mutants backend) only with memory to spare.
 - Read [Rust](rust.md) for what is refused (custom targets and runners) and why.
 
 ## 8. Cloudflare Workers
