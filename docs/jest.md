@@ -27,6 +27,11 @@ wrapper before the project's transformer; source text travels in process
 memory, and Jest's disk cache is disabled. Cupel never writes mutant source or
 transformed mutant files.
 
+For each fault, covering files whose tests caught it in the previous input run
+first. Next come colocated or mirrored `.test`/`.spec` files named for the faulty
+source, then the existing coverage-count and input-duration order. Ordering can
+change which catcher is credited before early stop, never the mutant status.
+
 `runners.jest.env` is supported. This verified adapter rejects
 `runners.jest.command`, `tests`, `prepare`, and `project` rather than ignoring
 them. It also rejects other Jest versions, a custom or per-file environment,
