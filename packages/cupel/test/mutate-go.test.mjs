@@ -176,6 +176,55 @@ test('Go process abort cannot be credited as a test kill', async (t) => {
   assert.equal(mutation.mutants[0].killedBy, undefined);
 });
 
+test('Go mutation runs Examples in a selected package and reports their failure as error', async (t) => {
+  const root = project(t);
+  writeFileSync(join(root, 'value.go'), 'package fixture\n\nfunc Value(n int) int { return n + 1 }\n');
+  writeFileSync(join(root, 'value_test.go'), `package fixture
+
+import (
+	"fmt"
+	"testing"
+)
+
+func TestValue(t *testing.T) { _ = Value(1) }
+
+func ExampleValue() {
+	fmt.Println(Value(1))
+	// Output: 2
+}
+`);
+  const input = await collectGo({ root, runs: 1 });
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } },
+    config: { mutation: { maxMutants: 1, maxSeconds: 120 } } });
+  assert.equal(mutation.mutants.length, 1);
+  assert.equal(mutation.mutants[0].status, 'error');
+  assert.equal(mutation.mutants[0].killedBy, undefined);
+});
+
+test('Go mutation runs fuzz seeds in a selected package and reports their failure as error', async (t) => {
+  const root = project(t);
+  writeFileSync(join(root, 'value.go'), 'package fixture\n\nfunc Value(n int) int { return n + 1 }\n');
+  writeFileSync(join(root, 'value_test.go'), `package fixture
+
+import "testing"
+
+func TestValue(t *testing.T) { _ = Value(1) }
+
+func FuzzValue(f *testing.F) {
+	f.Add(1)
+	f.Fuzz(func(t *testing.T, n int) {
+		if Value(n) != n+1 { t.Fatalf("Value(%d)", n) }
+	})
+}
+`);
+  const input = await collectGo({ root, runs: 1 });
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } },
+    config: { mutation: { maxMutants: 1, maxSeconds: 120 } } });
+  assert.equal(mutation.mutants.length, 1);
+  assert.equal(mutation.mutants[0].status, 'error');
+  assert.equal(mutation.mutants[0].killedBy, undefined);
+});
+
 test('Go refuses source writes during baseline, mutant run and historical confirmation', async (t) => {
   const reference = project(t);
   const input = await collectGo({ root: reference, runs: 1 });

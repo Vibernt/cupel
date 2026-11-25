@@ -1,0 +1,228 @@
+/* ==========================================================================
+   Fire — base: reset, type roles, focus, icons, primitives
+   ========================================================================== */
+
+/* ---------- Tokens ---------- */
+:root {
+  /* scrollbar */
+  --fd-base-scrollbar: 10px;          /* WebKit scrollbar width / height */
+  --fd-base-scrollbar-gap: 3px;       /* transparent border that insets the thumb */
+  /* links */
+  --fd-base-link-offset: 3px;         /* underline distance from the baseline */
+  /* icons */
+  --fd-base-icon-2xl: 32px;           /* the largest data-size step (empty states) */
+  /* keyboard hint */
+  --fd-kbd-size: 20px;                /* minimum width and height */
+  --fd-kbd-px: 5px;
+  /* inline code */
+  --fd-base-code-py: 1px;
+  --fd-base-code-px: 5px;
+  /* layout */
+  --fd-base-grid-min: 260px;          /* default minimum column of .fd-grid */
+  /* .fd-column: a block that stops growing at a readable width */
+  --fd-column-xs: 320px;
+  --fd-column-sm: 400px;
+  --fd-column-md: 560px;              /* default */
+  --fd-column-lg: 640px;
+  --fd-column-xl: 768px;
+  /* utilities and motion */
+  --fd-base-sr-size: 1px;             /* the visually hidden box */
+  --fd-base-rise: 8px;                /* how far .fd-rise travels */
+  --fd-base-spin: 0.8s;               /* .fd-spin (the button spinner uses --fd-loop-spin) */
+  --fd-base-motion-off: 0.01ms;       /* animation length when the user asks for reduced motion */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; tab-size: 2; scroll-padding-top: calc(var(--fd-topbar-h) + var(--fd-space-4)); }
+body {
+  margin: 0;
+  background: var(--fd-bg);
+  color: var(--fd-text);
+  font-family: var(--fd-font-sans);
+  font-size: var(--fd-text-md);
+  line-height: var(--fd-lh-md);
+  font-weight: var(--fd-weight-regular);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre { margin: 0; }
+h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; text-wrap: balance; }
+p { text-wrap: pretty; }
+ul[class], ol[class], menu { list-style: none; margin: 0; padding: 0; }
+img, svg, video, canvas { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; margin: 0; }
+button { background: none; border: 0; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:disabled { cursor: not-allowed; }
+a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+table { border-collapse: collapse; border-spacing: 0; }
+fieldset { margin: 0; padding: 0; border: 0; min-inline-size: 0; }
+legend { padding: 0; }
+hr { border: 0; border-top: var(--fd-hairline) solid var(--fd-line-faint); margin: 0; }
+[hidden] { display: none !important; }
+::selection { background: var(--fd-accent-24); color: var(--fd-text); }
+::placeholder { color: var(--fd-text-4); opacity: 1; }
+
+/* Focus: one ring everywhere, only for keyboard. */
+:focus { outline: none; }
+:focus-visible { outline: none; box-shadow: var(--fd-ring); border-radius: var(--fd-radius-sm); }
+/* Focus moved by script to a non-control (focusQuiet in core.js): the element holds focus, the ring stays off. */
+[data-fd-focus="quiet"]:focus-visible { box-shadow: none; }
+
+/* Scrollbars: thin, ink-tinted, invisible until needed. */
+* { scrollbar-width: thin; scrollbar-color: var(--fd-a16) transparent; }
+::-webkit-scrollbar { width: var(--fd-base-scrollbar); height: var(--fd-base-scrollbar); }
+::-webkit-scrollbar-thumb { background: var(--fd-a16); border-radius: var(--fd-radius-full); border: var(--fd-base-scrollbar-gap) solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--fd-a32); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- Type roles ---------- */
+.fd-display { font-family: var(--fd-font-display); font-size: var(--fd-text-display); line-height: var(--fd-lh-display); letter-spacing: var(--fd-ls-display); font-weight: var(--fd-weight-display); }
+.fd-h1 { font-family: var(--fd-font-display); font-size: var(--fd-text-h1); line-height: var(--fd-lh-h1); letter-spacing: var(--fd-ls-h1); font-weight: var(--fd-weight-display); }
+.fd-h2 { font-family: var(--fd-font-display); font-size: var(--fd-text-h2); line-height: var(--fd-lh-h2); letter-spacing: var(--fd-ls-h2); font-weight: var(--fd-weight-display); }
+.fd-h3 { font-family: var(--fd-font-display); font-size: var(--fd-text-h3); line-height: var(--fd-lh-h3); letter-spacing: var(--fd-ls-h3); font-weight: var(--fd-weight-label); }
+.fd-title { font-size: var(--fd-text-title); line-height: var(--fd-lh-title); letter-spacing: var(--fd-ls-title); font-weight: var(--fd-weight-label); }
+/* A long unbroken name (a branch, a test id) wraps instead of clipping. */
+:is(.fd-display, .fd-h1, .fd-h2, .fd-h3, .fd-title) { overflow-wrap: anywhere; }
+.fd-label { font-size: var(--fd-text-md); line-height: var(--fd-lh-md); font-weight: var(--fd-weight-label); }
+.fd-body-lg { font-size: var(--fd-text-lg); line-height: var(--fd-lh-lg); letter-spacing: var(--fd-ls-lg); }
+.fd-body { font-size: var(--fd-text-md); line-height: var(--fd-lh-md); }
+.fd-small { font-size: var(--fd-text-sm); line-height: var(--fd-lh-sm); }
+.fd-caption { font-size: var(--fd-text-xs); line-height: var(--fd-lh-xs); }
+.fd-stat { font-size: var(--fd-text-stat); line-height: var(--fd-lh-stat); letter-spacing: var(--fd-ls-stat); font-weight: var(--fd-weight-medium); font-variant-numeric: tabular-nums; }
+
+/* Mono is the system's second voice: identifiers, figures with units, and eyebrows. */
+.fd-mono { font-family: var(--fd-font-mono); font-size: var(--fd-text-sm); line-height: var(--fd-lh-sm); }
+.fd-mono-sm { font-family: var(--fd-font-mono); font-size: var(--fd-text-xs); line-height: var(--fd-lh-xs); }
+.fd-eyebrow {
+  font-family: var(--fd-eyebrow-font);
+  font-size: var(--fd-text-xs);
+  line-height: var(--fd-lh-xs);
+  letter-spacing: var(--fd-eyebrow-ls-tight);
+  text-transform: var(--fd-eyebrow-case);
+  color: var(--fd-text-3);
+  font-weight: var(--fd-eyebrow-weight);
+}
+.fd-eyebrow[data-tone="accent"] { color: var(--fd-accent-text); }
+.fd-num { font-variant-numeric: tabular-nums; }
+
+.fd-text-2 { color: var(--fd-text-2); }
+.fd-muted { color: var(--fd-text-3); }
+.fd-faint { color: var(--fd-text-4); }
+.fd-accent-text { color: var(--fd-accent-text); }
+.fd-success-text { color: var(--fd-success-text); }
+.fd-warning-text { color: var(--fd-warning-text); }
+.fd-danger-text { color: var(--fd-danger-text); }
+.fd-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fd-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fd-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.fd-sr-only { position: absolute; width: var(--fd-base-sr-size); height: var(--fd-base-sr-size); padding: 0; margin: calc(var(--fd-base-sr-size) * -1); overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---------- Links ---------- */
+.fd-link {
+  color: var(--fd-accent-text);
+  text-decoration: underline;
+  text-decoration-color: var(--fd-accent-40);
+  text-decoration-thickness: var(--fd-hairline);
+  text-underline-offset: var(--fd-base-link-offset);
+  transition: text-decoration-color var(--fd-dur-2) var(--fd-ease-out);
+  border-radius: var(--fd-radius-xs);
+}
+.fd-link:hover { text-decoration-color: currentColor; }
+.fd-link[data-tone="neutral"] { color: var(--fd-text); text-decoration-color: var(--fd-a32); }
+.fd-link[data-tone="neutral"]:hover { text-decoration-color: var(--fd-text); }
+/* Quiet link: no underline until hover (nav-like text, "See all"). */
+.fd-link[data-quiet] { text-decoration-color: transparent; }
+.fd-link[data-quiet]:hover { text-decoration-color: currentColor; }
+
+/* ---------- Icons ---------- */
+.fd-icon {
+  width: var(--fd-icon); height: var(--fd-icon); flex: none;
+  fill: none; stroke: currentColor; stroke-width: var(--fd-icon-stroke);
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.fd-icon[data-size="12"] { width: var(--fd-icon-xs); height: var(--fd-icon-xs); stroke-width: 1.75; }
+.fd-icon[data-size="14"] { width: var(--fd-icon-sm); height: var(--fd-icon-sm); stroke-width: 1.6; }
+.fd-icon[data-size="20"] { width: var(--fd-icon-lg); height: var(--fd-icon-lg); }
+.fd-icon[data-size="24"] { width: var(--fd-icon-xl); height: var(--fd-icon-xl); }
+.fd-icon[data-size="32"] { width: var(--fd-base-icon-2xl); height: var(--fd-base-icon-2xl); stroke-width: 1.25; }
+i[data-icon] { display: inline-block; width: var(--fd-icon); height: var(--fd-icon); flex: none; }
+/* <fd-icon class="fd-icon"> (fire/elements.js) is the icon's root, laid out like svg.fd-icon; its SVG fills it and
+   inherits fill and stroke, so every .fd-icon rule, direct-child rules included, applies to both forms. */
+fd-icon { display: block; max-width: 100%; }
+fd-icon.fd-icon > svg { inline-size: 100%; block-size: 100%; }
+
+/* ---------- Keyboard hint ---------- */
+.fd-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--fd-kbd-size); height: var(--fd-kbd-size); padding: 0 var(--fd-kbd-px);
+  font-family: var(--fd-font-mono); font-size: var(--fd-text-2xs); line-height: 1; color: var(--fd-text-3);
+  background: var(--fd-surface); border-radius: var(--fd-radius-sm);
+  box-shadow: 0 0 0 var(--fd-hairline) var(--fd-line), 0 var(--fd-hairline) 0 var(--fd-hairline) var(--fd-line);
+}
+
+/* ---------- Inline code ---------- */
+.fd-code {
+  font-family: var(--fd-font-mono); font-size: 0.92em;
+  padding: var(--fd-base-code-py) var(--fd-base-code-px); border-radius: var(--fd-radius-sm);
+  background: var(--fd-fill); color: var(--fd-text);
+}
+.fd-code[data-tone="accent"] { background: var(--fd-accent-8); color: var(--fd-accent-text); }
+
+/* ---------- Layout primitives ---------- */
+.fd-stack { display: flex; flex-direction: column; gap: var(--fd-gap, var(--fd-space-4)); min-width: 0; }
+/* A fieldset's legend is not a flex item, so the stack's gap does not reach it: give it the same space. */
+fieldset.fd-stack > legend { margin-block-end: var(--fd-gap, var(--fd-space-4)); }
+.fd-row { display: flex; align-items: center; gap: var(--fd-gap, var(--fd-space-2)); min-width: 0; }
+.fd-row[data-wrap] { flex-wrap: wrap; }
+.fd-row[data-justify="between"] { justify-content: space-between; }
+.fd-row[data-justify="end"] { justify-content: flex-end; }
+.fd-row[data-justify="center"] { justify-content: center; }
+.fd-stack[data-align="center"] { align-items: center; }
+.fd-stack[data-align="start"] { align-items: flex-start; }
+.fd-stack[data-align="end"] { align-items: flex-end; }
+.fd-row[data-align="start"] { align-items: flex-start; }
+.fd-row[data-align="baseline"] { align-items: baseline; }
+/* end: a button beside a field with a label lines up with the input, not with the label above it. */
+.fd-row[data-align="end"] { align-items: flex-end; }
+.fd-row[data-align="stretch"] { align-items: stretch; }
+.fd-grow { flex: 1 1 0; min-width: 0; }
+.fd-grid { display: grid; gap: var(--fd-gap, var(--fd-space-4)); grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--fd-min, var(--fd-base-grid-min)), (100% - (var(--fd-cols, 99) - 1) * var(--fd-gap, var(--fd-space-4))) / var(--fd-cols, 99))), 1fr)); }
+/* A column that fills its container up to a readable width. It is how a narrow block is placed on a wide
+   page: nothing else in markup sets a width. Combine it with fd-stack / fd-row / fd-grid, or wrap a component. */
+.fd-column { --_l-col: var(--fd-column-md); inline-size: 100%; max-inline-size: var(--_l-col); min-inline-size: 0; }
+.fd-column[data-size="xs"] { --_l-col: var(--fd-column-xs); }
+.fd-column[data-size="sm"] { --_l-col: var(--fd-column-sm); }
+.fd-column[data-size="lg"] { --_l-col: var(--fd-column-lg); }
+.fd-column[data-size="xl"] { --_l-col: var(--fd-column-xl); }
+.fd-column[data-align="center"] { margin-inline: auto; }
+/* Beside other things in a row, a column is that wide and gives way when the row runs out of room. */
+.fd-row > .fd-column { flex: 0 1 var(--_l-col); inline-size: auto; }
+.fd-divider { height: var(--fd-hairline); background: var(--fd-line-faint); border: 0; flex: none; }
+.fd-divider[data-vertical] { width: var(--fd-hairline); height: auto; align-self: stretch; }
+.fd-divider.fd-grow { flex: 1 1 0; }  /* a rule that fills a row, either side of an "or" */
+
+/* ---------- Motion primitives ---------- */
+@keyframes fd-fade-in { from { opacity: 0; } }
+@keyframes fd-rise { from { opacity: 0; transform: translateY(var(--fd-base-rise)); } }
+@keyframes fd-pop { from { opacity: 0; transform: scale(0.96); } }
+@keyframes fd-spin { to { transform: rotate(360deg); } }
+@keyframes fd-pulse { 50% { opacity: 0.45; } }
+@keyframes fd-blink { 50% { opacity: 0; } }
+@keyframes fd-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes fd-grow-y { from { transform: scaleY(0); } }
+@keyframes fd-grow-x { from { transform: scaleX(0); } }
+@keyframes fd-ping { 75%, 100% { transform: scale(2.2); opacity: 0; } }
+
+/* Entrance: add .fd-rise to a container and set --fd-i on children for a stagger. */
+.fd-rise { animation: fd-rise var(--fd-dur-5) var(--fd-ease-emphasized) both; animation-delay: calc(var(--fd-i, 0) * var(--fd-stagger)); }
+.fd-fade { animation: fd-fade-in var(--fd-dur-4) var(--fd-ease-out) both; }
+.fd-spin { animation: fd-spin var(--fd-base-spin) linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: var(--fd-base-motion-off) !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
+
+/* Container-query contexts used by responsive components. */
+.fd-cq { container-type: inline-size; }

@@ -13,7 +13,7 @@
 // Pure: no I/O, no node: imports.
 
 /** One line of Rust, appended (on a line of its own) to the crate root. */
-export const FAULT_MODULE = '#[doc(hidden)] #[allow(dead_code, unused)] pub mod __cupel_faults { pub fn on(n: u32) -> bool { static F: ::std::sync::OnceLock<u32> = ::std::sync::OnceLock::new(); n != 0 && *F.get_or_init(|| ::std::env::var("CUPEL_FAULT").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0)) == n } }';
+export const FAULT_MODULE = '#[doc(hidden)] #[allow(dead_code, unused)] pub mod __cupel_faults { pub fn on(n: u32) -> bool { n != 0 && active() == n } pub fn active() -> u32 { *F.get_or_init(|| ::std::env::var("CUPEL_FAULT").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0)) } static F: ::std::sync::OnceLock<u32> = ::std::sync::OnceLock::new(); }';
 
 export function faultModule() { return FAULT_MODULE; }
 

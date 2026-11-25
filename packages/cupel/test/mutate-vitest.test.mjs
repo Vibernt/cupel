@@ -11,12 +11,11 @@ import { mutateVitest, confirmSurvivors } from '../src/mutate/index.mjs';
 import { projectTypeScript, scanJsx } from '../src/lang/js/project-typescript.mjs';
 import { scanSources } from '../src/collect/vitest/sources.mjs';
 import { main } from '../src/cli/main.mjs';
+import { VITEST4_MODULES, VITEST4_TYPESCRIPT, VITEST5_REACT,
+  VITEST5_TYPESCRIPT, VITEST_VERSIONS } from './support/vitest-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
-const versions = [
-  ['4.1.11', '/Users/vid/codecrystal/hub-ts/node_modules'],
-  ['5.0.1', '/Users/vid/codecrystal/web/node_modules'],
-];
+const versions = VITEST_VERSIONS;
 
 function project(modules) {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
@@ -72,8 +71,8 @@ test('TSX test body', () => { expect(<em>ok</em>).toBeTruthy(); });
   }
   mkdirSync(join(root, 'node_modules'));
   symlinkSync(join(modules, 'vitest'), join(root, 'node_modules/vitest'));
-  symlinkSync('/Users/vid/codecrystal/hub-ts/node_modules/typescript', join(root, 'node_modules/typescript'));
-  symlinkSync('/Users/vid/codecrystal/web/node_modules/react', join(root, 'node_modules/react'));
+  symlinkSync(VITEST4_TYPESCRIPT, join(root, 'node_modules/typescript'));
+  symlinkSync(VITEST5_REACT, join(root, 'node_modules/react'));
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 
@@ -108,14 +107,14 @@ test('JSX sources without a project TypeScript package are skipped with one line
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('a resolved TypeScript package without createScanner reports the incompatibility', { skip: !existsSync('/Users/vid/codecrystal/web/node_modules/typescript/package.json') }, () => {
+test('a resolved TypeScript package without createScanner reports the incompatibility', { skip: !existsSync(join(VITEST5_TYPESCRIPT, 'package.json')) }, () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const root = mkdtempSync(join(repo, '.scratch/typescript-api-'));
   try {
     writeFileSync(join(root, 'package.json'), '{"private":true}');
     mkdirSync(join(root, 'node_modules'));
     mkdirSync(join(root, 'src'));
-    symlinkSync('/Users/vid/codecrystal/web/node_modules/typescript', join(root, 'node_modules/typescript'));
+    symlinkSync(VITEST5_TYPESCRIPT, join(root, 'node_modules/typescript'));
     writeFileSync(join(root, 'src/a.tsx'), 'export const a = <b>one</b>;');
     const logs = [], diagnostics = [];
     assert.equal(scanSources(root, {}, (line) => logs.push(line), diagnostics).size, 0);
@@ -124,8 +123,8 @@ test('a resolved TypeScript package without createScanner reports the incompatib
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('Vitest collection reports a module load error rather than a partial input', { skip: !existsSync('/Users/vid/codecrystal/hub-ts/node_modules/vitest/package.json') }, async (t) => {
-  const p = project('/Users/vid/codecrystal/hub-ts/node_modules');
+test('Vitest collection reports a module load error rather than a partial input', { skip: !existsSync(join(VITEST4_MODULES, 'vitest/package.json')) }, async (t) => {
+  const p = project(VITEST4_MODULES);
   t.after(p.cleanup);
   writeFileSync(join(p.root, 'tests/broken.test.ts'), "import '../src/missing';\n");
   await assert.rejects(collectVitest({ root: p.root, files: ['tests/broken.test.ts'], runs: 1 }), (error) => {
@@ -135,8 +134,8 @@ test('Vitest collection reports a module load error rather than a partial input'
   });
 });
 
-test('Vitest CLI report and --evidence run mutation', { skip: !existsSync('/Users/vid/codecrystal/hub-ts/node_modules/vitest/package.json'), timeout: 60000 }, async (t) => {
-  const p = project('/Users/vid/codecrystal/hub-ts/node_modules');
+test('Vitest CLI report and --evidence run mutation', { skip: !existsSync(join(VITEST4_MODULES, 'vitest/package.json')), timeout: 60000 }, async (t) => {
+  const p = project(VITEST4_MODULES);
   t.after(p.cleanup);
   assert.equal(spawnSync('git', ['init', '-q', p.root]).status, 0);
   writeFileSync(join(p.root, 'cupel.json'), JSON.stringify({

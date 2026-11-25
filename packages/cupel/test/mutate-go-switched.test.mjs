@@ -1,0 +1,346 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
+import test from 'node:test';
+import { collectGo } from '../src/collect/go/index.mjs';
+import { mutateGo } from '../src/mutate-go/index.mjs';
+import { goBodyVariants } from '../src/mutate-go/schemata.mjs';
+import { buildHelper, sourceSites } from '../src/mutate-go/sites.mjs';
+import { goPackageSwitchReason } from '../src/mutate-go/switched.mjs';
+
+const fixture = resolve(import.meta.dirname, 'fixtures/mutate-go');
+const scratch = resolve('.scratch', 'mutate-go-switched-tests');
+const config = (schemata = true) => ({
+  mutation: { maxMutants: 10, maxSeconds: 120, seed: 7 },
+  runners: { go: { mutants: { schemata } } },
+});
+
+function hasVerifiedGo(t) {
+  const result = spawnSync('go', ['version'], { encoding: 'utf8' });
+  if (!result.error && result.status === 0 && /\bgo1\.27\.1\b/.test(result.stdout)) return true;
+  const message = 'go switched mutation needs Go 1.27.1';
+  if (process.env.CUPEL_REQUIRE_NATIVE_MUTATION === '1') assert.fail(message);
+  t.skip(message);
+  return false;
+}
+
+function project(t, source, tests) {
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(join(scratch, 'case-'));
+  copyFileSync(join(fixture, 'go.mod'), join(root, 'go.mod'));
+  writeFileSync(join(root, 'value.go'), source);
+  writeFileSync(join(root, 'value_test.go'), tests);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  return root;
+}
+
+const cleanSource = `package fixture
+
+func Choose(n int) int { return n + 1 }
+
+func Identity(n int) int { return n + 0 }
+`;
+const cleanTests = `package fixture
+
+import "testing"
+
+func TestChoose(t *testing.T) { if Choose(2) != 3 { t.Fatal("Choose") } }
+func TestIdentity(t *testing.T) { if Identity(2) != 2 { t.Fatal("Identity") } }
+`;
+
+test('Go switched build matches individual rows with fewer compile commands', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const root = project(t, cleanSource, cleanTests);
+  const input = await collectGo({ root, runs: 1 });
+  const scope = { changed: { 'value.go': '3,5' }, targeted: ['value_test.go::TestChoose', 'value_test.go::TestIdentity'] };
+
+  const individualMetrics = {};
+  const individualStarted = performance.now();
+  const individual = await mutateGo({ root, input, scope, config: config(false), metrics: individualMetrics });
+  const individualMs = Math.round(performance.now() - individualStarted);
+
+  const switchedMetrics = {};
+  const logs = [];
+  const timingsPath = join(root, '.scratch', 'go-timings.json');
+  const previousTimings = process.env.CUPEL_GO_TIMINGS;
+  process.env.CUPEL_GO_TIMINGS = timingsPath;
+  const switchedStarted = performance.now();
+  let switched;
+  try {
+    switched = await mutateGo({ root, input, scope, config: config(true), metrics: switchedMetrics, log: (line) => logs.push(line) });
+  } finally {
+    if (previousTimings === undefined) delete process.env.CUPEL_GO_TIMINGS;
+    else process.env.CUPEL_GO_TIMINGS = previousTimings;
+  }
+  const switchedMs = Math.round(performance.now() - switchedStarted);
+
+  assert.deepEqual(switched, individual);
+  assert.equal(switchedMetrics.switched, 2);
+  assert.equal(switchedMetrics.individual, 0);
+  assert.ok(switchedMetrics.compileCalls < individualMetrics.compileCalls,
+    `switched used ${switchedMetrics.compileCalls} go test -c calls; individual used ${individualMetrics.compileCalls}`);
+  assert.match(logs.find((line) => line.startsWith('mutate-go: timings ')) ?? '', /switched 2, individual 0, compile .* test .* go \d+ call/);
+  const timings = JSON.parse(readFileSync(timingsPath, 'utf8'));
+  assert.equal(timings.switched, 2);
+  assert.equal(timings.compileCalls, switchedMetrics.compileCalls);
+  t.diagnostic(`fixture wall time: individual ${individualMs}ms; switched ${switchedMs}ms; go test -c ${individualMetrics.compileCalls} -> ${switchedMetrics.compileCalls}`);
+});
+
+test('Go switched verification agrees with an individual build and credited test', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const root = project(t, cleanSource, cleanTests);
+  const input = await collectGo({ root, runs: 1 });
+  const previous = process.env.CUPEL_GO_VERIFY_SWITCHED;
+  process.env.CUPEL_GO_VERIFY_SWITCHED = '1';
+  try {
+    const metrics = {};
+    const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } }, config: config(true), metrics });
+    assert.equal(mutation.mutants[0].status, 'killed');
+    assert.deepEqual(mutation.mutants[0].killedBy, ['value_test.go::TestChoose']);
+    assert.equal(metrics.verified, 1);
+  } finally {
+    if (previous === undefined) delete process.env.CUPEL_GO_VERIFY_SWITCHED;
+    else process.env.CUPEL_GO_VERIFY_SWITCHED = previous;
+  }
+});
+
+test('Go switched method after a function type matches the individual no-result mutant', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+type Visitor func(int)
+
+type C struct { total int }
+
+func (c *C) Add(n int) { if n > 0 { c.total += n } }
+`;
+  const tests = `package fixture
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	c := &C{}
+	c.Add(1)
+	if c.total != 1 { t.Fatalf("total = %d", c.total) }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const scope = { changed: { 'value.go': '7' } };
+  const individual = await mutateGo({ root, input, scope, config: config(false) });
+  const metrics = {};
+  const switched = await mutateGo({ root, input, scope, config: config(true), metrics });
+  assert.deepEqual(switched, individual);
+  assert.equal(switched.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+});
+
+test('Go switched helper keeps the selected fault when a test unsets CUPEL_FAULT', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = 'package fixture\n\nfunc Positive(n int) bool { return n > 0 }\n';
+  const tests = `package fixture
+
+import (
+	"os"
+	"testing"
+)
+
+func TestPositive(t *testing.T) {
+	os.Unsetenv("CUPEL_FAULT")
+	if Positive(0) { t.Fatal("zero is not positive") }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants[0].status, 'killed');
+  assert.deepEqual(mutation.mutants[0].killedBy, ['value_test.go::TestPositive']);
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+});
+
+test('Go switched helper captures the fault before package initialization clears it', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+import "os"
+
+var _ = os.Unsetenv("CUPEL_FAULT")
+
+func Positive(n int) bool { return n > 0 }
+`;
+  const tests = `package fixture
+
+import "testing"
+
+func TestPositive(t *testing.T) {
+	if Positive(0) { t.Fatal("zero is not positive") }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const scope = { changed: { 'value.go': '7' } };
+  const individual = await mutateGo({ root, input, scope, config: config(false) });
+  const metrics = {};
+  const switched = await mutateGo({ root, input, scope, config: config(true), metrics });
+  assert.deepEqual(switched, individual);
+  assert.equal(switched.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+});
+
+test('Go switching refuses short declarations that redeclare parameters', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+import (
+	"context"
+	"time"
+)
+
+func grow(buf []byte) (int, []byte) { return len(buf), append(buf, 1) }
+
+func Grow(buf []byte) int {
+	n, buf := grow(buf)
+	if n > 0 { return len(buf) }
+	return 0
+}
+
+func Wait(ctx context.Context, d time.Duration) bool {
+	ctx, cancel := context.WithTimeout(ctx, d)
+	defer cancel()
+	return ctx != nil
+}
+`;
+  const tests = `package fixture
+
+import (
+	"context"
+	"testing"
+	"time"
+)
+
+func TestGrow(t *testing.T) { if Grow([]byte{1}) != 2 { t.Fatal("grow") } }
+func TestWait(t *testing.T) { if !Wait(context.Background(), time.Second) { t.Fatal("wait") } }
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '12,19' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants.length, 2);
+  assert.equal(metrics.switched, 0);
+  assert.equal(metrics.individual, 2);
+  assert.equal(metrics.timing.prepared.refusalReasons.redeclare, 2);
+});
+
+test('Go AST-to-switch path refuses a block line directive inside a function', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+func Choose(n int) int {
+	/*line x.go:1*/
+	return n + 1
+}
+`;
+  const tests = 'package fixture\n\nimport "testing"\nfunc TestChoose(t *testing.T) { _ = Choose(2) }\n';
+  const root = project(t, source, tests);
+  const helperScratch = join(root, '.scratch', 'ast-helper');
+  mkdirSync(helperScratch, { recursive: true });
+  const env = { ...process.env, GOPROXY: 'off', GOSUMDB: 'off', GOWORK: 'off', GOTOOLCHAIN: 'local' };
+  delete env.CUPEL_FAULT;
+  const helper = await buildHelper(helperScratch, env, 120_000);
+  const sites = await sourceSites(helper, 'value.go', Buffer.from(source), null, root, env, 30_000);
+  assert.equal(sites.length, 1);
+  const rendered = goBodyVariants(source, [{ ...sites[0], number: 1 }]);
+  assert.deepEqual(rendered.switched, []);
+  assert.deepEqual(rendered.refused, [{ number: 1, reason: 'directive' }]);
+  assert.equal(rendered.text, source);
+});
+
+test('Go renderer refusal runs the fault on an individual build', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = 'package fixture\n\nfunc Choose(n int) int {\nagain:\n\tif n < 0 { goto again }\n\treturn n + 1\n}\n';
+  const tests = 'package fixture\n\nimport "testing"\nfunc TestChoose(t *testing.T) { if Choose(2) != 3 { t.Fatal("Choose") } }\n';
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '6' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 0);
+  assert.equal(metrics.individual, 1);
+  assert.equal(metrics.timing.prepared.refused, 2);
+});
+
+test('Go package initialization ignores a test-time CUPEL_FAULT change', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = 'package fixture\n\nfunc Choose(n int) int { return n + 1 }\n';
+  const tests = `package fixture
+
+import "testing"
+
+func TestChoose(t *testing.T) {
+	t.Setenv("CUPEL_FAULT", "1")
+	if Choose(2) != 3 { t.Fatal("Choose") }
+}
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 1);
+  assert.equal(metrics.individual, 0);
+  assert.equal(metrics.timing.prepared.sensitive, 0);
+});
+
+test('Go switched compile failure falls back to the individual fault build', { timeout: 120_000 }, async (t) => {
+  if (!hasVerifiedGo(t)) return;
+  const source = `package fixture
+
+func Choose(n int) int { return n + 1 }
+
+func Label() string { return "a" + "b" }
+`;
+  const tests = `package fixture
+
+import "testing"
+
+func TestChoose(t *testing.T) { if Choose(2) != 3 { t.Fatal("Choose") } }
+func TestLabel(t *testing.T) { if Label() != "ab" { t.Fatal("Label") } }
+`;
+  const root = project(t, source, tests);
+  const input = await collectGo({ root, runs: 1 });
+  const metrics = {};
+  const mutation = await mutateGo({ root, input, scope: { changed: { 'value.go': '3' } }, config: config(true), metrics });
+  assert.equal(mutation.mutants[0].status, 'killed');
+  assert.equal(metrics.switched, 0);
+  assert.equal(metrics.individual, 1);
+  assert.equal(metrics.timing.prepared.compileFallback, 1);
+});
+
+test('Go package switching refuses helper collisions and source-position readers', (t) => {
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(join(scratch, 'scan-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = join(root, 'value.go');
+  const pkg = { name: 'fixture', dir: root, files: [{ path: file, production: true }] };
+  writeFileSync(file, 'package fixture\nvar _cupelFaultActiveValue uint32\n');
+  assert.equal(goPackageSwitchReason(pkg), 'helper-name');
+  writeFileSync(file, 'package fixture\nfunc f() { _, _, _, _ = runtime.Caller(0) }\n');
+  assert.equal(goPackageSwitchReason(pkg), 'position');
+  writeFileSync(file, 'package fixture\nfunc helper(t T) { t.Helper() }\n');
+  assert.equal(goPackageSwitchReason(pkg), 'position');
+  pkg.files[0].production = false;
+  assert.equal(goPackageSwitchReason(pkg), null);
+  writeFileSync(join(root, '0000_cupel_fault.go'), 'package fixture\n');
+  assert.equal(goPackageSwitchReason(pkg), 'helper-file');
+  rmSync(join(root, '0000_cupel_fault.go'));
+  const earlier = join(root, '0.go');
+  writeFileSync(earlier, 'package fixture\n');
+  pkg.files.push({ path: earlier, production: true });
+  assert.equal(goPackageSwitchReason(pkg), 'helper-order');
+});

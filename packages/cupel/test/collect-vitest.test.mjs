@@ -13,16 +13,14 @@ import { main } from '../src/cli/main.mjs';
 import { requireCollector } from '../src/cli/collect.mjs';
 import { linkVitestModules } from './vitest-modules.mjs';
 import { VitestMutantRunner } from '../src/mutate/vitest.mjs';
+import { VITEST_VERSIONS } from './support/vitest-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const fixture = join(repo, 'spec/conformance/adapters/vitest');
 const expected = JSON.parse(readFileSync(join(fixture, 'expected.json'), 'utf8'));
 const schemas = Object.fromEntries(['input', 'config', 'report'].map((name) => [name,
   JSON.parse(readFileSync(join(repo, `spec/schemas/${name}.schema.json`), 'utf8'))]));
-const versions = [
-  ['4.1.11', '/Users/vid/codecrystal/hub-ts/node_modules'],
-  ['5.0.1', '/Users/vid/codecrystal/web/node_modules'],
-];
+const versions = VITEST_VERSIONS;
 
 test('Vitest K10 title survives shifted lines and K13 records a changing branch', { skip: !existsSync(join(versions[0][1], 'vitest/package.json')) }, async () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });

@@ -6,12 +6,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { collectVitest } from '../src/collect/vitest/index.mjs';
 import { injectVitestProjects } from '../src/collect/vitest/projects.mjs';
 import { linkVitestModules } from './vitest-modules.mjs';
+import { VITEST_VERSIONS } from './support/vitest-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
-const versions = [
-  ['4.1.11', '/Users/vid/codecrystal/hub-ts/node_modules'],
-  ['5.0.1', '/Users/vid/codecrystal/web/node_modules'],
-];
+const versions = VITEST_VERSIONS;
 
 function fixture(modules, form) {
   mkdirSync(join(repo, '.scratch'), { recursive: true });

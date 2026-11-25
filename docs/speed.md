@@ -14,13 +14,20 @@ known.
 
 | Step | What it means | Runners |
 | --- | --- | --- |
-| **Only the tests that run the line** | A fault on line 40 is tested only with the tests whose coverage includes line 40. Other tests cannot notice it. | node:test, Vitest, Jest, pytest. Rust: by package (below) |
-| **Most relevant, fastest tests first** | Test files that run the line most come first, then the quickest. | node:test, Vitest, Jest |
-| **Stop once the answer is known** | A fault stops running after two different tests (two test files in JavaScript, two units in Python) have caught it. Two, not one, so Cupel still knows whether a test is the only one that catches it. A unit that a review is asking about always gets every test run. | node:test, Vitest, Jest, pytest |
-| **Time limits from measured times** | Each test file (or pytest selection) is first run once unmutated. A fault run may take three times that, with a floor of one second; a run that times out is retried once with a longer limit before it counts as a timeout. | node:test, Vitest, Jest, pytest; cargo-mutants sets its own limits from its baseline |
-| **Skip what no test runs** | A fault on a line no passing test runs is reported as `no-coverage` without being run. For Rust this saves a full build and test run per fault. | node:test, Vitest, Jest, pytest, Rust |
+| **Only the tests that run the line** | A fault on line 40 is tested only with the tests whose coverage includes line 40. Other tests cannot notice it. | node:test, Vitest, Jest, pytest, Ruby. Go and Rust: by package (below) |
+| **Most relevant, fastest tests first** | Test files that run the line most come first, then the quickest. | node:test, Vitest, Jest, Go (packages) |
+| **Known catchers and matching tests first** | Tests that caught the same fault in the earlier input run first, then tests of the fault's own source: colocated or mirrored `.test`/`.spec` files (JavaScript), `test_<module>.py` or `<module>_test.py` (Python), a matching test file name (Ruby), the same-directory `_test.go` package (Go), same-file targets (Rust). Remaining order comes only from the input. This changes which catches are recorded before the stop rule; it can also turn a timed-out fault into a caught one (both count as detected), never a caught or detected fault into an unnoticed one. Pytest falls back to collected input order for both baseline and mutant when reordered baseline tests regress. | node:test, Vitest, Jest, pytest, Ruby, Go, Rust (`backend: "cupel"`) |
+| **Stop once the answer is known** | A fault stops running after two different tests (two test files in JavaScript, two units in Python, two tests in Ruby, two packages in Go) have caught it. Two, not one, so Cupel still knows whether a test is the only one that catches it. A unit that a review is asking about always gets every test run. | node:test, Vitest, Jest, pytest, Ruby, Go |
+| **Time limits from measured times** | Each test file (or pytest, Ruby or Go package selection) is first run once unmutated. A fault run may take three times that, with a floor of one second; a run that times out is retried once with a longer limit before it counts as a timeout. | node:test, Vitest, Jest, pytest, Ruby, Go; cargo-mutants sets its own limits from its baseline |
+| **Skip what no test runs** | A fault on a line no passing test runs is reported as `no-coverage` without being run. For Go and Rust this saves a build and test run per fault. | node:test, Vitest, Jest, pytest, Ruby, Go, Rust |
+| **Only the Go packages whose tests run the code** | Go compiles the faulty source package first, then only packages holding covering tests. `-run` selects the exact recorded top-level `TestX` tests; setup/file coverage expands to every recorded test in that package. When a selected package defines Examples or fuzz functions, their Examples and seed corpora run too so a package failure cannot become a silent pass. | Go |
+| **One switched Go build for many faults** | Go numbers every fault in the scoped files deterministically and compiles certain whole-function variants into one overlay. Each needed test package is compiled once; packages whose switch-off tests differ, packages the renderer refuses, and switched compile failures use the ordinary one-build-per-fault path. | Go |
 | **Only the Rust packages whose tests run the code** | When the tests that run the faulty lines all live in some workspace packages, only those packages' tests run, plus the package that owns the faulty file (`--test-package`). A test elsewhere does not run the line. If Cargo features change when one package is built alone, set `wholeWorkspace`. | Rust (cargo-mutants) |
-| **Reuse earlier answers** | A fault whose code, covering tests and everything those tests read are unchanged since the last run copies its earlier result. See [Reuse](#reuse-earlier-results). | node:test, Vitest, Jest, pytest, Rust (cargo-mutants). Go, Ruby and the restricted Rust backend record fingerprints but run every fault |
+| **Reuse earlier answers** | A fault whose code, covering tests and everything those tests read are unchanged since the last run copies its earlier result. See [Reuse](#reuse-earlier-results). | node:test, Vitest, Jest, pytest, Go, Rust (cargo-mutants and `backend: "cupel"`). Ruby and the [restricted Rust backend](rust.md) (maintainer-only Homebrew profile) record fingerprints but run every fault; Ruby's basis does not yet identify installed gems and Bundler/Gem path state |
+
+For development measurements, `CUPEL_MUTATION_TIMINGS=1` adds an opt-in timing
+line for JavaScript and Python mutation: total run wall time, unmutated baseline
+wall time, and its percentage. Measured times never enter the result or order.
 
 ## Settings
 
@@ -49,6 +56,7 @@ In `cupel.json` (full list in the [config schema](../spec/schemas/config.schema.
 | `mutation.seed` | fixed | Changes which sample is taken. Keep it fixed so runs stay comparable. |
 | `mutation.reuse` | on | `false` switches reuse off. `ignore` lists files whose changes can never change a test result, such as docs no test reads. `env` adds environment variables whose values change test results. |
 | `runners.cargo.mutants.wholeWorkspace` | false | Test every workspace package for every Rust fault. Use it when Cargo features differ between one package alone and the whole workspace. |
+| `runners.go.mutants.schemata` | true | Compile safe Go faults into one switched overlay. `false` keeps the individual build per fault; it is useful for parity checks, not normally for speed. |
 | `guard.firstCatch` | true | `guard` collects the head's faults stopping at the first catching test (see below). `false` records catches fully. |
 | `runners.cargo.mutants.jobs` | 1 | Rust faults built and tested in parallel. Each job needs its own build and memory. |
 
@@ -57,7 +65,7 @@ In `cupel.json` (full list in the [config schema](../spec/schemas/config.schema.
 A pull request's guard needs one answer per fault: was it caught? It never needs
 *which* tests caught it, or whether only one test does. So `guard` collects the
 head with each fault stopping at its **first** catching test file (JavaScript),
-test (Python) or test target (Rust), instead of the second. Statuses are exactly
+test (Python or Ruby), test package (Go) or test target (Rust), instead of the second. Statuses are exactly
 the same; the list of catching tests is shorter.
 
 This matters most where one test is the only one catching a fault: proving it is
@@ -73,6 +81,10 @@ described by what only it caught. Turn the mode off with
 such a head for `guard --head-input` in CI. `report`, `audit`, `review` and
 `check` always record catches fully. The cargo-mutants backend runs every test
 anyway; the gain is for JavaScript, Python and `backend: "cupel"`.
+
+Within those covering tests, Cupel first tries tests that caught the same fault
+in the earlier input, then tests named for the faulty source. In first-catch mode
+this can change the credited catcher, but not whether the fault is caught.
 
 ## Reuse earlier results
 
@@ -116,6 +128,9 @@ Where the earlier results come from:
   never read the in-tree default.
 - **A missing `--reuse` file** is not an error: every fault runs. Use this in CI.
 - **Never:** `--no-reuse`, or `"mutation": { "reuse": false }`.
+
+Even when an earlier row cannot be reused, its `killedBy` list remains useful as
+catch history: current covering tests that caught that fault are tried first.
 
 **Trust.** A fingerprint is a checksum, not a signature: anyone can compute one.
 Reuse only results your own runs produced, such as a CI cache written by runs on
@@ -236,8 +251,16 @@ and tests them itself:
    (inside macros, `const` code, or expressions it cannot bound exactly) gets its
    own incremental build instead. Turn switching off with `"schemata": false`.
 
-Everything happens in a scratch copy of the project with its own `target/`
-folder; the project is never changed. cargo-mutants must still be installed: Cupel
+Everything happens in a copy of the project with its own `target/` folder; the
+project is never changed. That copy is a **persistent session** under
+`<cache>/rust-sessions/` in the per-user cache folder (`CUPEL_CACHE_DIR`): the second run in a project skips the cold
+dependency build, and skips each test target's unmutated baseline (and switches-off
+check) whose executable and test names are unchanged. The timing line reports
+`session warm` and `baselines reused n/m`. The sessions of all projects share a disk cap
+of 10 GB (`runners.cargo.mutants.sessionCapGB`, least recently used removed first);
+`cupel clean --rust-sessions` removes them all (`--project`: this project's) and `"session": false` goes back to a
+throwaway copy. CI that starts empty gets no benefit unless it caches
+the session cache folder. cargo-mutants must still be installed: Cupel
 uses its fault list.
 
 ## Slicing across CI machines
@@ -322,6 +345,37 @@ jobs:
       - run: cupel merge-mutations --input .cupel/collected.json --out .cupel/head.json slice-*.json
 ```
 
+### Sharing one build between slices
+
+With the Rust `backend: "cupel"`, prepare the whole fault plan once and archive
+the persistent session rather than making every slice start from a cold build:
+
+```sh
+DIR=/opt/cupel-cache
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --prepare --cache-dir "$DIR" --json > prepared.json
+tar -C "$DIR" -cf rust-sessions.tar rust-sessions
+
+# Each slice restores at the same absolute path.
+mkdir -p "$DIR"
+tar -C "$DIR" -xf rust-sessions.tar
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --shard "$INDEX/$TOTAL" --cache-dir "$DIR" --out "slice-$INDEX.json"
+
+cupel merge-mutations --input .cupel/collected.json \
+  --out .cupel/head.json slice-*.json
+```
+
+Every job needs the same OS image, toolchain, Cupel/config/flags, absolute
+checkout path and absolute cache path. Transfer `rust-sessions.tar` with mtimes
+preserved: Cargo uses them for freshness, while zip-based artifact uploads may
+not preserve them. An OS, toolchain, Cupel/config/flags or checkout mismatch
+changes the session id, so Cupel falls back to a new cold build. If Cupel selects
+a restored session folder but its recorded project or cache path differs, it
+refuses the moved bundle because compiled tests can embed paths such as
+`CARGO_MANIFEST_DIR`. The timing line/JSON says `prepared true` and reports the
+baseline and switches-off reuse counts when a slice reused the prepared verdicts.
+
 ## What is not done, and why
 
 - **Stopping at the very first catch.** It would save a little more, but Cupel
@@ -332,5 +386,5 @@ jobs:
 - **Re-collecting coverage only for changed tests.** This is how a suite can look
   green while missing something; Cupel's experimental selective mode keeps it
   separate and never lets it approve a whole suite.
-- **Shipping one Rust build to every slice.** Each slice compiles its own
-  switched build today; sharing one build between machines is future work.
+
+**Rust sessions and `--out`/`--reuse` files:** the persistent Rust build session reuses its baselines only when the whole project is unchanged, and a report or reuse file inside the project counts. Keep `--out` and `--reuse` files under `.cupel/` (never copied or digested) or outside the project so they do not stop reuse.

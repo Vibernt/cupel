@@ -55,6 +55,10 @@ module Cupel
         row
       end
 
+      def self.targeted?(site, own)
+        own.values.any? { |paths| paths.fetch(site.source, Set.new).include?(site.line) }
+      end
+
       def self.mutate(root, input, scope, config = {})
         verify_runtime!(input)
         raise 'Ruby mutation does not support function-only scope' if scope['functions']
@@ -69,6 +73,9 @@ module Cupel
         wanted, own = Policy.scope_lines(input, scope, config)
         sources, sites = candidates(root, input, wanted)
         selected = sample(sites, own, cap, seed)
+        catchers = scope.fetch('catchers', {})
+        raise 'scope.catchers must be an object' unless catchers.is_a?(Hash)
+        raise 'scope.catchers values must be arrays' unless catchers.values.all? { |ids| ids.is_a?(Array) }
         results = {}
         scratch_root = File.join(root, '.scratch')
         Dir.mkdir(scratch_root, 0o700) unless Dir.exist?(scratch_root)
@@ -76,7 +83,10 @@ module Cupel
           assessment = Assessment.new(root, scratch, deadline)
           selected.each do |site|
             break if ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) >= deadline
-            result = assessment.assess(sources.fetch(site.source), site, Policy.select(input, site))
+            result = assessment.assess(sources.fetch(site.source), site, Policy.select(input, site),
+                                       first_catch: scope['firstCatch'] == true,
+                                       targeted: targeted?(site, own),
+                                       catchers: catchers.fetch(site.id, []))
             results[site.id] = result if result
           end
         end

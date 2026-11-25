@@ -1,6 +1,8 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { jsonObjects } from '../collect/go/process.mjs';
+import { scanGo } from '../collect/go/lex.mjs';
+import { definitions } from '../collect/go/tests.mjs';
 import { refuse } from './errors.mjs';
 import { safeListedGoName } from './path.mjs';
 
@@ -11,6 +13,20 @@ const CHANNELS = [
 ];
 const topLevel = (name) => /^Test[A-Z0-9_]/.test(name);
 const rel = (root, path) => relative(root, path).split(sep).join('/');
+
+/** Extra Go harness entry points that must accompany an exact TestX selection. */
+function supplementalTests(files, contents) {
+  const found = { examples: false, fuzz: false };
+  for (const file of files.filter((entry) => !entry.production)) {
+    const tokens = scanGo(contents.get(file.path)).tokens;
+    for (let i = 0; i + 2 < tokens.length; i++) {
+      if (tokens[i].value !== 'func' || tokens[i + 2].value !== '(') continue;
+      if (/^Example/.test(tokens[i + 1].value)) found.examples = true;
+      if (/^Fuzz[A-Z0-9_]/.test(tokens[i + 1].value)) found.fuzz = true;
+    }
+  }
+  return found;
+}
 
 function listedFile(root, dir, file) {
   safeListedGoName(file);
@@ -28,23 +44,31 @@ export function parseInventory(root, listing, input, metrics) {
   if (!packages.length) refuse('inventory', 'go list returned no module packages');
   const sourcePkg = new Map();
   const testPkg = new Map();
+  const testsByPackage = new Map();
   const testPackages = [];
   const allFiles = [];
+  const contents = new Map();
+  const packageByImport = new Map();
   for (const pkg of packages) {
     if (pkg.Error || pkg.DepsErrors?.length) refuse('inventory', `go list failed for ${pkg.ImportPath}`);
     for (const channel of CHANNELS) if (pkg[channel]?.length)
       refuse('unsupported-go-channel', `${pkg.ImportPath} uses ${channel}; Go mutation source overlay is unverified for this channel`);
-    const files = [...(pkg.GoFiles ?? []), ...(pkg.TestGoFiles ?? []), ...(pkg.XTestGoFiles ?? []), ...(pkg.IgnoredGoFiles ?? [])];
-    for (const file of files) allFiles.push(listedFile(root, pkg.Dir, file));
+    const testFiles = new Set([...(pkg.TestGoFiles ?? []), ...(pkg.XTestGoFiles ?? [])]);
+    const files = [...(pkg.GoFiles ?? []), ...testFiles, ...(pkg.IgnoredGoFiles ?? [])]
+      .map((file) => ({ ...listedFile(root, pkg.Dir, file), production: !testFiles.has(file) }));
+    allFiles.push(...files);
+    packageByImport.set(pkg.ImportPath, { name: pkg.Name, dir: resolve(pkg.Dir), files });
   }
   for (const { path, name } of allFiles) {
-      const contents = readFileSync(path, 'utf8');
+      const text = readFileSync(path, 'utf8');
+      contents.set(path, text);
       if (metrics) metrics.inventoryReads = (metrics.inventoryReads ?? 0) + 1;
-      if (/\/\/go:embed\b|import\s*(?:\(\s*)?"C"/.test(contents))
+      if (/\/\/go:embed\b|import\s*(?:\(\s*)?"C"/.test(text))
         refuse('unsupported-go-channel', `${name} uses cgo or go:embed`);
-      if (/^\s*\/\/(?:go:build|\s*\+build|line\b)/m.test(contents))
+      if (/^\s*\/\/(?:go:build|\s*\+build|line\b)/m.test(text))
         refuse('unsupported-go-channel', `${name} uses build or line directives`);
   }
+  for (const pkg of packageByImport.values()) pkg.supplemental = supplementalTests(pkg.files, contents);
   for (const pkg of packages) {
     for (const file of pkg.GoFiles ?? []) sourcePkg.set(listedFile(root, pkg.Dir, file).name, pkg.ImportPath);
     const testFiles = [...(pkg.TestGoFiles ?? []), ...(pkg.XTestGoFiles ?? [])];
@@ -67,7 +91,21 @@ export function parseInventory(root, listing, input, metrics) {
     if (lookup.has(key)) refuse('inventory', `duplicate Go test name in package: ${test.name}`);
     ids.add(test.id);
     lookup.set(key, test);
+    if (!testsByPackage.has(pkg)) testsByPackage.set(pkg, []);
+    testsByPackage.get(pkg).push(test);
   }
   if (!lookup.size) refuse('inventory', 'Go mutation requires a complete nonempty top-level test inventory');
-  return { packages, testPackages: [...new Set(testPackages)].sort(), lookup, sourcePkg };
+  // Selective -run baselines cannot reveal a test omitted from the input. Go rejects
+  // ordinary TestX functions with invalid signatures, and TestMain is not selectable,
+  // so the collector's existing source definitions preserve the complete-inventory gate
+  // without running every package as a fallback.
+  for (const pkg of packages) {
+    const declared = [...definitions(pkg, root).values()].filter((test) => test.name !== 'TestMain')
+      .map((test) => test.id).sort();
+    const collected = (testsByPackage.get(pkg.ImportPath) ?? []).map((test) => test.id).sort();
+    if (declared.length !== collected.length || declared.some((id, i) => id !== collected[i]))
+      refuse('isolation-mismatch', `collected Go tests differ from source definitions in ${pkg.ImportPath}`);
+  }
+  for (const tests of testsByPackage.values()) tests.sort((a, b) => (a.id > b.id) - (a.id < b.id));
+  return { packages, packageByImport, testPackages: [...new Set(testPackages)].sort(), testPkg, testsByPackage, lookup, sourcePkg };
 }

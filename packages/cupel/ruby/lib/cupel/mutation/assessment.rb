@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative 'process'
+require_relative 'order'
 
 module Cupel
   module Mutation
@@ -12,11 +13,14 @@ module Cupel
         @attempt = 0
       end
 
-      def assess(source, site, selected)
+      def assess(source, site, selected, first_catch: false, targeted: false, catchers: [])
         return ['no-coverage', []] if selected.empty?
 
         killers = []
-        selected.each do |test|
+        timed_out = false
+        errored = false
+        stop_after = first_catch ? 1 : 2
+        Order.tests(selected, site.source, catchers).each do |test|
           remaining = time_left
           return nil if remaining <= 0
           key = test.fetch('id')
@@ -28,10 +32,21 @@ module Cupel
           return nil if limit <= 0
           outcome = evaluate(source, site, test, limit)
           return nil unless outcome
-          return outcome if %w[error timeout].include?(outcome[0])
-          killers << key if outcome[0] == 'killed'
+          case outcome[0]
+          when 'killed' then killers << key
+          when 'timeout' then timed_out = true
+          when 'error' then errored = true
+          end
+          # Two catches preserve unique-kill evidence. A targeted unit needs the
+          # complete catching set. Errors and timeouts cannot settle the answer:
+          # a later test may still catch the mutant, so they never stop the loop.
+          break if !targeted && killers.length >= stop_after
         end
-        killers.empty? ? ['survived', []] : ['killed', killers.sort]
+        return ['killed', killers.sort] unless killers.empty?
+        return ['timeout', []] if timed_out
+        return ['error', []] if errored
+
+        ['survived', []]
       end
 
       private

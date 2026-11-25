@@ -11,10 +11,12 @@ import { sourceMutants } from '../src/mutate/sites.mjs';
 import { analyzePseudo } from '../src/analysis/pseudo.mjs';
 import { bodySites } from '../src/mutate/body-sites.mjs';
 import { main } from '../src/cli/main.mjs';
+import { VITEST4_MODULES } from './support/vitest-paths.mjs';
+import { TEST_PYTHON } from './support/python-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
-const modules = '/Users/vid/codecrystal/hub-ts/node_modules';
-const python = '/Users/vid/codecrystal/.venv/bin/python';
+const modules = VITEST4_MODULES;
+const python = TEST_PYTHON;
 const source = `export function ignored(x) {
   const answer = x + 1;
   return answer * 1;
@@ -162,7 +164,7 @@ def test_checks_value():
     assert checked(3) == 5
 `);
     writeFileSync(join(root, 'pyproject.toml'), '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n');
-    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { pytest: { collector: `${python} -m vibernt_cupel collect` } },
+    writeFileSync(join(root, 'cupel.json'), JSON.stringify({ runners: { pytest: { collector: `"${python}" -m vibernt_cupel collect` } },
       mutation: { maxMutants: 10, maxSeconds: 60 } }));
     const before = hashes(root);
     const stdout = [], stderr = [];

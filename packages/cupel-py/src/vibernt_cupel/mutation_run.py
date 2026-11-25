@@ -13,6 +13,7 @@ from pathlib import Path
 from .mutation_scope import EnvironmentError, source_path, lines, own_lines, scope_lines, whole_units
 from .mutation_sites import apply, generate
 from .mutation_source import SourceChangedError, SourceFacts
+from .mutation_order import order_units
 
 
 def _draw(items, amount, seed):
@@ -56,7 +57,7 @@ def _run(root, nodeids, env, tmp, timeout, deadline, spec=None):
 
 
 class Session:
-    def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000, targeted=()):
+    def __init__(self, root, input_data, config, tmp, deadline, facts, floor_ms=1000, targeted=(), catchers=None):
         self.root, self.input, self.config, self.tmp, self.deadline = root, input_data, config, tmp, deadline
         self.targeted = set(targeted)
         self.first_catch = False
@@ -64,6 +65,8 @@ class Session:
         self.floor_ms = floor_ms
         self.tests = {t['id']: t for t in input_data['tests']}
         self.baselines = {}
+        self.baseline_ms = 0
+        self.catchers = catchers or {}
         self.counter = 0
         self.env = config.get('runners', {}).get('pytest', {}).get('env', {})
 
@@ -85,7 +88,8 @@ class Session:
             for file, covered in cov.get(mapping, {}).items():
                 if site.line in lines(covered.get(site.source, '')):
                     files.add(file)
-        return [t for t in self.input['tests'] if t['status'] == 'passed' and t['file'] in files and (t in found or site.line in lines(cov.get('setup', {}).get(t['file'], {}).get(site.source, '')) or site.line in lines(cov.get('byFile', {}).get(t['file'], {}).get(site.source, '')))]
+        selected = [t for t in self.input['tests'] if t['status'] == 'passed' and t['file'] in files and (t in found or site.line in lines(cov.get('setup', {}).get(t['file'], {}).get(site.source, '')) or site.line in lines(cov.get('byFile', {}).get(t['file'], {}).get(site.source, '')))]
+        return order_units(selected, site.source, self.catchers.get(site.id, ()))
 
     def needs_full(self, site):
         """Whether a targeted unit covers the mutant, so every selected test must run."""
@@ -94,23 +98,49 @@ class Session:
     def baseline(self, selected):
         key = tuple(t['id'] for t in selected)
         if key not in self.baselines:
-            ids = [t['id'].replace(' > ', '::') for t in selected]
-            for attempt in range(2):
-                run = self.run(ids, 600)
-                if run['cut']:
+            started = time.monotonic()
+            try:
+                effective = selected
+                run = self._baseline_run(effective)
+                if run is None:
                     return None
-                ended = {r['nodeid'] for r in run['reports'] if r.get('when') == 'teardown'}
-                if set(ids) <= ended and run['code'] in (0, 1) and not run['timeout']:
-                    self.baselines[key] = run
-                    break
-            else:
-                raise EnvironmentError(f'unmutated pytest selection did not complete: {ids}: {run["stderr"]}')
+                input_order = self._input_order(selected)
+                ids = {t['id'].replace(' > ', '::') for t in selected}
+                reordered_failure = any(r.get('failed') and r.get('nodeid') in ids for r in run['reports'])
+                if reordered_failure and [t['id'] for t in input_order] != [t['id'] for t in selected]:
+                    # Ordering is only an optimization. If it breaks a test that passed in the collected input,
+                    # baseline and mutant must both use input order or a real catcher could be ignored.
+                    effective = input_order
+                    run = self._baseline_run(effective)
+                    if run is None:
+                        return None
+                value = (effective, run)
+                self.baselines[key] = value
+                self.baselines.setdefault(tuple(t['id'] for t in effective), value)
+            finally:
+                self.baseline_ms += (time.monotonic() - started) * 1000
         return self.baselines[key]
 
+    def _input_order(self, selected):
+        selected_ids = {t['id'] for t in selected}
+        return [t for t in self.input['tests'] if t['id'] in selected_ids]
+
+    def _baseline_run(self, selected):
+        ids = [t['id'].replace(' > ', '::') for t in selected]
+        for _attempt in range(2):
+            run = self.run(ids, 600)
+            if run['cut']:
+                return None
+            ended = {r['nodeid'] for r in run['reports'] if r.get('when') == 'teardown'}
+            if set(ids) <= ended and run['code'] in (0, 1) and not run['timeout']:
+                return run
+        raise EnvironmentError(f'unmutated pytest selection did not complete: {ids}: {run["stderr"]}')
+
     def once(self, site, selected):
-        base = self.baseline(selected)
-        if base is None:
+        baseline = self.baseline(selected)
+        if baseline is None:
             return None
+        selected, base = baseline
         self.counter += 1
         tag = f'{self.counter}-{time.monotonic_ns()}'
         fact = self.facts.assert_fresh(site.source)
@@ -250,6 +280,7 @@ def _plan(chosen, candidates, invalid, known, session, history, functions, prima
 
 
 def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=1000):
+    timing_started = time.monotonic()
     config = config or {}
     options = config.get('mutation', {})
     cap, seconds, seed = options.get('maxMutants', 200), options.get('maxSeconds', 300), options.get('seed', 20261021)
@@ -262,6 +293,10 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
     history = scope.get('history') or {}
     if not isinstance(history, dict):
         raise ValueError('scope.history must map mutant ids to milliseconds')
+    catchers = scope.get('catchers') or {}
+    if not isinstance(catchers, dict) or not all(isinstance(ids, list) and all(isinstance(i, str) for i in ids)
+                                                for ids in catchers.values()):
+        raise ValueError('scope.catchers must map mutant ids to test ids')
     only = scope.get('only')
     if only is not None and (not isinstance(only, list) or not all(isinstance(i, str) for i in only)):
         raise ValueError('scope.only must list mutant ids')
@@ -305,19 +340,23 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
         ordered = candidates
     functions = bool(scope.get('functions'))
     if scope.get('plan'):
-        session = Session(root, input_data, config, None, deadline, facts, timeout_floor_ms, scope.get('targeted', []))
+        session = Session(root, input_data, config, None, deadline, facts, timeout_floor_ms,
+                          scope.get('targeted', []), catchers)
         chosen, invalid, known = _choose(ordered, texts, reuse, session, cap, functions, primary_by_function)
         facts.assert_all_fresh()
-        return _plan(chosen, candidates, invalid, known, session, history, functions, primary_by_function, seed)
+        result = _plan(chosen, candidates, invalid, known, session, history, functions, primary_by_function, seed)
+        _debug_timings(timing_started, session)
+        return result
     jobs = max(1, jobs or (os.cpu_count() or 2) // 2)
     if only is not None:
         return _only(root, input_data, config, scope, facts, deadline, timeout_floor_ms, jobs, ordered, texts, reuse,
-                     cap, functions, primary_by_function, candidates, own, set(only), seed)
+                     cap, functions, primary_by_function, candidates, own, set(only), seed, timing_started, catchers)
     results, invalid, reused, durations = {}, set(), {}, {}
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
-        session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms, scope.get('targeted', []))
+        session = Session(root, input_data, config, tmp, deadline, facts, timeout_floor_ms,
+                          scope.get('targeted', []), catchers)
         session.first_catch = bool(scope.get('firstCatch'))
         cursor = 0
         while cursor < len(ordered) and len(results) < cap and time.monotonic() < deadline:
@@ -361,8 +400,20 @@ def mutate(root, input_data, scope, config=None, jobs=None, timeout_floor_ms=100
         mine = [s for s in eligible if s.line in paths.get(s.source, set()) and s.id not in invalid]
         if all(s.id in results and results[s.id][0] != 'error' for s in mine):
             complete.append(uid)
-    return {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
-            'sampled': any(s.id not in results and s.id not in invalid for s in eligible)}
+    result = {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
+              'sampled': any(s.id not in results and s.id not in invalid for s in eligible)}
+    _debug_timings(timing_started, session)
+    return result
+
+
+def _debug_timings(started, session):
+    """Emit opt-in development timings without adding nondeterministic result data."""
+    if os.environ.get('CUPEL_MUTATION_TIMINGS') != '1':
+        return
+    total = round((time.monotonic() - started) * 1000)
+    baseline = round(session.baseline_ms)
+    share = round(100 * baseline / total) if total else 0
+    print(f'mutate-py: timings total {total}ms, baseline {baseline}ms ({share}%)', file=sys.stderr)
 
 
 def _check(session, facts, site):
@@ -377,13 +428,14 @@ def _check(session, facts, site):
 
 
 def _only(root, input_data, config, scope, facts, deadline, floor_ms, jobs, ordered, texts, reuse, cap, functions,
-          primary_by_function, candidates, own, only, seed):
+          primary_by_function, candidates, own, only, seed, timing_started, catchers):
     """Run one slice: the plan's chosen faults listed in `only`, in plan order, within this run's time."""
     results, reused, durations = {}, {}, {}
     scratch = Path(root, '.scratch')
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='cupel-pymut-', dir=scratch) as tmp:
-        session = Session(root, input_data, config, tmp, deadline, facts, floor_ms, scope.get('targeted', []))
+        session = Session(root, input_data, config, tmp, deadline, facts, floor_ms,
+                          scope.get('targeted', []), catchers)
         session.first_catch = bool(scope.get('firstCatch'))
         chosen, invalid, _ = _choose(ordered, texts, reuse, session, cap, functions, primary_by_function)
         picked = {site.id for site, *_ in chosen}
@@ -428,8 +480,10 @@ def _only(root, input_data, config, scope, facts, deadline, floor_ms, jobs, orde
         mine = [s for s in mine_here if s.line in paths.get(s.source, set()) and s.id not in invalid]
         if all(s.id in results and results[s.id][0] != 'error' for s in mine):
             complete.append(uid)
-    return {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
-            'sampled': any(s.id not in results and s.id not in invalid for s in mine_here)}
+    result = {'mutants': mutants, 'targeted': sorted(complete), 'seed': seed,
+              'sampled': any(s.id not in results and s.id not in invalid for s in mine_here)}
+    _debug_timings(timing_started, session)
+    return result
 
 
 def confirm(root, input_data, mutation, ids, config=None, jobs=None, timeout_floor_ms=1000):

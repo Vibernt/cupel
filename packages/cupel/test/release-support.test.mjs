@@ -134,7 +134,7 @@ test('current documentation distinguishes the versioned MIT source from historic
   for (const text of [readme, install, support, read('docs/private-use.md')]) {
     assert.ok(text.includes(manifest.version), 'current source version must be discoverable');
   }
-  assert.equal(manifest.version, '0.4.0');
+  assert.equal(manifest.version, '0.5.0');
   assert.equal(manifest.license, 'MIT');
   assert.equal(rootManifest.license, manifest.license);
   assert.match(readme, /\[MIT\]\(LICENSE\)/);
@@ -174,11 +174,14 @@ test('documentation index exposes usage, runner, extension and verification rout
   }
   const development = read('docs/development.md');
   for (const flag of ['CUPEL_REQUIRE_JEST', 'CUPEL_REQUIRE_PACKAGE_SMOKE',
-    'CUPEL_REQUIRE_RUBY_SMOKE', 'CUPEL_REQUIRE_GO_SMOKE', 'CUPEL_REQUIRE_NATIVE_MUTATION']) {
+    'CUPEL_REQUIRE_RUBY_SMOKE', 'CUPEL_REQUIRE_GO_SMOKE', 'CUPEL_REQUIRE_NATIVE_MUTATION',
+    'CUPEL_REQUIRE_RESTRICTED_RUST']) {
     assert.ok(development.includes(flag), `missing explicit gate ${flag}`);
   }
   assert.match(development, /CUPEL_PR_NODE/);
-  assert.match(development, /no hosted CI/);
+  assert.match(development, /Hosted CI/);
+  assert.match(development, /Ubuntu, macOS\s+and\s+Windows/);
+  assert.match(development, /Node \*\*22\.23\.3\*\* and \*\*26\.7\.0\*\*/);
   assert.match(development, /skip/i);
 });
 

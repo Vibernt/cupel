@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { venvPython } from './python-paths.mjs';
 
 // Build tools are prepared explicitly outside the smoke. Nothing here downloads
 // packages or substitutes a different backend when the pinned one is missing.
 export function pythonPackageSmoke({ root, scratch, checked, t }) {
   const manifest = JSON.parse(readFileSync(join(root, 'packages/cupel/package.json'), 'utf8'));
   const tools = join(root, '.scratch/package-tools');
-  const python = process.env.CUPEL_PACKAGE_PYTHON ?? join(tools, 'runtime/bin/python');
+  const python = process.env.CUPEL_PACKAGE_PYTHON ?? venvPython(join(tools, 'runtime'));
   const wheelhouse = process.env.CUPEL_PACKAGE_WHEELS ?? join(tools, 'wheels');
   const missing = !existsSync(python) || !existsSync(wheelhouse);
   if (missing) {
@@ -55,7 +56,7 @@ print(json.dumps({'legal':legal,'project':project,'metadata':dict(fields.items()
     'wheel filename version differs from package metadata');
   const env = join(scratch, 'python-install');
   checked(python, ['-m', 'venv', env], options);
-  const installedPython = join(env, 'bin/python');
+  const installedPython = venvPython(env);
   checked(installedPython, ['-m', 'pip', '--isolated', '--disable-pip-version-check', 'install',
     '--no-index', '--find-links', wheelhouse, wheel, 'pytest==9.1.1'], options);
   const imported = checked(installedPython, ['-c',

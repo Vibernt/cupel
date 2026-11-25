@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assignSlices, DEFAULT_RULE, mergeMutations, planDigest, suggestShards } from '../src/cli/shard.mjs';
 import { makeProject } from './mutate-helpers.mjs';
@@ -75,6 +76,29 @@ test('plan, two slices and merge give exactly the whole run', async (t) => {
   assert.deepEqual(comparable('.cupel/merged.json'), comparable('.cupel/whole.json'));
   const whole = JSON.parse(readFileSync(join(p.root, '.cupel/whole.json'), 'utf8')).mutation;
   assert.ok(whole.mutants.filter((m) => m.status !== 'no-coverage').every((m) => Number.isInteger(m.durationMs)), 'each run fault records its time');
+});
+
+test('mutate parses --cache-dir and refuses invalid prepare combinations before any Rust tool runs', async (t) => {
+  const p = makeProject(); const cache = mkdtempSync(join(tmpdir(), 'cupel-cli-cache-'));
+  t.after(() => { p.cleanup(); rmSync(cache, { recursive: true, force: true }); });
+  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const env = { ...process.env, NO_COLOR: '1' };
+  const run = (...args) => spawnSync(process.execPath, [bin, ...args], { cwd: p.root, env, encoding: 'utf8' });
+  assert.equal(run('report', '--runs', '1', '--no-mutation', '--out', '.cupel/collected.json', '--json').status, 0);
+  const relative = run('mutate', '--input', '.cupel/collected.json', '--out', '.cupel/x.json', '--cache-dir', 'relative');
+  assert.equal(relative.status, 2); assert.match(relative.stderr, /--cache-dir must be absolute/);
+  const inside = run('mutate', '--input', '.cupel/collected.json', '--out', '.cupel/x.json', '--cache-dir', join(p.root, '.cache'));
+  assert.equal(inside.status, 2); assert.match(inside.stderr, /cache folder .* is inside the assessed project/);
+  const ordinary = run('mutate', '--input', '.cupel/collected.json', '--out', '.cupel/x.json', '--cache-dir', cache, '--no-reuse');
+  // Without a Rust runner on backend "cupel" the folder would do nothing, so it is refused rather than ignored.
+  assert.equal(ordinary.status, 2); assert.match(ordinary.stderr, /--cache-dir is only used by a Rust runner/);
+  const shard = run('mutate', '--input', '.cupel/collected.json', '--runner', 'cargo', '--prepare', '--shard', '1/2', '--cache-dir', cache);
+  assert.equal(shard.status, 2); assert.match(shard.stderr, /--prepare cannot be combined with --shard/);
+  const backend = run('mutate', '--input', '.cupel/collected.json', '--runner', 'node', '--prepare', '--cache-dir', cache);
+  assert.equal(backend.status, 2); assert.match(backend.stderr, /backend: "cupel"/);
+  writeFileSync(join(p.root, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { backend: 'cupel', session: false } } } }));
+  const session = run('mutate', '--input', '.cupel/collected.json', '--runner', 'cargo', '--prepare', '--cache-dir', cache);
+  assert.equal(session.status, 2); assert.match(session.stderr, /session is false/);
 });
 
 test('merged slices keep exactly the whole run\'s targeted units, with and without a cap', async (t) => {

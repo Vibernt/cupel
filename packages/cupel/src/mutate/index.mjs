@@ -29,6 +29,7 @@ import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure } from './r
 import { VitestMutantRunner } from './vitest.mjs';
 import { JestMutantRunner } from './jest/index.mjs';
 import { SourceFacts } from './source-facts.mjs';
+import { orderTestFiles } from './order.mjs';
 
 export { EnvironmentError } from './runner.mjs';
 export { generateMutants, applyMutant, sample, OPERATORS } from './operators.mjs';
@@ -161,6 +162,7 @@ class Session {
       this.passedByFile.get(t.file).push(t);
     }
     this.baselines = new Map();
+    this.baselineElapsedMs = 0;
     this.deadline = Infinity; // performance.now() time when the budget (maxSeconds) ends
     this.urls = new Map();
     this.specs = 0;
@@ -200,12 +202,10 @@ class Session {
     return { tests, counts, needsFull };
   }
 
-  /**
-   * Orders a mutant's files: most covering tests first, then fastest by the input's durations, then path. Only
-   * inputs decide the order (never a measured time), so the files that stop a mutant are the same on every run.
-   */
-  order(counts) {
-    return [...counts.keys()].sort((a, b) => (counts.get(b) - counts.get(a)) || (this.fileMs(a) - this.fileMs(b)) || cmp(a, b));
+  /** History first, then own-file tests, then the existing relevance/input-duration/path rule. */
+  order(m, counts) {
+    return orderTestFiles({ counts, inputMs: (file) => this.fileMs(file), source: m.source,
+      previousCatchers: this.catchers?.[m.id] ?? [], fileOfTest: (id) => this.tests.get(id)?.file });
   }
 
   /** A test file's duration by the input: the sum of its tests' median durations (S4). */
@@ -220,7 +220,9 @@ class Session {
   /** Runs each file once unmutated: its time sets the timeout, and a crash means the environment is broken. */
   async baseline(files) {
     const todo = files.filter((f) => !this.baselines.has(f)).sort(cmp);
-    await pool(todo, this.jobs, async (file) => {
+    if (!todo.length) return;
+    const started = performance.now();
+    try { await pool(todo, this.jobs, async (file) => {
       let r;
       for (let attempt = 0; attempt < 2; attempt++) {
         r = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp, timeoutMs: BASELINE_TIMEOUT_MS, stopAt: this.deadline });
@@ -233,7 +235,7 @@ class Session {
       const failing = new Set(r.results.filter((x) => x.s === 'fail').map((x) => (x.suite ? `suite:${x.t}` : x.t)));
       if (failing.size) this.log(`mutate: ${file} fails unmutated (${[...failing].join(', ')}); those failures are not kills`);
       this.baselines.set(file, { wallMs: r.wallMs, code: r.code, failing, count: r.results.filter((x) => !x.suite).length });
-    });
+    }); } finally { this.baselineElapsedMs += performance.now() - started; }
     // The known-good probe: the fastest file that passed cleanly unmutated.
     if (!this.probeFile) {
       const clean = [...this.baselines.keys()].filter((f) => this.baselines.get(f).failing.size === 0);
@@ -386,7 +388,7 @@ class Session {
     try {
       const outcomes = [];
       let killing = 0;
-      for (const file of this.order(sel.counts)) {
+      for (const file of this.order(m, sel.counts)) {
         if (!sel.needsFull && killing >= (this.firstCatch ? 1 : STOP_AFTER_FILES)) break;
         if (performance.now() > this.deadline) return null;
         const out = await this.runFile(m, spec, file, sel.tests);
@@ -581,6 +583,7 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     jobs: scratch ? 1 : jobs, timeoutFloorMs, log, collectorKind, sourceFacts: facts, scratch });
   session.deadline = deadline;
   session.timings = !!scope.timings;
+  session.catchers = scope.catchers ?? {};
   // Guard's head only needs whether each fault was caught: stop at the first catching file (mutation.catches 'first').
   session.firstCatch = !!scope.firstCatch;
   const reuse = scope.reuse && Object.keys(scope.reuse).length ? scope.reuse : null;
@@ -659,6 +662,11 @@ export async function mutateNode({ root, config = {}, input, scope = {}, log = n
     const targeted = targetedUnits({ own, eligible: eligible.filter((m) => !invalid.has(m.id)), results: byId, skipped });
     return { mutants, targeted, seed, sampled };
   } finally {
+    if (process.env.CUPEL_MUTATION_TIMINGS === '1') {
+      const total = Math.round(performance.now() - started);
+      const baseline = Math.round(session.baselineElapsedMs);
+      log(`mutate: timings total ${total}ms, baseline ${baseline}ms (${total ? Math.round(100 * baseline / total) : 0}%)`);
+    }
     session.close();
   }
 }

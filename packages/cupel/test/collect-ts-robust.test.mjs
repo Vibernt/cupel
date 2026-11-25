@@ -9,10 +9,11 @@ import { scanSources } from '../src/collect/vitest/sources.mjs';
 import { enumerateSites } from '../src/mutate/sites.mjs';
 import { main } from '../src/cli/main.mjs';
 import { collectNode } from '../src/collect/node/index.mjs';
+import { VITEST4_MODULES, VITEST4_TYPESCRIPT } from './support/vitest-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
-const vitest = '/Users/vid/codecrystal/hub-ts/node_modules/vitest';
-const typescript = '/Users/vid/codecrystal/hub-ts/node_modules/typescript';
+const vitest = join(VITEST4_MODULES, 'vitest');
+const typescript = VITEST4_TYPESCRIPT;
 
 function project(withTypeScript) {
   mkdirSync(join(repo, '.scratch'), { recursive: true });

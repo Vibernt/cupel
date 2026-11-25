@@ -9,6 +9,14 @@ workspace (5,828 lines), and mutation acceptance is in progress. Until it is
 recorded, treat Rust results as preview evidence. Native selective PR
 execution is unsupported.
 
+The legacy restricted backend (`backend: "cupel-rust"`) is a separate integration
+profile: it runs only with Homebrew Rust/Cargo **1.97.1** on
+`aarch64-apple-darwin`. Its source and installed-package tests skip with that
+exact reason when the profile is absent; `CUPEL_REQUIRE_RESTRICTED_RUST=1` turns
+the skip into a failure for maintainer acceptance. Hosted CI uses rustup 1.97.1
+for portable coverage and cargo-mutants tests and does not claim that restricted
+profile.
+
 ## Coverage
 
 Run `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]`. Configure `runners.cargo` in `cupel.json` to select it for `report`, `check`, `guard`, `plan`, `label` and `review`. A configured `runners.cargo.tests` glob selects Cargo packages and test files and accepts brace alternatives; the direct CLI also accepts `--tests GLOB`. Cupel uses the user's Cargo and rustup environment without changing `CARGO_HOME` or `RUSTUP_HOME`. When `CARGO_TARGET_DIR` is set, builds use a repository-specific subdirectory inside it, so cached binaries from another checkout never attribute coverage to stale paths. Cargo is forced offline (`CARGO_NET_OFFLINE=true`, `--offline`): install dependencies first. A custom Cargo runner or build target (`.cargo/config.toml`, `--target`) is refused, because tests run directly on the host. The collector needs `llvm-profdata` and `llvm-cov` matching rustc's LLVM major version, from the rustup sysroot (`rustup component add llvm-tools-preview`) or from `PATH`; otherwise it exits 3 with that installation command.
@@ -89,11 +97,180 @@ faults itself in a scratch copy with its own `target/` folder:
   the faults near each error and tries again; a file that fails twice runs all its
   faults one build each. `"schemata": false` turns switching off.
 
+### Persistent build sessions
+
+By default the runner keeps its build between runs. The copy of the project, its
+`target/` folder and the unmutated test results live in
+`<cache>/rust-sessions/<id>/` in the per-user cache folder (`CUPEL_CACHE_DIR`, else `$XDG_CACHE_HOME/cupel`, else `~/Library/Caches/cupel` on macOS, `%LOCALAPPDATA%\cupel` on Windows, `~/.cache/cupel`), never in the project, where the id is a hash of the project path,
+`rustc -vV`, the cargo version, the host, the Rust flags Cupel builds with, the
+`runners.cargo` config (without `mutants`) and Cupel's version. It is not a hash of the
+sources, so a later commit finds the same session warm. A run:
+
+- takes an exclusive lock (a second run waits a few seconds, then refuses). The lock is a
+  file made only if absent (`wx`) that holds a unique token; a lock of a process that no
+  longer exists is reclaimed by renaming it to a unique name (only one contender's rename
+  succeeds) and creating it again, and the token is read back after taking it. Releasing
+  removes only a lock that still holds the run's own token;
+- first brings the session's copy of the project in line with the project: only files
+  whose size, time or content changed are copied, files that no longer exist are
+  deleted, and a file a crashed run left modified is restored. Before Cupel writes any
+  file of the copy (switch rewrites, the switch module, a fault's mutation, restoring)
+  it stores the file's path in `dirty.json` of the session (written and flushed first);
+  the next sync compares every listed path with the project byte for byte, whatever its
+  size and time say (a crash that left an equal-width change with the old time is
+  caught), copies the ones that differ and clears the list. The assessed project is
+  only read;
+- refuses a cache folder (`CUPEL_CACHE_DIR` or the derived one) inside the assessed project;
+- reuses the two unmutated passes only when **nothing at all changed**. A test target's
+  baseline is reused when the key over its test executable (SHA-256) is the same, together
+  with a digest of the complete synced project (the path, mode and content hash of every
+  file the sync copies, taken while syncing), a digest of the test environment Cupel
+  passes (every variable except Cupel's own `CUPEL_*` and the ones listed in
+  `runners.cargo.mutants.sessionEnvIgnore`), a digest of **all** executables the
+  build produced (a program a test starts through `CARGO_BIN_EXE_*` can change outcomes
+  while the test executable stays the same), and the same named tests. Anything different
+  is measured as before. Reuse never crosses sessions. Files written into the project
+  between runs count as a changed project, a test could read them: keep `--out` and `--reuse` files
+  under `.cupel/` (never copied or digested), or outside the project, so they do not stop reuse. The
+  sync trusts a file only when size, mtime, ctime and inode are all unchanged. The timing
+  line ends with `session warm|cold`, `prepared true|false`, `baselines reused n/m` and
+  `switches-off reused n/m`.
+- keeps the switches-off verdict under a digest of the session, the project and
+  environment digests, the selector table, the exact rewritten sources and each target's
+  recorded baseline key, so with nothing changed it repeats across runs
+  (`switches-off reused n/m`); the switched executable's own hash never repeats.
+
+All sessions of all projects on the machine together stay under 10 GB: after a run the least recently
+used ones are removed until they fit (never the current one; each session is locked, without waiting, before it is
+removed, and one that cannot be locked is skipped, as in `cupel clean`; a removed session is first renamed to
+`<id>.deleting-<random>` while locked, then deleted, and leftovers are swept later). A stale lock is broken in two
+phases through a `lock.break` file, so a live run that takes the place is never removed. Set
+`runners.cargo.mutants.sessionCapGB` to change the cap, `"session": false` for the
+throwaway scratch copy of earlier versions, and run `cupel clean --rust-sessions`
+to remove every session (`--project`: only the current project's).
+
+### Sharing one build between slices
+
+For `backend: "cupel"`, one CI job can prepare the persistent session for the
+whole mutation plan and give that session to every slice:
+
+```sh
+DIR=/opt/cupel-cache                 # the same absolute path in every job
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --prepare --cache-dir "$DIR" --json > prepared.json
+tar -C "$DIR" -cf rust-sessions.tar rust-sessions
+
+# In each slice job, after restoring both files:
+mkdir -p "$DIR"
+tar -C "$DIR" -xf rust-sessions.tar
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --shard "$INDEX/$TOTAL" --cache-dir "$DIR" --out "slice-$INDEX.json"
+
+# In the merge job:
+cupel merge-mutations --input .cupel/collected.json \
+  --out .cupel/head.json slice-*.json
+```
+
+Use the same OS image, Rust toolchain, Cupel/config/flags, checkout path and
+cache path in every job. Preserve the archive's mtimes: Cargo's freshness check
+needs them, so use `tar`; zip-based artifact uploads may reset them. A different
+OS, toolchain, Cupel/config/flags or checkout path produces a different session
+id and Cupel builds a new cold session. If a selected session folder's recorded
+absolute project or cache path differs, Cupel refuses it and explains that the
+bundle moved; compiled tests can embed paths such as `CARGO_MANIFEST_DIR`.
+Byte-identical restored project files are not rewritten even when their inode or
+ctime changed, so their session-copy mtimes remain usable.
+
+A slice of a prepared session sets up exactly as the preparation did (the same
+test targets and test names for the whole plan and the same faults), so it skips the
+cold build (only the crates holding faults are rebuilt when the switches go in) and
+reuses the unmutated passes and the switches-off verdict; it still runs only its own
+faults. The session copy leaves out `node_modules` (Cargo builds and tests do not need
+it, and a link to the project's own would let a build script write into it). A link whose
+chain ends inside the project points to the same place in the copy, so nothing run there
+can write into the project; a copy with a link to anything outside the project reuses no
+earlier pass, because that content is not in the digest. Cupel's own run-control
+variables (`CUPEL_RUST_TIMINGS`, `CUPEL_DEBUG_RUST` and the like) are removed from the
+tests' environment, and every other variable counts toward the environment digest. The timing line says `prepared true` when that happened. Reuse needs
+the same test environment too, and CI jobs differ in variables such as
+`GITHUB_JOB`, `RUNNER_NAME` or job ids. List the ones your tests, build scripts and
+started programs never read:
+
+```json
+{ "runners": { "cargo": { "mutants": { "backend": "cupel",
+  "sessionEnvIgnore": ["GITHUB_*", "RUNNER_*", "INDEX", "HOSTNAME"] } } } }
+```
+
+Without them a slice still skips the cold build, but measures the unmutated passes
+again. A wrong entry (a variable a test does read) can reuse a stale pass, so name
+only variables you know are unused.
+
+Every run must show its work: each named test has to report `ok`, `FAILED` or
+`ignored`. If a run that did not time out and caught nothing reports no result for
+some named test (a name filter that matched nothing, a binary that died
+silently), it is never counted as survived: the unmutated run refuses with the
+missing names (Cupel's test id to libtest name mapping does not fit the project),
+and a fault run is tried once more, then refused for that target.
+
+The run ends with a `mutate-rust: timings ...` line: the first build, the baseline
+run, the switched builds, the switches-off check, the per-fault build and test
+time, the number and total time of cargo calls, whether this exact project digest
+was prepared, and the baseline/switches-off reuse counts. For development,
+`CUPEL_RUST_TIMINGS=<path>` also writes them as JSON (with per-fault times).
+
 An operator fault whose new operator binds differently from the original
-(`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) is never switched: changing
-the source text lets Rust regroup the whole expression (`a && b && c && d` with
-one `&&` made `||` reads `(a && b) || (c && d)`), which a switch around the
-original operands cannot reproduce. Those faults get a build of their own.
+(`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) cannot be switched around its
+operands: changing the source text lets Rust regroup the whole expression
+(`a && b && c && d` with one `&&` made `||` reads `(a && b) || (c && d)`). Such a
+fault gets its own build by default. With `runners.cargo.mutants.bodyVariants: true` (opt-in, because
+a variant changes panic line numbers, see below, which a panic hook or backtrace can show) it is
+answered in the same switched build by a **body variant**: the whole
+function body is parsed again with the replacement applied and chosen at function
+entry (`match crate::__cupel_faults::active() { 7 => return { ... }, _ => {} }`, on
+the line of the opening brace, so line numbers outside the body do not move). At most 8 per function (in
+fault order); the rest, functions with `const`/`async`/`impl`-or-`!` returns, nested
+items, inner attributes, `line!`/`column!`/`file!`, multi-line literals, bodies over
+16 KB and functions marked `#[track_caller]` get an individual build; so does every
+regrouping fault of a project whose Rust sources (those with listed faults) mention
+`Location::caller` or `panic::Location`. The remaining difference: the body of a variant
+is on one line, so a panic location (and a backtrace line) inside a variant reports the line
+of the body's opening brace, not the line of the panic. Tests that compare panic line
+numbers inside such a body are not what this is for; the other cases give identical results. A unary minus deleted before a literal is not a
+regrouping fault and gets its own build too.
+
+Switch numbers are stable: they count over cargo-mutants' whole listing of every file
+of the whole scope (every file with a listed fault in scope, sorted by file, line, column),
+before reuse and slicing, and every listed fault of those files that the rewriters accept
+is rendered, so the switched sources and the numbers are identical whatever subset, reuse
+or CI slice runs (a slice holding only `b.rs` does not number it from 1); only the faults
+to run are evaluated.
+The timing line reports `switched n (operators a, bodies b)` and `individual m`.
+
+To check the switched answers, set `CUPEL_RUST_VERIFY_SWITCHED=1`: every fault that used
+the switched build (operator switches and body variants, also those continued on their own
+build for timing-sensitive targets) is run again standalone, on its own build, with the same stop
+rule and mode. Which tests a run credits depends on target order and the stop rule, so the
+check is about meaning: the status must match (caught and timed out are both detected), and
+on that same individual build the tests the switched build credited are run on their own and
+each must fail, with the same catch kind. Otherwise the run refuses, naming the fault and both outcomes. It logs
+`mutate-rust: verified N switched fault(s) against individual builds: all agree`. This
+is slow (one build per fault); use it to validate Cupel changes, not in CI.
+
+Catch-history order (targets whose tests caught the fault last time go first) only uses
+real catching tests (`killedBy`), so it can only find a real catch sooner. Without history,
+targets holding a test written in the fault's own source file (the module's unit tests) go
+next, then the rest by the input rule; broad integration suites cover nearly everything and
+are often the slowest, so trying them last finds most catches sooner. With the
+stop-after rule, a fault whose earlier targets only timed out may then be reported caught
+instead of timed out; both mean the fault is detected.
+
+Time limits: a fault's run of a test target may take three times that target's unmutated
+time, at least 10 seconds. A run that hits the limit is tried once more with three times
+the limit, because a busy machine can look like a hang, unless it had already caught the
+fault: a test that passes unmutated reported `FAILED` before the limit. A catch decides the
+status whatever the rest of the target does, so the retry could only add credits; the
+credited tests are the ones that failed before the limit. The timing JSON counts these as
+`caughtBeforeTimeout`.
 
 With `guard` (or `cupel mutate --first-catch`), each fault stops at its first
 catching target instead of the second (see [Faster fault testing](speed.md#pull-requests-stop-at-the-first-catch)).

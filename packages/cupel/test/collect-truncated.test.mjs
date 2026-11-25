@@ -9,9 +9,10 @@ import { readWorkerJson } from '../src/collect/read-json.mjs';
 import { writeAtomicJson } from '../src/collect/atomic-json.mjs';
 import { main } from '../src/cli/main.mjs';
 import { linkVitestModules } from './vitest-modules.mjs';
+import { VITEST4_MODULES } from './support/vitest-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
-const modules = '/Users/vid/codecrystal/hub-ts/node_modules';
+const modules = VITEST4_MODULES;
 
 test('truncated result JSON is recorded once, and atomic JSON leaves no temporary file', () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });

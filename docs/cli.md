@@ -27,6 +27,7 @@ so `--json` prints exactly the engine's report (`spec/schemas/report.schema.json
 | `cupel guard --base <ref> [--approvals <file>]` | Fails if coverage or critical mutation fell between the base and the working tree. `--base-input <file>` and `--head-input <file>` replace either side with a saved input |
 | `cupel plan [--changed <ref> \| --changed-lines <file>] [--input <file>]` | Priority order for a run: critical first, then tests affected by the change, then the rest |
 | `cupel label [--input <file>]` | Shows each unit's tier and why. Exits 1 on an unknown tag |
+| `cupel clean --rust-sessions` | Removes the persistent Rust build sessions in the per-user cache (`--project`: only this project's; sessions in use are left) |
 | `cupel import <file…> [--format cupel\|junit] [--out <file>]` | Writes a valid input to standard output or `--out` |
 | `cupel validate <file>` | Checks an input, report or config against the spec schemas |
 | `cupel conformance --adapter "<command>" [--fixtures <dir>]` | Runs an adapter in each fixture of `spec/conformance/adapters/` and matches its output against `expected.json` |
@@ -34,7 +35,8 @@ so `--json` prints exactly the engine's report (`spec/schemas/report.schema.json
 | `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]` | Collects [Rust](rust.md) tests with isolated LLVM coverage |
 | `cupel collect-node [--root DIR] [--out FILE] [--junit FILE] [--runs N] [--shard I/N \| --tests FILE ...] [-- <node test flags>...]` | Runs node:test as the CI test step and writes complete collection input; default one run |
 | `cupel merge-inputs <shard.json...> --out FILE [--json]` | Validates and merges all disjoint shards of one suite |
-| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--runner NAME] [--shard I/N]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7). `--runner` limits it to one runner; `--shard I/N` runs slice I of the plan's N slices ([slicing](speed.md#slicing-across-ci-machines)) |
+| `cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--runner NAME] [--shard I/N] [--cache-dir DIR]` | Runs configured mutation on a fresh precollected working-tree input; with `--base-input`, re-runs survivors that base detected (K7). `--runner` limits it to one runner; `--shard I/N` runs slice I of the plan's N slices ([slicing](speed.md#slicing-across-ci-machines)) |
+| `cupel mutate --input FILE --runner NAME --prepare [--cache-dir DIR] [--json]` | For a Rust runner with `mutants.backend: "cupel"`, prepares the persistent build session for the whole fault plan without running a fault or writing mutation output. Prints the session path and id; JSON is `{ sessionDir, sessionId, cacheDir }` |
 | `cupel mutate --input FILE --plan [--out FILE] [--runner NAME] [--cores N] [--startup-seconds S] [--target-minutes M] [--max-shards N] [--json]` | Plans fault testing without running it: faults per runner, an estimate and the suggested number of slices |
 | `cupel merge-mutations --input FILE --out FILE <part.json...>` | Joins slices and whole runs of the same collected input into one input; refuses mismatched, missing or doubled slices |
 
@@ -67,6 +69,8 @@ Per command:
 | `--approvals <file>` | guard | A JSON list of `{ "action": "remove" \| "downgrade", "id", "by" }`, or an object with that list as `approvals` |
 | `--changed <ref>` | plan, guard, mutate | Changed lines from `git diff --unified=0 <ref>`. For guard, only with `--base-input` (with `--base`, the base ref gives them) |
 | `--first-catch` | mutate | Stop each fault at its first catching test; the result (`mutation.catches: "first"`) is accepted only as guard's head (I6). `guard` does this for its own head unless config `guard.firstCatch` is false |
+| `--prepare` | mutate | Prepare one persistent `backend: "cupel"` Rust session for every slice of the selected runner. Refused with `--shard`, `session: false`, a non-Cupel backend, or without `--runner`; it runs no fault and writes no mutation input |
+| `--cache-dir <dir>` | mutate | Use this absolute cache folder, as `CUPEL_CACHE_DIR` would. A folder inside the assessed project is refused |
 | `--reuse <file>` | report, review, audit, check, guard, mutate | Copy fault results from this earlier input when nothing they depend on changed ([K15](../spec/SPEC.md), [reuse](speed.md#reuse-earlier-results)). Default: `.cupel/input.json` when present. A missing file means every fault runs |
 | `--no-reuse` | report, review, audit, check, guard, mutate | Run every fault |
 | `--changed-lines <file>` | plan | Changed lines as JSON: `{ "path": "line set" }`, `""` for a whole file |

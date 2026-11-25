@@ -2,8 +2,14 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { inspectRestrictedRustProfile } from './restricted-rust-profile.mjs';
 
 export function rustPackageSmoke({ root, scratch, bin, checked }) {
+  const profile = inspectRestrictedRustProfile();
+  if (!profile.available) {
+    if (process.env.CUPEL_REQUIRE_RESTRICTED_RUST === '1') assert.fail(profile.reason);
+    return { skipped: profile.reason };
+  }
   const project = join(scratch, 'installed-rust-project');
   const fixture = join(root, 'packages/cupel/test/fixtures/rust-mutation');
   for (const file of ['Cargo.toml', 'Cargo.lock', 'src/lib.rs', 'src/outer.rs', 'src/outer/inner.rs']) {
