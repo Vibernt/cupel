@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLog } from '../src/mutate-cargo/logs.mjs';
@@ -128,4 +128,43 @@ test('backend cupel gives the rows cargo-mutants gives, one build per fault and 
   assert.match(switched.log, /fault\(s\) switched in one build/);
   assert.match(switched.log, /mutate-rust: timings first-build/);
   console.log(switched.log.split('\n').find((l) => l.includes('mutate-rust: timings')));
+});
+
+test('a second run in the same project reuses the build session: warm, baselines reused, same rows; a planted fault left in the session is restored', { skip, timeout: 900_000 }, () => {
+  const reference = report('cargo-mutants');
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const project = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-fast-session-')));
+  cpSync(fixture, project, { recursive: true });
+  rmSync(join(project, 'target'), { recursive: true, force: true });
+  writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-session') };
+  const once = () => {
+    const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', 'out.json', '--json', '--no-reuse'],
+      { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
+    assert.equal(r.status, 0, r.stderr);
+    return { rows: JSON.parse(readFileSync(join(project, 'out.json'), 'utf8')).mutation.mutants.map(({ basis: _b, durationMs: _d, ...row }) => row), timings: r.stderr.split('\n').find((l) => l.includes('mutate-rust: timings')) };
+  };
+  try {
+    const cold = once();
+    assert.match(cold.timings, /session cold, baselines reused 0\/\d+/);
+    assert.deepEqual(cold.rows, reference.rows);
+    const sessions = join(project, '.scratch/cupel-rust-sessions');
+    const [id] = readdirSync(sessions);
+    assert.ok(existsSync(join(sessions, id, 'target')) && existsSync(join(sessions, id, 'meta.json')));
+    const warm = once();
+    const m = /session warm, baselines reused (\d+)\/(\d+)/.exec(warm.timings);
+    assert.ok(m && m[1] === m[2] && Number(m[1]) > 0, warm.timings);
+    assert.deepEqual(warm.rows, cold.rows);
+    console.log(`cold: ${cold.timings}\nwarm: ${warm.timings}`);
+
+    // A crash that left a planted fault in the session copy: the next run restores it and its rows are unchanged.
+    const planted = join(sessions, id, 'project/core/src/lib.rs');
+    const original = readFileSync(planted, 'utf8');
+    writeFileSync(planted, original.replace('n / 2', 'n * 2'));
+    assert.notEqual(readFileSync(planted, 'utf8'), original);
+    const healed = once();
+    assert.equal(readFileSync(planted, 'utf8'), original);
+    assert.deepEqual(healed.rows, cold.rows);
+    assert.equal(readFileSync(join(fixture, 'core/src/lib.rs'), 'utf8'), original, 'the assessed project was not touched');
+  } finally { rmSync(project, { recursive: true, force: true }); }
 });
