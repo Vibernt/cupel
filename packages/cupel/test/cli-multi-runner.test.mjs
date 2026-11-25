@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadSchemas } from '../src/cli/context.mjs';
@@ -10,10 +10,11 @@ import { mergeRunners } from '../src/cli/merge-runners.mjs';
 import { mutate, collectRef } from '../src/cli/collect.mjs';
 import { detectRunners, detectedNodeFiles } from '../src/cli/runner-discovery.mjs';
 import { callTool } from '../src/mcp/tools.mjs';
+import { TEST_PYTHON } from './support/python-paths.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const bin = join(repo, 'packages/cupel/bin/cupel.mjs');
-const python = '/Users/vid/codecrystal/.venv/bin/python';
+const python = TEST_PYTHON;
 const scratch = join(repo, '.scratch');
 const schemas = loadSchemas();
 
@@ -40,7 +41,7 @@ function fixture(second) {
 function collect(root, config) {
   if (config) writeFileSync(join(root, 'cupel.json'), JSON.stringify(config));
   const output = join(root, 'input.json');
-  const env = { ...process.env, PYTHONDONTWRITEBYTECODE: '1', PATH: `${python.slice(0, python.lastIndexOf('/'))}:${process.env.PATH}`,
+  const env = { ...process.env, PYTHONDONTWRITEBYTECODE: '1', PATH: `${dirname(python)}${delimiter}${process.env.PATH}`,
     GOCACHE: join(root, '.scratch/go-cache'), GOPATH: join(root, '.scratch/go-path'), GOPROXY: 'off', GOSUMDB: 'off' };
   const result = spawnSync(process.execPath, [bin, 'label', '--runs', '1', '--out', output], { cwd: root, env, encoding: 'utf8', timeout: 120000 });
   assert.equal(result.status, 0, result.stderr || result.stdout);

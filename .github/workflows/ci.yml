@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 2 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['22.23.3', '26.7.0']
+    env:
+      CUPEL_REQUIRE_NATIVE_MUTATION: '1'
+      CUPEL_REQUIRE_JEST: '1'
+      CUPEL_REQUIRE_PACKAGE_SMOKE: '1'
+      CUPEL_REQUIRE_RUBY_SMOKE: '1'
+      CUPEL_REQUIRE_GO_SMOKE: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The owner may pin every third-party action below to a reviewed commit SHA.
+      - uses: actions/checkout@v4
+
+      - name: Prepare Node 26 experiment runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26.7.0'
+      - name: Record Node 26 paths
+        run: node -e 'require("node:fs").appendFileSync(process.env.GITHUB_ENV, "CUPEL_PR_NODE=" + process.execPath + "\nCUPEL_TEST_NODE26=" + process.execPath + "\n")'
+
+      - name: Prepare Node 22 reference runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - name: Record Node 22 path
+        run: node -e 'require("node:fs").appendFileSync(process.env.GITHUB_ENV, "CUPEL_TEST_NODE22=" + process.execPath + "\n")'
+
+      - name: Select matrix Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Prepare Go 1.27.1
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.1'
+
+      - name: Prepare Ruby 4.0.7
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0.7'
+      - name: Verify Minitest 6.0.0
+        run: ruby -e 'require "minitest"; abort Minitest::VERSION unless Minitest::VERSION == "6.0.0"; puts Minitest::VERSION'
+
+      - name: Prepare Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Prepare Rust 1.97.1 and LLVM tools
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --component llvm-tools-preview
+          rustup default 1.97.1
+          rust_host="$(rustc -vV | sed -n 's/^host: //p')"
+          rust_sysroot="$(rustc --print sysroot)"
+          echo "$rust_sysroot/lib/rustlib/$rust_host/bin" >> "$GITHUB_PATH"
+
+      - name: Restore cargo-mutants 27.1.0
+        id: cargo-mutants-cache
+        uses: actions/cache@v4
+        with:
+          path: .scratch/tools/cargo-mutants
+          key: cargo-mutants-${{ runner.os }}-${{ runner.arch }}-27.1.0
+      - name: Install cargo-mutants 27.1.0
+        if: steps.cargo-mutants-cache.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-mutants --version 27.1.0 --root .scratch/tools/cargo-mutants
+      - name: Export cargo-mutants path
+        run: |
+          node -e 'const fs=require("node:fs"),p=require("node:path"); const name=process.platform==="win32"?"cargo-mutants.exe":"cargo-mutants"; fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_CARGO_MUTANTS="+p.resolve(".scratch/tools/cargo-mutants/bin",name)+"\n")'
+          ".scratch/tools/cargo-mutants/bin/cargo-mutants${{ runner.os == 'Windows' && '.exe' || '' }}" --version
+
+      - name: Prepare Python package tools and offline wheels
+        run: |
+          python -m pip install --disable-pip-version-check setuptools==80.9.0 pytest==9.1.1
+          python -m pip install --disable-pip-version-check --no-build-isolation --no-deps -e packages/cupel-py
+          python -c 'import os,sys; open(os.environ["GITHUB_ENV"], "a", encoding="utf8").write("CUPEL_TEST_PYTHON=" + sys.executable + "\n")'
+          python -m venv .scratch/package-tools/runtime
+          node --input-type=module -e 'import{appendFileSync}from"node:fs";import{resolve}from"node:path";import{venvPython}from"./scripts/python-paths.mjs";const p=venvPython(resolve(".scratch/package-tools/runtime"));appendFileSync(process.env.GITHUB_ENV,"CUPEL_PACKAGE_PYTHON="+p+"\nCUPEL_PACKAGE_WHEELS="+resolve(".scratch/package-tools/wheels")+"\n");process.stdout.write(p)' > .scratch/package-python-path
+          package_python="$(cat .scratch/package-python-path)"
+          "$package_python" -m pip install --disable-pip-version-check setuptools==80.9.0 pytest==9.1.1
+          python -m pip download --disable-pip-version-check --dest .scratch/package-tools/wheels pytest==9.1.1
+
+      - name: Prepare Jest 30.2.0
+        run: |
+          npm ci --prefix spec/conformance/adapters/jest --ignore-scripts --no-audit --no-fund
+          node -e 'const fs=require("node:fs"),p=require("node:path");fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_JEST_MODULES="+p.resolve("spec/conformance/adapters/jest/node_modules")+"\n")'
+
+      - name: Prepare Vitest 4.1.11 and 5.0.1
+        run: |
+          mkdir -p .scratch/vitest-4 .scratch/vitest-5
+          node -e 'const fs=require("node:fs");for(const d of [".scratch/vitest-4",".scratch/vitest-5"])fs.writeFileSync(d+"/package.json",JSON.stringify({private:true}))'
+          npm install --prefix .scratch/vitest-4 --ignore-scripts --no-audit --no-fund --save-exact vitest@4.1.11 typescript@5.9.3 react@19.2.0
+          npm install --prefix .scratch/vitest-5 --ignore-scripts --no-audit --no-fund --save-exact vitest@5.0.1 typescript@5.9.3 react@19.2.0
+          node -e 'const fs=require("node:fs"),p=require("node:path");fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_TEST_VITEST4_MODULES="+p.resolve(".scratch/vitest-4/node_modules")+"\nCUPEL_TEST_VITEST5_MODULES="+p.resolve(".scratch/vitest-5/node_modules")+"\n")'
+
+      - name: Prepare Miniflare 5.0.0
+        run: |
+          mkdir -p .scratch/miniflare
+          node -e 'require("node:fs").writeFileSync(".scratch/miniflare/package.json",JSON.stringify({private:true}))'
+          npm install --prefix .scratch/miniflare --ignore-scripts --no-audit --no-fund --save-exact miniflare@5.0.0
+          node -e 'const fs=require("node:fs"),p=require("node:path");fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_TEST_MINIFLARE="+p.resolve(".scratch/miniflare/package.json")+"\n")'
+
+      - name: Record toolchain versions
+        run: |
+          mkdir -p .scratch/ci-output
+          {
+            node --version
+            "$CUPEL_TEST_NODE22" --version
+            "$CUPEL_TEST_NODE26" --version
+            go version
+            ruby --version
+            ruby -e 'require "minitest"; puts "Minitest #{Minitest::VERSION}"'
+            python --version
+            python -m pytest --version
+            rustc --version
+            cargo --version
+            "$CUPEL_CARGO_MUTANTS" --version
+          } 2>&1 | tee .scratch/ci-output/toolchains.log
+
+      - name: Check repository rules
+        run: set -o pipefail; npm run -s check 2>&1 | tee .scratch/ci-output/check.log
+      # npm test includes scripts/package-smoke.test.mjs (installed npm tarball and Python wheel), with the gates above.
+      - name: Run Node suite
+        run: set -o pipefail; npm test 2>&1 | tee .scratch/ci-output/node.log
+      - name: Run Python unittest suite
+        run: set -o pipefail; npm run -s test:py 2>&1 | tee .scratch/ci-output/python-unittest.log
+      - name: Run Ruby suite
+        run: set -o pipefail; npm run -s test:ruby 2>&1 | tee .scratch/ci-output/ruby.log
+      - name: Run pytest runtime suite
+        run: set -o pipefail; cd packages/cupel-py && python -m pytest -q tests 2>&1 | tee ../../.scratch/ci-output/pytest.log
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.os }}-node-${{ matrix.node }}
+          path: |
+            .scratch/ci-output
+            .scratch/package-smoke
+          if-no-files-found: ignore
