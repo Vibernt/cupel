@@ -145,57 +145,6 @@ function matchDelimiters(tokens) {
   return stack.length === 0;
 }
 
-function functionBodyAfter(tokens, paramsClose) {
-  let index = paramsClose + 1;
-  if (tokens[index]?.value === '(') index = tokens[index].match + 1;
-  while (index < tokens.length) {
-    const token = tokens[index];
-    if (token.value === ';') return -1;
-    if (token.value === '{') {
-      const previous = tokens[index - 1]?.value;
-      if (previous === 'struct' || previous === 'interface') { index = token.match + 1; continue; }
-      return index;
-    }
-    if (OPEN.has(token.value)) { index = token.match + 1; continue; }
-    index++;
-  }
-  return -1;
-}
-
-function functionsIn(tokens) {
-  const functions = [];
-  let braceDepth = 0;
-  for (let index = 0; index < tokens.length; index++) {
-    const token = tokens[index];
-    if (token.value === '{') braceDepth++;
-    if (token.value === '}') braceDepth--;
-    if (braceDepth !== 0 || token.kind !== 'identifier' || token.value !== 'func') continue;
-    const fn = index;
-    index++;
-    if (tokens[index]?.value === '(') index = tokens[index].match + 1; // receiver
-    if (tokens[index]?.kind !== 'identifier') continue;
-    index++;
-    let generic = false;
-    if (tokens[index]?.value === '[') { generic = true; index = tokens[index].match + 1; }
-    if (tokens[index]?.value !== '(') continue;
-    const paramsClose = tokens[index].match;
-    const body = functionBodyAfter(tokens, paramsClose);
-    if (body < 0 || !Number.isInteger(tokens[body].match)) continue;
-    functions.push({ fn, body, close: tokens[body].match, generic, results: body !== paramsClose + 1 });
-  }
-  return functions;
-}
-
-function functionLiterals(tokens, fn) {
-  const literals = [];
-  for (let index = fn.body + 1; index < fn.close; index++) {
-    if (tokens[index].value !== 'func' || tokens[index + 1]?.value !== '(') continue;
-    const body = functionBodyAfter(tokens, tokens[index + 1].match);
-    if (body > 0 && body < fn.close) literals.push([tokens[index].start, tokens[tokens[body].match].end]);
-  }
-  return literals;
-}
-
 function semicolonAfter(token) {
   return token && (token.kind === 'identifier' || token.kind === 'number' || token.kind === 'string'
     || token.kind === 'rune' || token.kind === 'raw' || KEYWORD_SEMI.has(token.value)
@@ -245,41 +194,15 @@ function byteLength(text) {
   return new TextEncoder().encode(text).length;
 }
 
-function containsSequence(tokens, values) {
-  return tokens.some((_, index) => values.every((value, part) => tokens[index + part]?.value === value));
-}
-
-function fileReason(text, tokens) {
-  if (/^[ \t]*\/\/go:build\b/m.test(text) || /^[ \t]*\/\/[ \t]*\+build\b/m.test(text)) return 'build-tag';
-  for (let index = 0; index < tokens.length; index++) {
-    if (tokens[index].value !== 'import') continue;
-    const next = tokens[index + 1];
-    if (next?.value === '"C"') return 'cgo';
-    if (next?.value === '(' && tokens.slice(index + 2, next.match).some((token) => token.value === '"C"')) return 'cgo';
-  }
-  if (containsSequence(tokens, ['.', 'Helper', '('])) return 'position';
-  if (tokens.some((token, index) => token.value === '.'
-    && ['Caller', 'Callers', 'CallersFrames', 'FuncForPC', 'Stack'].includes(tokens[index + 1]?.value)
-    && tokens[index + 2]?.value === '(')) return 'position';
-  return null;
-}
-
-function bodyReason(text, allTokens, tokens, fn) {
-  const start = tokens[fn.body].end;
-  const end = tokens[fn.close].start;
-  const comments = allTokens.filter((token) => token.kind === 'comment' && token.directive);
-  if (comments.some((comment) => comment.start >= start && comment.end <= end)) return 'directive';
-  const immediatelyBefore = comments.find((comment) => comment.end <= tokens[fn.fn].start
-    && text.slice(comment.end, tokens[fn.fn].start).trim() === '');
-  if (immediatelyBefore) return 'directive';
-  const body = tokens.slice(fn.body + 1, fn.close);
-  if (body.some((token) => token.kind === 'bad')) return 'unparsed';
-  if (body.some((token) => token.kind === 'raw' && token.newline)) return 'multiline-raw';
-  if (body.some((token) => token.value === 'goto')) return 'label';
-  if (body.some((token, index) => token.kind === 'identifier' && body[index + 1]?.value === ':')) return 'label';
-  if (containsSequence(body, ['recover', '(', ')'])) return 'recover';
-  if (containsSequence(body, ['panic', '('])) return 'position';
-  return null;
+function functionFact(boundaries, site) {
+  const fact = site?.function;
+  if (!fact || !Number.isInteger(fact.start) || !Number.isInteger(fact.bodyStart) || !Number.isInteger(fact.bodyEnd)
+    || typeof fact.results !== 'boolean' || typeof fact.generic !== 'boolean' || typeof fact.redeclare !== 'boolean') return null;
+  const start = boundaries.get(fact.start);
+  const bodyStart = boundaries.get(fact.bodyStart + 1);
+  const bodyEnd = boundaries.get(fact.bodyEnd);
+  if (![start, bodyStart, bodyEnd].every(Number.isInteger) || bodyEnd < bodyStart) return null;
+  return { ...fact, start, bodyStart, bodyEnd };
 }
 
 /**
@@ -297,12 +220,7 @@ export function goBodyVariants(text, sites, {
 
   const refused = [];
   const refuse = (number, reason) => refused.push({ number, reason });
-  const allTokens = lexGo(text);
-  const tokens = realTokens(allTokens);
-  const parsed = !tokens.some((token) => token.kind === 'bad') && matchDelimiters(tokens);
-  const functions = parsed ? functionsIn(tokens) : [];
   const boundaries = byteBoundaries(text);
-  const fileWide = parsed ? fileReason(text, tokens) : 'unparsed';
   const seen = new Set();
   const candidates = new Map();
   const ordered = [...(sites ?? [])].sort((left, right) => (left?.number ?? 0) - (right?.number ?? 0));
@@ -311,30 +229,31 @@ export function goBodyVariants(text, sites, {
     const number = site?.number;
     if (!Number.isInteger(number) || number < 1 || number > 0xffffffff || seen.has(number)) { refuse(number, 'number'); continue; }
     seen.add(number);
-    if (fileWide) { refuse(number, fileWide); continue; }
+    if (site?.fileReason) { refuse(number, site.fileReason); continue; }
     if (!replacementOk(site?.replacement)) { refuse(number, 'replacement'); continue; }
     const start = boundaries.get(site?.start);
     const end = boundaries.get(site?.end);
     if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start
       || typeof site.original !== 'string' || text.slice(start, end) !== site.original) { refuse(number, 'span'); continue; }
-    const enclosing = functions.filter((fn) => start >= tokens[fn.body].end && end <= tokens[fn.close].start);
-    if (enclosing.length !== 1) { refuse(number, 'function'); continue; }
-    const fn = enclosing[0];
-    if (functionLiterals(tokens, fn).some(([literalStart, literalEnd]) => start >= literalStart && end <= literalEnd)) {
+    const fn = functionFact(boundaries, site);
+    if (!fn || start < fn.bodyStart || end > fn.bodyEnd) { refuse(number, 'function'); continue; }
+    if (site.functionLiteral) {
       refuse(number, 'function-literal');
       continue;
     }
-    const list = candidates.get(fn) ?? [];
+    const key = `${fn.bodyStart}\0${fn.bodyEnd}`;
+    const entry = candidates.get(key) ?? { fn, list: [] };
+    const list = entry.list;
     list.push({ number, start, end, replacement: site.replacement });
-    candidates.set(fn, list);
+    candidates.set(key, entry);
   }
 
   const accepted = new Map();
-  for (const [fn, list] of candidates) {
-    const reason = bodyReason(text, allTokens, tokens, fn);
+  for (const [key, { fn, list }] of candidates) {
+    const reason = fn.reason || (fn.redeclare ? 'redeclare' : null);
     if (reason) { for (const site of list) refuse(site.number, reason); continue; }
-    const bodyStart = tokens[fn.body].end;
-    const bodyEnd = tokens[fn.close].start;
+    const bodyStart = fn.bodyStart;
+    const bodyEnd = fn.bodyEnd;
     const body = text.slice(bodyStart, bodyEnd);
     let original;
     try { original = renderBody(body); }
@@ -354,18 +273,18 @@ export function goBodyVariants(text, sites, {
       if (byteLength(rendered) * multiplier > budget) { refuse(site.number, 'budget'); continue; }
       variants.push({ number: site.number, rendered });
     }
-    if (variants.length) accepted.set(fn, variants);
+    if (variants.length) accepted.set(key, { fn, variants });
   }
 
   let renderedText = text;
-  const additions = [...accepted].sort(([left], [right]) => tokens[right.body].end - tokens[left.body].end);
+  const additions = [...accepted.values()].sort((left, right) => right.fn.bodyStart - left.fn.bodyStart);
   const insertions = [];
-  for (const [fn, variants] of additions) {
+  for (const { fn, variants } of additions) {
     const cases = variants.map(({ number, rendered }) => `case ${number}: ${rendered}${fn.results ? '' : ' return;'}`).join(' ');
     // The original first statement remains on this same physical line. Go's
     // lexer therefore cannot insert its usual newline semicolon after `}`.
     const insertion = `switch ${helper}() { ${cases} };`;
-    const at = tokens[fn.body].end;
+    const at = fn.bodyStart;
     renderedText = renderedText.slice(0, at) + insertion + renderedText.slice(at);
     const line = lineAt(text, at);
     const lineStart = text.lastIndexOf('\n', at - 1) + 1;
@@ -373,7 +292,7 @@ export function goBodyVariants(text, sites, {
   }
   insertions.reverse();
   refused.sort((left, right) => (left.number ?? 0) - (right.number ?? 0));
-  const switched = [...accepted.values()].flat().map((site) => site.number).sort((left, right) => left - right);
+  const switched = [...accepted.values()].flatMap(({ variants }) => variants).map((site) => site.number).sort((left, right) => left - right);
   return { text: renderedText, switched, refused, insertions };
 }
 
@@ -381,7 +300,8 @@ export function goBodyVariants(text, sites, {
 export function goFaultHelper(packageName, helper = '_cupelFaultActive') {
   if (!isGoIdentifier(packageName)) throw new TypeError(`goFaultHelper: not a Go package identifier: ${packageName}`);
   if (!isGoIdentifier(helper)) throw new TypeError(`goFaultHelper: not a Go identifier: ${helper}`);
-  const once = `${helper}Once`;
   const active = `${helper}Value`;
-  return `package ${packageName}\n\nimport (\n\t"os"\n\t"strconv"\n\t"sync"\n)\n\nvar ${once} sync.Once\nvar ${active} uint32\n\nfunc ${helper}() uint32 {\n\t${once}.Do(func() {\n\t\tvalue, err := strconv.ParseUint(os.Getenv("CUPEL_FAULT"), 10, 32)\n\t\tif err == nil {\n\t\t\t${active} = uint32(value)\n\t\t}\n\t})\n\treturn ${active}\n}\n`;
+  // Package initialization precedes test code, so a test cannot erase the
+  // runner-selected fault with os.Unsetenv before the first mutated call.
+  return `package ${packageName}\n\nimport (\n\t"os"\n\t"strconv"\n)\n\nvar ${active} = func() uint32 {\n\tvalue, err := strconv.ParseUint(os.Getenv("CUPEL_FAULT"), 10, 32)\n\tif err != nil {\n\t\treturn 0\n\t}\n\treturn uint32(value)\n}()\n\nfunc ${helper}() uint32 {\n\treturn ${active}\n}\n`;
 }
