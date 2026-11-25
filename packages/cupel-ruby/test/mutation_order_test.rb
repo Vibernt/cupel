@@ -61,14 +61,29 @@ class MutationOrderTest < Minitest::Test
     assert_equal %w[history near short-near broad], targeted.ran
   end
 
-  def test_real_catch_precedes_a_later_timeout_without_counting_timeout_as_a_catch
+  def test_timeout_and_catch_have_the_same_status_in_either_order
+    selected = tests.first(2)
+    outcomes = {
+      'broad' => ['timeout', ['broad']],
+      'near' => ['killed', ['near']]
+    }
+
+    timeout_first = FakeAssessment.new(outcomes)
+    catch_first = FakeAssessment.new(outcomes)
+    assert_equal ['killed', ['near']], timeout_first.assess(nil, Site.new('lib/other.rb'), selected)
+    assert_equal ['killed', ['near']], catch_first.assess(nil, Site.new('lib/other.rb'), selected.reverse)
+    assert_equal %w[broad near], timeout_first.ran
+    assert_equal %w[near broad], catch_first.ran
+  end
+
+  def test_targeted_assessment_runs_every_test_after_an_error
     outcomes = tests.to_h { |test| [test.fetch('id'), ['survived', []]] }
-    outcomes['history'] = ['killed', ['history']]
-    outcomes['near'] = ['timeout', ['near']]
+    outcomes['history'] = ['error', []]
+    outcomes['near'] = ['killed', ['near']]
     assessment = FakeAssessment.new(outcomes)
 
-    assert_equal ['killed', ['history']], assessment.assess(nil, Site.new('lib/a/b.rb'), tests,
-                                                            catchers: ['history'])
-    assert_equal %w[history near], assessment.ran
+    assert_equal ['killed', ['near']], assessment.assess(nil, Site.new('lib/a/b.rb'), tests,
+                                                         targeted: true, catchers: ['history'])
+    assert_equal %w[history near short-near broad], assessment.ran
   end
 end

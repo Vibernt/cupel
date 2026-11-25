@@ -378,7 +378,7 @@ class MutationTest < Minitest::Test
       input = input_for(root)
       result = mutate(root, input)
       assert_equal ['timeout'], result['mutants'].map { |row| row['status'] }.uniq
-      assert_equal [input['tests'].first['id']], result['mutants'].first['killedBy']
+      refute result['mutants'].first.key?('killedBy')
     end
     fixture(source, test) do |root|
       input = input_for(root)
