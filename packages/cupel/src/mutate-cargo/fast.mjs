@@ -711,7 +711,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
 
       // A+B: every other fault gets its own incremental build in the scratch copy; faults the switched
       // build answered in part continue with the targets they still owe.
-      const individually = async (c, before, { only = null, record = true } = {}) => {
+      const individually = async (c, before, { only = null, record = true, alsoRun = null } = {}) => {
         const mutant = byName.get(c.name);
         const path = join(src, c.source);
         const original = readFileSync(path, 'utf8');
@@ -725,7 +725,8 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           const t1 = before?.testMs ?? 0;
           const st = await runner.evaluate(c, 0, before ? { only: new Set(before.pending), state: before } : (only ? { only } : {}));
           if (record) addFault(c.id, 0, st.testMs - t1);
-          return { mutant, ...Runner.outcome(st) };
+          const extra = alsoRun ? await alsoRun(own) : null;
+          return { mutant, ...Runner.outcome(st), extra };
         } finally { put(path, original); if (record) timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
       };
       const rest = plan.run.filter((c) => single.has(c.id) || partial.has(c.id));
@@ -748,25 +749,46 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
         // stop). Which tests a run credits depends on target order and the stop rule, so the check is semantic: the same
         // status (a reported catch must be a catch; a reported timeout may turn out caught, both are detected), every
         // credited test must really catch the fault on its own build, with the same catch kind.
-        const individual = new Map();
-        const stopAfter = runner.stopAfter;
-        runner.stopAfter = Infinity;
-        try {
-          for (const id of finals.keys()) individual.set(id, await individually(plan.run.find((x) => x.id === id), null, { record: false }));
-        } finally { runner.stopAfter = stopAfter; }
+        // On the same individual build, run exactly the tests the switched build credited: each must fail on its own.
+        const testById = new Map(input.tests.map((t) => [t.id, t]));
         const rowsOf = (list) => new Map(attributeOutcomes({ root, input, listing, compiled: runner.compiled, outcomes: list }).mutation.mutants.map((r) => [r.id, r]));
         const viaSwitch = rowsOf([...finals.values()]);
-        const viaBuild = rowsOf([...individual.values()].filter((o) => o.summary !== 'Unviable'));
-        const shape = (r) => (r ? { status: r.status, killedBy: r.killedBy ?? [], killKinds: r.killKinds ?? {} } : { status: 'unviable', killedBy: [], killKinds: {} });
-        const agrees = (a, b) => {
-          const detected = (x) => x === 'killed' || x === 'timeout';
-          if (a.status === 'timeout' ? !detected(b.status) : a.status !== b.status) return false;
-          return a.killedBy.every((t) => b.killedBy.includes(t) && (a.killKinds[t] ?? null) === (b.killKinds[t] ?? null));
-        };
+        const individual = new Map();
         for (const id of finals.keys()) {
-          const a = shape(viaSwitch.get(id)); const b = shape(viaBuild.get(id));
-          if (!agrees(a, b)) {
-            refuse(`CUPEL_RUST_VERIFY_SWITCHED: ${individual.get(id).mutant.name} (${id}) differs: switched build ${JSON.stringify(a)}, individual build ${JSON.stringify(b)}`);
+          const credited = viaSwitch.get(id)?.killedBy ?? [];
+          const alsoRun = async () => {
+            const byTarget = new Map();
+            for (const tid of credited) {
+              const t = testById.get(tid); if (!t) continue;
+              const target = runner.target(t.file);
+              if (!byTarget.has(target.key)) byTarget.set(target.key, { target, names: [] });
+              byTarget.get(target.key).names.push(libtestName(t));
+            }
+            const runs = [];
+            for (const { target, names } of byTarget.values()) {
+              const limit = Math.max(TIMEOUT_FACTOR * (runner.baseline.get(target.key)?.ms ?? 0), TIMEOUT_FLOOR_MS);
+              const r = await runner.runTarget(target, names.sort(cmp), 0, TIMEOUT_FACTOR * limit);
+              const failing = runner.baseline.get(target.key)?.failing ?? new Set();
+              for (const x of r.parsed.runs) x.failed = x.failed.filter((f) => !failing.has(f.name));
+              runs.push(...r.parsed.runs);
+            }
+            return runs;
+          };
+          individual.set(id, await individually(plan.run.find((x) => x.id === id), null, { record: false, alsoRun: credited.length ? alsoRun : null }));
+        }
+        const viaBuild = rowsOf([...individual.values()].filter((o) => o.summary !== 'Unviable'));
+        const caughtAlone = rowsOf([...individual.entries()].filter(([, o]) => o.extra?.length)
+          .map(([, o]) => ({ mutant: o.mutant, summary: 'CaughtMutant', log: { compiled: new Map(), runs: o.extra, doctestFailures: 0, nextest: false } })));
+        const shape = (r) => (r ? { status: r.status, killedBy: r.killedBy ?? [], killKinds: r.killKinds ?? {} } : { status: 'unviable', killedBy: [], killKinds: {} });
+        const detected = (x) => x === 'killed' || x === 'timeout';
+        for (const id of finals.keys()) {
+          const a = shape(viaSwitch.get(id)); const b = shape(viaBuild.get(id)); const alone = shape(caughtAlone.get(id));
+          // Same status (caught and timed out are both detected; which one depends on target order), and every
+          // credited test fails on the individual build with the same catch kind.
+          const sameStatus = detected(a.status) ? detected(b.status) : a.status === b.status;
+          const creditsHold = a.killedBy.every((t) => alone.killedBy.includes(t) && (a.killKinds[t] ?? null) === (alone.killKinds[t] ?? null));
+          if (!sameStatus || !creditsHold) {
+            refuse(`CUPEL_RUST_VERIFY_SWITCHED: ${individual.get(id).mutant.name} (${id}) differs: switched build ${JSON.stringify(a)}, individual build ${JSON.stringify(b)}, credited tests alone ${JSON.stringify(alone)}`);
           }
         }
         log(`mutate-rust: verified ${finals.size} switched fault(s) against individual builds: all agree`);
