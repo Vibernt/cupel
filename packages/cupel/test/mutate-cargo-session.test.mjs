@@ -389,3 +389,24 @@ test('a cache folder inside the assessed project is refused, however it is deriv
     ok.release();
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 });
+
+test('Cupel\'s own output files in the project never change the project digest', async () => {
+  const { syncProject } = await import('../src/mutate-cargo/session.mjs');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const base = mkdtempSync(join(tmpdir(), 'cupel-own-'));
+  try {
+    const root = join(base, 'p'); const dest = join(base, 'd');
+    (await import('node:fs')).mkdirSync(root);
+    writeFileSync(join(root, 'lib.rs'), 'fn a() {}\n');
+    writeFileSync(join(root, 'out.json'), '{"run":1}');
+    const own = ['out.json', 'skipped.json'];
+    const a = syncProject(root, dest, join(base, 'sync.json'), { ownFiles: own }).digest;
+    writeFileSync(join(root, 'out.json'), '{"run":2}');
+    writeFileSync(join(root, 'skipped.json'), '{}');
+    assert.equal(syncProject(root, dest, join(base, 'sync.json'), { ownFiles: own }).digest, a);
+    writeFileSync(join(root, 'lib.rs'), 'fn b() {}\n');
+    assert.notEqual(syncProject(root, dest, join(base, 'sync.json'), { ownFiles: own }).digest, a);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});

@@ -184,7 +184,10 @@ function writeDurable(path, text) {
  * Returns the counts, `project` (the copy's real path) and `digest`: a SHA-256 over every path of the copy
  * with its content hash (links: target; files: mode), so equal digests mean the same project content.
  */
-export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname(manifestFile), 'dirty.json') } = {}) {
+export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname(manifestFile), 'dirty.json'), ownFiles = [] } = {}) {
+  // Cupel's own output files in the project (--out, --reuse and the skipped.json beside --out) are copied but never
+  // part of the digest: they change on every run and no test reads them.
+  const own = new Set(ownFiles);
   const old = readJson(manifestFile)?.files ?? {};
   const dirty = new Set(readJson(dirtyFile)?.paths ?? []);
   const files = {};
@@ -247,6 +250,7 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
   walk(root, dest, '');
   writeAtomic(manifestFile, `${JSON.stringify({ files })}\n`);
   rmSync(dirtyFile, { force: true });
+  for (let k = entries.length - 1; k >= 0; k--) if (own.has(entries[k][1])) entries.splice(k, 1);
   entries.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[0] < b[0] ? -1 : 1));
   return { ...counts, project: realpathSync(dest), digest: sha(JSON.stringify(entries)) };
 }
@@ -277,7 +281,7 @@ export function assertCacheOutside(cache, root) {
  * `markDirty(file)` with every file of the copy Cupel is about to write: the path is stored durably in
  * `dirty.json` first, and the next sync copies it again from the project whatever its size and time.
  */
-export async function openSession({ root, id, env = process.env, waitMs, pollMs, now = () => Date.now() }) {
+export async function openSession({ root, id, env = process.env, waitMs, pollMs, now = () => Date.now(), ownFiles = [] }) {
   assertCacheOutside(cacheDir(env), root);
   const dir = join(sessionsRoot(env), id);
   mkdirSync(dir, { recursive: true });
@@ -291,7 +295,7 @@ export async function openSession({ root, id, env = process.env, waitMs, pollMs,
     meta.lastUsed = now();
     meta.project = realpathSync(root);
     mkdirSync(join(dir, 'target'), { recursive: true });
-    const synced = syncProject(root, join(dir, 'project'), join(dir, 'sync.json'), { dirtyFile: join(dir, 'dirty.json') });
+    const synced = syncProject(root, join(dir, 'project'), join(dir, 'sync.json'), { dirtyFile: join(dir, 'dirty.json'), ownFiles });
     const dirty = new Set();
     const session = {
       dir, project: synced.project, target: join(dir, 'target'), warm, meta, sync: synced, release,

@@ -349,7 +349,7 @@ export async function mutate(mutator, options) {
   return stamped;
 }
 
-async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
+async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics, ownFiles = [] }) {
   if (!mutationRequested(scope)) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
@@ -385,7 +385,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
         if (scope.runner && name !== scope.runner) continue;
         if (!mutationRequested(selected)) continue;
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
-        const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
+        const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics, ownFiles });
         if (result) {
           mutations.push(result);
           for (const mutant of result.mutants) {
@@ -422,7 +422,8 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
       if (!go) throw environment('Go mutation module is not available');
       return await go.mutateGo({ root, config: cfg, input, scope, log });
     }
-    if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log });
+    // The Rust runner's build session leaves Cupel's own output files out of its project digest.
+    if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope: ownFiles.length ? { ...scope, ownFiles } : scope, log });
     if (input.runtime.name === 'ruby') {
       const { reuse: _reuse, ...rubyScope } = scope;
       const nativeScope = { ...rubyScope,

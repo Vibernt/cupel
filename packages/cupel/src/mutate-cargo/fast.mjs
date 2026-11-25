@@ -505,7 +505,11 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           root, rustc: rustcV, cargo: await probe(cargo, ['--version']), host: `${process.platform}-${process.arch} ${/^host: (.*)$/m.exec(rustcV)?.[1] ?? ''}`,
           rustflags: flags.RUSTFLAGS ?? '', encodedRustflags: flags.CARGO_ENCODED_RUSTFLAGS ?? '', runner: config.runners?.cargo ?? {}, version: cupelVersion(),
         });
-        session = await openSession({ root, id, env: environment });
+        // Cupel's own files inside the project, relative to it: --out/--reuse and the skipped.json beside them.
+        const realRoot = realpathSync(root);
+        const ownFiles = (scope.ownFiles ?? []).flatMap((f) => [f, join(dirname(f), 'skipped.json')])
+          .map((f) => toPosix(relative(realRoot, f))).filter((r) => r && !r.startsWith('..'));
+        session = await openSession({ root, id, env: environment, ownFiles });
         work = session.dir;
         src = session.project;
         env = rustflags({ ...base, CARGO_TARGET_DIR: session.target });
