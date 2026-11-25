@@ -330,7 +330,9 @@ export async function mutate(mutator, options) {
   if (!mutationRequested(options.scope)) return null;
   // Each fault's measured time from the earlier input sharpens plan estimates; every run records its own.
   const history = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => Number.isInteger(m.durationMs)).map((m) => [m.id, m.durationMs]));
-  const scope = { ...options.scope, timings: true, ...(Object.keys(history).length ? { history } : {}) };
+  // Which tests caught each fault last time: the Rust runner tries their targets first (order only, never results).
+  const catchers = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => m.killedBy?.length).map((m) => [m.id, m.killedBy]));
+  const scope = { ...options.scope, timings: true, ...(Object.keys(history).length ? { history } : {}), ...(Object.keys(catchers).length ? { catchers } : {}) };
   if (!reuseEnabled(cfg)) {
     const result = await mutateRuns(mutator, { ...options, scope });
     return result && scope.firstCatch && !scope.plan ? { ...result, catches: 'first' } : result;

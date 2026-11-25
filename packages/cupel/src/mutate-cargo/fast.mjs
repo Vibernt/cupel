@@ -24,6 +24,7 @@ import { copyProject } from '../mutate/index.mjs';
 import { attributeOutcomes, baseRow, CargoMutantsError, mutantId, targetedUnits } from './import.mjs';
 import { parseLog } from './logs.mjs';
 import { environmentFor, execute, findTool, INSTALL, planCargoMutants, planEntries, slicePlan, wantedLines } from './run.mjs';
+import { orderTargets } from './order.mjs';
 import { DEFAULT_CAP_GB, enforceCap, hashFile, openSession, sessionId } from './session.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
@@ -317,7 +318,11 @@ class Runner {
     const ms = (key) => this.baseline.get(key)?.ms ?? 0;
     // Only inputs decide the order (as in the JavaScript runner), so the same faults stop on the same targets
     // on every run and machine: most covering tests first, then the input's durations, then the name.
-    const order = [...byTarget.keys()].sort((a, b) => (byTarget.get(b).names.size - byTarget.get(a).names.size) || (this.inputMs(a) - this.inputMs(b)) || cmp(a, b));
+    // Targets holding a test that caught this fault last time go first (order only); the rest by the input.
+    const testFile = new Map(this.input.tests.map((t) => [t.id, t.file]));
+    const order = orderTargets({ keys: [...byTarget.keys()], namesByKey: new Map([...byTarget].map(([k, v]) => [k, v.names])),
+      inputMs: (k) => this.inputMs(k), previousCatchers: this.catchers?.[candidate.id] ?? [],
+      keyOfTest: (id) => { const file = testFile.get(id); if (!file) return undefined; try { return this.target(file).key; } catch { return undefined; } } });
     const full = tests.some((t) => this.targetedUnits.has(t.unit ?? t.id));
     const st = state ?? { catching: 0, timedOut: false, runs: [], done: new Set(), testMs: 0 };
     if (process.env.CUPEL_DEBUG_RUST) this.log(`debug: fault ${fault} line ${candidate.line} order ${order.map((k) => k.replaceAll('\0', '/')).join(', ')} only ${only ? [...only].map((k) => k.replaceAll('\0', '/')).join(', ') : '-'} done ${[...st.done].length} catching ${st.catching}`);
@@ -440,6 +445,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       delete env.CUPEL_FAULT;
       const packages = await workspace(cargoTool, src, env);
       runner = new Runner({ root, src, input, env, cargo: cargoTool, packages, log, targeted: scope.targeted ?? [] });
+      runner.catchers = scope.catchers ?? {};
       if (scope.firstCatch) runner.stopAfter = 1;
 
       // Targets and test names every fault needs, for the baseline build and runs.
