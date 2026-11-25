@@ -8,6 +8,7 @@ import { collectVitest } from '../src/collect/vitest/index.mjs';
 import { analyseAssertions } from '../src/analysis/assertions.mjs';
 import { main } from '../src/cli/main.mjs';
 import { linkVitestModules } from './vitest-modules.mjs';
+import { VITEST4_MODULES } from './support/vitest-paths.mjs';
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
 async function project(framework, source, check, options = {}) {
   mkdirSync(scratch, { recursive: true });
@@ -15,7 +16,7 @@ async function project(framework, source, check, options = {}) {
   try {
     mkdirSync(join(root, 'tests'));
     writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module', private: true, ...(framework === 'vitest' ? { devDependencies: { vitest: '4.1.11' } } : {}) }));
-    if (framework === 'vitest') linkVitestModules(root, '/Users/vid/codecrystal/hub-ts/node_modules');
+    if (framework === 'vitest') linkVitestModules(root, VITEST4_MODULES);
     const { testFile = 'tests/example.test.mjs', ...collectionOptions } = options;
     writeFileSync(join(root, testFile), source);
     const out = join(root, '.scratch/input.json');

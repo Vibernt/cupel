@@ -9,6 +9,14 @@ workspace (5,828 lines), and mutation acceptance is in progress. Until it is
 recorded, treat Rust results as preview evidence. Native selective PR
 execution is unsupported.
 
+The legacy restricted backend (`backend: "cupel-rust"`) is a separate integration
+profile: it runs only with Homebrew Rust/Cargo **1.97.1** on
+`aarch64-apple-darwin`. Its source and installed-package tests skip with that
+exact reason when the profile is absent; `CUPEL_REQUIRE_RESTRICTED_RUST=1` turns
+the skip into a failure for maintainer acceptance. Hosted CI uses rustup 1.97.1
+for portable coverage and cargo-mutants tests and does not claim that restricted
+profile.
+
 ## Coverage
 
 Run `cupel collect-cargo --root DIR [--runs N] [--recheck UNIT…] [--out FILE] [-- cargo test args]`. Configure `runners.cargo` in `cupel.json` to select it for `report`, `check`, `guard`, `plan`, `label` and `review`. A configured `runners.cargo.tests` glob selects Cargo packages and test files and accepts brace alternatives; the direct CLI also accepts `--tests GLOB`. Cupel uses the user's Cargo and rustup environment without changing `CARGO_HOME` or `RUSTUP_HOME`. When `CARGO_TARGET_DIR` is set, builds use a repository-specific subdirectory inside it, so cached binaries from another checkout never attribute coverage to stale paths. Cargo is forced offline (`CARGO_NET_OFFLINE=true`, `--offline`): install dependencies first. A custom Cargo runner or build target (`.cargo/config.toml`, `--target`) is refused, because tests run directly on the host. The collector needs `llvm-profdata` and `llvm-cov` matching rustc's LLVM major version, from the rustup sysroot (`rustup component add llvm-tools-preview`) or from `PATH`; otherwise it exits 3 with that installation command.

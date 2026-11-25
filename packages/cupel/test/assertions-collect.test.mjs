@@ -8,6 +8,7 @@ import { collectVitest } from '../src/collect/vitest/index.mjs';
 import { analyseAssertions } from '../src/analysis/assertions.mjs';
 import { main } from '../src/cli/main.mjs';
 import { linkVitestModules } from './vitest-modules.mjs';
+import { VITEST4_MODULES } from './support/vitest-paths.mjs';
 const scratch = fileURLToPath(new URL('../../../.scratch/', import.meta.url));
 function snapshot(root, dir = '') {
   return readdirSync(join(root, dir)).filter((f) => f !== '.scratch' && f !== 'node_modules').sort().flatMap((f) => {
@@ -21,7 +22,7 @@ for (const framework of ['node', 'vitest']) test(`${framework}: assertion repeat
   try {
     mkdirSync(join(root, 'tests'));
     writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module', private: true, ...(framework === 'vitest' ? { devDependencies: { vitest: '4.1.11' } } : {}) }));
-    if (framework === 'vitest') linkVitestModules(root, '/Users/vid/codecrystal/hub-ts/node_modules');
+    if (framework === 'vitest') linkVitestModules(root, VITEST4_MODULES);
     const check = framework === 'node' ? 'assert.strictEqual(result, 10)' : 'expect(result).toBe(10)';
     const source = `${framework === 'node' ? "import { test } from 'node:test'; import assert from 'node:assert';" : "import { test, expect } from 'vitest';"}
 const identity = (x) => x;

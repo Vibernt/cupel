@@ -37,7 +37,8 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH npm test
 ```
 
 Use your installed Node 22 path on another host. Enable the local pre-push hook
-once per clone with `git config core.hooksPath .githooks`. There is no hosted CI.
+once per clone with `git config core.hooksPath .githooks`. Pull requests run the
+full hosted CI matrix described in the development guide.
 The [development guide](docs/development.md) explains required Python/Ruby tools,
 fixture-dependent skips and the stricter installed-artifact gates. A green test
 command with skipped integrations does not establish runner acceptance.

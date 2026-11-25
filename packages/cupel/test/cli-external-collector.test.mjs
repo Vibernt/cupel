@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync, cpSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { delimiter, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TEST_PYTHON } from './support/python-paths.mjs';
 
 const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
 const sample = fileURLToPath(new URL('../../../spec/conformance/cases/001-report-minimal/input.json', import.meta.url));
@@ -26,9 +27,9 @@ test('configured external collector runs at root and supplies its --out input', 
 });
 
 test('Python project without node tests selects the bundled pytest collector', (t) => {
-  const python = '/Users/vid/codecrystal/.venv/bin/python';
+  const python = TEST_PYTHON;
   const available = spawnSync(python, ['-c', 'import pytest'], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
-  if (available.status !== 0) { t.skip('pytest unavailable in read-only CodeCrystal Python 3.14 environment'); return; }
+  if (available.status !== 0) { t.skip(`pytest unavailable in configured Python: ${python}`); return; }
   const root = tempRoot('cupel-auto-pytest-');
   try {
     const fixture = fileURLToPath(new URL('../../../spec/conformance/adapters/pytest/', import.meta.url));
@@ -37,7 +38,7 @@ test('Python project without node tests selects the bundled pytest collector', (
     writeFileSync(join(root, 'pyproject.toml'), '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n');
     const out = join(root, 'input.json');
     const run = spawnSync(process.execPath, [bin, 'label', '--runs', '1', '--out', out], {
-      cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${dirname(python)}:${process.env.PATH}`, PYTHONDONTWRITEBYTECODE: '1' },
+      cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${dirname(python)}${delimiter}${process.env.PATH}`, PYTHONDONTWRITEBYTECODE: '1' },
     });
     assert.equal(run.status, 0, run.stderr);
     const input = JSON.parse(readFileSync(out, 'utf8'));
@@ -46,7 +47,7 @@ test('Python project without node tests selects the bundled pytest collector', (
     writeFileSync(join(root, 'frontend.test.mjs'), "import { test } from 'node:test'; test('frontend', () => {});\n");
     writeFileSync(join(root, 'cupel.json'), '{"runners":{"pytest":{}}}');
     const configured = spawnSync(process.execPath, [bin, 'label', '--runs', '1', '--out', out], {
-      cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${dirname(python)}:${process.env.PATH}`, PYTHONDONTWRITEBYTECODE: '1' },
+      cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${dirname(python)}${delimiter}${process.env.PATH}`, PYTHONDONTWRITEBYTECODE: '1' },
     });
     assert.equal(configured.status, 0, configured.stderr);
     assert.equal(JSON.parse(readFileSync(out, 'utf8')).runtime.name, 'python');

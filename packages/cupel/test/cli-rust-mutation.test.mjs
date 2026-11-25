@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rustPackageSmoke } from '../../../scripts/rust-package-smoke.mjs';
+import { inspectRestrictedRustProfile } from '../../../scripts/restricted-rust-profile.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 function checked(command, args, options) {
@@ -14,7 +15,13 @@ function checked(command, args, options) {
   assert.equal(value.status, 0, `${value.stderr}\n${value.stdout}`);
   return value;
 }
-test('restricted Rust CLI collects source identities and guards a lost mutation kill', () => {
+test('restricted Rust CLI collects source identities and guards a lost mutation kill', (t) => {
+  const profile = inspectRestrictedRustProfile();
+  if (!profile.available) {
+    if (process.env.CUPEL_REQUIRE_RESTRICTED_RUST === '1') assert.fail(profile.reason);
+    t.skip(profile.reason);
+    return;
+  }
   const scratchRoot = join(root, '.scratch'); mkdirSync(scratchRoot, { recursive: true });
   const scratch = mkdtempSync(join(scratchRoot, 'cli-rust-'));
   try {
