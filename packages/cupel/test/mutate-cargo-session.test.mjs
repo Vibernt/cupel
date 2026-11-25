@@ -65,16 +65,19 @@ test('session id covers the toolchain, flags, config and version, but not source
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('sync makes the copy what copyProject makes, copies only changes, deletes what is gone, and never touches the project', () => {
+// copyProject links node_modules; a Rust session leaves it out (nothing in it can be written through to the project).
+const noNodeModules = (tree) => Object.fromEntries(Object.entries(tree).filter(([k]) => !k.split('/').includes('node_modules')));
+
+test('sync makes the copy what copyProject makes (less node_modules), copies only changes, deletes what is gone, and never touches the project', () => {
   const root = project(); const out = tmp();
   try {
     const dest = join(out, 'project'); const manifest = join(out, 'sync.json');
     const reference = copyProject(root, join(out, 'reference'));
     const before = snapshot(root);
     const first = syncProject(root, dest, manifest);
-    assert.deepEqual(shape(snapshot(dest)), shape(snapshot(reference)));
+    assert.deepEqual(shape(snapshot(dest)), noNodeModules(shape(snapshot(reference))));
     assert.ok(first.copied > 0);
-    assert.equal(lstatSync(join(dest, 'web/node_modules')).isSymbolicLink(), true);
+    assert.equal(existsSync(join(dest, 'web/node_modules')), false);
     assert.equal(lstatSync(join(dest, 'run.sh')).mode & 0o777, 0o755);
     assert.equal(existsSync(join(dest, 'target')), false);
     assert.equal(existsSync(join(dest, 'a/target')), false);
@@ -93,7 +96,7 @@ test('sync makes the copy what copyProject makes, copies only changes, deletes w
     rmSync(join(root, 'alias.rs')); mkdirSync(join(root, 'alias.rs')); put(root, 'alias.rs/mod.rs', 'm\n');
     const ref2 = copyProject(root, join(out, 'reference2'));
     const second = syncProject(root, dest, manifest);
-    assert.deepEqual(shape(snapshot(dest)), shape(snapshot(ref2)));
+    assert.deepEqual(shape(snapshot(dest)), noNodeModules(shape(snapshot(ref2))));
     assert.ok(second.deleted >= 3);
     assert.ok(second.copied >= 2);
     assert.equal(snapshot(dest)['a/src/new.rs'][3], 'new\n');
@@ -510,6 +513,13 @@ test('links: one into the project points into the copy, one outside stays and ma
   assert.equal(second.linked, false);
   assert.equal(readFileSync(join(dest, 'data/flag'), 'utf8'), 'on\n'); // the planted write is undone by the sync
 
+  // node_modules never enters a Rust session: a link to the project's own would let a build script write into it.
   mkdirSync(join(root, 'web/node_modules/pkg'), { recursive: true });
-  assert.equal(syncProject(root, dest, manifest).linked, true);
+  assert.equal(syncProject(root, dest, manifest).linked, false);
+  assert.equal(existsSync(join(dest, 'web/node_modules')), false);
+  // A chain of links that ends inside the project is followed to its end.
+  symlinkSync(join(outside, 'hop'), join(root, 'chain'));
+  symlinkSync(join(root, 'data/flag'), join(outside, 'hop'));
+  syncProject(root, dest, manifest);
+  assert.equal(realpathSync(join(dest, 'chain')), realpathSync(join(dest, 'data/flag')));
 });

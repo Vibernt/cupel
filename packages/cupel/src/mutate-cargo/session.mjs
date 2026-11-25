@@ -16,7 +16,9 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { CargoMutantsError } from './import.mjs';
 
 export const DEFAULT_CAP_GB = 10;
-const SKIP = new Set(['.git', '.cupel', '.scratch', 'target']); // as copyProject
+// As copyProject, plus node_modules: a link to the project's own would let a build script or test write into it,
+// and Cargo builds and tests do not need it.
+const SKIP = new Set(['.git', '.cupel', '.scratch', 'target', 'node_modules']);
 const META_VERSION = 1;
 const GB = 1024 ** 3;
 
@@ -222,13 +224,14 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
         }
         entries.push(['l', path, target]);
       };
-      if (e.name === 'node_modules' && e.isDirectory()) { linked = true; link(src); }
-      else if (e.isSymbolicLink()) {
+      if (e.isSymbolicLink()) {
         // A link that resolves inside the project points at the same place in the copy, so nothing run in the copy
         // can write through it into the project; a link to anything outside the project stays, and its content is not
         // part of the digest, so the session reuses no earlier pass while one exists.
         const target = readlinkSync(src);
-        const resolved = resolve(dirname(src), target);
+        // The whole chain decides where a write lands; a dangling link is judged by where it would create the file.
+        let resolved;
+        try { resolved = realpathSync(src); } catch { resolved = resolve(dirname(src), target); }
         const base = [rootPath, rootReal].find((r) => resolved === r || resolved.startsWith(`${r}${sep}`));
         if (base) link(relative(dirname(dst), join(dest, relative(base, resolved))) || '.');
         else { linked = true; link(target); }

@@ -527,7 +527,9 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           env.CARGO = cargoTool;
         }
       }
-      delete env.CUPEL_FAULT;
+      // Cupel's own run-control variables never reach a test: they are left out of the environment digest, so a test
+      // that could read them would make reuse unsound.
+      for (const name of CUPEL_RUN_CONTROL) delete env[name];
       const packages = await workspace(cargoTool, src, env);
       runner = new Runner({ root, src, input, env, cargo: cargoTool, packages, log, targeted: scope.targeted ?? [] });
       runner.catchers = scope.catchers ?? {};
