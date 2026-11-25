@@ -8,8 +8,13 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLog } from '../src/mutate-cargo/logs.mjs';
-import { applyMutant, missingResults, regroups, scratchWrite, shiftSpan, switchable, targetOf } from '../src/mutate-cargo/fast.mjs';
+import { applyMutant, listFaults, missingResults, renderFaults, regroups, scratchWrite, shiftSpan, switchable, targetOf } from '../src/mutate-cargo/fast.mjs';
 import { symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import * as schemata from '../src/mutate-cargo/schemata.mjs';
+import * as bodies from '../src/mutate-cargo/schemata-body.mjs';
+import { mutantId } from '../src/mutate-cargo/import.mjs';
+import { slicePlan } from '../src/mutate-cargo/run.mjs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const fixture = join(repo, 'spec/conformance/adapters/cargo-workspace');
@@ -98,13 +103,71 @@ test('shiftSpan moves only positions at or after an insertion on their own line'
     { start: { line: 3, column: 19 }, end: { line: 3, column: 21 } });
 });
 
+const SOURCES = {
+  'src/a.rs': 'pub fn f(a: i32, b: i32) -> bool {\n    a + b == 3 && a < b\n}\npub fn g(x: bool, y: bool, z: bool) -> bool {\n    x && y || z\n}\n',
+  'src/b.rs': 'pub fn h(a: i32, b: i32) -> bool {\n    a - b != 1 && b > a\n}\n',
+};
+const entry = (file, needle, replacement, name) => {
+  const text = SOURCES[file];
+  const at = text.indexOf(needle, text.indexOf('{', text.indexOf(`fn ${name}(`)));
+  const pos = (offset) => { const line = text.slice(0, offset).split('\n').length; return { line, column: offset - text.lastIndexOf('\n', offset - 1) }; };
+  return { file, genre: 'BinaryOperator', name: `${file}:${pos(at).line}:${pos(at).column}: replace ${needle} with ${replacement}`, replacement,
+    span: { start: pos(at), end: pos(at + needle.length) }, function: { function_name: name }, package: 'p' };
+};
+
+test('numbers and rendered text cover the whole scope: every slice of a plan gets the same selectors and the same switched sources', () => {
+  const listing = [entry('src/a.rs', '==', '!=', 'f'), entry('src/a.rs', '&&', '||', 'f'), entry('src/a.rs', '<', '>', 'f'), entry('src/a.rs', '&&', '||', 'g'),
+    entry('src/b.rs', '!=', '==', 'h'), entry('src/b.rs', '&&', '||', 'h'), entry('src/b.rs', '>', '<', 'h')];
+  const wanted = new Map([['src/a.rs', new Set([2, 5])], ['src/b.rs', new Set([2])]]); // the whole scope: both files
+  const render = (run) => {
+    // What a slice does: numbers and files come from the scope (`wanted`), whatever `run` holds.
+    const { numbers, listed } = listFaults(listing, wanted.keys());
+    assert.ok(run.every((id) => numbers.has(id)));
+    const texts = {};
+    for (const [file, list] of listed) texts[file] = renderFaults({ text: SOURCES[file], list, schemata, bodies });
+    return { numbers: [...numbers].sort(), texts, selectors: run.map((id) => [id, numbers.get(id)]).sort() };
+  };
+  const ids = listing.map(mutantId);
+  const full = render(ids);
+  const slices = [ids.slice(4), ids.slice(0, 2), [ids[5]], [ids[3], ids[6]]];
+  for (const run of slices) {
+    const r = render(run);
+    assert.deepEqual(r.numbers, full.numbers);
+    assert.deepEqual(r.texts, full.texts);
+    assert.deepEqual(r.selectors, full.selectors.filter(([id]) => run.includes(id)));
+  }
+  // A slice holding only b.rs does not number from 1, and b.rs is rendered although none of its faults is in a.rs's slice.
+  const { numbers } = listFaults(listing, wanted.keys());
+  assert.equal(numbers.get(mutantId(listing[4])), 5);
+  assert.equal(stableOnly(listing).get(mutantId(listing[4])), 1, 'the old way (files of the slice) would give 1');
+  assert.ok(full.texts['src/a.rs'].text.includes('__cupel_faults'), 'switched');
+  assert.ok(full.texts['src/a.rs'].bodies.length > 0 && full.texts['src/b.rs'].bodies.length > 0, 'regrouping faults are body variants in both files');
+  // Slicing a real plan keeps the others out of `run` only.
+  const sliced = slicePlan({ noCoverage: [], reused: [], run: ids.map((id) => ({ id })), candidates: [], chosen: [] }, [ids[4]]);
+  assert.deepEqual(sliced.run.map((c) => c.id), [ids[4]]);
+});
+
+function stableOnly(listing) { return listFaults(listing, ['src/b.rs']).numbers; }
+
+test('a project that reads panic locations gets no body variants from the renderer', () => {
+  const listing = [entry('src/a.rs', '&&', '||', 'g')];
+  const { listed } = listFaults(listing, ['src/a.rs']);
+  const text = SOURCES['src/a.rs'];
+  const on = renderFaults({ text, list: listed.get('src/a.rs'), schemata, bodies });
+  const off = renderFaults({ text, list: listed.get('src/a.rs'), schemata, bodies, locations: true });
+  assert.ok(on.bodies.length > 0);
+  assert.deepEqual(off.bodies, []);
+  assert.ok(off.refusedBodies.every((r) => r.reason === 'location'));
+  assert.ok(!off.text.includes('match crate::__cupel_faults::active()'));
+});
+
 function report(backend, extra = {}, extraEnv = {}) {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const project = realpathSync(mkdtempSync(join(repo, `.scratch/cargo-fast-${backend}-`)));
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend, ...extra } } } }));
-  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, `.scratch/cargo-fast-target-${backend}`), CUPEL_CACHE_DIR: join(project, '.scratch/cache'), ...extraEnv };
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, `.scratch/cargo-fast-target-${backend}`), CUPEL_CACHE_DIR: realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cache-'))), ...extraEnv };
   const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', 'out.json', '--json', '--no-reuse'],
     { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
   try {
@@ -118,7 +181,7 @@ function firstCatch() {
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
-  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-first'), CUPEL_CACHE_DIR: join(project, '.scratch/cache') };
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-first'), CUPEL_CACHE_DIR: realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cache-'))) };
   const cli = (...args) => spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), ...args], { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
   try {
     const c = cli('report', '--runs', '1', '--no-mutation', '--out', 'collected.json', '--json');
@@ -150,6 +213,8 @@ test('backend cupel gives the rows cargo-mutants gives, one build per fault and 
   const verified = report('cupel', {}, { CUPEL_RUST_VERIFY_SWITCHED: '1' });
   assert.deepEqual(verified.rows, reference.rows);
   assert.match(verified.log, /mutate-rust: verified \d+ switched fault\(s\) against individual builds: all agree/);
+  const count = /mutate-rust: verified (\d+) switched fault/.exec(verified.log)[1];
+  assert.equal(count, /switched (\d+) \(operators/.exec(verified.log.split('\n').find((l) => l.includes('mutate-rust: timings')))[1], 'every fault that used the switched build is verified');
 });
 
 test('a second run in the same project reuses the build session: warm, baselines reused, same rows; a planted fault left in the session is restored', { skip, timeout: 900_000 }, () => {
@@ -159,13 +224,16 @@ test('a second run in the same project reuses the build session: warm, baselines
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
-  const cache = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-fast-cache-')));
+  const cache = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cache-')));
   const env = { ...process.env, CARGO_TARGET_DIR: join(repo, '.scratch/cargo-fast-target-session'), CUPEL_CACHE_DIR: cache };
   const once = () => {
     const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', 'out.json', '--json', '--no-reuse'],
       { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
     assert.equal(r.status, 0, r.stderr);
-    return { rows: JSON.parse(readFileSync(join(project, 'out.json'), 'utf8')).mutation.mutants.map(({ basis: _b, durationMs: _d, ...row }) => row), timings: r.stderr.split('\n').find((l) => l.includes('mutate-rust: timings')) };
+    const rows = JSON.parse(readFileSync(join(project, 'out.json'), 'utf8')).mutation.mutants.map(({ basis: _b, durationMs: _d, ...row }) => row);
+    // The report files are part of the project the next run copies; reuse needs the project unchanged, so they go.
+    for (const name of ['out.json', 'skipped.json']) rmSync(join(project, name), { force: true });
+    return { rows, timings: r.stderr.split('\n').find((l) => l.includes('mutate-rust: timings')) };
   };
   try {
     const cold = once();
@@ -182,6 +250,25 @@ test('a second run in the same project reuses the build session: warm, baselines
     const off = /switches-off reused (\d+)\/(\d+)/.exec(warm.timings);
     assert.ok(off && off[1] === off[2] && Number(off[1]) > 0, `switches-off verdict reused: ${warm.timings}`);
     console.log(`cold: ${cold.timings}\nwarm: ${warm.timings}`);
+
+    // Anything else that can change a test's outcome must stop reuse: a test environment variable, and a data file of the
+    // same size (the test executables stay the same).
+    env.CUPEL_REUSE_PROBE = '1';
+    const withEnv = once();
+    assert.match(withEnv.timings, /baselines reused 0\/\d+/, withEnv.timings);
+    assert.match(withEnv.timings, /switches-off reused 0\/\d+/, withEnv.timings);
+    delete env.CUPEL_REUSE_PROBE;
+    const data = join(project, 'core/data/greeting.txt');
+    const kept = readFileSync(data, 'utf8');
+    writeFileSync(data, kept.replace('hello', 'jello'));
+    const withData = once();
+    assert.match(withData.timings, /baselines reused 0\/\d+/, withData.timings);
+    assert.match(withData.timings, /switches-off reused 0\/\d+/, withData.timings);
+    writeFileSync(data, kept);
+    once(); // measured again for the original content
+    const again = once();
+    assert.match(again.timings, /baselines reused (\d+)\/\1/, again.timings);
+    assert.deepEqual(again.rows, cold.rows);
 
     // A crash that left a planted fault in the session copy: the next run restores it and its rows are unchanged.
     const planted = join(sessions, id, 'project/core/src/lib.rs');

@@ -79,3 +79,25 @@ the release.
   switched answer on its own build and refuses on any difference in status, catchers or kinds.
 - Switches-off verdict is reused across runs, keyed on a digest of the session, selector table, rewritten sources
   and the unmodified build.
+
+## Cross-model review of the sessions, reuse and body variants (2026-11-25)
+
+A review of `fast.mjs`, `session.mjs` and `schemata-body.mjs` found ten problems; all are fixed on
+`rust-integrate`, each with a regression test.
+
+| # | Finding | Fix |
+| --- | --- | --- |
+| 1, 2 | Baseline and switches-off reuse were keyed on test executable hashes (and names, rendered sources): a changed data file, environment variable or another built executable (`CARGO_BIN_EXE_*`) could leave a stale baseline. | Both keys now also hold a digest of the complete synced project (path, mode, content hash of every file, computed during sync from its comparison or the manifest), a digest of the test environment (minus `CUPEL_FAULT`) and the hashes of all executables of the build. Reuse needs nothing changed. Live test: env var and same-size data file change stop reuse. |
+| 3 | Body variants are on one line, so panic locations inside report the opening line. | Refused for `#[track_caller]` functions and for projects mentioning `Location::caller`/`panic::Location` in the listed sources (no body variants at all); remaining difference documented. |
+| 4 | Sync trusted equal size and mtime. | Paths are stored durably in `dirty.json` before any write in the session copy; the next sync compares them byte for byte (an identical file is left alone so Cargo does not rebuild) and clears the list. |
+| 5 | Catch-history order and timeouts. | No code change; documented (only real catches reorder; timed-out may become caught, both detected). |
+| 6 | Stale lock takeover was check-then-unlink. | `wx` create with a token, stale reclaim by unique rename, content check of what was renamed, token read back. |
+| 7 | Eviction and clean did not lock. | Both take the session lock without waiting and skip what they cannot lock. |
+| 8 | Selectors numbered over the files of `plan.run` after reuse and slicing. | Numbered and rendered over the wanted files of the whole scope; test: every slice of a plan gets identical selectors and rendered text. |
+| 9 | Verify mode checked only fully switched answers on trusted targets. | Verifies every fault that used the switched build against a full standalone run (all covering targets, same stop rule and mode). |
+| 10 | The cache folder could be inside the project. | Refused; tests use a temp folder outside. |
+
+Found while testing: the warm-run test must not leave report files in the project (they count as a changed project), and
+rebuilt executables are not bit-identical (incremental compilation), so the switches-off key uses each baseline's recorded
+first key, not this run's hashes; and re-copying a dirty file that is already identical would force a rebuild, hence the
+byte comparison.

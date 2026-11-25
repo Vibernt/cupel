@@ -98,23 +98,39 @@ By default the runner keeps its build between runs. The copy of the project, its
 `runners.cargo` config (without `mutants`) and Cupel's version. It is not a hash of the
 sources, so a later commit finds the same session warm. A run:
 
-- takes an exclusive lock (a second run waits a few seconds, then refuses; a lock of a
-  process that no longer exists is taken over);
+- takes an exclusive lock (a second run waits a few seconds, then refuses). The lock is a
+  file made only if absent (`wx`) that holds a unique token; a lock of a process that no
+  longer exists is reclaimed by renaming it to a unique name (only one contender's rename
+  succeeds) and creating it again, and the token is read back after taking it. Releasing
+  removes only a lock that still holds the run's own token;
 - first brings the session's copy of the project in line with the project: only files
   whose size, time or content changed are copied, files that no longer exist are
-  deleted, and a file a crashed run left modified is restored. The assessed project is
+  deleted, and a file a crashed run left modified is restored. Before Cupel writes any
+  file of the copy (switch rewrites, the switch module, a fault's mutation, restoring)
+  it stores the file's path in `dirty.json` of the session (written and flushed first);
+  the next sync compares every listed path with the project byte for byte, whatever its
+  size and time say (a crash that left an equal-width change with the old time is
+  caught), copies the ones that differ and clears the list. The assessed project is
   only read;
-- reuses the two unmutated passes: a test target's baseline when its test executable
-  (SHA-256) and the named tests are the same as last time. Anything different is measured as before.
-  Reuse never crosses sessions. The timing line ends with `session warm|cold` and
-  `baselines reused n/m`.
-- keeps the switches-off verdict under a digest of the session, the selector table, the
-  exact rewritten sources and the unmodified build, so with identical sources it
-  repeats across runs (`switches-off reused n/m`); the switched executable's own hash
-  never repeats.
+- refuses a cache folder (`CUPEL_CACHE_DIR` or the derived one) inside the assessed project;
+- reuses the two unmutated passes only when **nothing at all changed**. A test target's
+  baseline is reused when the key over its test executable (SHA-256) is the same, together
+  with a digest of the complete synced project (the path, mode and content hash of every
+  file the sync copies, taken while syncing), a digest of the test environment Cupel
+  passes (every variable except `CUPEL_FAULT`), a digest of **all** executables the
+  build produced (a program a test starts through `CARGO_BIN_EXE_*` can change outcomes
+  while the test executable stays the same), and the same named tests. Anything different
+  is measured as before. Reuse never crosses sessions. Files written into the project
+  between runs (a report in the project folder, say) count as a changed project. The timing
+  line ends with `session warm|cold` and `baselines reused n/m`.
+- keeps the switches-off verdict under a digest of the session, the project and
+  environment digests, the selector table, the exact rewritten sources and each target's
+  recorded baseline key, so with nothing changed it repeats across runs
+  (`switches-off reused n/m`); the switched executable's own hash never repeats.
 
 All sessions of all projects on the machine together stay under 10 GB: after a run the least recently
-used ones are removed until they fit (never the current or one in use). Set
+used ones are removed until they fit (never the current one; each session is locked, without waiting, before it is
+removed, and one that cannot be locked is skipped, as in `cupel clean`). Set
 `runners.cargo.mutants.sessionCapGB` to change the cap, `"session": false` for the
 throwaway scratch copy of earlier versions, and run `cupel clean --rust-sessions`
 to remove every session (`--project`: only the current project's).
@@ -138,24 +154,37 @@ operands: changing the source text lets Rust regroup the whole expression
 fault is answered in the same switched build by a **body variant**: the whole
 function body is parsed again with the replacement applied and chosen at function
 entry (`match crate::__cupel_faults::active() { 7 => return { ... }, _ => {} }`, on
-the line of the opening brace, so line numbers do not move). At most 8 per function (in
+the line of the opening brace, so line numbers outside the body do not move). At most 8 per function (in
 fault order); the rest, functions with `const`/`async`/`impl`-or-`!` returns, nested
-items, inner attributes, `line!`/`column!`/`file!`, multi-line literals or bodies over
-16 KB get an individual build. A unary minus deleted before a literal is not a
+items, inner attributes, `line!`/`column!`/`file!`, multi-line literals, bodies over
+16 KB and functions marked `#[track_caller]` get an individual build; so does every
+regrouping fault of a project whose Rust sources (those with listed faults) mention
+`Location::caller` or `panic::Location`. The remaining difference: the body of a variant
+is on one line, so a panic location (and a backtrace line) inside a variant reports the line
+of the body's opening brace, not the line of the panic. Tests that compare panic line
+numbers inside such a body are not what this is for; the other cases give identical results. A unary minus deleted before a literal is not a
 regrouping fault and gets its own build too.
 
 Switch numbers are stable: they count over cargo-mutants' whole listing of every file
-that has a fault to run (sorted by file, line, column), and every listed fault of
-those files that the rewriters accept is rendered, so the switched sources are
-identical whatever subset, reuse or CI slice runs; only the faults to run are evaluated.
+of the whole scope (every file with a listed fault in scope, sorted by file, line, column),
+before reuse and slicing, and every listed fault of those files that the rewriters accept
+is rendered, so the switched sources and the numbers are identical whatever subset, reuse
+or CI slice runs (a slice holding only `b.rs` does not number it from 1); only the faults
+to run are evaluated.
 The timing line reports `switched n (operators a, bodies b)` and `individual m`.
 
-To check the switched answers, set `CUPEL_RUST_VERIFY_SWITCHED=1`: every fault the
-switched build answered (operator switches and body variants) is run again on its own
-build with the same stop rule, and the status, catching tests and catch kinds must be
-equal, or the run refuses naming the fault and both outcomes. It logs
+To check the switched answers, set `CUPEL_RUST_VERIFY_SWITCHED=1`: every fault that used
+the switched build (operator switches and body variants, also those continued on their own
+build for timing-sensitive targets) is run again standalone, on its own build with all its
+covering targets, the same stop rule and mode, and its final status, catching tests and
+catch kinds must be equal to the reported ones, or the run refuses naming the fault and both outcomes. It logs
 `mutate-rust: verified N switched fault(s) against individual builds: all agree`. This
 is slow (one build per fault); use it to validate Cupel changes, not in CI.
+
+Catch-history order (targets whose tests caught the fault last time go first) only uses
+real catching tests (`killedBy`), so it can only find a real catch sooner. With the
+stop-after rule, a fault whose earlier targets only timed out may then be reported caught
+instead of timed out; both mean the fault is detected.
 
 With `guard` (or `cupel mutate --first-catch`), each fault stops at its first
 catching target instead of the second (see [Faster fault testing](speed.md#pull-requests-stop-at-the-first-catch)).

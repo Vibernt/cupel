@@ -120,6 +120,7 @@ function functionsIn(tokens) {
       close: tokens[body].m,
       generic,
       isConst: prefix.some((part) => part.k === 'id' && !part.raw && part.v === 'const'),
+      trackCaller: prefix.some((part) => part.k === 'id' && !part.raw && part.v === 'track_caller'),
       isAsync: prefix.some((part) => part.k === 'id' && !part.raw && part.v === 'async'),
       badReturn: returns.some((part) => (part.k === 'id' && !part.raw && part.v === 'impl') || (part.k === 'p' && part.v === '!')),
     });
@@ -165,6 +166,7 @@ function bodyReason(text, tokens, fn) {
   const start = fn.body + 1;
   const end = fn.close;
   if (fn.isConst) return 'const';
+  if (fn.trackCaller) return 'track-caller'; // a panic location would report the body's opening line
   if (fn.isAsync) return 'async';
   if (fn.badReturn) return 'return-type';
   for (let index = start; index < end; index++) {
@@ -218,15 +220,21 @@ function byteLength(text) {
  * Unicode scalar values of the insertion point (the position of the first character after the body's `{`),
  * and the inserted length in scalar values. Everything on that line at or after `column` moves right by
  * `length`; no other line moves.
+ * `locations: true` (the project reads panic locations, `Location::caller`) refuses every fault: a variant is on one line, so a
+ * location inside it reports the body's opening line.
  * @returns {{ text: string, switched: number[], refused: {number: number, reason: string}[], insertions: {line: number, column: number, length: number}[] }}
  */
-export function bodyVariants(text, faults, { path = 'crate::__cupel_faults::active', budget = DEFAULT_BUDGET } = {}) {
+export function bodyVariants(text, faults, { path = 'crate::__cupel_faults::active', budget = DEFAULT_BUDGET, locations = false } = {}) {
   if (typeof text !== 'string') throw new TypeError('bodyVariants: text must be a string');
   if (!PATH_RE.test(path)) throw new TypeError(`bodyVariants: not a Rust path: ${path}`);
   if (!Number.isInteger(budget) || budget < 1) throw new TypeError('bodyVariants: budget must be a positive integer');
 
   const refused = [];
   const refuse = (number, reason) => refused.push({ number, reason });
+  if (locations) {
+    for (const fault of [...(faults ?? [])].sort((l, r) => (l?.number ?? 0) - (r?.number ?? 0))) refuse(fault?.number, 'location');
+    return { text, switched: [], refused, insertions: [] };
+  }
   const tokens = lexRust(text);
   const balanced = matchDelimiters(tokens);
   const functions = balanced ? functionsIn(tokens) : [];

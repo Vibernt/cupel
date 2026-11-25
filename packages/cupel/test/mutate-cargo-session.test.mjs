@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { acquireLock, cacheDir, cleanSessions, enforceCap, hashFile, openSession, sessionId, sessionsRoot, syncProject } from '../src/mutate-cargo/session.mjs';
+import { acquireLock, tryAcquireLock, cacheDir, cleanSessions, enforceCap, hashFile, openSession, sessionId, sessionsRoot, syncProject } from '../src/mutate-cargo/session.mjs';
 import { copyProject } from '../src/mutate/index.mjs';
 
 const cacheEnv = () => ({ ...process.env, CUPEL_CACHE_DIR: realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cache-'))) });
@@ -258,4 +258,134 @@ test('cupel clean --rust-sessions removes every session, --project only the curr
     assert.equal(existsSync(sessionsRoot(env)), false);
     assert.equal(cli().status, 2);
   } finally { for (const d of [root, other, env.CUPEL_CACHE_DIR]) rmSync(d, { recursive: true, force: true }); }
+});
+
+test('the sync digest covers every file: a changed data file of the same size and time changes it, a plain re-sync does not', () => {
+  const root = project(); const out = tmp();
+  try {
+    put(root, 'a/data.txt', 'aaaa\n');
+    const dest = join(out, 'project'); const manifest = join(out, 'sync.json');
+    const first = syncProject(root, dest, manifest);
+    assert.match(first.digest, /^[0-9a-f]{64}$/);
+    assert.equal(syncProject(root, dest, manifest).digest, first.digest, 'unchanged project, same digest');
+    assert.equal(syncProject(root, join(out, 'other'), join(out, 'other.json')).digest, first.digest, 'a cold copy gives the same digest');
+    utimesSync(join(root, 'a/data.txt'), 1_700_000_000, 1_700_000_000);
+    const first2 = syncProject(root, dest, manifest).digest;
+    assert.equal(first2, first.digest, 'times are not part of the digest');
+    put(root, 'a/data.txt', 'bbbb\n');
+    utimesSync(join(root, 'a/data.txt'), 1_700_000_000, 1_700_000_000); // same size, same mtime in the project
+    const changed = syncProject(root, join(out, 'third'), join(out, 'third.json')).digest;
+    assert.notEqual(changed, first.digest, 'content is part of it');
+    put(root, 'a/mode.txt', 'x\n', 0o644);
+    const d1 = syncProject(root, dest, manifest).digest;
+    chmodSync(join(root, 'a/mode.txt'), 0o755);
+    assert.notEqual(syncProject(root, dest, manifest).digest, d1, 'a mode change is part of it');
+    rmSync(join(root, 'a/mode.txt'));
+    put(root, 'a/data.txt', 'aaaa\n');
+    assert.equal(syncProject(root, dest, manifest).digest, first.digest, 'back to the first project');
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
+});
+
+test('a dirty entry restores a file byte for byte even when size and mtime were put back; the list is cleared after the sync', () => {
+  const root = project(); const out = tmp();
+  try {
+    const dest = join(out, 'project'); const manifest = join(out, 'sync.json'); const dirtyFile = join(out, 'dirty.json');
+    syncProject(root, dest, manifest);
+    const file = join(dest, 'a/src/lib.rs');
+    const original = readFileSync(file, 'utf8');
+    utimesSync(file, 1_700_000_000, 1_700_000_000); // whole seconds, so putting the time back is exact
+    syncProject(root, dest, manifest);
+    const stat = lstatSync(file);
+    const plant = () => { writeFileSync(file, original.replace('1', '0')); utimesSync(file, stat.atime, stat.mtime); };
+    plant();
+    assert.equal(lstatSync(file).size, stat.size);
+    assert.equal(lstatSync(file).mtimeMs, stat.mtimeMs);
+    syncProject(root, dest, manifest);
+    assert.notEqual(readFileSync(file, 'utf8'), original, 'the stat check alone trusts equal size and time (the hole the dirty list closes)');
+    writeFileSync(dirtyFile, JSON.stringify({ paths: ['a/src/lib.rs'] }));
+    const r = syncProject(root, dest, manifest);
+    assert.equal(readFileSync(file, 'utf8'), original);
+    assert.ok(r.copied >= 1);
+    assert.equal(existsSync(dirtyFile), false, 'cleared');
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
+});
+
+test('openSession.markDirty stores the path durably before the write, and the next open restores it', async () => {
+  const root = project(); const env = cacheEnv();
+  try {
+    const a = await openSession({ root, id: 'dd', env });
+    const file = join(a.project, 'a/src/lib.rs');
+    const original = readFileSync(file, 'utf8');
+    utimesSync(file, 1_700_000_000, 1_700_000_000);
+    const stat = lstatSync(file);
+    a.markDirty(file);
+    assert.deepEqual(JSON.parse(readFileSync(join(a.dir, 'dirty.json'), 'utf8')).paths, ['a/src/lib.rs'], 'on disk before any write');
+    a.markDirty(file); a.markDirty('a/tests/it.rs');
+    assert.deepEqual(JSON.parse(readFileSync(join(a.dir, 'dirty.json'), 'utf8')).paths, ['a/src/lib.rs', 'a/tests/it.rs']);
+    writeFileSync(file, original.replace('1', '9')); utimesSync(file, stat.atime, stat.mtime); // a crash here
+    a.release();
+    const b = await openSession({ root, id: 'dd', env });
+    assert.equal(readFileSync(file, 'utf8'), original);
+    assert.equal(existsSync(join(b.dir, 'dirty.json')), false);
+    b.release();
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
+});
+
+test('lock: of many contenders for a stale lock exactly one wins, and a release never removes another run\'s lock', async () => {
+  const dir = tmp();
+  try {
+    const path = join(dir, 'lock');
+    const dead = spawnSync(process.execPath, ['-e', '0']);
+    writeFileSync(path, JSON.stringify({ pid: dead.pid, started: 'long ago', token: 'old' }));
+    const results = await Promise.allSettled(Array.from({ length: 8 }, () => acquireLock(path, { waitMs: 150, pollMs: 10 })));
+    const won = results.filter((r) => r.status === 'fulfilled');
+    assert.equal(won.length, 1);
+    assert.equal(results.filter((r) => r.status === 'rejected').length, 7);
+    const info = JSON.parse(readFileSync(path, 'utf8'));
+    assert.equal(info.pid, process.pid); assert.ok(info.token);
+    assert.deepEqual(readdirSync(dir), ['lock'], 'no stale leftovers');
+    // Someone else's lock in the file: our release leaves it.
+    writeFileSync(path, JSON.stringify({ pid: process.pid, started: 'x', token: 'someone-else' }));
+    won[0].value();
+    assert.equal(existsSync(path), true);
+    rmSync(path);
+    // Non-blocking: a free lock is taken, a held one is not.
+    const release = tryAcquireLock(path);
+    assert.equal(typeof release, 'function');
+    assert.equal(tryAcquireLock(path), null);
+    release();
+    assert.equal(tryAcquireLock(join(dir, 'missing', 'lock')), null, 'no folder, nothing to lock');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('eviction and clean take the session lock first: a session a run holds or takes is skipped, a dead holder\'s is removed', async () => {
+  const env = cacheEnv();
+  try {
+    for (const [id, used] of [['old1', 1], ['old2', 2], ['new', 9]]) fakeSession(env, id, used, 1000);
+    const dead = spawnSync(process.execPath, ['-e', '0']);
+    writeFileSync(join(sessionsRoot(env), 'old1', 'lock'), JSON.stringify({ pid: dead.pid, started: 'x' }));
+    // old2 gets locked by a run after the listing: simulate by holding it with a live lock the listing sees as held.
+    const holder = await acquireLock(join(sessionsRoot(env), 'old2', 'lock'));
+    const r = enforceCap({ env, capBytes: 0, keep: 'new' });
+    assert.deepEqual(r.removed, ['old1']);
+    assert.equal(existsSync(join(sessionsRoot(env), 'old2')), true);
+    const c = cleanSessions({ env });
+    assert.deepEqual(c.busy, ['old2']);
+    holder();
+    assert.deepEqual(cleanSessions({ env }).removed.sort(), ['old2']);
+  } finally { rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
+});
+
+test('a cache folder inside the assessed project is refused, however it is derived', async () => {
+  const root = project(); const out = tmp();
+  try {
+    for (const env of [{ CUPEL_CACHE_DIR: join(root, '.scratch/cache') }, { CUPEL_CACHE_DIR: root }, { XDG_CACHE_HOME: join(root, 'x') }, { CUPEL_CACHE_DIR: join(root, 'a', '..', 'b') }]) {
+      await assert.rejects(openSession({ root, id: 'in', env }), /cache folder .* is inside the assessed project/, JSON.stringify(env));
+    }
+    assert.equal(existsSync(join(root, '.scratch/cache')), false, 'nothing was created');
+    const link = join(out, 'link'); symlinkSync(root, link);
+    await assert.rejects(openSession({ root, id: 'in', env: { CUPEL_CACHE_DIR: join(link, 'c') } }), /inside the assessed project/, 'through a symbolic link');
+    const ok = await openSession({ root, id: 'out', env: { CUPEL_CACHE_DIR: join(out, 'cache') } });
+    ok.release();
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 });

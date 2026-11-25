@@ -9,10 +9,10 @@
 // The sessionId covers what changes how Rust builds, never the sources (they change on every commit).
 // Nothing here writes the assessed project.
 
-import { createHash } from 'node:crypto';
-import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { chmodSync, closeSync, copyFileSync, existsSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { CargoMutantsError } from './import.mjs';
 
 export const DEFAULT_CAP_GB = 10;
@@ -83,70 +83,130 @@ export function lockHeld(path) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Takes the exclusive lock of a session: a file made only if absent, holding the pid and start time.
- * Waits up to waitMs for a running holder, then refuses; a lock whose process is gone is taken over.
- * Returns a release function.
- */
-export async function acquireLock(path, { waitMs = 5000, pollMs = 100 } = {}) {
-  mkdirSync(dirname(path), { recursive: true });
-  const deadline = Date.now() + waitMs;
-  const mine = JSON.stringify({ pid: process.pid, started: new Date().toISOString() });
-  for (;;) {
-    try {
-      writeFileSync(path, mine, { flag: 'wx' });
-      break;
-    } catch (e) {
-      if (e.code !== 'EEXIST') throw e;
-    }
-    if (!lockHeld(path)) { try { unlinkSync(path); } catch { /* another run took it over first */ } continue; }
-    if (Date.now() >= deadline) {
-      const info = readJson(path);
-      throw new CargoMutantsError(`another Cupel Rust run is using this build session (pid ${info?.pid ?? '?'}${info?.started ? `, started ${info.started}` : ''}); waited ${Math.round(waitMs / 1000)}s. Wait for it to finish, or set runners.cargo.mutants.session to false for a throwaway copy`);
-    }
-    await sleep(pollMs);
-  }
+/** The releasing function of a lock held under `token`: removes the file only while it still names that token. */
+function releaser(path, token) {
   const release = () => {
     process.removeListener('exit', release);
-    try { if (readJson(path)?.pid === process.pid) unlinkSync(path); } catch { /* gone */ }
+    try { if (readJson(path)?.token === token) unlinkSync(path); } catch { /* gone */ }
   };
   process.once('exit', release);
   return release;
 }
 
+/**
+ * One attempt to take a lock: exclusive create (`wx`) of a file holding a unique token, the pid and the start
+ * time. A lock whose process is gone is reclaimed by renaming it to a unique name (of any number of contenders
+ * only one rename succeeds), checking that what was renamed is the stale lock that was judged (a live lock
+ * put there meanwhile is put back), and creating the file again with `wx`. After creating, the token is read
+ * back. Returns { release } when held, { held: true } when a running process holds it, or { retry: true }.
+ */
+function tryLockOnce(path) {
+  const token = randomUUID();
+  const mine = JSON.stringify({ pid: process.pid, started: new Date().toISOString(), token });
+  try {
+    writeFileSync(path, mine, { flag: 'wx' });
+    return readJson(path)?.token === token ? { release: releaser(path, token) } : { retry: true };
+  } catch (e) {
+    if (e.code === 'ENOENT') return { missing: true };
+    if (e.code !== 'EEXIST') throw e;
+  }
+  let judged;
+  try { judged = readFileSync(path, 'utf8'); } catch { return { retry: true }; }
+  if (lockHeld(path)) return { held: true };
+  const stale = `${path}.stale.${token}`;
+  try { renameSync(path, stale); } catch { return { retry: true }; } // another contender reclaimed it first
+  let moved = null;
+  try { moved = readFileSync(stale, 'utf8'); } catch { /* gone */ }
+  if (moved !== judged) { // not the lock that was judged: a new owner took the place; put it back if the name is free
+    try { linkSync(stale, path); } catch { /* the name was taken again */ }
+  }
+  try { unlinkSync(stale); } catch { /* gone */ }
+  return { retry: true };
+}
+
+/**
+ * Takes the lock of a session without waiting: a release function, or null when a running process holds it
+ * (or the folder does not exist). Used by eviction and clean.
+ */
+export function tryAcquireLock(path) {
+  for (let i = 0; i < 20; i++) {
+    const r = tryLockOnce(path);
+    if (r.release) return r.release;
+    if (r.held || r.missing) return null;
+  }
+  return null;
+}
+
+/**
+ * Takes the exclusive lock of a session (see tryLockOnce). Waits up to waitMs for a running holder, then
+ * refuses; a lock whose process is gone is taken over. Returns a release function.
+ */
+export async function acquireLock(path, { waitMs = 5000, pollMs = 100 } = {}) {
+  mkdirSync(dirname(path), { recursive: true });
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    const r = tryLockOnce(path);
+    if (r.release) return r.release;
+    if (r.missing) { mkdirSync(dirname(path), { recursive: true }); continue; } // the folder was removed meanwhile
+    if (r.held) {
+      if (Date.now() >= deadline) {
+        const info = readJson(path);
+        throw new CargoMutantsError(`another Cupel Rust run is using this build session (pid ${info?.pid ?? '?'}${info?.started ? `, started ${info.started}` : ''}); waited ${Math.round(waitMs / 1000)}s. Wait for it to finish, or set runners.cargo.mutants.session to false for a throwaway copy`);
+      }
+      await sleep(pollMs);
+    }
+  }
+}
+
 // ---- sync ----
 
 const sameMode = (a, b) => (a.mode & 0o777) === (b.mode & 0o777);
+const sha = (value) => createHash('sha256').update(value).digest('hex');
 
-function sameContent(a, b) {
-  try { return readFileSync(a).equals(readFileSync(b)); } catch { return false; }
+/** Writes a file whole, flushed to disk, then renamed into place. */
+function writeDurable(path, text) {
+  const tmp = `${path}.${process.pid}.tmp`;
+  const fd = openSync(tmp, 'w');
+  try { writeSync(fd, text); fsyncSync(fd); } finally { closeSync(fd); }
+  renameSync(tmp, path);
+  try { const d = openSync(dirname(path), 'r'); try { fsyncSync(d); } finally { closeSync(d); } } catch { /* not supported here */ }
 }
 
 /**
  * Makes `dest` the project the way copyProject does (same skips; node_modules folders linked; symbolic links
  * copied as links) while copying only what changed since the last sync and deleting what no longer exists.
- * `manifestFile` remembers each file's size and mtime at both ends; a file whose stat differs is compared
- * byte for byte and copied (new mtime, so Cargo rebuilds what it feeds) when it differs. A file a crashed
- * run left modified in `dest` therefore always comes back. `root` is only read.
+ * `manifestFile` remembers each file's size, mtime and content hash at both ends; a file whose stat differs is
+ * compared byte for byte and copied (new mtime, so Cargo rebuilds what it feeds) when it differs. A file a
+ * crashed run left modified in `dest` therefore comes back. Every path listed in the dirty file (what Cupel
+ * was about to write, recorded durably before it did, see openSession) skips the size and time shortcut: it
+ * is always compared with the project byte for byte, and copied from it when it differs in any byte (a copy
+ * that is already identical is left alone, so Cargo does not rebuild what it feeds); the list is cleared at the end. `root` is only read.
+ * Returns the counts, `project` (the copy's real path) and `digest`: a SHA-256 over every path of the copy
+ * with its content hash (links: target; files: mode), so equal digests mean the same project content.
  */
-export function syncProject(root, dest, manifestFile) {
+export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname(manifestFile), 'dirty.json') } = {}) {
   const old = readJson(manifestFile)?.files ?? {};
+  const dirty = new Set(readJson(dirtyFile)?.paths ?? []);
   const files = {};
+  const entries = [];
   const counts = { copied: 0, deleted: 0, unchanged: 0 };
   mkdirSync(dest, { recursive: true });
   const remove = (path) => { rmSync(path, { recursive: true, force: true }); counts.deleted++; };
   const walk = (from, to, rel) => {
-    const entries = readdirSync(from, { withFileTypes: true }).filter((e) => !SKIP.has(e.name));
-    const names = new Set(entries.map((e) => e.name));
+    const list = readdirSync(from, { withFileTypes: true }).filter((e) => !SKIP.has(e.name));
+    const names = new Set(list.map((e) => e.name));
     for (const name of readdirSync(to)) if (!names.has(name)) remove(join(to, name));
-    for (const e of entries) {
+    for (const e of list) {
       const src = join(from, e.name); const dst = join(to, e.name); const path = rel ? `${rel}/${e.name}` : e.name;
       const d = lstatSync(dst, { throwIfNoEntry: false });
       const link = (target) => {
-        if (d?.isSymbolicLink() && readlinkSync(dst) === target) { counts.unchanged++; return; }
-        if (d) remove(dst);
-        symlinkSync(target, dst, e.name === 'node_modules' ? 'junction' : undefined);
-        counts.copied++;
+        if (d?.isSymbolicLink() && readlinkSync(dst) === target) counts.unchanged++;
+        else {
+          if (d) remove(dst);
+          symlinkSync(target, dst, e.name === 'node_modules' ? 'junction' : undefined);
+          counts.copied++;
+        }
+        entries.push(['l', path, target]);
       };
       if (e.name === 'node_modules' && e.isDirectory()) link(src);
       else if (e.isSymbolicLink()) link(readlinkSync(src));
@@ -154,13 +214,21 @@ export function syncProject(root, dest, manifestFile) {
         if (d && !d.isDirectory()) remove(dst);
         else if (d?.isSymbolicLink()) remove(dst);
         if (!lstatSync(dst, { throwIfNoEntry: false })) mkdirSync(dst);
+        entries.push(['d', path]);
         walk(src, dst, path);
       } else if (e.isFile()) {
         const s = lstatSync(src);
         const rec = old[path];
         let current = d?.isFile() ? d : null;
-        const fresh = current && rec && rec.size === s.size && rec.sm === s.mtimeMs && rec.dsize === current.size && rec.dm === current.mtimeMs && sameMode(s, current);
-        if (current && !fresh && !(current.size === s.size && sameContent(src, dst))) current = null;
+        let hash = null;
+        const fresh = current && !dirty.has(path) && rec?.hash && rec.size === s.size && rec.sm === s.mtimeMs && rec.dsize === current.size && rec.dm === current.mtimeMs && sameMode(s, current);
+        if (fresh) hash = rec.hash; // the hash of what the copy held when it was last written or compared
+        else if (current) {
+          try {
+            const a = current.size === s.size ? readFileSync(src) : null;
+            if (a && a.equals(readFileSync(dst))) hash = sha(a); else current = null;
+          } catch { current = null; }
+        }
         if (current) {
           if (!sameMode(s, current)) chmodSync(dst, s.mode & 0o777);
           counts.unchanged++;
@@ -168,27 +236,49 @@ export function syncProject(root, dest, manifestFile) {
           if (d) rmSync(dst, { recursive: true, force: true });
           copyFileSync(src, dst);
           counts.copied++;
+          hash = hashFile(dst);
         }
         const dd = lstatSync(dst);
-        files[path] = { size: s.size, sm: s.mtimeMs, dsize: dd.size, dm: dd.mtimeMs };
+        files[path] = { size: s.size, sm: s.mtimeMs, dsize: dd.size, dm: dd.mtimeMs, hash };
+        entries.push(['f', path, hash, dd.mode & 0o777]);
       }
     }
   };
   walk(root, dest, '');
   writeAtomic(manifestFile, `${JSON.stringify({ files })}\n`);
-  return { ...counts, project: realpathSync(dest) };
+  rmSync(dirtyFile, { force: true });
+  entries.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[0] < b[0] ? -1 : 1));
+  return { ...counts, project: realpathSync(dest), digest: sha(JSON.stringify(entries)) };
 }
 
 // ---- sessions ----
 
 const emptyMeta = (id) => ({ version: META_VERSION, sessionId: id, lastUsed: 0, baselines: {}, switched: {} });
 
+/** Refuses a cache folder inside the assessed project (it would be copied into itself, and tests could read it). */
+export function assertCacheOutside(cache, root) {
+  const real = (path) => { // the real path of the nearest existing ancestor plus the rest
+    const rest = [];
+    for (let p = resolve(path); ; p = dirname(p)) {
+      try { return join(realpathSync(p), ...rest.reverse()); } catch { rest.push(basename(p)); }
+      if (dirname(p) === p) return resolve(path);
+    }
+  };
+  const rel = relative(real(root), real(cache));
+  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+    throw new CargoMutantsError(`the Cupel cache folder ${cache} is inside the assessed project ${root}; set CUPEL_CACHE_DIR to a folder outside it`);
+  }
+}
+
 /**
  * Opens (creating it if needed) and locks the session `id` of a project, then syncs its project copy.
- * Returns { dir, project, target, warm, meta, save(), release() }. `warm` is true when the session was
- * used before (its meta is kept; meta of any other session id is never read).
+ * Returns { dir, project, target, warm, meta, sync, save(), markDirty(path), release() }. `warm` is true when the
+ * session was used before (its meta is kept; meta of any other session id is never read). Call
+ * `markDirty(file)` with every file of the copy Cupel is about to write: the path is stored durably in
+ * `dirty.json` first, and the next sync copies it again from the project whatever its size and time.
  */
 export async function openSession({ root, id, env = process.env, waitMs, pollMs, now = () => Date.now() }) {
+  assertCacheOutside(cacheDir(env), root);
   const dir = join(sessionsRoot(env), id);
   mkdirSync(dir, { recursive: true });
   const release = await acquireLock(join(dir, 'lock'), { waitMs, pollMs });
@@ -201,10 +291,17 @@ export async function openSession({ root, id, env = process.env, waitMs, pollMs,
     meta.lastUsed = now();
     meta.project = realpathSync(root);
     mkdirSync(join(dir, 'target'), { recursive: true });
-    const synced = syncProject(root, join(dir, 'project'), join(dir, 'sync.json'));
+    const synced = syncProject(root, join(dir, 'project'), join(dir, 'sync.json'), { dirtyFile: join(dir, 'dirty.json') });
+    const dirty = new Set();
     const session = {
       dir, project: synced.project, target: join(dir, 'target'), warm, meta, sync: synced, release,
       save() { writeAtomic(join(dir, 'meta.json'), `${JSON.stringify(meta, null, 1)}\n`); },
+      markDirty(path) {
+        const rel = (isAbsolute(path) ? relative(synced.project, path) : path).split(/[\\/]/).join('/');
+        if (dirty.has(rel)) return;
+        dirty.add(rel);
+        writeDurable(join(dir, 'dirty.json'), `${JSON.stringify({ paths: [...dirty].sort() })}\n`);
+      },
     };
     session.save();
     return session;
@@ -241,7 +338,9 @@ export function enforceCap({ env = process.env, capBytes = DEFAULT_CAP_GB * GB, 
   const removed = [];
   for (const s of all.filter((x) => x.id !== keep && !x.locked).sort((a, b) => (a.lastUsed - b.lastUsed) || (a.id < b.id ? -1 : 1))) {
     if (total <= capBytes) break;
-    rmSync(s.dir, { recursive: true, force: true });
+    const release = tryAcquireLock(join(s.dir, 'lock')); // a session cannot be removed while a run holds or takes it
+    if (!release) continue;
+    try { rmSync(s.dir, { recursive: true, force: true }); } finally { release(); }
     total -= s.bytes;
     removed.push(s.id);
   }
@@ -255,8 +354,9 @@ export function cleanSessions({ env = process.env, project = null } = {}) {
   const removed = []; const busy = [];
   let bytes = 0;
   for (const s of all) {
-    if (s.locked) { busy.push(s.id); continue; }
-    rmSync(s.dir, { recursive: true, force: true });
+    const release = s.locked ? null : tryAcquireLock(join(s.dir, 'lock'));
+    if (!release) { busy.push(s.id); continue; }
+    try { rmSync(s.dir, { recursive: true, force: true }); } finally { release(); }
     removed.push(s.id); bytes += s.bytes;
   }
   try { if (!readdirSync(sessionsRoot(env)).length) rmSync(sessionsRoot(env), { recursive: true, force: true }); } catch { /* none */ }

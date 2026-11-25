@@ -243,3 +243,23 @@ test('reports each insertion in original coordinates (line, column in scalar val
   assert.equal(lines[2], source.split('\n')[2]);
   assert.deepEqual(bodyVariants(source, []).insertions, []);
 });
+
+test('a #[track_caller] function, and a project reading panic locations, get no body variants', () => {
+  const plain = 'fn f(a: bool, b: bool, c: bool) -> bool {\n    a && b || c\n}\n';
+  const f = (text, needle = '&&') => [fault(1, text, needle, '||')];
+  assert.deepEqual(bodyVariants(plain, f(plain)).switched, [1], 'control: accepted');
+  for (const attr of ['#[track_caller]\n', '#[inline]\n#[track_caller]\n', '#[cfg_attr(test, track_caller)]\npub ']) {
+    const text = `${attr}${plain}`;
+    const r = bodyVariants(text, f(text));
+    assert.deepEqual(r.switched, [], attr);
+    assert.deepEqual(r.refused, [{ number: 1, reason: 'track-caller' }]);
+    assert.equal(r.text, text);
+  }
+  const after = `#[track_caller]\nfn other() {}\n${plain}`; // the attribute belongs to the other function
+  assert.deepEqual(bodyVariants(after, f(after)).switched, [1]);
+  const r = bodyVariants(plain, f(plain), { locations: true });
+  assert.deepEqual(r.switched, []);
+  assert.deepEqual(r.refused, [{ number: 1, reason: 'location' }]);
+  assert.equal(r.text, plain);
+  assert.deepEqual(r.insertions, []);
+});
