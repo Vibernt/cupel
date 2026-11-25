@@ -95,42 +95,54 @@ function releaser(path, token) {
 
 /**
  * One attempt to take a lock: exclusive create (`wx`) of a file holding a unique token, the pid and the start
- * time. A lock whose process is gone is reclaimed by renaming it to a unique name (of any number of contenders
- * only one rename succeeds), checking that what was renamed is the stale lock that was judged (a live lock
- * put there meanwhile is put back), and creating the file again with `wx`. After creating, the token is read
- * back. Returns { release } when held, { held: true } when a running process holds it, or { retry: true }.
+ * time; a live lock is never touched. A lock whose process is gone is reclaimed in two phases: the contender
+ * first creates `<lock>.break` with `wx` (only one breaker at a time; a breaker of a dead process older than
+ * 30 s is removed), re-reads the lock and confirms it is still the very stale text it judged, unlinks it
+ * (nobody else can create the lock meanwhile: the stale file is in the way of every `wx`), creates the new lock
+ * with `wx` and removes the breaker. After creating, the token is read back. Returns { release } when held,
+ * { held: true } when a running process holds it (or another run is breaking it), { missing: true } without
+ * the folder, or { retry: true }. `hooks.afterJudge` runs between judging and breaking (tests).
  */
-function tryLockOnce(path) {
+function tryLockOnce(path, hooks = {}) {
   const token = randomUUID();
   const mine = JSON.stringify({ pid: process.pid, started: new Date().toISOString(), token });
-  try {
+  const create = () => {
     writeFileSync(path, mine, { flag: 'wx' });
     return readJson(path)?.token === token ? { release: releaser(path, token) } : { retry: true };
-  } catch (e) {
+  };
+  try { return create(); } catch (e) {
     if (e.code === 'ENOENT') return { missing: true };
     if (e.code !== 'EEXIST') throw e;
   }
   let judged;
   try { judged = readFileSync(path, 'utf8'); } catch { return { retry: true }; }
   if (lockHeld(path)) return { held: true };
-  const stale = `${path}.stale.${token}`;
-  try { renameSync(path, stale); } catch { return { retry: true }; } // another contender reclaimed it first
-  let moved = null;
-  try { moved = readFileSync(stale, 'utf8'); } catch { /* gone */ }
-  if (moved !== judged) { // not the lock that was judged: a new owner took the place; put it back if the name is free
-    try { linkSync(stale, path); } catch { /* the name was taken again */ }
+  hooks.afterJudge?.();
+  const breaker = `${path}.break`;
+  try { writeFileSync(breaker, JSON.stringify({ pid: process.pid, started: new Date().toISOString() }), { flag: 'wx' }); } catch (e) {
+    if (e.code === 'ENOENT') return { missing: true };
+    if (e.code !== 'EEXIST') throw e;
+    const info = readJson(breaker);
+    const old = (() => { try { return Date.now() - statSync(breaker).mtimeMs > 30_000; } catch { return false; } })();
+    if (old && !(Number.isInteger(info?.pid) && alive(info.pid))) { try { unlinkSync(breaker); } catch { /* another run removed it */ } return { retry: true }; }
+    return { held: true }; // another run is breaking it
   }
-  try { unlinkSync(stale); } catch { /* gone */ }
-  return { retry: true };
+  try {
+    let again = null;
+    try { again = readFileSync(path, 'utf8'); } catch { /* gone */ }
+    if (again !== null && again !== judged) return { retry: true }; // a live run took the place
+    if (again !== null) unlinkSync(path);
+    try { return create(); } catch (e) { if (e.code === 'EEXIST') return { retry: true }; throw e; }
+  } finally { try { unlinkSync(breaker); } catch { /* gone */ } }
 }
 
 /**
  * Takes the lock of a session without waiting: a release function, or null when a running process holds it
  * (or the folder does not exist). Used by eviction and clean.
  */
-export function tryAcquireLock(path) {
+export function tryAcquireLock(path, hooks) {
   for (let i = 0; i < 20; i++) {
-    const r = tryLockOnce(path);
+    const r = tryLockOnce(path, hooks);
     if (r.release) return r.release;
     if (r.held || r.missing) return null;
   }
@@ -141,11 +153,11 @@ export function tryAcquireLock(path) {
  * Takes the exclusive lock of a session (see tryLockOnce). Waits up to waitMs for a running holder, then
  * refuses; a lock whose process is gone is taken over. Returns a release function.
  */
-export async function acquireLock(path, { waitMs = 5000, pollMs = 100 } = {}) {
+export async function acquireLock(path, { waitMs = 5000, pollMs = 100, hooks } = {}) {
   mkdirSync(dirname(path), { recursive: true });
   const deadline = Date.now() + waitMs;
   for (;;) {
-    const r = tryLockOnce(path);
+    const r = tryLockOnce(path, hooks);
     if (r.release) return r.release;
     if (r.missing) { mkdirSync(dirname(path), { recursive: true }); continue; } // the folder was removed meanwhile
     if (r.held) {
@@ -221,7 +233,7 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
         const rec = old[path];
         let current = d?.isFile() ? d : null;
         let hash = null;
-        const fresh = current && !dirty.has(path) && rec?.hash && rec.size === s.size && rec.sm === s.mtimeMs && rec.dsize === current.size && rec.dm === current.mtimeMs && sameMode(s, current);
+        const fresh = current && !dirty.has(path) && rec?.hash && rec.size === s.size && rec.sm === s.mtimeMs && rec.sc === s.ctimeMs && rec.si === s.ino && rec.dsize === current.size && rec.dm === current.mtimeMs && sameMode(s, current);
         if (fresh) hash = rec.hash; // the hash of what the copy held when it was last written or compared
         else if (current) {
           try {
@@ -239,7 +251,7 @@ export function syncProject(root, dest, manifestFile, { dirtyFile = join(dirname
           hash = hashFile(dst);
         }
         const dd = lstatSync(dst);
-        files[path] = { size: s.size, sm: s.mtimeMs, dsize: dd.size, dm: dd.mtimeMs, hash };
+        files[path] = { size: s.size, sm: s.mtimeMs, sc: s.ctimeMs, si: s.ino, dsize: dd.size, dm: dd.mtimeMs, hash };
         entries.push(['f', path, hash, dd.mode & 0o777]);
       }
     }
@@ -318,10 +330,26 @@ export function folderSize(path) {
   return total;
 }
 
+const TOMBSTONE = /\.deleting-/;
+
+/** Removes what an interrupted eviction or clean left: session folders renamed to `<id>.deleting-<random>`. */
+function sweepTombstones(env) {
+  const base = sessionsRoot(env);
+  try { for (const name of readdirSync(base)) if (TOMBSTONE.test(name)) rmSync(join(base, name), { recursive: true, force: true }); } catch { /* none */ }
+}
+
+/** Removes a session while holding its lock: the folder is renamed to a tombstone first (atomic), so a run that takes the lock afterwards finds no folder, then the tombstone is deleted. */
+function removeLocked(dir, release) {
+  const tomb = `${dir}.deleting-${randomUUID().slice(0, 8)}`;
+  try { renameSync(dir, tomb); } finally { release(); }
+  rmSync(tomb, { recursive: true, force: true });
+}
+
 function listSessions(env) {
   const base = sessionsRoot(env);
   if (!existsSync(base)) return [];
-  return readdirSync(base, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => {
+  sweepTombstones(env);
+  return readdirSync(base, { withFileTypes: true }).filter((e) => e.isDirectory() && !TOMBSTONE.test(e.name)).map((e) => {
     const dir = join(base, e.name);
     const meta = readJson(join(dir, 'meta.json'));
     return { id: e.name, dir, project: meta?.project ?? null, lastUsed: meta?.lastUsed ?? 0, bytes: folderSize(dir), locked: lockHeld(join(dir, 'lock')) };
@@ -340,7 +368,7 @@ export function enforceCap({ env = process.env, capBytes = DEFAULT_CAP_GB * GB, 
     if (total <= capBytes) break;
     const release = tryAcquireLock(join(s.dir, 'lock')); // a session cannot be removed while a run holds or takes it
     if (!release) continue;
-    try { rmSync(s.dir, { recursive: true, force: true }); } finally { release(); }
+    removeLocked(s.dir, release);
     total -= s.bytes;
     removed.push(s.id);
   }
@@ -356,7 +384,7 @@ export function cleanSessions({ env = process.env, project = null } = {}) {
   for (const s of all) {
     const release = s.locked ? null : tryAcquireLock(join(s.dir, 'lock'));
     if (!release) { busy.push(s.id); continue; }
-    try { rmSync(s.dir, { recursive: true, force: true }); } finally { release(); }
+    removeLocked(s.dir, release);
     removed.push(s.id); bytes += s.bytes;
   }
   try { if (!readdirSync(sessionsRoot(env)).length) rmSync(sessionsRoot(env), { recursive: true, force: true }); } catch { /* none */ }

@@ -389,3 +389,56 @@ test('a cache folder inside the assessed project is refused, however it is deriv
     ok.release();
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 });
+
+test('a same-width edit with the mtime put back is still seen: the project side stat key holds ctime and inode', () => {
+  const root = project(); const out = tmp();
+  try {
+    const dest = join(out, 'project'); const manifest = join(out, 'sync.json');
+    const file = join(root, 'a/src/lib.rs');
+    utimesSync(file, 1_700_000_000, 1_700_000_000);
+    const first = syncProject(root, dest, manifest);
+    const original = readFileSync(file, 'utf8');
+    writeFileSync(file, original.replace('1', '7'));
+    utimesSync(file, 1_700_000_000, 1_700_000_000); // cp -p, rsync -t
+    const again = syncProject(root, dest, manifest);
+    assert.notEqual(again.digest, first.digest);
+    assert.ok(again.copied >= 1);
+    assert.equal(readFileSync(join(dest, 'a/src/lib.rs'), 'utf8'), original.replace('1', '7'));
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
+});
+
+test('lock: a live run that appears between judging a lock stale and breaking it keeps its lock; the breaker file is removed', async () => {
+  const dir = tmp();
+  try {
+    const path = join(dir, 'lock');
+    const dead = spawnSync(process.execPath, ['-e', '0']);
+    writeFileSync(path, JSON.stringify({ pid: dead.pid, started: 'long ago', token: 'old' }));
+    const live = JSON.stringify({ pid: process.pid, started: 'now', token: 'live' });
+    await assert.rejects(acquireLock(path, { waitMs: 100, pollMs: 10, hooks: { afterJudge: () => { rmSync(path); writeFileSync(path, live); } } }), /another Cupel Rust run/);
+    assert.equal(readFileSync(path, 'utf8'), live);
+    assert.equal(existsSync(`${path}.break`), false);
+    // A breaker of a live run in progress makes others wait; one of a dead process older than 30 s is removed.
+    rmSync(path);
+    writeFileSync(path, JSON.stringify({ pid: dead.pid, started: 'x', token: 'old' }));
+    writeFileSync(`${path}.break`, JSON.stringify({ pid: process.pid }));
+    await assert.rejects(acquireLock(path, { waitMs: 100, pollMs: 10 }), /another Cupel Rust run/);
+    writeFileSync(`${path}.break`, JSON.stringify({ pid: dead.pid }));
+    utimesSync(`${path}.break`, 1_000_000, 1_000_000);
+    (await acquireLock(path, { waitMs: 500, pollMs: 10 }))();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('eviction and clean rename the session to a tombstone under the lock, and leftover tombstones are swept', () => {
+  const env = cacheEnv();
+  try {
+    fakeSession(env, 'gone', 1, 100); fakeSession(env, 'keep', 2, 100);
+    mkdirSync(join(sessionsRoot(env), 'x.deleting-abc123'), { recursive: true });
+    writeFileSync(join(sessionsRoot(env), 'x.deleting-abc123', 'blob'), 'left over');
+    const r = enforceCap({ env, capBytes: 150, keep: 'keep' });
+    assert.deepEqual(r.removed, ['gone']);
+    assert.deepEqual(readdirSync(sessionsRoot(env)), ['keep']);
+    mkdirSync(join(sessionsRoot(env), 'y.deleting-1'));
+    assert.deepEqual(cleanSessions({ env }).removed, ['keep']);
+    assert.equal(existsSync(sessionsRoot(env)), false);
+  } finally { rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
+});

@@ -97,6 +97,8 @@ A review of `fast.mjs`, `session.mjs` and `schemata-body.mjs` found ten problems
 | 9 | Verify mode checked only fully switched answers on trusted targets. | Verifies every fault that used the switched build against a full standalone run (all covering targets, same stop rule and mode). |
 | 10 | The cache folder could be inside the project. | Refused; tests use a temp folder outside. |
 
+Second review: project-side stat key now includes ctime and inode; body variants are opt-in (`bodyVariants`); two-phase lock breaker; eviction/clean rename to a tombstone under the lock; own output files are not excluded from the digest (documented: keep them in `.cupel/`).
+
 Found while testing: the warm-run test must not leave report files in the project (they count as a changed project), and
 rebuilt executables are not bit-identical (incremental compilation), so the switches-off key uses each baseline's recorded
 first key, not this run's hashes; and re-copying a dirty file that is already identical would force a rebuild, hence the

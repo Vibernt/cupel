@@ -342,3 +342,5 @@ jobs:
   separate and never lets it approve a whole suite.
 - **Shipping one Rust build to every slice.** Each slice compiles its own
   switched build today; sharing one build between machines is future work.
+
+**Rust sessions and `--out`/`--reuse` files:** the persistent Rust build session reuses its baselines only when the whole project is unchanged, and a report or reuse file inside the project counts. Keep `--out` and `--reuse` files under `.cupel/` (never copied or digested) or outside the project so they do not stop reuse.

@@ -574,7 +574,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       if (settings.schemata !== false) {
         let schemata = null; let bodies = null;
         try { schemata = await import('./schemata.mjs'); } catch { schemata = null; }
-        try { bodies = await import('./schemata-body.mjs'); } catch { bodies = null; }
+        if (settings.bodyVariants === true) { try { bodies = await import('./schemata-body.mjs'); } catch { bodies = null; } } // opt-in: panic line numbers differ
         let numbers = null; let listed = null;
         if (schemata) {
           try {

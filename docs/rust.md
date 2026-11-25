@@ -121,7 +121,9 @@ sources, so a later commit finds the same session warm. A run:
   build produced (a program a test starts through `CARGO_BIN_EXE_*` can change outcomes
   while the test executable stays the same), and the same named tests. Anything different
   is measured as before. Reuse never crosses sessions. Files written into the project
-  between runs (a report in the project folder, say) count as a changed project. The timing
+  between runs count as a changed project, a test could read them: keep `--out` and `--reuse` files
+  under `.cupel/` (never copied or digested), or outside the project, so they do not stop reuse. The
+  sync trusts a file only when size, mtime, ctime and inode are all unchanged. The timing
   line ends with `session warm|cold` and `baselines reused n/m`.
 - keeps the switches-off verdict under a digest of the session, the project and
   environment digests, the selector table, the exact rewritten sources and each target's
@@ -130,7 +132,9 @@ sources, so a later commit finds the same session warm. A run:
 
 All sessions of all projects on the machine together stay under 10 GB: after a run the least recently
 used ones are removed until they fit (never the current one; each session is locked, without waiting, before it is
-removed, and one that cannot be locked is skipped, as in `cupel clean`). Set
+removed, and one that cannot be locked is skipped, as in `cupel clean`; a removed session is first renamed to
+`<id>.deleting-<random>` while locked, then deleted, and leftovers are swept later). A stale lock is broken in two
+phases through a `lock.break` file, so a live run that takes the place is never removed. Set
 `runners.cargo.mutants.sessionCapGB` to change the cap, `"session": false` for the
 throwaway scratch copy of earlier versions, and run `cupel clean --rust-sessions`
 to remove every session (`--project`: only the current project's).
@@ -151,7 +155,9 @@ An operator fault whose new operator binds differently from the original
 (`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) cannot be switched around its
 operands: changing the source text lets Rust regroup the whole expression
 (`a && b && c && d` with one `&&` made `||` reads `(a && b) || (c && d)`). Such a
-fault is answered in the same switched build by a **body variant**: the whole
+fault gets its own build by default. With `runners.cargo.mutants.bodyVariants: true` (opt-in, because
+a variant changes panic line numbers, see below, which a panic hook or backtrace can show) it is
+answered in the same switched build by a **body variant**: the whole
 function body is parsed again with the replacement applied and chosen at function
 entry (`match crate::__cupel_faults::active() { 7 => return { ... }, _ => {} }`, on
 the line of the opening brace, so line numbers outside the body do not move). At most 8 per function (in
