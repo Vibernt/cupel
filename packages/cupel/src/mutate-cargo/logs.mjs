@@ -28,10 +28,11 @@ export function rustcCompile(command) {
 /**
  * Parse a log into compiled binaries and test-phase results:
  * { compiled: Map(binaryStem → { crate, src, test }),
- *   runs: [{ binary, failed: [{ name, location?, unmetPanic? , returnedError? }], died }],
+ *   runs: [{ binary, failed: [{ name, location?, unmetPanic? , returnedError? }],
+ *   died, reported?: [every test name with an ok/FAILED/ignored line; only with { reported: true }] }],
  *   doctestFailures }
  */
-export function parseLog(text) {
+export function parseLog(text, { reported = false } = {}) {
   const compiled = new Map();
   const runs = [];
   let phase = null; let current = null; let doc = false; let section = null;
@@ -55,15 +56,19 @@ export function parseLog(text) {
       if (/(?:^|[\\/\s])rustdoc(?:\.exe)?\s/.test(running[1])) { doc = true; current = null; continue; }
       doc = false;
       const program = tokens(running[1]).find((part) => /[\\/]deps[\\/][^\\/]+$/.test(part));
-      current = program ? { binary: stem(program), failed: [], died: false } : null;
+      current = program ? { binary: stem(program), failed: [], died: false, ...(reported ? { reported: [] } : {}) } : null;
       if (current) runs.push(current);
       continue;
     }
     if (phase !== 'test') continue;
     if (doc) { if (/^test .* \.\.\. FAILED$/.test(line)) doctestFailures++; continue; }
     if (!current) continue;
-    const result = /^test (.+?)(?: - should panic)? \.\.\. FAILED$/.exec(line);
-    if (result) { current.failed.push({ name: result[1] }); continue; }
+    const result = /^test (.+?)(?: - should panic)? \.\.\. (ok|FAILED|ignored)(?:,.*)?$/.exec(line);
+    if (result) {
+      current.reported?.push(result[1]);
+      if (result[2] === 'FAILED') current.failed.push({ name: result[1] });
+      continue;
+    }
     const header = /^---- (.+?) stdout ----$/.exec(line);
     if (header) { section = current.failed.find((failure) => failure.name === header[1]) ?? null; continue; }
     if (/^(?:failures:|test result:)/.test(line)) { section = null; continue; }

@@ -89,6 +89,18 @@ faults itself in a scratch copy with its own `target/` folder:
   the faults near each error and tries again; a file that fails twice runs all its
   faults one build each. `"schemata": false` turns switching off.
 
+Every run must show its work: each named test has to report `ok`, `FAILED` or
+`ignored`. If a run that did not time out and caught nothing reports no result for
+some named test (a name filter that matched nothing, a binary that died
+silently), it is never counted as survived: the unmutated run refuses with the
+missing names (Cupel's test id to libtest name mapping does not fit the project),
+and a fault run is tried once more, then refused for that target.
+
+The run ends with a `mutate-rust: timings ...` line: the first build, the baseline
+run, the switched builds, the switches-off check, the per-fault build and test
+time, and the number and total time of cargo calls. For development,
+`CUPEL_RUST_TIMINGS=<path>` also writes them as JSON (with per-fault times).
+
 An operator fault whose new operator binds differently from the original
 (`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) is never switched: changing
 the source text lets Rust regroup the whole expression (`a && b && c && d` with

@@ -7,7 +7,8 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyMutant, scratchWrite, switchable, targetOf } from '../src/mutate-cargo/fast.mjs';
+import { parseLog } from '../src/mutate-cargo/logs.mjs';
+import { applyMutant, missingResults, scratchWrite, switchable, targetOf } from '../src/mutate-cargo/fast.mjs';
 import { symlinkSync } from 'node:fs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
@@ -16,6 +17,17 @@ const tool = process.env.CUPEL_CARGO_MUTANTS
   ?? (process.env.PATH ?? '').split(delimiter).map((d) => join(d, process.platform === 'win32' ? 'cargo-mutants.exe' : 'cargo-mutants')).find((p) => existsSync(p));
 const llvm = spawnSync('rustc', ['-vV']).status === 0 && (process.env.PATH ?? '').split(delimiter).some((d) => existsSync(join(d, process.platform === 'win32' ? 'llvm-cov.exe' : 'llvm-cov')));
 const skip = !tool ? 'cargo-mutants unavailable (set CUPEL_CARGO_MUTANTS)' : !llvm ? 'LLVM tools unavailable on PATH' : false;
+
+test('missingResults names the tests that reported nothing, so zero executed tests is never a pass', () => {
+  const log = (body) => parseLog(`*** cargo test --verbose\n     Running \`/t/target/debug/deps/app-1a2b --exact a::x\`\n${body}\n`, { reported: true });
+  const ok = log('running 2 tests\ntest a::x ... ok\ntest a::y ... FAILED\n\ntest result: FAILED. 1 passed; 1 failed');
+  assert.deepEqual(missingResults(ok, ['a::x', 'a::y']), { missing: [] });
+  assert.deepEqual(ok.runs[0].failed.map((f) => f.name), ['a::y']);
+  const none = log('running 0 tests\n\ntest result: ok. 0 passed; 0 failed');
+  assert.deepEqual(missingResults(none, ['b::z', 'a::x']), { missing: ['a::x', 'b::z'] });
+  assert.deepEqual(missingResults(log('test a::x ... ignored, slow'), ['a::x']), { missing: [] });
+  assert.deepEqual(missingResults(parseLog('', { reported: true }), ['a::x']), { missing: ['a::x'] });
+});
 
 test('applyMutant replaces a span counted in Unicode scalar values', () => {
   const text = 'fn a() {\n  let s = "é😀"; x == y\n}\n';
@@ -114,4 +126,6 @@ test('backend cupel gives the rows cargo-mutants gives, one build per fault and 
   const switched = report('cupel');
   assert.deepEqual(switched.rows, reference.rows);
   assert.match(switched.log, /fault\(s\) switched in one build/);
+  assert.match(switched.log, /mutate-rust: timings first-build/);
+  console.log(switched.log.split('\n').find((l) => l.includes('mutate-rust: timings')));
 });

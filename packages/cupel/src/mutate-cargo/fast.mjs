@@ -57,6 +57,16 @@ function run(command, args, { cwd, env, timeoutMs = 0 }) {
 /** The libtest name of a Cupel Rust test id (`file::a > b` → `a::b`). */
 const libtestName = (test) => test.id.slice(test.file.length + 2).split(' > ').join('::');
 
+/**
+ * The named tests that reported no result in a run (`test <name> ... ok|FAILED|ignored`). A run
+ * that executed none of them (an `--exact` filter that matched nothing, a binary that died
+ * silently) must never be read as "nothing failed".
+ */
+export function missingResults(parsed, names) {
+  const seen = new Set((parsed?.runs ?? []).flatMap((x) => x.reported ?? []));
+  return { missing: [...names].filter((n) => !seen.has(n)).sort(cmp) };
+}
+
 /** The cargo target that holds a test file's tests: { pkg, kind, name, flags }. */
 export function targetOf(file, packages) {
   const owners = packages.filter((p) => p.dir === '' || file.startsWith(`${p.dir}/`)).sort((a, b) => b.dir.length - a.dir.length);
@@ -167,6 +177,7 @@ class Runner {
     this.baseline = new Map(); // target key -> { ms, failing: Set(name) }
     this.compiled = new Map();
     this.stopAfter = STOP_AFTER_TARGETS;
+    this.cargoCalls = 0; this.cargoMs = 0; this.runMs = 0; // every cargo invocation of builds and runs, for the timing line
   }
 
   target(file) {
@@ -226,6 +237,7 @@ class Runner {
   async build(targets, owners) {
     const args = ['test', '--no-run', '--verbose', '--message-format=json', ...this.buildFlags(targets, owners)];
     const r = await run(this.cargo, args, { cwd: this.src, env: this.env });
+    this.cargoCalls++; this.cargoMs += r.ms;
     const errors = [];
     for (const line of r.stdout.split('\n')) {
       if (!line.startsWith('{')) continue;
@@ -236,7 +248,7 @@ class Runner {
     }
     const log = `*** cargo ${args.join(' ')}\n${r.text.split('\n').filter((l) => !l.startsWith('{')).join('\n')}\n`;
     for (const [binary, info] of parseLog(log).compiled) this.compiled.set(binary, info);
-    return { ok: r.code === 0, errors, log };
+    return { ok: r.code === 0, errors, log, ms: r.ms };
   }
 
   /** One run of a target with the named tests; fault 0 means none. */
@@ -245,8 +257,9 @@ class Runner {
     const env = { ...this.env };
     if (fault) env.CUPEL_FAULT = String(fault); else delete env.CUPEL_FAULT;
     const r = await run(this.cargo, args, { cwd: this.src, env, timeoutMs });
+    this.cargoCalls++; this.cargoMs += r.ms; this.runMs += r.ms;
     const text = `*** cargo ${args.join(' ')}\n${r.text}\n`;
-    return { ...r, log: text, parsed: parseLog(text) };
+    return { ...r, log: text, parsed: parseLog(text, { reported: true }) };
   }
 
   /** The unmutated run of every target: time (for the time limit) and the tests that fail without any fault. */
@@ -258,6 +271,8 @@ class Runner {
       const failing = new Set(r.parsed.runs.flatMap((x) => x.failed.map((f) => f.name)));
       if (failing.size && !fault) this.log(`mutate-rust: ${target.name}: ${[...failing].join(', ')} fail(s) unmutated here although the input says passed; those failures are not catches`);
       if (r.code !== 0 && !failing.size) refuse(`the unmutated tests of ${target.name} did not run (exit ${r.code}): ${r.text.trim().split('\n').slice(-3).join(' | ')}`);
+      const { missing } = missingResults(r.parsed, names);
+      if (missing.length) refuse(`the unmutated run of ${target.name} reported no result for ${missing.length} of ${names.size} named test(s): ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', ...' : ''}; Cupel's test id to libtest name mapping does not fit this project`);
       out.set(key, { ms: r.ms, failing });
     }
     return out;
@@ -280,8 +295,9 @@ class Runner {
     // on every run and machine: most covering tests first, then the input's durations, then the name.
     const order = [...byTarget.keys()].sort((a, b) => (byTarget.get(b).names.size - byTarget.get(a).names.size) || (this.inputMs(a) - this.inputMs(b)) || cmp(a, b));
     const full = tests.some((t) => this.targetedUnits.has(t.unit ?? t.id));
-    const st = state ?? { catching: 0, timedOut: false, runs: [], done: new Set() };
+    const st = state ?? { catching: 0, timedOut: false, runs: [], done: new Set(), testMs: 0 };
     if (process.env.CUPEL_DEBUG_RUST) this.log(`debug: fault ${fault} line ${candidate.line} order ${order.map((k) => k.replaceAll('\0', '/')).join(', ')} only ${only ? [...only].map((k) => k.replaceAll('\0', '/')).join(', ') : '-'} done ${[...st.done].length} catching ${st.catching}`);
+    const run0 = this.runMs;
     for (const key of order) {
       if (!full && st.catching >= this.stopAfter) break;
       if (st.done.has(key) || (only && !only.has(key))) continue;
@@ -291,6 +307,16 @@ class Runner {
       // A timeout may be the machine: one more try with three times the limit.
       if (r.timedOut) r = await this.runTarget(target, [...names].sort(cmp), fault, TIMEOUT_FACTOR * limit);
       const failing = this.baseline.get(key)?.failing ?? new Set();
+      // Neither timed out nor caught, yet some named test reported nothing: not a pass. Try once more.
+      const incomplete = (x) => !x.timedOut && (x.code === 0 || x.parsed.runs.length) && !x.parsed.runs.some((y) => y.failed.some((f) => !failing.has(f.name)) || y.died) && missingResults(x.parsed, names).missing.length > 0;
+      if (incomplete(r)) {
+        this.retries = (this.retries ?? 0) + 1;
+        r = await this.runTarget(target, [...names].sort(cmp), fault, limit);
+        if (incomplete(r)) {
+          const { missing } = missingResults(r.parsed, names);
+          refuse(`${target.name} reported no result for ${missing.length} of ${names.size} named test(s) with fault ${fault || 'built in'} at line ${candidate.line} (${missing.slice(0, 3).join(', ')}); not counted as survived`);
+        }
+      }
       for (const x of r.parsed.runs) x.failed = x.failed.filter((f) => !failing.has(f.name));
       // Cargo failing before any test binary ran is not a catch: it is the environment.
       if (!r.timedOut && r.code !== 0 && !r.parsed.runs.length) refuse(`cargo test failed before running ${target.name}: ${r.text.trim().split('\n').slice(-3).join(' | ')}`);
@@ -301,6 +327,7 @@ class Runner {
       st.runs.push(...r.parsed.runs);
       st.done.add(key);
     }
+    st.testMs += this.runMs - run0;
     // Targets still owed: stopped early with fewer than two catches (or a full run is needed), and some were skipped.
     st.pending = (full || st.catching < this.stopAfter) ? order.filter((key) => !st.done.has(key)) : [];
     return st;
@@ -326,6 +353,7 @@ function rustflags(env) {
  * plan (scope, no-coverage, cap, reuse) and the same rows as mutateCargo.
  */
 export async function mutateCargoFast({ root, input, config = {}, scope = {}, log = noop, environment = process.env } = {}) {
+  const started = performance.now();
   const cfg = effectiveConfig(config, SCHEMA);
   const settings = config.runners?.cargo?.mutants ?? {};
   const wanted = wantedLines(input, cfg, scope);
@@ -349,6 +377,10 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
     const ran = new Set([...plan.noCoverage.map((m) => m.id), ...plan.reused.map((m) => m.id), ...(plan.elsewhere ?? [])]);
     const outcomes = [];
     const timings = new Map();
+    const phases = { firstBuildMs: 0, baselineMs: 0, switchedBuildMs: 0, switchesOffMs: 0 };
+    const faultTimes = new Map(); // fault id -> { buildMs, testMs }
+    const addFault = (id, build, test) => { const f = faultTimes.get(id) ?? { buildMs: 0, testMs: 0 }; f.buildMs += build; f.testMs += test; faultTimes.set(id, f); };
+    const clock = async (key, work) => { const t = performance.now(); try { return await work(); } finally { phases[key] += performance.now() - t; } };
     const partial = new Map(); // fault id -> evaluation still owing timing-sensitive targets
     const byName = new Map(listing.map((m) => [m.name, m]));
     let runner = null;
@@ -372,9 +404,9 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       const owners = [...new Set(plan.run.map((c) => byName.get(c.name)?.package).filter(Boolean))];
       const targets = [...needed.values()].map((x) => x.target);
       log(`mutate-rust: ${plan.run.length} fault(s); building ${targets.length} test target(s) of ${new Set(targets.map((t) => t.pkg)).size} package(s) once`);
-      const first = await runner.build(targets, owners);
+      const first = await clock('firstBuildMs', () => runner.build(targets, owners));
       if (!first.ok) refuse(`the unmutated test targets do not build: ${first.log.trim().split('\n').slice(-3).join(' | ')}`);
-      runner.baseline = await runner.measure(needed);
+      runner.baseline = await clock('baselineMs', () => runner.measure(needed));
 
       // C: switchable faults in one build, when the rewriter is certain and the tests agree.
       const single = new Set(plan.run.map((c) => c.id));
@@ -427,7 +459,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
             for (const pkg of pkgs) if (!inject(pkg)) noStd = true;
             if (noStd) { log('mutate-rust: a no_std crate cannot read CUPEL_FAULT; faults run one build each'); break; }
             if (!current.size) break;
-            const built = await runner.build(targets, owners);
+            const built = await clock('switchedBuildMs', () => runner.build(targets, owners));
             if (built.ok) { for (const [n, c] of current) switched.set(n, c); ok = true; break; }
             // First drop only the faults near each error and try again; a file that fails a second
             // time has all its faults run one build each.
@@ -448,7 +480,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           }
           if (ok) {
             // Every switch off must mean the original: the covering tests behave exactly as unmodified.
-            const off = await runner.measure(needed);
+            const off = await clock('switchesOffMs', () => runner.measure(needed));
             for (const key of needed.keys()) {
               const a = runner.baseline.get(key).failing; const b = off.get(key).failing;
               if (a.size !== b.size || ![...a].every((n) => b.has(n))) sensitive.add(key);
@@ -456,7 +488,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
             if (sensitive.size) log(`mutate-rust: with every switch off, ${[...sensitive].map((k) => needed.get(k).target.name).join(', ')} behaved differently (timing-sensitive tests, for example); they run on one-build-per-fault only`);
             if (sensitive.size === needed.size) switched.clear();
           }
-          if (!switched.size) { restore(); await runner.build(targets, owners); }
+          if (!switched.size) { restore(); await clock('switchedBuildMs', () => runner.build(targets, owners)); }
           else {
             log(`mutate-rust: ${switched.size} of ${plan.run.length} fault(s) switched in one build`);
             const safe = new Set([...needed.keys()].filter((k) => !sensitive.has(k)));
@@ -464,6 +496,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
               const t0 = performance.now();
               const st = await runner.evaluate(c, n, { only: safe });
               timings.set(c.id, Math.round(performance.now() - t0));
+              addFault(c.id, 0, st.testMs);
               // Answered without the sensitive targets, or still owed some on a build of its own.
               if (st.pending.length) partial.set(c.id, st);
               else { outcomes.push({ mutant: byName.get(c.name), ...Runner.outcome(st) }); ran.add(c.id); }
@@ -471,7 +504,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
             }
             if (partial.size) log(`mutate-rust: ${switched.size - partial.size} fault(s) settled with the switched build; ${partial.size} still need timing-sensitive targets on their own build`);
             restore();
-            const rebuilt = await runner.build(targets, owners);
+            const rebuilt = await clock('switchedBuildMs', () => runner.build(targets, owners));
             if (!rebuilt.ok) refuse('the unmutated test targets no longer build after removing the switches');
           }
         }
@@ -491,12 +524,15 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           const before = partial.get(c.id);
           const own = runner.coveringCandidate(c).map((t) => runner.target(t.file)).filter((t) => !before || before.pending.includes(t.key));
           const built = await runner.build(own, [mutant.package].filter(Boolean));
+          addFault(c.id, built.ms, 0);
           if (!built.ok) {
             // A fault the switched build compiled must compile on its own; anything else is the environment.
             if (before) refuse(`${mutant.name} compiled switched but not on its own`);
             outcomes.push({ mutant, summary: 'Unviable', log: null }); ran.add(c.id); continue;
           }
+          const t1 = before?.testMs ?? 0;
           const st = await runner.evaluate(c, 0, before ? { only: new Set(before.pending), state: before } : {});
+          addFault(c.id, 0, st.testMs - t1);
           outcomes.push({ mutant, ...Runner.outcome(st) });
           ran.add(c.id);
         } finally { scratchWrite(scratch, path, original); timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
@@ -506,6 +542,21 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
     if (scope.timings) rows = rows.map((r) => (timings.has(r.id) ? { ...r, durationMs: timings.get(r.id) } : r));
     const unviable = outcomes.filter((o) => o.summary === 'Unviable').length;
     if (outcomes.length) log(`mutate-rust: ${rows.length} fault(s) tested; ${unviable} did not compile`);
+    if (runner) {
+      const sec = (ms) => Math.round(ms) / 1000;
+      const faults = [...faultTimes.values()];
+      const sum = (key) => faults.reduce((a, f) => a + f[key], 0);
+      const report = {
+        totalMs: Math.round(performance.now() - started),
+        firstBuildMs: Math.round(phases.firstBuildMs), baselineMs: Math.round(phases.baselineMs),
+        switchedBuildMs: Math.round(phases.switchedBuildMs), switchesOffMs: Math.round(phases.switchesOffMs),
+        faults: faults.length, faultBuildMs: Math.round(sum('buildMs')), faultTestMs: Math.round(sum('testMs')),
+        cargoCalls: runner.cargoCalls, cargoMs: Math.round(runner.cargoMs), retries: runner.retries ?? 0,
+        perFault: Object.fromEntries([...faultTimes].sort((a, b) => cmp(a[0], b[0])).map(([id, f]) => [id, { buildMs: Math.round(f.buildMs), testMs: Math.round(f.testMs) }])),
+      };
+      log(`mutate-rust: timings first-build ${sec(report.firstBuildMs)}s, baseline ${sec(report.baselineMs)}s, switched-build ${sec(report.switchedBuildMs)}s, switches-off ${sec(report.switchesOffMs)}s, faults ${faults.length} (build ${sec(report.faultBuildMs)}s, test ${sec(report.faultTestMs)}s), cargo ${report.cargoCalls} call(s) ${sec(report.cargoMs)}s, total ${sec(report.totalMs)}s`);
+      if (environment.CUPEL_RUST_TIMINGS) { try { writeFileSync(environment.CUPEL_RUST_TIMINGS, `${JSON.stringify(report, null, 2)}\n`); } catch { /* developer aid only */ } }
+    }
     const mutants = [...plan.noCoverage, ...plan.reused, ...rows].sort((a, b) => cmp(a.id, b.id));
     for (let i = 1; i < mutants.length; i++) if (mutants[i].id === mutants[i - 1].id) refuse(`duplicate mutant id ${mutants[i].id}`);
     const targeted = targetedUnits({ input, listing, ran, rows: mutants });
