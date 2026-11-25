@@ -146,9 +146,9 @@ const COMMANDS = {
     options: { out: S }, positionals: true,
   },
   mutate: {
-    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE] [--reuse FILE | --no-reuse] [--runner NAME] [--shard I/N] [--first-catch]\n       cupel mutate --input FILE --plan [--out FILE] [--changed REF] [--reuse FILE] [--runner NAME] [--cores N] [--startup-seconds S] [--target-minutes M] [--max-shards N] [--json]',
+    usage: 'cupel mutate --input FILE --out FILE [--base-input FILE] [--changed REF] [--root DIR] [--config FILE] [--reuse FILE | --no-reuse] [--runner NAME] [--shard I/N] [--first-catch] [--cache-dir DIR]\n       cupel mutate --input FILE --runner NAME --prepare [--cache-dir DIR] [--json]\n       cupel mutate --input FILE --plan [--out FILE] [--changed REF] [--reuse FILE] [--runner NAME] [--cores N] [--startup-seconds S] [--target-minutes M] [--max-shards N] [--json]',
     about: 'mutate a precollected input from the working tree; plan slices for CI and run one',
-    options: { input: S, out: S, 'base-input': S, changed: S, root: S, reuse: S, 'no-reuse': B, plan: B, shard: S, runner: S, 'first-catch': B,
+    options: { input: S, out: S, 'base-input': S, changed: S, root: S, reuse: S, 'no-reuse': B, plan: B, shard: S, runner: S, 'first-catch': B, prepare: B, 'cache-dir': S,
       cores: S, 'startup-seconds': S, 'target-minutes': S, 'max-shards': S },
   },
   'merge-mutations': {

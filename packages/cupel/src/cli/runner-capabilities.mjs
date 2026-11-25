@@ -4,7 +4,7 @@ import { environment } from './errors.mjs';
 const MUTATION_RUNTIME = Object.freeze({ node: 'node', vitest: 'node', jest: 'node', pytest: 'python', go: 'go', cargo: 'rust', minitest: 'ruby' });
 
 export function mutationRequested(scope) {
-  return !!(scope.functions || scope.critical || (scope.changed && Object.keys(scope.changed).length) || scope.targeted?.length);
+  return !!(scope.prepare || scope.functions || scope.critical || (scope.changed && Object.keys(scope.changed).length) || scope.targeted?.length);
 }
 
 export function assertLiveMutationRunner(input, cfg, collectorKind, runnerName) {

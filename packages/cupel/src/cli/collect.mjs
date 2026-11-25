@@ -349,7 +349,7 @@ export async function mutate(mutator, options) {
   return stamped;
 }
 
-async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) {
+async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics, environment: runEnvironment }) {
   if (!mutationRequested(scope)) return null;
   log(`mutating (${[scope.critical && 'critical', scope.changed && 'changed lines', scope.targeted?.length && `${scope.targeted.length} targeted units`].filter(Boolean).join(', ')})`);
   try {
@@ -377,7 +377,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
           if (scope.runner && name !== scope.runner) continue;
           if (!mutationRequested(selected)) { out[name] = { plan: [], sampled: false }; continue; }
           const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
-          out[name] = await planPart(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
+          out[name] = await planPart(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics, environment: runEnvironment });
         }
         return { plans: out };
       }
@@ -385,7 +385,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
         if (scope.runner && name !== scope.runner) continue;
         if (!mutationRequested(selected)) continue;
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
-        const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics });
+        const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics, environment: runEnvironment });
         if (result) {
           mutations.push(result);
           for (const mutant of result.mutants) {
@@ -411,7 +411,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
     if (scope.plan && !scope.backendPlan) {
       const name = runnerNameOf(input, cfg, collectorKind);
       if (scope.runner && scope.runner !== name) throw environment(`no runner named ${scope.runner} in this input`);
-      return { plans: { [name]: await planPart(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics }) } };
+      return { plans: { [name]: await planPart(mutator, { root, cfg, input, scope, log, collectorKind, diagnostics, environment: runEnvironment }) } };
     }
     if (scope.runner && runnerNameOf(input, cfg, collectorKind) !== scope.runner) throw environment(`no runner named ${scope.runner} in this input`);
     if ((scope.plan || scope.only) && !sliceable(input, cfg)) throw environment(`runner ${runnerNameOf(input, cfg, collectorKind)}: slices are not available for this runner`);
@@ -422,7 +422,7 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
       if (!go) throw environment('Go mutation module is not available');
       return await go.mutateGo({ root, config: cfg, input, scope, log });
     }
-    if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log });
+    if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log, environment: runEnvironment });
     if (input.runtime.name === 'ruby') {
       const { reuse: _reuse, ...rubyScope } = scope;
       const nativeScope = { ...rubyScope,
@@ -465,7 +465,7 @@ async function planPart(mutator, options) {
 }
 
 /** Rust mutation: cargo-mutants by default (D19), or the restricted built-in mutator on request. */
-async function rustMutation(action, { root, cfg, input, scope, mutation, ids, log }) {
+async function rustMutation(action, { root, cfg, input, scope, mutation, ids, log, environment: runEnvironment }) {
   const settings = cfg.runners?.cargo?.mutants ?? {};
   if (settings.backend === 'cupel-rust') {
     const rust = await loadModule('rustMutator');
@@ -482,7 +482,7 @@ async function rustMutation(action, { root, cfg, input, scope, mutation, ids, lo
   if (!cargo) throw environment('cargo-mutants mutation module is not available');
   if (settings.backend === 'cupel' && action === 'mutate') {
     const { mutateCargoFast } = await import('../mutate-cargo/fast.mjs');
-    return await mutateCargoFast({ root, config: cfg, input, scope, log });
+    return await mutateCargoFast({ root, config: cfg, input, scope, log, environment: runEnvironment });
   }
   return action === 'mutate'
     ? await cargo.mutateCargo({ root, config: cfg, input, scope, log })

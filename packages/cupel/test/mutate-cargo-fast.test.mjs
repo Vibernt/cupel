@@ -240,14 +240,14 @@ test('a second run in the same project reuses the build session: warm, baselines
   };
   try {
     const cold = once();
-    assert.match(cold.timings, /session cold, baselines reused 0\/\d+/);
+    assert.match(cold.timings, /session cold, prepared false, baselines reused 0\/\d+/);
     assert.deepEqual(cold.rows, reference.rows);
     const sessions = join(cache, 'rust-sessions');
     assert.equal(existsSync(join(project, '.scratch/cupel-rust-sessions')), false, 'nothing is kept in the project');
     const [id] = readdirSync(sessions);
     assert.ok(existsSync(join(sessions, id, 'target')) && existsSync(join(sessions, id, 'meta.json')));
     const warm = once();
-    const m = /session warm, baselines reused (\d+)\/(\d+)/.exec(warm.timings);
+    const m = /session warm, prepared false, baselines reused (\d+)\/(\d+)/.exec(warm.timings);
     assert.ok(m && m[1] === m[2] && Number(m[1]) > 0, warm.timings);
     assert.deepEqual(warm.rows, cold.rows);
     const off = /switches-off reused (\d+)\/(\d+)/.exec(warm.timings);
@@ -283,4 +283,48 @@ test('a second run in the same project reuses the build session: warm, baselines
     assert.deepEqual(healed.rows, cold.rows);
     assert.equal(readFileSync(join(fixture, 'core/src/lib.rs'), 'utf8'), original, 'the assessed project was not touched');
   } finally { rmSync(project, { recursive: true, force: true }); rmSync(cache, { recursive: true, force: true }); }
+});
+
+test('a prepared Rust session is shared by two slices and merges to the whole run', { skip, timeout: 900_000 }, () => {
+  mkdirSync(join(repo, '.scratch'), { recursive: true });
+  const project = realpathSync(mkdtempSync(join(repo, '.scratch/cargo-fast-bundle-')));
+  const wholeCache = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-whole-cache-')));
+  const bundleCache = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-bundle-cache-')));
+  cpSync(fixture, project, { recursive: true });
+  rmSync(join(project, 'target'), { recursive: true, force: true });
+  writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend: 'cupel' } } } }));
+  const cliWithEnv = (extraEnv, ...args) => spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), ...args],
+    { cwd: project, env: { ...process.env, ...extraEnv }, encoding: 'utf8', maxBuffer: 64 << 20 });
+  const cli = (...args) => cliWithEnv({}, ...args);
+  const ok = (...args) => { const r = cli(...args); assert.equal(r.status, 0, r.stderr); return r; };
+  try {
+    ok('report', '--runs', '1', '--no-mutation', '--out', '.cupel/collected.json', '--json');
+    ok('mutate', '--input', '.cupel/collected.json', '--runner', 'cargo', '--out', '.cupel/whole.json', '--cache-dir', wholeCache, '--no-reuse');
+    const prepared = ok('mutate', '--input', '.cupel/collected.json', '--runner', 'cargo', '--prepare', '--cache-dir', bundleCache, '--json', '--no-reuse');
+    const info = JSON.parse(prepared.stdout);
+    assert.equal(info.cacheDir, bundleCache);
+    assert.equal(info.sessionDir, join(bundleCache, 'rust-sessions', info.sessionId));
+    assert.match(prepared.stderr, new RegExp(`prepared Rust build session ${info.sessionId}`));
+    const slices = [1, 2].map((index) => {
+      const timings = join(project, `.cupel/timings-${index}.json`);
+      const r = cliWithEnv({ CUPEL_RUST_TIMINGS: timings }, 'mutate', '--input', '.cupel/collected.json', '--runner', 'cargo', '--shard', `${index}/2`,
+        '--out', `.cupel/slice-${index}.json`, '--cache-dir', bundleCache, '--no-reuse');
+      assert.equal(r.status, 0, r.stderr);
+      return { result: r, timings: JSON.parse(readFileSync(timings, 'utf8')) };
+    });
+    for (const { result: slice, timings } of slices) {
+      const line = slice.stderr.split('\n').find((x) => x.includes('mutate-rust: timings'));
+      assert.match(line, /session warm, prepared true, baselines reused (\d+)\/\1, switches-off reused (\d+)\/\2/);
+      assert.equal(timings.prepared, true);
+      assert.equal(timings.baselinesReused, timings.baselinesTotal);
+      assert.equal(timings.switchesOffReused, timings.switchesOffTotal);
+    }
+    ok('merge-mutations', '--input', '.cupel/collected.json', '--out', '.cupel/merged.json', '.cupel/slice-1.json', '.cupel/slice-2.json');
+    const rows = (name) => JSON.parse(readFileSync(join(project, `.cupel/${name}.json`), 'utf8')).mutation.mutants.map(({ basis: _basis, durationMs: _duration, ...row }) => row);
+    assert.deepEqual(rows('merged'), rows('whole'));
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+    rmSync(wholeCache, { recursive: true, force: true });
+    rmSync(bundleCache, { recursive: true, force: true });
+  }
 });

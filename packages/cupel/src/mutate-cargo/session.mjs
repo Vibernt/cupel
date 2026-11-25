@@ -297,11 +297,17 @@ export async function openSession({ root, id, env = process.env, waitMs, pollMs,
   try {
     const stored = readJson(join(dir, 'meta.json'));
     const usable = stored?.version === META_VERSION && stored.sessionId === id && existsSync(join(dir, 'project'));
+    const currentCache = realpathSync(cacheDir(env));
+    const currentProject = realpathSync(root);
+    if (usable && ((stored.cacheDir && stored.cacheDir !== currentCache) || (stored.project && stored.project !== currentProject))) {
+      throw new CargoMutantsError(`this Cupel Rust build bundle was moved: it was prepared with cache ${stored.cacheDir ?? '(unknown)'} and project ${stored.project ?? '(unknown)'}, but is now at cache ${currentCache} and project ${currentProject}. Restore the bundle at the same absolute cache and project paths on every machine because compiled tests embed paths such as CARGO_MANIFEST_DIR`);
+    }
     const warm = Boolean(usable && existsSync(join(dir, 'target')));
     const meta = usable ? { ...emptyMeta(id), ...stored } : emptyMeta(id);
     if (!usable) rmSync(join(dir, 'target'), { recursive: true, force: true }); // a target without its meta was built for who knows what
     meta.lastUsed = now();
-    meta.project = realpathSync(root);
+    meta.cacheDir = currentCache;
+    meta.project = currentProject;
     mkdirSync(join(dir, 'target'), { recursive: true });
     const synced = syncProject(root, join(dir, 'project'), join(dir, 'sync.json'), { dirtyFile: join(dir, 'dirty.json') });
     const dirty = new Set();

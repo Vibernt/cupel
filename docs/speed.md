@@ -330,6 +330,37 @@ jobs:
       - run: cupel merge-mutations --input .cupel/collected.json --out .cupel/head.json slice-*.json
 ```
 
+### Sharing one build between slices
+
+With the Rust `backend: "cupel"`, prepare the whole fault plan once and archive
+the persistent session rather than making every slice start from a cold build:
+
+```sh
+DIR=/opt/cupel-cache
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --prepare --cache-dir "$DIR" --json > prepared.json
+tar -C "$DIR" -cf rust-sessions.tar rust-sessions
+
+# Each slice restores at the same absolute path.
+mkdir -p "$DIR"
+tar -C "$DIR" -xf rust-sessions.tar
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --shard "$INDEX/$TOTAL" --cache-dir "$DIR" --out "slice-$INDEX.json"
+
+cupel merge-mutations --input .cupel/collected.json \
+  --out .cupel/head.json slice-*.json
+```
+
+Every job needs the same OS image, toolchain, Cupel/config/flags, absolute
+checkout path and absolute cache path. Transfer `rust-sessions.tar` with mtimes
+preserved: Cargo uses them for freshness, while zip-based artifact uploads may
+not preserve them. An OS, toolchain, Cupel/config/flags or checkout mismatch
+changes the session id, so Cupel falls back to a new cold build. If Cupel selects
+a restored session folder but its recorded project or cache path differs, it
+refuses the moved bundle because compiled tests can embed paths such as
+`CARGO_MANIFEST_DIR`. The timing line/JSON says `prepared true` and reports the
+baseline and switches-off reuse counts when a slice reused the prepared verdicts.
+
 ## What is not done, and why
 
 - **Stopping at the very first catch.** It would save a little more, but Cupel
@@ -340,7 +371,5 @@ jobs:
 - **Re-collecting coverage only for changed tests.** This is how a suite can look
   green while missing something; Cupel's experimental selective mode keeps it
   separate and never lets it approve a whole suite.
-- **Shipping one Rust build to every slice.** Each slice compiles its own
-  switched build today; sharing one build between machines is future work.
 
 **Rust sessions and `--out`/`--reuse` files:** the persistent Rust build session reuses its baselines only when the whole project is unchanged, and a report or reuse file inside the project counts. Keep `--out` and `--reuse` files under `.cupel/` (never copied or digested) or outside the project so they do not stop reuse.

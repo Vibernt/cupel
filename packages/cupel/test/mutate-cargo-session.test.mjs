@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { acquireLock, tryAcquireLock, cacheDir, cleanSessions, enforceCap, hashFile, openSession, sessionId, sessionsRoot, syncProject } from '../src/mutate-cargo/session.mjs';
@@ -104,6 +104,24 @@ test('sync makes the copy what copyProject makes, copies only changes, deletes w
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
 });
 
+test('sync leaves byte-identical copy files untouched when restored project files have new stat keys', () => {
+  const root = project(); const out = tmp();
+  try {
+    const dest = join(out, 'project'); const manifest = join(out, 'sync.json');
+    syncProject(root, dest, manifest);
+    const source = join(root, 'a/src/lib.rs');
+    const copy = join(dest, 'a/src/lib.rs');
+    const before = lstatSync(copy);
+    writeFileSync(`${source}.restored`, readFileSync(source));
+    renameSync(`${source}.restored`, source); // new inode and ctime, as after artifact/checkout restoration
+    const synced = syncProject(root, dest, manifest);
+    const after = lstatSync(copy);
+    assert.equal(synced.copied, 0);
+    assert.equal(after.ino, before.ino, 'the session copy was not replaced');
+    assert.equal(after.mtimeMs, before.mtimeMs, 'Cargo freshness metadata was preserved');
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
+});
+
 test('a file a crashed run left modified in the session is restored, even with the same size and an older mtime', () => {
   const root = project(); const out = tmp();
   try {
@@ -186,6 +204,28 @@ test('openSession: cold then warm, meta of another session id is never reused, a
     assert.equal(warm.dir.startsWith(env.CUPEL_CACHE_DIR), true);
     assert.equal(JSON.parse(readFileSync(join(warm.dir, 'meta.json'), 'utf8')).project, root);
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true }); }
+});
+
+test('a restored session is refused when its absolute cache or project path moved', async () => {
+  const root = project(); const env = cacheEnv(); const movedCache = `${env.CUPEL_CACHE_DIR}-moved`; const movedProject = `${root}-moved`;
+  try {
+    const session = await openSession({ root, id: 'portable', env });
+    const meta = JSON.parse(readFileSync(join(session.dir, 'meta.json'), 'utf8'));
+    assert.equal(meta.cacheDir, env.CUPEL_CACHE_DIR);
+    assert.equal(meta.project, root);
+    session.release();
+    renameSync(env.CUPEL_CACHE_DIR, movedCache);
+    await assert.rejects(openSession({ root, id: 'portable', env: { ...env, CUPEL_CACHE_DIR: movedCache } }), /bundle was moved.*same absolute cache and project paths/);
+    renameSync(movedCache, env.CUPEL_CACHE_DIR);
+    renameSync(root, movedProject);
+    await assert.rejects(openSession({ root: movedProject, id: 'portable', env }), /bundle was moved.*same absolute cache and project paths/);
+    renameSync(movedProject, root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(movedProject, { recursive: true, force: true });
+    rmSync(env.CUPEL_CACHE_DIR, { recursive: true, force: true });
+    rmSync(movedCache, { recursive: true, force: true });
+  }
 });
 
 function fakeSession(env, id, lastUsed, bytes, project = null) {

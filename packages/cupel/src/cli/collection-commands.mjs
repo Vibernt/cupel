@@ -1,7 +1,7 @@
 // The collect-once CLI commands: node:test collection, shard merge and mutation of saved evidence.
 import { readFileSync, rmSync, mkdirSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { resolve, relative, sep, join, dirname } from 'node:path';
+import { resolve, relative, sep, join, dirname, isAbsolute } from 'node:path';
 import { run } from '../engine/index.mjs';
 import { validate as schemaValidate } from '../engine/schema.mjs';
 import { cmp } from '../engine/order.mjs';
@@ -99,7 +99,17 @@ export const collectionCommands = {
     return EXIT_OK;
   },
   async mutate(ctx) {
-    if (!ctx.o.input || (!ctx.o.out && !ctx.o.plan)) throw usage('mutate needs --input FILE and --out FILE (--out is optional with --plan)');
+    if (!ctx.o.input || (!ctx.o.out && !ctx.o.plan && !ctx.o.prepare)) throw usage('mutate needs --input FILE and --out FILE (--out is optional with --plan or --prepare)');
+    if (ctx.o.prepare && ctx.o.shard) throw usage('--prepare cannot be combined with --shard; preparation covers the whole plan');
+    if (ctx.o.prepare && ctx.o.plan) throw usage('use either --prepare or --plan');
+    if (ctx.o.prepare && ctx.o.out) throw usage('--prepare writes no mutation output; remove --out');
+    if (ctx.o.prepare && !ctx.o.runner) throw usage('--prepare needs --runner NAME');
+    if (ctx.o['cache-dir'] !== undefined && !isAbsolute(ctx.o['cache-dir'])) throw usage(`--cache-dir must be absolute, got ${JSON.stringify(ctx.o['cache-dir'])}`);
+    if (ctx.o['cache-dir'] !== undefined) {
+      const { assertCacheOutside } = await import('../mutate-cargo/session.mjs');
+      try { assertCacheOutside(ctx.o['cache-dir'], ctx.root); }
+      catch (e) { throw usage(e.message); }
+    }
     const input = ctx.readInput(ctx.o.input);
     const errors = inputErrors(ctx, input);
     if (errors.length) throw usage(`${ctx.o.input}: ${errors[0].path}: ${errors[0].message}`);
@@ -122,11 +132,17 @@ export const collectionCommands = {
       if (baseErrors.length) throw usage(`${ctx.o['base-input']}: ${baseErrors[0].path}: ${baseErrors[0].message}`);
     }
     const cfg = ctx.effective();
+    if (ctx.o.prepare) {
+      const runner = cfg.runners?.[ctx.o.runner];
+      if (runner?.mutants?.backend !== 'cupel') throw usage(`--prepare needs runner ${ctx.o.runner} to use runners.${ctx.o.runner}.mutants.backend: "cupel"`);
+      if (runner.mutants.session === false) throw usage(`--prepare needs a persistent Rust session; runners.${ctx.o.runner}.mutants.session is false`);
+    }
     const mutator = await ctx.mutator();
     const changed = ctx.o.changed && cfg.mutation.changedLines ? changedLines(ctx.root, ctx.o.changed) : null;
     // --first-catch: only whether each fault was caught, for guard --head-input (mutation.catches 'first').
-    const scope = { critical: cfg.mutation.critical, changed, ...(ctx.o.runner ? { runner: ctx.o.runner } : {}), ...(ctx.o['first-catch'] ? { firstCatch: true } : {}) };
-    const common = { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, log: ctx.log };
+    const scope = { critical: cfg.mutation.critical, changed, ...(ctx.o.runner ? { runner: ctx.o.runner } : {}), ...(ctx.o['first-catch'] ? { firstCatch: true } : {}), ...(ctx.o.prepare ? { prepare: true } : {}) };
+    const runEnvironment = ctx.o['cache-dir'] === undefined ? ctx.env : { ...ctx.env, CUPEL_CACHE_DIR: ctx.o['cache-dir'] };
+    const common = { previous: ctx.previous(), ownFiles: ctx.ownFiles(), root: ctx.root, cfg, input, log: ctx.log, environment: runEnvironment };
     const number = (name, fallback, min = 1, integer = false) => {
       if (ctx.o[name] === undefined) return fallback;
       const n = Number(ctx.o[name]);
@@ -164,6 +180,13 @@ export const collectionCommands = {
     }
     let mutation = await mutate(mutator, { ...common, scope });
     if (!mutation) throw environment('mutation is unavailable for the configured scope');
+    if (ctx.o.prepare) {
+      if (!mutation.preparation) throw environment('the selected Rust plan has no faults that need a prepared build session');
+      const prepared = mutation.preparation;
+      ctx.io.err(`cupel: prepared Rust build session ${prepared.sessionId} at ${prepared.sessionDir}\n`);
+      if (ctx.o.json) ctx.io.out(`${JSON.stringify(prepared, null, 2)}\n`);
+      return EXIT_OK;
+    }
     if (ctx.sliceInfo) {
       // A slice that stopped early (maxSeconds, JavaScript and Python) did not answer every fault it was given.
       // Rust faults have no time budget: a missing one did not compile, as in a whole run.

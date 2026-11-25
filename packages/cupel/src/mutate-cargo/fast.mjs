@@ -27,7 +27,7 @@ import { parseLog } from './logs.mjs';
 import { environmentFor, execute, findTool, INSTALL, planCargoMutants, planEntries, slicePlan, wantedLines } from './run.mjs';
 import { orderTargets } from './order.mjs';
 import { selectorDigest, stableSelectors } from './batches.mjs';
-import { DEFAULT_CAP_GB, enforceCap, hashFile, openSession, sessionId } from './session.mjs';
+import { cacheDir, DEFAULT_CAP_GB, enforceCap, hashFile, openSession, sessionId } from './session.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const noop = () => {};
@@ -455,6 +455,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
   const started = performance.now();
   const cfg = effectiveConfig(config, SCHEMA);
   const settings = config.runners?.cargo?.mutants ?? {};
+  if (scope.prepare && settings.session === false) refuse('Rust build preparation needs a persistent session; runners.cargo.mutants.session is false');
   const wanted = wantedLines(input, cfg, scope);
   if (!wanted.size) return { mutants: [], targeted: [], sampled: false };
   const tool = findTool(settings.command ?? 'cargo-mutants', environment);
@@ -690,15 +691,17 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           else {
             log(`mutate-rust: ${switched.size} of ${plan.run.length} fault(s) switched in one build (${bodyNumbers.size} by whole-body variants)`);
             safe = new Set([...needed.keys()].filter((k) => !sensitive.has(k)));
-            for (const [n, c] of [...switched].sort((a, b) => a[0] - b[0])) {
-              const t0 = performance.now();
-              const st = await runner.evaluate(c, n, { only: safe });
-              timings.set(c.id, Math.round(performance.now() - t0));
-              addFault(c.id, 0, st.testMs);
-              // Answered without the sensitive targets, or still owed some on a build of its own.
-              if (st.pending.length) partial.set(c.id, st);
-              else { const outcome = { mutant: byName.get(c.name), ...Runner.outcome(st) }; outcomes.push(outcome); answered.set(c.id, { outcome }); ran.add(c.id); }
-              single.delete(c.id);
+            if (!scope.prepare) {
+              for (const [n, c] of [...switched].sort((a, b) => a[0] - b[0])) {
+                const t0 = performance.now();
+                const st = await runner.evaluate(c, n, { only: safe });
+                timings.set(c.id, Math.round(performance.now() - t0));
+                addFault(c.id, 0, st.testMs);
+                // Answered without the sensitive targets, or still owed some on a build of its own.
+                if (st.pending.length) partial.set(c.id, st);
+                else { const outcome = { mutant: byName.get(c.name), ...Runner.outcome(st) }; outcomes.push(outcome); answered.set(c.id, { outcome }); ran.add(c.id); }
+                single.delete(c.id);
+              }
             }
             if (partial.size) log(`mutate-rust: ${switched.size - partial.size} fault(s) settled with the switched build; ${partial.size} still need timing-sensitive targets on their own build`);
             restore();
@@ -729,7 +732,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           return { mutant, ...Runner.outcome(st), extra };
         } finally { put(path, original); if (record) timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
       };
-      const rest = plan.run.filter((c) => single.has(c.id) || partial.has(c.id));
+      const rest = scope.prepare ? [] : plan.run.filter((c) => single.has(c.id) || partial.has(c.id));
       counts.individual = rest.length;
       if (rest.length) log(`mutate-rust: ${rest.length} fault(s) with one build each${partial.size ? ` (${partial.size} only for their remaining targets)` : ''}`);
       const finals = new Map(); // fault id -> final outcome of every fault that used the switched build
@@ -802,6 +805,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           const full = fullKey(final.get(key), finalContext);
           if (full && !(rec.keys ??= []).includes(full)) rec.keys.push(full);
         }
+        if (scope.prepare) session.meta.prepared = session.sync.digest;
         session.save();
       }
     }
@@ -814,6 +818,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
       const faults = [...faultTimes.values()];
       const sum = (key) => faults.reduce((a, f) => a + f[key], 0);
       const report = {
+        prepared: Boolean(session && session.meta.prepared === session.sync.digest),
         totalMs: Math.round(performance.now() - started),
         firstBuildMs: Math.round(phases.firstBuildMs), baselineMs: Math.round(phases.baselineMs),
         switchedBuildMs: Math.round(phases.switchedBuildMs), switchesOffMs: Math.round(phases.switchesOffMs), restoreBuildMs: Math.round(phases.restoreBuildMs),
@@ -824,10 +829,13 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
         cargoCalls: runner.cargoCalls, cargoMs: Math.round(runner.cargoMs), retries: runner.retries ?? 0,
         perFault: Object.fromEntries([...faultTimes].sort((a, b) => cmp(a[0], b[0])).map(([id, f]) => [id, { buildMs: Math.round(f.buildMs), testMs: Math.round(f.testMs) }])),
       };
-      const sessionText = session ? `, session ${session.warm ? 'warm' : 'cold'}, baselines reused ${sessionStats.baselines[0]}/${sessionStats.baselines[1]}${sessionStats.off[1] ? `, switches-off reused ${sessionStats.off[0]}/${sessionStats.off[1]}` : ''}` : '';
+      const sessionText = `, session ${report.session}, prepared ${report.prepared}, baselines reused ${sessionStats.baselines[0]}/${sessionStats.baselines[1]}, switches-off reused ${sessionStats.off[0]}/${sessionStats.off[1]}`;
       log(`mutate-rust: timings first-build ${sec(report.firstBuildMs)}s, baseline ${sec(report.baselineMs)}s, switched-build ${sec(report.switchedBuildMs)}s, switches-off ${sec(report.switchesOffMs)}s, switched ${counts.switched} (operators ${counts.switched - counts.bodies}, bodies ${counts.bodies}), individual ${counts.individual}, faults ${faults.length} (build ${sec(report.faultBuildMs)}s, test ${sec(report.faultTestMs)}s), cargo ${report.cargoCalls} call(s) ${sec(report.cargoMs)}s, total ${sec(report.totalMs)}s${sessionText}`);
       if (environment.CUPEL_RUST_TIMINGS) { try { writeFileSync(environment.CUPEL_RUST_TIMINGS, `${JSON.stringify(report, null, 2)}\n`); } catch { /* developer aid only */ } }
     }
+    if (scope.prepare && session) return { mutants: [], targeted: [], sampled: plan.sampled, preparation: {
+      sessionDir: realpathSync(session.dir), sessionId: session.meta.sessionId, cacheDir: realpathSync(cacheDir(environment)),
+    } };
     const mutants = [...plan.noCoverage, ...plan.reused, ...rows].sort((a, b) => cmp(a.id, b.id));
     for (let i = 1; i < mutants.length; i++) if (mutants[i].id === mutants[i - 1].id) refuse(`duplicate mutant id ${mutants[i].id}`);
     const targeted = targetedUnits({ input, listing, ran, rows: mutants });

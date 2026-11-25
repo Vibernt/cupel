@@ -124,7 +124,8 @@ sources, so a later commit finds the same session warm. A run:
   between runs count as a changed project, a test could read them: keep `--out` and `--reuse` files
   under `.cupel/` (never copied or digested), or outside the project, so they do not stop reuse. The
   sync trusts a file only when size, mtime, ctime and inode are all unchanged. The timing
-  line ends with `session warm|cold` and `baselines reused n/m`.
+  line ends with `session warm|cold`, `prepared true|false`, `baselines reused n/m` and
+  `switches-off reused n/m`.
 - keeps the switches-off verdict under a digest of the session, the project and
   environment digests, the selector table, the exact rewritten sources and each target's
   recorded baseline key, so with nothing changed it repeats across runs
@@ -139,6 +140,38 @@ phases through a `lock.break` file, so a live run that takes the place is never 
 throwaway scratch copy of earlier versions, and run `cupel clean --rust-sessions`
 to remove every session (`--project`: only the current project's).
 
+### Sharing one build between slices
+
+For `backend: "cupel"`, one CI job can prepare the persistent session for the
+whole mutation plan and give that session to every slice:
+
+```sh
+DIR=/opt/cupel-cache                 # the same absolute path in every job
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --prepare --cache-dir "$DIR" --json > prepared.json
+tar -C "$DIR" -cf rust-sessions.tar rust-sessions
+
+# In each slice job, after restoring both files:
+mkdir -p "$DIR"
+tar -C "$DIR" -xf rust-sessions.tar
+cupel mutate --input .cupel/collected.json --runner cargo \
+  --shard "$INDEX/$TOTAL" --cache-dir "$DIR" --out "slice-$INDEX.json"
+
+# In the merge job:
+cupel merge-mutations --input .cupel/collected.json \
+  --out .cupel/head.json slice-*.json
+```
+
+Use the same OS image, Rust toolchain, Cupel/config/flags, checkout path and
+cache path in every job. Preserve the archive's mtimes: Cargo's freshness check
+needs them, so use `tar`; zip-based artifact uploads may reset them. A different
+OS, toolchain, Cupel/config/flags or checkout path produces a different session
+id and Cupel builds a new cold session. If a selected session folder's recorded
+absolute project or cache path differs, Cupel refuses it and explains that the
+bundle moved; compiled tests can embed paths such as `CARGO_MANIFEST_DIR`.
+Byte-identical restored project files are not rewritten even when their inode or
+ctime changed, so their session-copy mtimes remain usable.
+
 Every run must show its work: each named test has to report `ok`, `FAILED` or
 `ignored`. If a run that did not time out and caught nothing reports no result for
 some named test (a name filter that matched nothing, a binary that died
@@ -148,7 +181,8 @@ and a fault run is tried once more, then refused for that target.
 
 The run ends with a `mutate-rust: timings ...` line: the first build, the baseline
 run, the switched builds, the switches-off check, the per-fault build and test
-time, and the number and total time of cargo calls. For development,
+time, the number and total time of cargo calls, whether this exact project digest
+was prepared, and the baseline/switches-off reuse counts. For development,
 `CUPEL_RUST_TIMINGS=<path>` also writes them as JSON (with per-fault times).
 
 An operator fault whose new operator binds differently from the original
