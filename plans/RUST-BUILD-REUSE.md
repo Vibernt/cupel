@@ -67,3 +67,15 @@ the release.
   bundle needs the identical layout on every worker.
 - Blaze is a design reference only; copied code would need its MIT notices.
 - Validation throughput: one heavy workload run at a time on this machine.
+
+## Status (2026-11-25, `rust-integrate`)
+
+- Phase 2 (stable numbering): integrated in the runner. Numbers come from `stableSelectors` over the whole
+  listing of every file with a fault to run; every acceptable listed fault is rendered, so slices and reuse
+  produce byte-identical switched sources.
+- Phase 5 (body variants): integrated. Regrouping `BinaryOperator` faults are answered in the switched build;
+  operator switches on the same line are shifted by the inserted text (`bodyVariants` returns `insertions`);
+  faults beyond 8 per function get individual builds. Acceptance bar: `CUPEL_RUST_VERIFY_SWITCHED=1` reruns each
+  switched answer on its own build and refuses on any difference in status, catchers or kinds.
+- Switches-off verdict is reused across runs, keyed on a digest of the session, selector table, rewritten sources
+  and the unmodified build.

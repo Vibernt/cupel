@@ -105,10 +105,13 @@ sources, so a later commit finds the same session warm. A run:
   deleted, and a file a crashed run left modified is restored. The assessed project is
   only read;
 - reuses the two unmutated passes: a test target's baseline when its test executable
-  (SHA-256) and the named tests are the same as last time, and its switches-off check
-  when the switched executable is the same. Anything different is measured as before.
+  (SHA-256) and the named tests are the same as last time. Anything different is measured as before.
   Reuse never crosses sessions. The timing line ends with `session warm|cold` and
   `baselines reused n/m`.
+- keeps the switches-off verdict under a digest of the session, the selector table, the
+  exact rewritten sources and the unmodified build, so with identical sources it
+  repeats across runs (`switches-off reused n/m`); the switched executable's own hash
+  never repeats.
 
 All sessions of all projects on the machine together stay under 10 GB: after a run the least recently
 used ones are removed until they fit (never the current or one in use). Set
@@ -129,10 +132,30 @@ time, and the number and total time of cargo calls. For development,
 `CUPEL_RUST_TIMINGS=<path>` also writes them as JSON (with per-fault times).
 
 An operator fault whose new operator binds differently from the original
-(`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) is never switched: changing
-the source text lets Rust regroup the whole expression (`a && b && c && d` with
-one `&&` made `||` reads `(a && b) || (c && d)`), which a switch around the
-original operands cannot reproduce. Those faults get a build of their own.
+(`&&`↔`||`, `&`/`|`/`^`, `+`→`*`, `-`→`/`, `%`→`+`) cannot be switched around its
+operands: changing the source text lets Rust regroup the whole expression
+(`a && b && c && d` with one `&&` made `||` reads `(a && b) || (c && d)`). Such a
+fault is answered in the same switched build by a **body variant**: the whole
+function body is parsed again with the replacement applied and chosen at function
+entry (`match crate::__cupel_faults::active() { 7 => return { ... }, _ => {} }`, on
+the line of the opening brace, so line numbers do not move). At most 8 per function (in
+fault order); the rest, functions with `const`/`async`/`impl`-or-`!` returns, nested
+items, inner attributes, `line!`/`column!`/`file!`, multi-line literals or bodies over
+16 KB get an individual build. A unary minus deleted before a literal is not a
+regrouping fault and gets its own build too.
+
+Switch numbers are stable: they count over cargo-mutants' whole listing of every file
+that has a fault to run (sorted by file, line, column), and every listed fault of
+those files that the rewriters accept is rendered, so the switched sources are
+identical whatever subset, reuse or CI slice runs; only the faults to run are evaluated.
+The timing line reports `switched n (operators a, bodies b)` and `individual m`.
+
+To check the switched answers, set `CUPEL_RUST_VERIFY_SWITCHED=1`: every fault the
+switched build answered (operator switches and body variants) is run again on its own
+build with the same stop rule, and the status, catching tests and catch kinds must be
+equal, or the run refuses naming the fault and both outcomes. It logs
+`mutate-rust: verified N switched fault(s) against individual builds: all agree`. This
+is slow (one build per fault); use it to validate Cupel changes, not in CI.
 
 With `guard` (or `cupel mutate --first-catch`), each fault stops at its first
 catching target instead of the second (see [Faster fault testing](speed.md#pull-requests-stop-at-the-first-catch)).

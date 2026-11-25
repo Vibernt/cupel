@@ -8,7 +8,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLog } from '../src/mutate-cargo/logs.mjs';
-import { applyMutant, missingResults, scratchWrite, switchable, targetOf } from '../src/mutate-cargo/fast.mjs';
+import { applyMutant, missingResults, regroups, scratchWrite, shiftSpan, switchable, targetOf } from '../src/mutate-cargo/fast.mjs';
 import { symlinkSync } from 'node:fs';
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
@@ -81,13 +81,30 @@ test('targetOf maps test files to integration tests, libraries and programs', ()
   assert.deepEqual(targetOf('crates/core/tests/it/storage.rs', packages).flags, ['--test', 'it'], 'a multi-file integration test');
 });
 
-function report(backend, extra = {}) {
+test('regrouping faults go to body variants; the unary-minus case and same-level swaps do not', () => {
+  const text = 'fn f(a: bool, b: bool, x: i32) -> bool {\n  a && b || x == -1 + 2\n}\n';
+  const at = (genre, col, len, replacement) => ({ genre, replacement, span: { start: { line: 2, column: col }, end: { line: 2, column: col + len } } });
+  assert.equal(regroups(text, at('BinaryOperator', 5, 2, '||')), true);
+  assert.equal(regroups(text, at('BinaryOperator', 10, 2, '&&')), true);
+  assert.equal(regroups(text, at('BinaryOperator', 15, 2, '!=')), false, 'same level: plain switch');
+  assert.equal(regroups(text, at('UnaryOperator', 18, 1, '')), false);
+});
+
+test('shiftSpan moves only positions at or after an insertion on their own line', () => {
+  const span = { start: { line: 3, column: 10 }, end: { line: 3, column: 12 } };
+  assert.deepEqual(shiftSpan(span, [{ line: 3, column: 20, length: 7 }]), span);
+  assert.deepEqual(shiftSpan(span, [{ line: 2, column: 1, length: 7 }]), span);
+  assert.deepEqual(shiftSpan(span, [{ line: 3, column: 4, length: 7 }, { line: 3, column: 9, length: 2 }]),
+    { start: { line: 3, column: 19 }, end: { line: 3, column: 21 } });
+});
+
+function report(backend, extra = {}, extraEnv = {}) {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const project = realpathSync(mkdtempSync(join(repo, `.scratch/cargo-fast-${backend}-`)));
   cpSync(fixture, project, { recursive: true });
   rmSync(join(project, 'target'), { recursive: true, force: true });
   writeFileSync(join(project, 'cupel.json'), JSON.stringify({ runners: { cargo: { mutants: { command: tool, backend, ...extra } } } }));
-  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, `.scratch/cargo-fast-target-${backend}`), CUPEL_CACHE_DIR: join(project, '.scratch/cache') };
+  const env = { ...process.env, CARGO_TARGET_DIR: join(repo, `.scratch/cargo-fast-target-${backend}`), CUPEL_CACHE_DIR: join(project, '.scratch/cache'), ...extraEnv };
   const r = spawnSync(process.execPath, [join(repo, 'packages/cupel/bin/cupel.mjs'), 'report', '--runs', '1', '--out', 'out.json', '--json', '--no-reuse'],
     { cwd: project, env, encoding: 'utf8', maxBuffer: 64 << 20 });
   try {
@@ -127,7 +144,12 @@ test('backend cupel gives the rows cargo-mutants gives, one build per fault and 
   assert.deepEqual(switched.rows, reference.rows);
   assert.match(switched.log, /fault\(s\) switched in one build/);
   assert.match(switched.log, /mutate-rust: timings first-build/);
-  console.log(switched.log.split('\n').find((l) => l.includes('mutate-rust: timings')));
+  const line = switched.log.split('\n').find((l) => l.includes('mutate-rust: timings'));
+  console.log(line);
+  assert.match(line, /switched \d+ \(operators \d+, bodies [1-9]\d*\), individual \d+/, 'the regrouping && fault is answered by a body variant');
+  const verified = report('cupel', {}, { CUPEL_RUST_VERIFY_SWITCHED: '1' });
+  assert.deepEqual(verified.rows, reference.rows);
+  assert.match(verified.log, /mutate-rust: verified \d+ switched fault\(s\) against individual builds: all agree/);
 });
 
 test('a second run in the same project reuses the build session: warm, baselines reused, same rows; a planted fault left in the session is restored', { skip, timeout: 900_000 }, () => {
@@ -157,6 +179,8 @@ test('a second run in the same project reuses the build session: warm, baselines
     const m = /session warm, baselines reused (\d+)\/(\d+)/.exec(warm.timings);
     assert.ok(m && m[1] === m[2] && Number(m[1]) > 0, warm.timings);
     assert.deepEqual(warm.rows, cold.rows);
+    const off = /switches-off reused (\d+)\/(\d+)/.exec(warm.timings);
+    assert.ok(off && off[1] === off[2] && Number(off[1]) > 0, `switches-off verdict reused: ${warm.timings}`);
     console.log(`cold: ${cold.timings}\nwarm: ${warm.timings}`);
 
     // A crash that left a planted fault in the session copy: the next run restores it and its rows are unchanged.

@@ -214,7 +214,11 @@ function byteLength(text) {
 /**
  * Put exact, whole-function-body variants behind `match path()`.
  * `budget` is the maximum rendered body size in bytes (generic functions count twice).
- * @returns {{ text: string, switched: number[], refused: {number: number, reason: string}[] }}
+ * `insertions` lists where text was added, in coordinates of the ORIGINAL text: 1-based line, column in
+ * Unicode scalar values of the insertion point (the position of the first character after the body's `{`),
+ * and the inserted length in scalar values. Everything on that line at or after `column` moves right by
+ * `length`; no other line moves.
+ * @returns {{ text: string, switched: number[], refused: {number: number, reason: string}[], insertions: {line: number, column: number, length: number}[] }}
  */
 export function bodyVariants(text, faults, { path = 'crate::__cupel_faults::active', budget = DEFAULT_BUDGET } = {}) {
   if (typeof text !== 'string') throw new TypeError('bodyVariants: text must be a string');
@@ -281,14 +285,19 @@ export function bodyVariants(text, faults, { path = 'crate::__cupel_faults::acti
 
   let renderedText = text;
   const insertions = [...accepted].sort(([left], [right]) => tokens[right.body].e - tokens[left.body].e);
+  const placed = [];
   for (const [fn, variants] of insertions) {
     const arms = variants.map((variant) => `${variant.number} => return { ${variant.rendered} }`).join(', ');
     const insertion = `match ${path}() { ${arms}, _ => {} }`;
     const at = tokens[fn.body].e;
     renderedText = renderedText.slice(0, at) + insertion + renderedText.slice(at);
+    let line = starts.length;
+    while (starts[line - 1] > at) line--;
+    placed.push({ line, column: [...text.slice(starts[line - 1], at)].length + 1, length: [...insertion].length });
   }
+  placed.reverse();
 
   refused.sort((left, right) => (left.number ?? 0) - (right.number ?? 0));
   const switched = [...accepted.values()].flat().map((fault) => fault.number).sort((left, right) => left - right);
-  return { text: renderedText, switched, refused };
+  return { text: renderedText, switched, refused, insertions: placed };
 }

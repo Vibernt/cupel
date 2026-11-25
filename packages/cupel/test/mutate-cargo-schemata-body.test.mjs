@@ -228,3 +228,18 @@ function offsetFor(text, position) {
 function hasRustc() {
   try { return spawnSync('rustc', ['--version'], { encoding: 'utf8' }).status === 0; } catch { return false; }
 }
+
+test('reports each insertion in original coordinates (line, column in scalar values, length)', () => {
+  const source = 'fn é(a: bool, b: bool, c: bool) -> bool { a && b && c }\nfn g(a: bool, b: bool, c: bool) -> bool {\n    a && b && c\n}\n';
+  const result = bodyVariants(source, [fault(1, source, '&&', '||', 1), fault(2, source, '&&', '||', 3)]);
+  assert.deepEqual(result.switched, [1, 2]);
+  assert.equal(result.insertions.length, 2);
+  const [first, second] = result.insertions;
+  assert.deepEqual([first.line, first.column], [1, 'fn é(a: bool, b: bool, c: bool) -> bool {'.length + 1]);
+  assert.deepEqual([second.line, second.column], [2, 'fn g(a: bool, b: bool, c: bool) -> bool {'.length + 1]);
+  const lines = result.text.split('\n');
+  assert.equal([...lines[0]].length, [...source.split('\n')[0]].length + first.length);
+  assert.equal([...lines[1]].length, [...source.split('\n')[1]].length + second.length);
+  assert.equal(lines[2], source.split('\n')[2]);
+  assert.deepEqual(bodyVariants(source, []).insertions, []);
+});

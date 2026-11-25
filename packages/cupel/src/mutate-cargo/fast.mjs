@@ -14,6 +14,7 @@
 // All builds and runs happen in a copy of the project with its own target folder: by default a persistent
 // session (session.mjs) kept between runs, with `"session": false` a throwaway scratch copy.
 
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
@@ -25,6 +26,7 @@ import { attributeOutcomes, baseRow, CargoMutantsError, mutantId, targetedUnits 
 import { parseLog } from './logs.mjs';
 import { environmentFor, execute, findTool, INSTALL, planCargoMutants, planEntries, slicePlan, wantedLines } from './run.mjs';
 import { orderTargets } from './order.mjs';
+import { selectorDigest, stableSelectors } from './batches.mjs';
 import { DEFAULT_CAP_GB, enforceCap, hashFile, openSession, sessionId } from './session.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
@@ -34,6 +36,7 @@ const refuse = (message) => { throw new CargoMutantsError(message); };
 const TIMEOUT_FACTOR = 3;
 const TIMEOUT_FLOOR_MS = 10_000;
 const STOP_AFTER_TARGETS = 2;
+const MAX_BODY_FAULTS = 8; // per function, as in batches.mjs and schemata-body.mjs
 
 const toPosix = (p) => p.split(sep).join('/');
 const expand = (spec) => (spec ?? '').split(',').filter(Boolean).flatMap((part) => {
@@ -126,6 +129,25 @@ export function switchable(text, mutant) {
   if (compound.test(original)) return compound.test(replacement);
   const from = LEVEL.get(original);
   return from !== undefined && from === LEVEL.get(replacement);
+}
+
+/**
+ * Whether a fault is an operator swap that changes the grouping (a different precedence level), which a
+ * switch around the operands cannot reproduce but a whole-body variant can. Not the unary-minus case.
+ */
+export function regroups(text, mutant) {
+  if (mutant.genre !== 'BinaryOperator' || switchable(text, mutant)) return false;
+  const original = text.slice(offsetOf(text, mutant.span.start), offsetOf(text, mutant.span.end)).trim();
+  const compound = /^(?:[-+*/%^&|]|<<|>>)=$/;
+  if (compound.test(original)) return false;
+  const from = LEVEL.get(original); const to = LEVEL.get(mutant.replacement.trim());
+  return from !== undefined && to !== undefined && from !== to;
+}
+
+/** A span moved right by the text bodyVariants inserted before it on its line (insertions in original coordinates). */
+export function shiftSpan(span, insertions) {
+  const move = ({ line, column }) => ({ line, column: column + insertions.filter((i) => i.line === line && i.column <= column).reduce((a, i) => a + i.length, 0) });
+  return { start: move(span.start), end: move(span.end) };
 }
 
 function offsetOf(text, { line, column }) {
@@ -408,6 +430,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
     const outcomes = [];
     const timings = new Map();
     const phases = { firstBuildMs: 0, baselineMs: 0, switchedBuildMs: 0, switchesOffMs: 0, restoreBuildMs: 0 };
+    const counts = { switched: 0, bodies: 0, individual: 0 };
     const sessionStats = { baselines: [0, 0], off: [0, 0] };
     const faultTimes = new Map(); // fault id -> { buildMs, testMs }
     const addFault = (id, build, test) => { const f = faultTimes.get(id) ?? { buildMs: 0, testMs: 0 }; f.buildMs += build; f.testMs += test; faultTimes.set(id, f); };
@@ -477,32 +500,60 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
         for (const [key, { names }] of needed) {
           const { ms, failing } = runner.baseline.get(key);
           const hash = firstHashes.get(key);
+          if (known.has(key)) continue; // a reused record keeps its first executable hash: it names the unmodified build across runs
           if (hash) session.meta.baselines[key] = { hashes: [hash], names: nameList(names), ms, failing: [...failing].sort(cmp) };
           else delete session.meta.baselines[key];
         }
         session.save();
       }
 
-      // C: switchable faults in one build, when the rewriter is certain and the tests agree.
+      // C: switchable faults in one build, when the rewriter is certain and the tests agree. Every listed fault of
+      // the faulty files is rendered (not only the ones run now), numbered over the whole listing, so the switched
+      // sources are byte-identical whatever subset, reuse or slice runs.
       const single = new Set(plan.run.map((c) => c.id));
       const switched = new Map(); // number -> candidate
+      const bodyNumbers = new Set(); // switched faults answered by a whole-body variant
+      const answered = new Map(); // fault id -> outcome answered by the switched build alone
+      let safe = new Set();
       if (settings.schemata !== false) {
-        let schemata = null;
+        let schemata = null; let bodies = null;
         try { schemata = await import('./schemata.mjs'); } catch { schemata = null; }
+        try { bodies = await import('./schemata-body.mjs'); } catch { bodies = null; }
+        let numbers = null;
         if (schemata) {
-          const numbers = new Map(plan.run.map((c, k) => [c.id, k + 1]));
-          const byFile = new Map();
-          for (const c of plan.run) { if (!byFile.has(c.source)) byFile.set(c.source, []); byFile.get(c.source).push(c); }
+          try {
+            numbers = stableSelectors(listing, { files: new Set(plan.run.map((c) => c.source)) });
+            if (plan.run.some((c) => !numbers.has(c.id))) throw new Error('a fault is missing from the listing');
+          } catch (e) { numbers = null; log(`mutate-rust: no stable fault numbers (${e.message}); faults run one build each`); }
+        }
+        if (schemata && numbers) {
+          const candByNumber = new Map(plan.run.map((c) => [numbers.get(c.id), c]));
+          const listed = new Map(); // source file -> every listed fault of it, by number
+          for (const m of listing) {
+            const file = m.file.replaceAll('\\', '/');
+            if (!plan.run.some((c) => c.source === file)) continue;
+            const id = mutantId(m);
+            if (!listed.has(file)) listed.set(file, []);
+            listed.get(file).push({ id, number: numbers.get(id), mutant: m });
+          }
+          for (const list of listed.values()) list.sort((a, b) => a.number - b.number);
           const originals = new Map();
-          let files = [...byFile.keys()].sort(cmp);
+          const lastRender = new Map();
+          let files = [...listed.keys()].sort(cmp);
           const render = (file, excluded) => {
             const text = originals.get(file) ?? readFileSync(join(src, file), 'utf8');
             originals.set(file, text);
-            const faults = byFile.get(file).filter((c) => !excluded.has(c.id) && switchable(text, byName.get(c.name)))
-              .map((c) => ({ number: numbers.get(c.id), ...byName.get(c.name) }));
-            const r = schemata.switchFaults(text, faults);
+            const live = listed.get(file).filter((f) => !excluded.has(f.id));
+            const regroup = live.filter((f) => regroups(text, f.mutant));
+            const plain = live.filter((f) => !regroup.includes(f) && switchable(text, f.mutant));
+            // Whole-body variants first; the operator switches then move right of any text inserted before them on their line.
+            const body = bodies && regroup.length ? bodies.bodyVariants(text, regroup.map((f) => ({ number: f.number, ...f.mutant })))
+              : { text, switched: [], refused: [], insertions: [] };
+            const r = schemata.switchFaults(body.text, plain.map((f) => ({ number: f.number, ...f.mutant, span: shiftSpan(f.mutant.span, body.insertions) })));
             scratchWrite(work, join(src, file), r.text);
-            return r;
+            const out = { operators: r.switched, bodies: body.switched, refusedBodies: body.refused };
+            lastRender.set(file, out);
+            return out;
           };
           // The switch module goes at the end of every library and program root of the package; a root
           // re-rendered from its original text in a later round gets it again.
@@ -525,9 +576,11 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           const failedBefore = new Set();
           for (let round = 0; round < 8 && files.length; round++) {
             const current = new Map();
+            const currentBodies = new Set();
             for (const file of files) {
               const r = render(file, excluded);
-              for (const n of r.switched) current.set(n, plan.run[n - 1]);
+              for (const n of [...r.operators, ...r.bodies]) if (candByNumber.has(n)) current.set(n, candByNumber.get(n));
+              for (const n of r.bodies) currentBodies.add(n);
             }
             const pkgs = new Set([...current.values()].map((c) => byName.get(c.name)?.package));
             let noStd = false;
@@ -535,37 +588,46 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
             if (noStd) { log('mutate-rust: a no_std crate cannot read CUPEL_FAULT; faults run one build each'); break; }
             if (!current.size) break;
             const built = await clock('switchedBuildMs', () => runner.build(targets, owners));
-            if (built.ok) { for (const [n, c] of current) switched.set(n, c); ok = true; break; }
+            if (built.ok) { for (const [n, c] of current) { switched.set(n, c); if (currentBodies.has(n)) bodyNumbers.add(n); } ok = true; break; }
             // First drop only the faults near each error and try again; a file that fails a second
             // time has all its faults run one build each.
             const bad = new Set(built.errors.map((e) => e.file));
             const failing = files.filter((f) => bad.has(f));
             if (!failing.length) { log('mutate-rust: the switched build failed outside the faulty files; faults run one build each'); break; }
             for (const f of failing) {
-              const near = byFile.get(f).filter((c) => !excluded.has(c.id) && built.errors.some((e) => e.file === f && Math.abs(e.line - c.line) <= 5));
+              const near = listed.get(f).filter((x) => !excluded.has(x.id) && built.errors.some((e) => e.file === f && Math.abs(e.line - x.mutant.span.start.line) <= 5));
               if (failedBefore.has(f) || !near.length) {
-                for (const c of byFile.get(f)) excluded.add(c.id);
+                for (const x of listed.get(f)) excluded.add(x.id);
                 files = files.filter((x) => x !== f);
                 scratchWrite(work, join(src, f), originals.get(f));
               } else {
-                for (const c of near) excluded.add(c.id);
+                for (const x of near) excluded.add(x.id);
                 failedBefore.add(f);
               }
             }
           }
           if (ok) {
-            // Every switch off must mean the original: the covering tests behave exactly as unmodified.
-            const offHashes = session ? runner.hashes(needed.keys()) : new Map();
+            const bounded = [...lastRender.values()].flatMap((r) => r.refusedBodies.filter((x) => x.reason === 'bound').map((x) => x.number)).filter((n) => candByNumber.has(n));
+            if (bounded.length) log(`mutate-rust: ${bounded.length} regrouping fault(s) beyond the per-function bound of ${MAX_BODY_FAULTS} run one build each`);
+            // Every switch off must mean the original: the covering tests behave exactly as unmodified. The verdict is
+            // keyed on the session, the selector table, the exact rewritten sources and the unmodified executables (the first hash a baseline recorded),
+            // which repeat across runs, unlike the switched executables' hashes.
+            const sha = (v) => createHash('sha256').update(v).digest('hex');
+            const digest = session ? sha(JSON.stringify([session.meta.sessionId, selectorDigest(numbers), sha(schemata.faultModule()),
+              [...originals.keys()].sort(cmp).map((f) => [f, sha(readFileSync(join(src, f), 'utf8'))]), Object.keys(session.meta.baselines).sort(cmp).map((k) => [k, session.meta.baselines[k].hashes[0]])])) : null;
             const offKnown = new Map();
-            for (const [key, { names }] of needed) { const rec = stored('switched', key, names, offHashes.get(key)); if (rec) offKnown.set(key, rec); }
+            const recs = session?.meta.switched;
+            if (digest && recs?.digest === digest) {
+              for (const [key, { names }] of needed) {
+                const rec = recs.targets?.[key];
+                if (rec && sameNames(rec.names ?? [], nameList(names))) offKnown.set(key, { ms: rec.ms, failing: new Set(rec.failing) });
+              }
+            }
             sessionStats.off = [offKnown.size, needed.size];
             const off = await clock('switchesOffMs', () => runner.measure(needed, 0, offKnown));
             if (session) {
-              session.meta.switched = {};
-              for (const [key, { names }] of needed) {
-                const hash = offHashes.get(key);
-                if (hash) session.meta.switched[key] = { hashes: [hash], names: nameList(names), ms: off.get(key).ms, failing: [...off.get(key).failing].sort(cmp) };
-              }
+              session.meta.switched = { digest, targets: {} };
+              for (const [key, { names }] of needed) session.meta.switched.targets[key] = { names: nameList(names), ms: off.get(key).ms, failing: [...off.get(key).failing].sort(cmp) };
               session.save();
             }
             for (const key of needed.keys()) {
@@ -577,8 +639,8 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           }
           if (!switched.size) { restore(); await clock('switchedBuildMs', () => runner.build(targets, owners)); }
           else {
-            log(`mutate-rust: ${switched.size} of ${plan.run.length} fault(s) switched in one build`);
-            const safe = new Set([...needed.keys()].filter((k) => !sensitive.has(k)));
+            log(`mutate-rust: ${switched.size} of ${plan.run.length} fault(s) switched in one build (${bodyNumbers.size} by whole-body variants)`);
+            safe = new Set([...needed.keys()].filter((k) => !sensitive.has(k)));
             for (const [n, c] of [...switched].sort((a, b) => a[0] - b[0])) {
               const t0 = performance.now();
               const st = await runner.evaluate(c, n, { only: safe });
@@ -586,7 +648,7 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
               addFault(c.id, 0, st.testMs);
               // Answered without the sensitive targets, or still owed some on a build of its own.
               if (st.pending.length) partial.set(c.id, st);
-              else { outcomes.push({ mutant: byName.get(c.name), ...Runner.outcome(st) }); ran.add(c.id); }
+              else { const outcome = { mutant: byName.get(c.name), ...Runner.outcome(st) }; outcomes.push(outcome); answered.set(c.id, { outcome }); ran.add(c.id); }
               single.delete(c.id);
             }
             if (partial.size) log(`mutate-rust: ${switched.size - partial.size} fault(s) settled with the switched build; ${partial.size} still need timing-sensitive targets on their own build`);
@@ -596,37 +658,56 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
           }
         }
       }
+      counts.switched = switched.size; counts.bodies = bodyNumbers.size;
 
       // A+B: every other fault gets its own incremental build in the scratch copy; faults the switched
       // build answered in part continue with the targets they still owe.
-      const rest = plan.run.filter((c) => single.has(c.id) || partial.has(c.id));
-      if (rest.length) log(`mutate-rust: ${rest.length} fault(s) with one build each${partial.size ? ` (${partial.size} only for their remaining targets)` : ''}`);
-      for (const c of rest) {
+      const individually = async (c, before, { only = null, record = true } = {}) => {
         const mutant = byName.get(c.name);
         const path = join(src, c.source);
         const original = readFileSync(path, 'utf8');
         const t0 = performance.now();
         try {
           scratchWrite(work, path, applyMutant(original, mutant));
-          const before = partial.get(c.id);
           const own = runner.coveringCandidate(c).map((t) => runner.target(t.file)).filter((t) => !before || before.pending.includes(t.key));
           const built = await runner.build(own, [mutant.package].filter(Boolean));
-          addFault(c.id, built.ms, 0);
-          if (!built.ok) {
-            // A fault the switched build compiled must compile on its own; anything else is the environment.
-            if (before) refuse(`${mutant.name} compiled switched but not on its own`);
-            outcomes.push({ mutant, summary: 'Unviable', log: null }); ran.add(c.id); continue;
-          }
+          if (record) addFault(c.id, built.ms, 0);
+          if (!built.ok) return { mutant, summary: 'Unviable', log: null };
           const t1 = before?.testMs ?? 0;
-          const st = await runner.evaluate(c, 0, before ? { only: new Set(before.pending), state: before } : {});
-          addFault(c.id, 0, st.testMs - t1);
-          outcomes.push({ mutant, ...Runner.outcome(st) });
-          ran.add(c.id);
-        } finally { scratchWrite(work, path, original); timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
+          const st = await runner.evaluate(c, 0, before ? { only: new Set(before.pending), state: before } : (only ? { only } : {}));
+          if (record) addFault(c.id, 0, st.testMs - t1);
+          return { mutant, ...Runner.outcome(st) };
+        } finally { scratchWrite(work, path, original); if (record) timings.set(c.id, (timings.get(c.id) ?? 0) + Math.round(performance.now() - t0)); }
+      };
+      const rest = plan.run.filter((c) => single.has(c.id) || partial.has(c.id));
+      counts.individual = rest.length;
+      if (rest.length) log(`mutate-rust: ${rest.length} fault(s) with one build each${partial.size ? ` (${partial.size} only for their remaining targets)` : ''}`);
+      for (const c of rest) {
+        const before = partial.get(c.id);
+        const outcome = await individually(c, before);
+        // A fault the switched build compiled must compile on its own; anything else is the environment.
+        if (before && outcome.summary === 'Unviable') refuse(`${outcome.mutant.name} compiled switched but not on its own`);
+        outcomes.push(outcome); ran.add(c.id);
+      }
+      if (environment.CUPEL_RUST_VERIFY_SWITCHED === '1' && answered.size) {
+        // Acceptance check: every fault the switched build answered alone, run again on its own build with the same stop rule.
+        const individual = new Map();
+        for (const id of answered.keys()) individual.set(id, await individually(plan.run.find((x) => x.id === id), null, { only: safe, record: false }));
+        const rowsOf = (list) => new Map(attributeOutcomes({ root, input, listing, compiled: runner.compiled, outcomes: list }).mutation.mutants.map((r) => [r.id, r]));
+        const viaSwitch = rowsOf([...answered.values()].map((x) => x.outcome));
+        const viaBuild = rowsOf([...individual.values()].filter((o) => o.summary !== 'Unviable'));
+        const shape = (r) => (r ? { status: r.status, killedBy: r.killedBy ?? [], killKinds: r.killKinds ?? null } : { status: 'unviable' });
+        for (const id of answered.keys()) {
+          const a = shape(viaSwitch.get(id)); const b = shape(viaBuild.get(id));
+          if (JSON.stringify(a) !== JSON.stringify(b)) {
+            refuse(`CUPEL_RUST_VERIFY_SWITCHED: ${individual.get(id).mutant.name} (${id}) differs: switched build ${JSON.stringify(a)}, individual build ${JSON.stringify(b)}`);
+          }
+        }
+        log(`mutate-rust: verified ${answered.size} switched fault(s) against individual builds: all agree`);
       }
       if (session) {
         // The session's target must end on the unmodified project: a build of the last fault would be reused as it is.
-        if (rest.length) await clock('restoreBuildMs', () => runner.build(targets, owners));
+        if (rest.length || (environment.CUPEL_RUST_VERIFY_SWITCHED === '1' && answered.size)) await clock('restoreBuildMs', () => runner.build(targets, owners));
         const final = runner.hashes(needed.keys());
         for (const [key, rec] of Object.entries(session.meta.baselines)) { // the unmodified build that ends this run is also the baseline's executable
           const hash = final.get(key);
@@ -649,12 +730,13 @@ export async function mutateCargoFast({ root, input, config = {}, scope = {}, lo
         switchedBuildMs: Math.round(phases.switchedBuildMs), switchesOffMs: Math.round(phases.switchesOffMs), restoreBuildMs: Math.round(phases.restoreBuildMs),
         session: session ? (session.warm ? 'warm' : 'cold') : 'off', baselinesReused: sessionStats.baselines[0], baselinesTotal: sessionStats.baselines[1],
         switchesOffReused: sessionStats.off[0], switchesOffTotal: sessionStats.off[1],
+        switched: counts.switched, switchedOperators: counts.switched - counts.bodies, switchedBodies: counts.bodies, individual: counts.individual,
         faults: faults.length, faultBuildMs: Math.round(sum('buildMs')), faultTestMs: Math.round(sum('testMs')),
         cargoCalls: runner.cargoCalls, cargoMs: Math.round(runner.cargoMs), retries: runner.retries ?? 0,
         perFault: Object.fromEntries([...faultTimes].sort((a, b) => cmp(a[0], b[0])).map(([id, f]) => [id, { buildMs: Math.round(f.buildMs), testMs: Math.round(f.testMs) }])),
       };
       const sessionText = session ? `, session ${session.warm ? 'warm' : 'cold'}, baselines reused ${sessionStats.baselines[0]}/${sessionStats.baselines[1]}${sessionStats.off[1] ? `, switches-off reused ${sessionStats.off[0]}/${sessionStats.off[1]}` : ''}` : '';
-      log(`mutate-rust: timings first-build ${sec(report.firstBuildMs)}s, baseline ${sec(report.baselineMs)}s, switched-build ${sec(report.switchedBuildMs)}s, switches-off ${sec(report.switchesOffMs)}s, faults ${faults.length} (build ${sec(report.faultBuildMs)}s, test ${sec(report.faultTestMs)}s), cargo ${report.cargoCalls} call(s) ${sec(report.cargoMs)}s, total ${sec(report.totalMs)}s${sessionText}`);
+      log(`mutate-rust: timings first-build ${sec(report.firstBuildMs)}s, baseline ${sec(report.baselineMs)}s, switched-build ${sec(report.switchedBuildMs)}s, switches-off ${sec(report.switchesOffMs)}s, switched ${counts.switched} (operators ${counts.switched - counts.bodies}, bodies ${counts.bodies}), individual ${counts.individual}, faults ${faults.length} (build ${sec(report.faultBuildMs)}s, test ${sec(report.faultTestMs)}s), cargo ${report.cargoCalls} call(s) ${sec(report.cargoMs)}s, total ${sec(report.totalMs)}s${sessionText}`);
       if (environment.CUPEL_RUST_TIMINGS) { try { writeFileSync(environment.CUPEL_RUST_TIMINGS, `${JSON.stringify(report, null, 2)}\n`); } catch { /* developer aid only */ } }
     }
     const mutants = [...plan.noCoverage, ...plan.reused, ...rows].sort((a, b) => cmp(a.id, b.id));
