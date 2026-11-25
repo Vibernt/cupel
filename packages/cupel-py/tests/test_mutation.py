@@ -340,6 +340,33 @@ class RunnerTest(unittest.TestCase):
         for mutant in self.killed(self.rows(test, names), {}):
             self.assertEqual(mutant['killedBy'], ['tests/test_logic.py::test_b', 'tests/test_logic.py::test_c'])
 
+    def test_reordered_baseline_failure_retries_fault_in_input_order(self):
+        source = 'ready = False\ndef value():\n    return True\n'
+        data = self.input(source, 'def test_unused():\n    pass\n', '1-3')
+        setup_id = 'tests/test_setup.py::test_setup'
+        catcher_id = 'tests/test_dependent.py::test_dependent'
+        (self.root / 'tests/test_setup.py').write_text(
+            'import logic\ndef test_setup():\n    logic.ready = True\n    logic.value()\n')
+        (self.root / 'tests/test_dependent.py').write_text(
+            'import logic\ndef test_dependent():\n    assert logic.ready\n    assert logic.value() is True\n')
+        data['tests'] = [
+            {'id': setup_id, 'file': 'tests/test_setup.py', 'name': 'test_setup',
+             'status': 'passed', 'durationsMs': [1]},
+            {'id': catcher_id, 'file': 'tests/test_dependent.py', 'name': 'test_dependent',
+             'status': 'passed', 'durationsMs': [1]},
+        ]
+        data['coverage']['byTest'] = {setup_id: {'logic.py': '1-3'}, catcher_id: {'logic.py': '1-3'}}
+        data['coverage']['setup'] = {'tests/test_setup.py': {}, 'tests/test_dependent.py': {}}
+        sites = [site for site in generate('logic.py', source) if site.line == 3]
+        catchers = {site.id: [catcher_id] for site in sites}
+
+        result = mutate(self.root, data, {'changed': {'logic.py': '3'}, 'catchers': catchers},
+                        {'mutation': {'maxMutants': 10, 'maxSeconds': 30}}, jobs=1, timeout_floor_ms=100)
+        by_id = {row['id']: row for row in result['mutants']}
+        self.assertTrue(sites)
+        self.assertTrue(all(by_id[site.id]['status'] == 'killed' for site in sites))
+        self.assertTrue(all(by_id[site.id]['killedBy'] == [catcher_id] for site in sites))
+
     def test_reuse_skips_run_and_keeps_order_and_cap(self):
         data = self.input('def value(x):\n    if x < 2:\n        return True\n    return False\n', 'from logic import value\ndef test_value():\n    assert value(1)\n', '1-4')
         scope = {'changed': {'logic.py': ''}}

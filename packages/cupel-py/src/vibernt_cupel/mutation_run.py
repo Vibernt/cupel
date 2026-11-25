@@ -98,27 +98,49 @@ class Session:
     def baseline(self, selected):
         key = tuple(t['id'] for t in selected)
         if key not in self.baselines:
-            ids = [t['id'].replace(' > ', '::') for t in selected]
             started = time.monotonic()
             try:
-                for attempt in range(2):
-                    run = self.run(ids, 600)
-                    if run['cut']:
+                effective = selected
+                run = self._baseline_run(effective)
+                if run is None:
+                    return None
+                input_order = self._input_order(selected)
+                ids = {t['id'].replace(' > ', '::') for t in selected}
+                reordered_failure = any(r.get('failed') and r.get('nodeid') in ids for r in run['reports'])
+                if reordered_failure and [t['id'] for t in input_order] != [t['id'] for t in selected]:
+                    # Ordering is only an optimization. If it breaks a test that passed in the collected input,
+                    # baseline and mutant must both use input order or a real catcher could be ignored.
+                    effective = input_order
+                    run = self._baseline_run(effective)
+                    if run is None:
                         return None
-                    ended = {r['nodeid'] for r in run['reports'] if r.get('when') == 'teardown'}
-                    if set(ids) <= ended and run['code'] in (0, 1) and not run['timeout']:
-                        self.baselines[key] = run
-                        break
-                else:
-                    raise EnvironmentError(f'unmutated pytest selection did not complete: {ids}: {run["stderr"]}')
+                value = (effective, run)
+                self.baselines[key] = value
+                self.baselines.setdefault(tuple(t['id'] for t in effective), value)
             finally:
                 self.baseline_ms += (time.monotonic() - started) * 1000
         return self.baselines[key]
 
+    def _input_order(self, selected):
+        selected_ids = {t['id'] for t in selected}
+        return [t for t in self.input['tests'] if t['id'] in selected_ids]
+
+    def _baseline_run(self, selected):
+        ids = [t['id'].replace(' > ', '::') for t in selected]
+        for _attempt in range(2):
+            run = self.run(ids, 600)
+            if run['cut']:
+                return None
+            ended = {r['nodeid'] for r in run['reports'] if r.get('when') == 'teardown'}
+            if set(ids) <= ended and run['code'] in (0, 1) and not run['timeout']:
+                return run
+        raise EnvironmentError(f'unmutated pytest selection did not complete: {ids}: {run["stderr"]}')
+
     def once(self, site, selected):
-        base = self.baseline(selected)
-        if base is None:
+        baseline = self.baseline(selected)
+        if baseline is None:
             return None
+        selected, base = baseline
         self.counter += 1
         tag = f'{self.counter}-{time.monotonic_ns()}'
         fact = self.facts.assert_fresh(site.source)
