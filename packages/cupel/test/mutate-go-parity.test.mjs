@@ -16,6 +16,8 @@ const tests = [
 test('pure Go run regex anchors, sorts, deduplicates and escapes names', () => {
   assert.equal(goRunRegex(['TestB', 'TestA', 'TestA']), '^(?:TestA|TestB)$');
   assert.equal(goRunRegex(['Test[One].*']), '^Test\\[One\\]\\.\\*$');
+  assert.equal(goRunRegex(['TestB', 'TestA'], { examples: true, fuzz: true }),
+    '^(?:TestA|TestB)$|^Example|^Fuzz');
   assert.throws(() => goRunRegex([]), /at least one/);
 });
 

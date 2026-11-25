@@ -92,7 +92,8 @@ export class GoSession {
   }
 
   async runPackage(group, overlay, timeoutMs, env = this.env) {
-    const args = [...testsArgs, ...(overlay ? [`-overlay=${overlay}`] : []), '-run', goRunRegex(group.names), group.pkg];
+    const supplemental = this.inventory.packageByImport.get(group.pkg)?.supplemental;
+    const args = [...testsArgs, ...(overlay ? [`-overlay=${overlay}`] : []), '-run', goRunRegex(group.names, supplemental), group.pkg];
     const result = await this.guarded('go', args, { timeoutMs, env });
     let parsed = { statuses: new Map(), packageFailures: new Set() };
     try {
