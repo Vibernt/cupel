@@ -32,12 +32,16 @@ export function parseInventory(root, listing, input, metrics) {
   const testsByPackage = new Map();
   const testPackages = [];
   const allFiles = [];
+  const packageByImport = new Map();
   for (const pkg of packages) {
     if (pkg.Error || pkg.DepsErrors?.length) refuse('inventory', `go list failed for ${pkg.ImportPath}`);
     for (const channel of CHANNELS) if (pkg[channel]?.length)
       refuse('unsupported-go-channel', `${pkg.ImportPath} uses ${channel}; Go mutation source overlay is unverified for this channel`);
-    const files = [...(pkg.GoFiles ?? []), ...(pkg.TestGoFiles ?? []), ...(pkg.XTestGoFiles ?? []), ...(pkg.IgnoredGoFiles ?? [])];
-    for (const file of files) allFiles.push(listedFile(root, pkg.Dir, file));
+    const testFiles = new Set([...(pkg.TestGoFiles ?? []), ...(pkg.XTestGoFiles ?? [])]);
+    const files = [...(pkg.GoFiles ?? []), ...testFiles, ...(pkg.IgnoredGoFiles ?? [])]
+      .map((file) => ({ ...listedFile(root, pkg.Dir, file), production: !testFiles.has(file) }));
+    allFiles.push(...files);
+    packageByImport.set(pkg.ImportPath, { name: pkg.Name, dir: resolve(pkg.Dir), files });
   }
   for (const { path, name } of allFiles) {
       const contents = readFileSync(path, 'utf8');
@@ -85,5 +89,5 @@ export function parseInventory(root, listing, input, metrics) {
       refuse('isolation-mismatch', `collected Go tests differ from source definitions in ${pkg.ImportPath}`);
   }
   for (const tests of testsByPackage.values()) tests.sort((a, b) => (a.id > b.id) - (a.id < b.id));
-  return { packages, testPackages: [...new Set(testPackages)].sort(), testPkg, testsByPackage, lookup, sourcePkg };
+  return { packages, packageByImport, testPackages: [...new Set(testPackages)].sort(), testPkg, testsByPackage, lookup, sourcePkg };
 }

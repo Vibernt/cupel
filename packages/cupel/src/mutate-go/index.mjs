@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { effectiveConfig } from '../engine/config.mjs';
 import { schemaDiagnostics, integrityDiagnostics } from '../engine/integrity.mjs';
@@ -9,6 +9,7 @@ import { refuse } from './errors.mjs';
 import { GoSession } from './runner.mjs';
 import { scopeGo, lineIn } from './scope.mjs';
 import { buildHelper, sourceSites } from './sites.mjs';
+import { numberGoSites, renderGoSwitches } from './switched.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const INPUT_SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/input.schema.json', import.meta.url), 'utf8'));
@@ -88,12 +89,15 @@ async function checkedSite(session, site, bytes) {
     return result;
   };
   let result = await session.check(site, bytes);
-  if (!result || result.invalid || result.status !== 'survived') return timed(result);
-  for (let rep = 0; rep < 2; rep++) {
-    result = await session.check(site, bytes);
-    if (result?.invalid) refuse('environment', `Go mutant became compile-invalid during confirmation: ${site.id}`);
-    if (!result || result.status !== 'survived') return timed(result);
+  if (result && !result.invalid && result.status === 'survived') {
+    for (let rep = 0; rep < 2; rep++) {
+      result = await session.check(site, bytes);
+      if (result?.invalid) refuse('environment', `Go mutant became compile-invalid during confirmation: ${site.id}`);
+      if (!result || result.status !== 'survived') break;
+    }
   }
+  if (result?._switched && process.env.CUPEL_GO_VERIFY_SWITCHED === '1')
+    await session.verifySwitched(site, bytes, result);
   return timed(result);
 }
 
@@ -111,29 +115,57 @@ export async function mutateGo({ root, input, config = {}, scope = {}, log = noo
   try {
     await session.prepare();
     facts.assertFresh();
-    const helper = await buildHelper(session.scratch, session.env, session.remaining());
+    const helper = await buildHelper(session.scratch, session.env, session.remaining(), (result) => session.recordHelperBuild(result));
     facts.assertFresh();
-    const sites = [];
-    for (const [source, lines] of [...wanted].sort(([a], [b]) => cmp(a, b)))
-      sites.push(...await sourceSites(helper, source, facts.bytes(source), lines, session.root, session.env, session.remaining()));
-    const unique = new Set(sites.map((site) => site.id));
-    if (unique.size !== sites.length) refuse('go-sites', 'Go AST emitted duplicate mutation IDs');
+    const allSites = [];
+    for (const [source] of [...wanted].sort(([a], [b]) => cmp(a, b)))
+      allSites.push(...await sourceSites(helper, source, facts.bytes(source), null, session.root, session.env, session.remaining()));
+    const numbered = numberGoSites(allSites);
+    const sites = numbered.filter((site) => wanted.get(site.source)?.has(site.line));
+    const unique = new Set(numbered.map((site) => site.id));
+    if (unique.size !== numbered.length) refuse('go-sites', 'Go AST emitted duplicate mutation IDs');
     const ordered = orderSites(sites, own, maxMutants, seed);
+    const reuse = scope.reuse ?? {};
+    const priorFor = (site) => !session.needsFull(site) && session.canReuse(site) && Object.hasOwn(reuse, site.id)
+      ? reuse[site.id] : null;
+    const switchCandidates = ordered.slice(0, maxMutants).filter((site) => !priorFor(site));
+    let switchedPlan = { rendered: 0, refused: 0, compileFallback: 0, sensitive: 0, switched: 0,
+      refusalReasons: {}, compileFailures: [], switchOffFailures: [] };
+    if (config.runners?.go?.mutants?.schemata !== false && ordered.length) {
+      facts.assertFresh();
+      const rendered = renderGoSwitches({ root: session.root, scratch: session.scratch, inventory: session.inventory,
+        sites: numbered, bytes: (source) => facts.bytes(source) });
+      facts.assertFresh();
+      switchedPlan = await session.prepareSwitches(rendered, switchCandidates);
+      switchedPlan.refusalReasons = Object.fromEntries([...rendered.refused.values()].reduce((counts, reason) =>
+        counts.set(reason, (counts.get(reason) ?? 0) + 1), new Map()));
+      facts.assertFresh();
+      if (switchedPlan.refused)
+        log(`mutate-go: ${switchedPlan.refused} fault(s) use individual builds because switching was refused (${Object.entries(switchedPlan.refusalReasons).map(([reason, count]) => `${reason} ${count}`).join(', ')})`);
+      for (const failure of switchedPlan.compileFailures)
+        log(`mutate-go: ${failure.pkg} uses individual builds because its switched compile failed: ${failure.detail}`);
+      for (const failure of switchedPlan.switchOffFailures)
+        log(`mutate-go: ${failure.pkg} uses individual builds because switches-off differed from baseline (${failure.status})`);
+      log(`mutate-go: switched build prepared ${switchedPlan.switched} fault(s); ${switchedPlan.compileFallback} compile fallback(s), ${switchedPlan.sensitive} switches-off package fallback(s)`);
+    }
     const results = new Map();
     const invalid = new Set();
-    const reuse = scope.reuse ?? {};
     let reused = 0;
+    let switched = 0;
+    let individual = 0;
     for (const site of ordered) {
       if (results.size >= maxMutants || session.remaining() < 1) break;
       // K15: a targeted unit needs a complete current run; every other row whose
       // basis was validated by the shared orchestrator is safe to copy verbatim.
-      const prior = !session.needsFull(site) && session.canReuse(site) && Object.hasOwn(reuse, site.id) ? reuse[site.id] : null;
+      const prior = priorFor(site);
       const result = prior
         ? { status: prior.status, killedBy: prior.killedBy ?? [], row: prior }
         : await checkedSite(session, site, facts.bytes(site.source));
       if (!result) break;
       if (result.invalid) { invalid.add(site.id); continue; }
       results.set(site.id, result);
+      if (!prior && result._switched) switched++;
+      else if (!prior && result.status !== 'no-coverage') individual++;
       if (prior) reused++;
       if (metrics) metrics.run = results.size;
     }
@@ -142,6 +174,18 @@ export async function mutateGo({ root, input, config = {}, scope = {}, log = noo
     const sampled = sites.some((site) => !results.has(site.id) && !invalid.has(site.id));
     if (metrics) Object.assign(metrics, { sites: sites.length, invalid: invalid.size, sampled });
     log(`mutate-go: ${sites.length} sites, ${invalid.size} compile-invalid, ${mutants.length - reused} run${reused ? `, ${reused} reused from an earlier run` : ''}`);
+    const totalMs = Math.round(performance.now() - started);
+    const report = { totalMs, switched, individual, verified: session.verified,
+      compileMs: Math.round(session.stats.compileMs), testMs: Math.round(session.stats.testMs),
+      goCalls: session.stats.goCalls, compileCalls: session.stats.compileCalls, testCalls: session.stats.testCalls,
+      prepared: switchedPlan };
+    if (metrics) Object.assign(metrics, { switched, individual, verified: session.verified, timing: report });
+    const sec = (ms) => Math.round(ms) / 1000;
+    log(`mutate-go: timings switched ${switched}, individual ${individual}, compile ${sec(report.compileMs)}s, test ${sec(report.testMs)}s, go ${report.goCalls} call(s), total ${sec(totalMs)}s`);
+    if (process.env.CUPEL_GO_TIMINGS) {
+      try { writeFileSync(process.env.CUPEL_GO_TIMINGS, `${JSON.stringify(report, null, 2)}\n`); }
+      catch { /* Development aid only; mutation evidence must not depend on it. */ }
+    }
     return { mutants, targeted: completeUnits(own, sites, results, invalid), seed, sampled };
   } finally { session.close(); }
 }
@@ -163,7 +207,7 @@ export async function confirmGo({ root, input, mutation, ids, config = {}, log =
     { targeted: mutation.targeted ?? [], timings: mutation.mutants.some((row) => Number.isInteger(row.durationMs)) });
   try {
     await session.prepare();
-    const helper = await buildHelper(session.scratch, session.env, session.remaining());
+    const helper = await buildHelper(session.scratch, session.env, session.remaining(), (result) => session.recordHelperBuild(result));
     facts.assertFresh();
     const generated = new Map();
     for (const id of todo) {

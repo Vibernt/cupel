@@ -8,11 +8,12 @@ import { run } from './process.mjs';
 const helperDir = join(dirname(fileURLToPath(import.meta.url)), 'ast-helper');
 const shortHash = (text) => createHash('sha256').update(text).digest('hex').slice(0, 8);
 
-export async function buildHelper(scratch, env, timeoutMs) {
+export async function buildHelper(scratch, env, timeoutMs, observe = () => {}) {
   const binary = join(scratch, 'go-ast-helper');
   const result = await run('go', ['build', '-o', binary, '.'], {
     root: helperDir, env: { ...env, GOWORK: 'off' }, timeoutMs: Math.max(1, Math.min(timeoutMs, 120_000)),
   });
+  observe(result);
   if (result.status !== 0 || result.signal || result.timedOut)
     refuse('go-helper', `Go AST helper could not build offline: ${result.stderr.trim()}`);
   return binary;
@@ -31,7 +32,7 @@ export async function sourceSites(helper, source, bytes, lines, root, env, timeo
   if (!Array.isArray(response.sites)) refuse('go-helper', `Go AST helper returned no site list for ${source}`);
   const out = [];
   for (const site of response.sites) {
-    if (!lines.has(site.line)) continue;
+    if (lines && !lines.has(site.line)) continue;
     const { start, end, original, replacement, operator, line, column } = site;
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start || end > bytes.length ||
         bytes.subarray(start, end).toString('utf8') !== original)

@@ -34,10 +34,10 @@
           "mutants": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Cargo: Rust mutation. By default Cupel runs the installed cargo-mutants (D19); backend cupel-rust selects the restricted built-in mutator.",
+          "description": "Mutation-runner settings. Cargo uses the installed cargo-mutants by default (D19); Go uses its built-in mutator.",
           "properties": {
             "backend": { "enum": ["cargo-mutants", "cupel", "cupel-rust"], "description": "cargo-mutants (default) runs each fault with cargo-mutants; cupel runs cargo-mutants' faults itself: only the test targets and tests that run the faulty line, fastest first, stopping after two catching targets, with certain faults switched in one build (D21); cupel-rust is the restricted built-in mutator." },
-            "schemata": { "type": "boolean", "description": "backend cupel: compile faults the rewriter is certain about into one build, switched by CUPEL_FAULT (default true)." },
+            "schemata": { "type": "boolean", "description": "Go and Cargo backend cupel: compile faults the rewriter is certain about into one build, switched by CUPEL_FAULT (default true). false uses one build per fault." },
             "bodyVariants": { "type": "boolean", "description": "backend cupel: answer faults that regroup an expression (&& and ||, + and *) in the one switched build with whole-function-body variants (default false). A variant is on one line, so panic line numbers (hooks, backtraces) inside the body differ from an individual build; off, those faults get a build each." },
             "session": { "type": "boolean", "description": "backend cupel: keep a persistent build session in the per-user cache (CUPEL_CACHE_DIR or --cache-dir, else the platform cache folder; never inside the project; default true): the target folder and the unmutated test passes survive between runs. false uses a throwaway scratch copy." },
             "sessionCapGB": { "type": "number", "minimum": 0, "description": "backend cupel: the most disk, in GB, all build sessions in the cache may use together (default 10); after a run the least recently used sessions are removed until they fit." },

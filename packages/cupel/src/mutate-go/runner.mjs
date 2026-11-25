@@ -11,6 +11,7 @@ import { goEnv, run } from './process.mjs';
 import { baselineMatches, classifyGo, parseGoResults } from './results.mjs';
 import { goReuseBasisValid, goRunRegex, selectGoTests } from './selection.mjs';
 import { applyGoSite } from './sites.mjs';
+import { prepareGoSwitches, verifyGoSwitch } from './switch-runner.mjs';
 
 const testsArgs = ['test', '-json', '-count=1', '-p=1'];
 const VERIFIED_GO_VERSION = '1.27.1';
@@ -32,15 +33,25 @@ export class GoSession {
     this.targeted = new Set(scope.targeted ?? []);
     this.timings = !!scope.timings;
     this.env = goEnv(this.root);
+    // A caller's switch must never leak into an unmutated or individual run.
+    delete this.env.CUPEL_FAULT;
     const scratchRoot = join(this.root, '.scratch');
     mkdirSync(scratchRoot, { recursive: true });
     this.scratch = mkdtempSync(join(scratchRoot, 'cupel-mutate-go-'));
     this.sequence = 0;
     this.baselines = new Map();
+    this.switches = new Map();
+    this.stats = { goCalls: 0, compileCalls: 0, testCalls: 0, compileMs: 0, testMs: 0 };
+    this.verified = 0;
   }
 
   close() { rmSync(this.scratch, { recursive: true, force: true }); }
   remaining() { return Math.max(0, this.deadline - performance.now()); }
+
+  recordHelperBuild(result) {
+    this.stats.goCalls++;
+    this.stats.compileMs += result.wallMs;
+  }
 
   async guarded(command, args, options = {}) {
     this.facts.assertFresh();
@@ -51,6 +62,18 @@ export class GoSession {
         input: options.input, timeoutMs: Math.max(1, options.timeoutMs ?? this.remaining()),
       });
     } finally { this.facts.assertFresh(); }
+    if (command === 'go') {
+      this.stats.goCalls++;
+      if (args[0] === 'test' && args[1] === '-c') {
+        this.stats.compileCalls++;
+        this.stats.compileMs += result.wallMs;
+        if (this.metrics) this.metrics.compileCalls = (this.metrics.compileCalls ?? 0) + 1;
+      } else if (args[0] === 'test' && args.includes('-json')) {
+        this.stats.testCalls++;
+        this.stats.testMs += result.wallMs;
+        if (this.metrics) this.metrics.testCalls = (this.metrics.testCalls ?? 0) + 1;
+      }
+    }
     if (this.metrics) this.metrics.commands = (this.metrics.commands ?? 0) + 1;
     return result;
   }
@@ -68,9 +91,9 @@ export class GoSession {
     this.inventory = parseInventory(this.root, listing.stdout, this.input, this.metrics);
   }
 
-  async runPackage(group, overlay, timeoutMs) {
+  async runPackage(group, overlay, timeoutMs, env = this.env) {
     const args = [...testsArgs, ...(overlay ? [`-overlay=${overlay}`] : []), '-run', goRunRegex(group.names), group.pkg];
-    const result = await this.guarded('go', args, { timeoutMs });
+    const result = await this.guarded('go', args, { timeoutMs, env });
     let parsed = { statuses: new Map(), packageFailures: new Set() };
     try {
       parsed = parseGoResults(result.stdout, this.inventory, { allowTrailingPartial: result.timedOut || !!result.signal });
@@ -110,25 +133,41 @@ export class GoSession {
     return { kind: 'valid' };
   }
 
-  async trialPackage(overlay, group, limitMs) {
-    const { result, parsed } = await this.runPackage(group, overlay, limitMs);
+  /** A switched compile failure is only a reason to use the proven individual path. */
+  async compileSwitchedPackage(overlay, pkg) {
+    const binary = join(this.scratch, `switched-compile-${++this.sequence}.test`);
+    return this.guarded('go', ['test', '-c', `-overlay=${overlay}`, '-o', binary, pkg], {
+      timeoutMs: Math.max(1, this.remaining()),
+    });
+  }
+
+  async trialPackage(overlay, group, limitMs, env = this.env) {
+    const { result, parsed } = await this.runPackage(group, overlay, limitMs, env);
     return classifyGo(this.input, result, parsed, group.tests);
   }
 
-  async checkPackage(overlay, group) {
+  async checkPackage(overlay, group, env = this.env) {
     let baseline = await this.measureBaseline(group);
     let limit = Math.min(this.remaining(), Math.max(1000, baseline.ms * 3));
-    let outcome = await this.trialPackage(overlay, group, limit);
+    let outcome = await this.trialPackage(overlay, group, limit, env);
     if (outcome.status === 'survived' || outcome.status === 'killed') return outcome;
     if (this.remaining() < 1) return null;
     baseline = await this.measureBaseline(group, true);
     limit = Math.min(this.remaining(), Math.max(3000, baseline.ms * 9));
-    outcome = await this.trialPackage(overlay, group, limit);
+    outcome = await this.trialPackage(overlay, group, limit, env);
     if (outcome.status === 'error' || outcome.status === 'timeout') {
       if (this.remaining() < 1) return null;
       await this.measureBaseline(group, true);
     }
     return outcome;
+  }
+
+  /**
+   * Compile the one overlay once per needed package, then trust only test
+   * packages whose switch-off result is byte-for-byte the baseline status set.
+   */
+  async prepareSwitches(rendered, candidates) {
+    return prepareGoSwitches(this, rendered, candidates);
   }
 
   inputMs(group) {
@@ -164,14 +203,14 @@ export class GoSession {
   /** The shared K15 basis must include every test file Go compiles. */
   canReuse(site) { return goReuseBasisValid(this.input, this.inventory, site); }
 
-  async evaluate(site, overlay, selection) {
+  async evaluate(site, overlay, selection, env = this.env) {
     const outcomes = [];
     let catching = 0;
     const targeted = this.targetedSelection(selection);
     for (const pkg of this.packageOrder(site, selection)) {
       if (shouldStopGo({ catching, firstCatch: this.firstCatch, targeted })) break;
       if (this.remaining() < 1) return null;
-      const outcome = await this.checkPackage(overlay, selection.packages.get(pkg));
+      const outcome = await this.checkPackage(overlay, selection.packages.get(pkg), env);
       if (!outcome) return null;
       outcomes.push(outcome);
       if (outcome.status === 'killed') catching++;
@@ -183,8 +222,7 @@ export class GoSession {
     return { status: 'survived', killedBy: [] };
   }
 
-  async check(site, bytes) {
-    const started = performance.now();
+  async withIndividual(site, bytes, task) {
     const selection = selectGoTests(this.input, this.inventory, site);
     if (!selection.packages.size) return { status: 'no-coverage', killedBy: [] };
     if (this.remaining() < 1) return null;
@@ -201,13 +239,30 @@ export class GoSession {
       const compile = await this.compile(overlay, site.source, mutant, packages, this.remaining());
       if (compile.kind === 'invalid') return { invalid: true };
       if (compile.kind === 'cut' || this.remaining() < 1) return null;
-      const outcome = await this.evaluate(site, overlay, selection);
-      if (outcome && this.timings && outcome.status !== 'no-coverage')
-        outcome.durationMs = Math.round(performance.now() - started);
-      return outcome;
+      // Await before finally removes the overlay: `go test` reads it after the
+      // child starts, so returning the promise directly races cleanup.
+      return await task({ overlay, selection });
     } finally {
       rmSync(mutant, { force: true });
       rmSync(overlay, { force: true });
     }
   }
+
+  async check(site, bytes, { individual = false } = {}) {
+    const started = performance.now();
+    const switched = !individual ? this.switches.get(site.id) : null;
+    let outcome;
+    if (switched) {
+      const selection = selectGoTests(this.input, this.inventory, site);
+      outcome = await this.evaluate(site, this.switchedOverlay, selection, { ...this.env, CUPEL_FAULT: String(switched.number) });
+      if (outcome) outcome._switched = true;
+    } else {
+      outcome = await this.withIndividual(site, bytes, ({ overlay, selection }) => this.evaluate(site, overlay, selection));
+    }
+    if (outcome && !outcome.invalid && this.timings && outcome.status !== 'no-coverage')
+      outcome.durationMs = Math.round(performance.now() - started);
+    return outcome;
+  }
+
+  async verifySwitched(site, bytes, expected) { return verifyGoSwitch(this, site, bytes, expected); }
 }

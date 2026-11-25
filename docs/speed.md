@@ -21,6 +21,7 @@ known.
 | **Time limits from measured times** | Each test file (or pytest, Ruby or Go package selection) is first run once unmutated. A fault run may take three times that, with a floor of one second; a run that times out is retried once with a longer limit before it counts as a timeout. | node:test, Vitest, Jest, pytest, Ruby, Go; cargo-mutants sets its own limits from its baseline |
 | **Skip what no test runs** | A fault on a line no passing test runs is reported as `no-coverage` without being run. For Go and Rust this saves a build and test run per fault. | node:test, Vitest, Jest, pytest, Ruby, Go, Rust |
 | **Only the Go packages whose tests run the code** | Go compiles the faulty source package first, then only packages holding covering tests. `-run` selects exactly the recorded top-level tests; setup/file coverage expands to every test in that package. | Go |
+| **One switched Go build for many faults** | Go numbers every fault in the scoped files deterministically and compiles certain whole-function variants into one overlay. Each needed test package is compiled once; packages whose switch-off tests differ, packages the renderer refuses, and switched compile failures use the ordinary one-build-per-fault path. | Go |
 | **Only the Rust packages whose tests run the code** | When the tests that run the faulty lines all live in some workspace packages, only those packages' tests run, plus the package that owns the faulty file (`--test-package`). A test elsewhere does not run the line. If Cargo features change when one package is built alone, set `wholeWorkspace`. | Rust (cargo-mutants) |
 | **Reuse earlier answers** | A fault whose code, covering tests and everything those tests read are unchanged since the last run copies its earlier result. See [Reuse](#reuse-earlier-results). | node:test, Vitest, Jest, pytest, Go, Rust (cargo-mutants and `backend: "cupel"`). Ruby and the restricted Rust backend record fingerprints but run every fault; Ruby's basis does not yet identify installed gems and Bundler/Gem path state |
 
@@ -55,6 +56,7 @@ In `cupel.json` (full list in the [config schema](../spec/schemas/config.schema.
 | `mutation.seed` | fixed | Changes which sample is taken. Keep it fixed so runs stay comparable. |
 | `mutation.reuse` | on | `false` switches reuse off. `ignore` lists files whose changes can never change a test result, such as docs no test reads. `env` adds environment variables whose values change test results. |
 | `runners.cargo.mutants.wholeWorkspace` | false | Test every workspace package for every Rust fault. Use it when Cargo features differ between one package alone and the whole workspace. |
+| `runners.go.mutants.schemata` | true | Compile safe Go faults into one switched overlay. `false` keeps the individual build per fault; it is useful for parity checks, not normally for speed. |
 | `guard.firstCatch` | true | `guard` collects the head's faults stopping at the first catching test (see below). `false` records catches fully. |
 | `runners.cargo.mutants.jobs` | 1 | Rust faults built and tested in parallel. Each job needs its own build and memory. |
 
