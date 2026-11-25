@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { jsonObjects } from '../collect/go/process.mjs';
+import { definitions } from '../collect/go/tests.mjs';
 import { refuse } from './errors.mjs';
 import { safeListedGoName } from './path.mjs';
 
@@ -28,6 +29,7 @@ export function parseInventory(root, listing, input, metrics) {
   if (!packages.length) refuse('inventory', 'go list returned no module packages');
   const sourcePkg = new Map();
   const testPkg = new Map();
+  const testsByPackage = new Map();
   const testPackages = [];
   const allFiles = [];
   for (const pkg of packages) {
@@ -67,7 +69,21 @@ export function parseInventory(root, listing, input, metrics) {
     if (lookup.has(key)) refuse('inventory', `duplicate Go test name in package: ${test.name}`);
     ids.add(test.id);
     lookup.set(key, test);
+    if (!testsByPackage.has(pkg)) testsByPackage.set(pkg, []);
+    testsByPackage.get(pkg).push(test);
   }
   if (!lookup.size) refuse('inventory', 'Go mutation requires a complete nonempty top-level test inventory');
-  return { packages, testPackages: [...new Set(testPackages)].sort(), lookup, sourcePkg };
+  // Selective -run baselines cannot reveal a test omitted from the input. Go rejects
+  // ordinary TestX functions with invalid signatures, and TestMain is not selectable,
+  // so the collector's existing source definitions preserve the complete-inventory gate
+  // without running every package as a fallback.
+  for (const pkg of packages) {
+    const declared = [...definitions(pkg, root).values()].filter((test) => test.name !== 'TestMain')
+      .map((test) => test.id).sort();
+    const collected = (testsByPackage.get(pkg.ImportPath) ?? []).map((test) => test.id).sort();
+    if (declared.length !== collected.length || declared.some((id, i) => id !== collected[i]))
+      refuse('isolation-mismatch', `collected Go tests differ from source definitions in ${pkg.ImportPath}`);
+  }
+  for (const tests of testsByPackage.values()) tests.sort((a, b) => (a.id > b.id) - (a.id < b.id));
+  return { packages, testPackages: [...new Set(testPackages)].sort(), testPkg, testsByPackage, lookup, sourcePkg };
 }

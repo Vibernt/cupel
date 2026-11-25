@@ -3,13 +3,18 @@ import { refuse } from './errors.mjs';
 const actions = new Map([['pass', 'passed'], ['fail', 'failed'], ['skip', 'skipped']]);
 const topLevel = (name) => /^Test[A-Z0-9_]/.test(name) && !name.includes('/');
 
-export function parseGoResults(output, inventory) {
+export function parseGoResults(output, inventory, { allowTrailingPartial = false } = {}) {
   const statuses = new Map();
   const packageFailures = new Set();
-  for (const line of output.split('\n').filter(Boolean)) {
+  const raw = output.split('\n');
+  for (const [index, line] of raw.entries()) {
+    if (!line) continue;
     let event;
     try { event = JSON.parse(line); }
-    catch { refuse('go-results', `go test -json emitted non-JSON output: ${line.slice(0, 160)}`); }
+    catch {
+      if (allowTrailingPartial && index === raw.length - 1 && !output.endsWith('\n')) continue;
+      refuse('go-results', `go test -json emitted non-JSON output: ${line.slice(0, 160)}`);
+    }
     if (!event || typeof event !== 'object') refuse('go-results', 'go test -json emitted a non-object event');
     if (!event.Test && event.Action === 'fail') packageFailures.add(event.Package);
     if (!event.Test || !topLevel(event.Test) || !actions.has(event.Action)) continue;
@@ -21,10 +26,10 @@ export function parseGoResults(output, inventory) {
   return { statuses, packageFailures };
 }
 
-export function baselineMatches(input, result, parsed) {
+export function baselineMatches(input, result, parsed, selected = input.tests) {
   if (result.timedOut || result.signal || result.status !== 0)
     refuse('baseline', `ordinary Go baseline did not pass (exit ${result.status}, signal ${result.signal ?? 'none'})`);
-  const expected = new Map(input.tests.map((test) => [test.id, test.status]));
+  const expected = new Map(selected.map((test) => [test.id, test.status]));
   if (parsed.statuses.size !== expected.size)
     refuse('isolation-mismatch', `ordinary Go baseline reported ${parsed.statuses.size} top-level tests; input has ${expected.size}`);
   for (const [id, status] of expected) {
@@ -35,17 +40,26 @@ export function baselineMatches(input, result, parsed) {
   if (parsed.packageFailures.size) refuse('baseline', `ordinary Go baseline has package failure: ${[...parsed.packageFailures].join(', ')}`);
 }
 
-export function classifyGo(input, result, parsed) {
-  if (result.timedOut) return { status: 'timeout', killedBy: [] };
-  if (result.signal) return { status: 'error', killedBy: [] };
-  if (parsed.statuses.size !== input.tests.length) return { status: 'error', killedBy: [] };
+export function classifyGo(input, result, parsed, selected = input.tests) {
+  if (parsed.statuses.size > selected.length) return { status: 'error', killedBy: [] };
   const killers = [];
-  for (const test of input.tests) {
+  let incomplete = false;
+  for (const test of selected) {
     const actual = parsed.statuses.get(test.id);
-    if (!actual) return { status: 'error', killedBy: [] };
+    if (!actual) {
+      if (!result.timedOut) incomplete = true;
+      continue;
+    }
     if (test.status === 'passed' && actual === 'failed') killers.push(test.id);
-    else if (actual !== test.status) return { status: 'error', killedBy: [] };
+    else if (actual !== test.status) incomplete = true;
   }
+  // A reported failure before Cupel's timeout is conclusive. Other incomplete
+  // or aborted runs remain errors: an unrun selected test is never a pass.
+  if (result.timedOut) return killers.length
+    ? { status: 'killed', killedBy: killers.sort() }
+    : { status: 'timeout', killedBy: [] };
+  if (result.signal) return { status: 'error', killedBy: [] };
+  if (incomplete) return { status: 'error', killedBy: [] };
   if (killers.length) return { status: 'killed', killedBy: killers.sort() };
   if (result.status !== 0 || parsed.packageFailures.size) return { status: 'error', killedBy: [] };
   return { status: 'survived', killedBy: [] };
