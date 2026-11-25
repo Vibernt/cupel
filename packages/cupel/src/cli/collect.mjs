@@ -330,7 +330,7 @@ export async function mutate(mutator, options) {
   if (!mutationRequested(options.scope)) return null;
   // Each fault's measured time from the earlier input sharpens plan estimates; every run records its own.
   const history = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => Number.isInteger(m.durationMs)).map((m) => [m.id, m.durationMs]));
-  // Which tests caught each fault last time: the Rust runner tries their targets first (order only, never results).
+  // Which tests caught each fault last time: Rust and Ruby try them first (order only, never results).
   const catchers = Object.fromEntries((previous?.mutation?.mutants ?? []).filter((m) => m.killedBy?.length).map((m) => [m.id, m.killedBy]));
   const scope = { ...options.scope, timings: true, ...(Object.keys(history).length ? { history } : {}), ...(Object.keys(catchers).length ? { catchers } : {}) };
   if (!reuseEnabled(cfg)) {
@@ -424,6 +424,8 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
     }
     if (input.runtime.name === 'rust') return await rustMutation('mutate', { root, cfg, input, scope, log, environment: runEnvironment });
     if (input.runtime.name === 'ruby') {
+      // Ruby consumes catchers and firstCatch, but K15 reuse is withheld until the basis includes
+      // installed gems and Bundler/Gem path selectors; project lockfiles alone cannot prove parity.
       const { reuse: _reuse, ...rubyScope } = scope;
       const nativeScope = { ...rubyScope,
         changed: Object.fromEntries(Object.entries(scope.changed ?? {}).filter(([path]) => Object.hasOwn(input.sources, path))),

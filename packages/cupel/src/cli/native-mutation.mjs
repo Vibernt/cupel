@@ -32,7 +32,10 @@ export function mutateRuby({ runner, root, cfg, input, scope, mutation, ids = []
     const output = join(dir, 'output.json');
     writeFileSync(inputFile, JSON.stringify(input));
     writeFileSync(configFile, JSON.stringify(cfg));
-    if (!mutation) writeFileSync(scopeFile, JSON.stringify({ ...scope, changed: scope.changed ?? {} }));
+    // Keep input-only ordering controls intact for the native runner: firstCatch
+    // changes the stop count and catchers supplies the earlier killedBy ids.
+    const nativeScope = !mutation ? { ...scope, changed: scope.changed ?? {} } : null;
+    if (nativeScope) writeFileSync(scopeFile, JSON.stringify(nativeScope));
     if (mutation) writeFileSync(mutationFile, JSON.stringify(mutation));
     const args = mutation
       ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${quote(ids.join(','))}`

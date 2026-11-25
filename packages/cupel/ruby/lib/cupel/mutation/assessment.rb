@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative 'process'
+require_relative 'order'
 
 module Cupel
   module Mutation
@@ -12,11 +13,12 @@ module Cupel
         @attempt = 0
       end
 
-      def assess(source, site, selected)
+      def assess(source, site, selected, first_catch: false, targeted: false, catchers: [])
         return ['no-coverage', []] if selected.empty?
 
         killers = []
-        selected.each do |test|
+        stop_after = first_catch ? 1 : 2
+        Order.tests(selected, site.source, catchers).each do |test|
           remaining = time_left
           return nil if remaining <= 0
           key = test.fetch('id')
@@ -28,8 +30,16 @@ module Cupel
           return nil if limit <= 0
           outcome = evaluate(source, site, test, limit)
           return nil unless outcome
-          return outcome if %w[error timeout].include?(outcome[0])
+          if %w[error timeout].include?(outcome[0])
+            # A reported Minitest failure is conclusive even if a later test has
+            # an infrastructure outcome. Before any catch, keep Ruby's existing
+            # terminal error/timeout handling and never count it toward the limit.
+            return killers.empty? ? outcome : ['killed', killers.sort]
+          end
           killers << key if outcome[0] == 'killed'
+          # Two catches preserve unique-kill evidence. A targeted unit needs the
+          # complete catching set, while first-catch guard heads need one answer.
+          break if !targeted && killers.length >= stop_after
         end
         killers.empty? ? ['survived', []] : ['killed', killers.sort]
       end

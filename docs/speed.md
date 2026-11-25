@@ -14,13 +14,14 @@ known.
 
 | Step | What it means | Runners |
 | --- | --- | --- |
-| **Only the tests that run the line** | A fault on line 40 is tested only with the tests whose coverage includes line 40. Other tests cannot notice it. | node:test, Vitest, Jest, pytest. Rust: by package (below) |
+| **Only the tests that run the line** | A fault on line 40 is tested only with the tests whose coverage includes line 40. Other tests cannot notice it. | node:test, Vitest, Jest, pytest, Ruby. Rust: by package (below) |
 | **Most relevant, fastest tests first** | Test files that run the line most come first, then the quickest. | node:test, Vitest, Jest |
-| **Stop once the answer is known** | A fault stops running after two different tests (two test files in JavaScript, two units in Python) have caught it. Two, not one, so Cupel still knows whether a test is the only one that catches it. A unit that a review is asking about always gets every test run. | node:test, Vitest, Jest, pytest |
-| **Time limits from measured times** | Each test file (or pytest selection) is first run once unmutated. A fault run may take three times that, with a floor of one second; a run that times out is retried once with a longer limit before it counts as a timeout. | node:test, Vitest, Jest, pytest; cargo-mutants sets its own limits from its baseline |
-| **Skip what no test runs** | A fault on a line no passing test runs is reported as `no-coverage` without being run. For Rust this saves a full build and test run per fault. | node:test, Vitest, Jest, pytest, Rust |
+| **Known catchers and matching tests first** | Tests that caught the same fault in the earlier input run first. Ruby then prefers test files matching the source name; Rust prefers same-file targets. Remaining order comes only from the input. | Ruby, Rust (`backend: "cupel"`) |
+| **Stop once the answer is known** | A fault stops running after two different tests (two test files in JavaScript, two units in Python, or two tests in Ruby) have caught it. Two, not one, so Cupel still knows whether a test is the only one that catches it. A unit that a review is asking about always gets every test run. | node:test, Vitest, Jest, pytest, Ruby |
+| **Time limits from measured times** | Each test file (or pytest/Ruby selection) is first run once unmutated. A fault run may take three times that, with a floor of one second; a run that times out is retried once with a longer limit before it counts as a timeout. | node:test, Vitest, Jest, pytest, Ruby; cargo-mutants sets its own limits from its baseline |
+| **Skip what no test runs** | A fault on a line no passing test runs is reported as `no-coverage` without being run. For Rust this saves a full build and test run per fault. | node:test, Vitest, Jest, pytest, Ruby, Rust |
 | **Only the Rust packages whose tests run the code** | When the tests that run the faulty lines all live in some workspace packages, only those packages' tests run, plus the package that owns the faulty file (`--test-package`). A test elsewhere does not run the line. If Cargo features change when one package is built alone, set `wholeWorkspace`. | Rust (cargo-mutants) |
-| **Reuse earlier answers** | A fault whose code, covering tests and everything those tests read are unchanged since the last run copies its earlier result. See [Reuse](#reuse-earlier-results). | node:test, Vitest, Jest, pytest, Rust (cargo-mutants). Go, Ruby and the restricted Rust backend record fingerprints but run every fault |
+| **Reuse earlier answers** | A fault whose code, covering tests and everything those tests read are unchanged since the last run copies its earlier result. See [Reuse](#reuse-earlier-results). | node:test, Vitest, Jest, pytest, Rust (cargo-mutants). Go, Ruby and the restricted Rust backend record fingerprints but run every fault; Ruby's basis does not yet identify installed gems and Bundler/Gem path state |
 
 ## Settings
 
@@ -57,7 +58,7 @@ In `cupel.json` (full list in the [config schema](../spec/schemas/config.schema.
 A pull request's guard needs one answer per fault: was it caught? It never needs
 *which* tests caught it, or whether only one test does. So `guard` collects the
 head with each fault stopping at its **first** catching test file (JavaScript),
-test (Python) or test target (Rust), instead of the second. Statuses are exactly
+test (Python or Ruby) or test target (Rust), instead of the second. Statuses are exactly
 the same; the list of catching tests is shorter.
 
 This matters most where one test is the only one catching a fault: proving it is
