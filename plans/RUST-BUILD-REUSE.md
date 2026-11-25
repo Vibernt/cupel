@@ -84,7 +84,7 @@ the release.
   unmutated passes reused) and runs only its faults. Moved sessions are refused. `sessionEnvIgnore` names CI
   variables no test reads; Cupel's own `CUPEL_*` never count. After any switched build the unmodified build is
   rebuilt, so the next run's first build is a no-op (rebuilds here are not bit-identical, so reuse needs it).
-- Phase 4 (timeouts) and 7 (direct execution): not started.
+- Phase 4 (timeouts and order): done, see below. Phase 7 (direct execution): not started; timings do not justify it.
 
 ## Acceptance on the private workspace (2026-11-25, first-catch, one source file, 89 faults)
 
@@ -139,3 +139,16 @@ byte comparison.
 All three gave identical rows (34 caught, 7 unnoticed, 43 no coverage). Per-fault builds were cheap here
 (26 individual builds in ~11 s), so this workspace is build-heavy only in its dependencies, which the session
 keeps; a workspace whose own crates take long to rebuild would gain more from body variants and sessions.
+
+## Phase 4: where fault time went, and what changed (2026-11-25)
+
+Debug logs of a first-catch run on the private workspace showed the cost was order, not timeouts: with no
+catch history, a caught fault's own build ran up to eight broad integration-test targets (sorted first because
+they cover the most lines) before reaching the module's unit tests, which caught it in about a second.
+Unnoticed faults must run every target and cannot get faster this way.
+
+- Order: targets holding a test written in the fault's own source file now run right after catch history.
+  Fault test time 1,272 s to 584 s (-54%), statuses identical (71 caught, 12 unnoticed, 6 timed out).
+- Timeouts: no 3x retry when a timed-out run already reported a real failure (status cannot change). It did
+  not occur on this workspace (`caughtBeforeTimeout` 0); the 6 genuine hangs still cost 40 s each.
+- Reuse needs the same test environment: a different `PATH` (say) correctly stops baseline reuse.
