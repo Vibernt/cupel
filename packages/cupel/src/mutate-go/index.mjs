@@ -66,8 +66,10 @@ function orderSites(sites, own, cap, seed) {
 }
 
 function entry(site, result) {
+  if (result.row) return { ...result.row };
   return { id: site.id, source: site.source, line: site.line, operator: site.operator,
-    status: result.status, ...(result.killedBy?.length ? { killedBy: result.killedBy } : {}) };
+    status: result.status, ...(result.killedBy?.length ? { killedBy: result.killedBy } : {}),
+    ...(Number.isInteger(result.durationMs) ? { durationMs: result.durationMs } : {}) };
 }
 
 function completeUnits(own, sites, results, invalid) {
@@ -79,17 +81,23 @@ function completeUnits(own, sites, results, invalid) {
 }
 
 async function checkedSite(session, site, bytes) {
+  const started = performance.now();
+  const timed = (result) => {
+    if (result && !result.invalid && session.timings && result.status !== 'no-coverage')
+      result.durationMs = Math.round(performance.now() - started);
+    return result;
+  };
   let result = await session.check(site, bytes);
-  if (!result || result.invalid || result.status !== 'survived') return result;
+  if (!result || result.invalid || result.status !== 'survived') return timed(result);
   for (let rep = 0; rep < 2; rep++) {
     result = await session.check(site, bytes);
     if (result?.invalid) refuse('environment', `Go mutant became compile-invalid during confirmation: ${site.id}`);
-    if (!result || result.status !== 'survived') return result;
+    if (!result || result.status !== 'survived') return timed(result);
   }
-  return result;
+  return timed(result);
 }
 
-/** Actual Go mutation with ordinary whole-module tests and no project source edits. */
+/** Go mutation with covering package/test selections and no project source edits. */
 export async function mutateGo({ root, input, config = {}, scope = {}, log = noop, metrics } = {}) {
   const started = performance.now();
   validateInput(input);
@@ -99,7 +107,7 @@ export async function mutateGo({ root, input, config = {}, scope = {}, log = noo
   const facts = new GoSourceFacts(root, input, metrics);
   const { wanted, own } = scopeGo(input, cfg, scope);
   if (!wanted.size) return { mutants: [], targeted: [], seed, sampled: false };
-  const session = new GoSession(root, input, facts, started + maxSeconds * 1000, metrics);
+  const session = new GoSession(root, input, facts, started + maxSeconds * 1000, metrics, scope);
   try {
     await session.prepare();
     facts.assertFresh();
@@ -113,19 +121,27 @@ export async function mutateGo({ root, input, config = {}, scope = {}, log = noo
     const ordered = orderSites(sites, own, maxMutants, seed);
     const results = new Map();
     const invalid = new Set();
+    const reuse = scope.reuse ?? {};
+    let reused = 0;
     for (const site of ordered) {
       if (results.size >= maxMutants || session.remaining() < 1) break;
-      const result = await checkedSite(session, site, facts.bytes(site.source));
+      // K15: a targeted unit needs a complete current run; every other row whose
+      // basis was validated by the shared orchestrator is safe to copy verbatim.
+      const prior = !session.needsFull(site) && session.canReuse(site) && Object.hasOwn(reuse, site.id) ? reuse[site.id] : null;
+      const result = prior
+        ? { status: prior.status, killedBy: prior.killedBy ?? [], row: prior }
+        : await checkedSite(session, site, facts.bytes(site.source));
       if (!result) break;
       if (result.invalid) { invalid.add(site.id); continue; }
       results.set(site.id, result);
+      if (prior) reused++;
       if (metrics) metrics.run = results.size;
     }
     facts.assertFresh();
     const mutants = sites.filter((site) => results.has(site.id)).map((site) => entry(site, results.get(site.id)));
     const sampled = sites.some((site) => !results.has(site.id) && !invalid.has(site.id));
     if (metrics) Object.assign(metrics, { sites: sites.length, invalid: invalid.size, sampled });
-    log(`mutate-go: ${sites.length} sites, ${invalid.size} compile-invalid, ${mutants.length} run`);
+    log(`mutate-go: ${sites.length} sites, ${invalid.size} compile-invalid, ${mutants.length - reused} run${reused ? `, ${reused} reused from an earlier run` : ''}`);
     return { mutants, targeted: completeUnits(own, sites, results, invalid), seed, sampled };
   } finally { session.close(); }
 }
@@ -142,7 +158,8 @@ export async function confirmGo({ root, input, mutation, ids, config = {}, log =
   if (!todo.length) return output;
   const started = performance.now();
   const facts = new GoSourceFacts(root, input, metrics);
-  const session = new GoSession(root, input, facts, started + cfg.mutation.maxSeconds * 1000, metrics);
+  const session = new GoSession(root, input, facts, started + cfg.mutation.maxSeconds * 1000, metrics,
+    { targeted: mutation.targeted ?? [], timings: true });
   try {
     await session.prepare();
     const helper = await buildHelper(session.scratch, session.env, session.remaining());

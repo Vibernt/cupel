@@ -1,41 +1,42 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { lines as parseLines } from '../engine/lines.mjs';
+import { cmp } from '../engine/order.mjs';
 import { GoMutationError } from './errors.mjs';
 import { isInvalidGoSource } from './compile-diagnostics.mjs';
 import { refuse } from './errors.mjs';
 import { parseInventory } from './inventory.mjs';
+import { orderGoPackages, shouldStopGo } from './order.mjs';
 import { goEnv, run } from './process.mjs';
 import { baselineMatches, classifyGo, parseGoResults } from './results.mjs';
+import { goReuseBasisValid, goRunRegex, selectGoTests } from './selection.mjs';
 import { applyGoSite } from './sites.mjs';
 
 const testsArgs = ['test', '-json', '-count=1', '-p=1'];
 const VERIFIED_GO_VERSION = '1.27.1';
-const covers = (value, line) => parseLines(value ?? '').some(([a, b]) => a <= line && line <= b);
-
-export function coveredByInput(input, site) {
-  for (const row of Object.values(input.coverage.byTest ?? {}))
-    if (covers(row[site.source], site.line)) return true;
-  for (const row of Object.values(input.coverage.setup ?? {}))
-    if (covers(row[site.source], site.line)) return true;
-  for (const row of Object.values(input.coverage.byFile ?? {}))
-    if (covers(row[site.source], site.line)) return true;
-  return false;
-}
+const median = (values = []) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+};
+const uniqueSorted = (values) => [...new Set(values)].sort(cmp);
 
 export class GoSession {
-  constructor(root, input, facts, deadline, metrics) {
+  constructor(root, input, facts, deadline, metrics, scope = {}) {
     this.root = resolve(root);
     this.input = input;
     this.facts = facts;
     this.deadline = deadline;
     this.metrics = metrics;
+    this.catchers = scope.catchers ?? {};
+    this.firstCatch = !!scope.firstCatch;
+    this.targeted = new Set(scope.targeted ?? []);
+    this.timings = !!scope.timings;
     this.env = goEnv(this.root);
     const scratchRoot = join(this.root, '.scratch');
     mkdirSync(scratchRoot, { recursive: true });
     this.scratch = mkdtempSync(join(scratchRoot, 'cupel-mutate-go-'));
     this.sequence = 0;
+    this.baselines = new Map();
   }
 
   close() { rmSync(this.scratch, { recursive: true, force: true }); }
@@ -65,31 +66,35 @@ export class GoSession {
     if (listing.status !== 0 || listing.signal || listing.timedOut)
       refuse('inventory', `go list failed offline: ${listing.stderr.trim()}`);
     this.inventory = parseInventory(this.root, listing.stdout, this.input, this.metrics);
-    await this.probeBaseline();
   }
 
-  async runModule(overlay, timeoutMs) {
-    const args = [...testsArgs, ...(overlay ? [`-overlay=${overlay}`] : []), './...'];
+  async runPackage(group, overlay, timeoutMs) {
+    const args = [...testsArgs, ...(overlay ? [`-overlay=${overlay}`] : []), '-run', goRunRegex(group.names), group.pkg];
     const result = await this.guarded('go', args, { timeoutMs });
     let parsed = { statuses: new Map(), packageFailures: new Set() };
-    if (!result.timedOut && !result.signal) {
-      try { parsed = parseGoResults(result.stdout, this.inventory); }
-      catch (error) {
-        if (!(overlay && error instanceof GoMutationError && error.code === 'go-results')) throw error;
-      }
+    try {
+      parsed = parseGoResults(result.stdout, this.inventory, { allowTrailingPartial: result.timedOut || !!result.signal });
+    } catch (error) {
+      if (!(overlay && error instanceof GoMutationError && error.code === 'go-results')) throw error;
     }
     return { result, parsed };
   }
 
-  async probeBaseline() {
-    const { result, parsed } = await this.runModule(null, Math.min(this.remaining(), 600_000));
-    baselineMatches(this.input, result, parsed);
-    this.baselineMs = result.wallMs;
+  baselineKey(group) { return `${group.pkg}\0${group.tests.map((test) => test.id).join('\0')}`; }
+
+  async measureBaseline(group, refresh = false) {
+    const key = this.baselineKey(group);
+    if (!refresh && this.baselines.has(key)) return this.baselines.get(key);
+    const { result, parsed } = await this.runPackage(group, null, Math.min(this.remaining(), 600_000));
+    baselineMatches(this.input, result, parsed, group.tests);
+    const baseline = { ms: result.wallMs };
+    this.baselines.set(key, baseline);
+    return baseline;
   }
 
-  async compile(overlay, source, backingFile, timeoutMs) {
-    for (const [i, pkg] of this.inventory.testPackages.entries()) {
-      const binary = join(this.scratch, `compile-${i}.test`);
+  async compile(overlay, source, backingFile, packages, timeoutMs) {
+    for (const [i, pkg] of packages.entries()) {
+      const binary = join(this.scratch, `compile-${this.sequence}-${i}.test`);
       const result = await this.guarded('go', ['test', '-c', `-overlay=${overlay}`, '-o', binary, pkg], { timeoutMs });
       if (result.timedOut) return { kind: 'cut' };
       if (result.status !== 0 || result.signal) {
@@ -105,13 +110,83 @@ export class GoSession {
     return { kind: 'valid' };
   }
 
-  async trial(overlay, limitMs) {
-    const { result, parsed } = await this.runModule(overlay, limitMs);
-    return classifyGo(this.input, result, parsed);
+  async trialPackage(overlay, group, limitMs) {
+    const { result, parsed } = await this.runPackage(group, overlay, limitMs);
+    return classifyGo(this.input, result, parsed, group.tests);
+  }
+
+  async checkPackage(overlay, group) {
+    let baseline = await this.measureBaseline(group);
+    let limit = Math.min(this.remaining(), Math.max(1000, baseline.ms * 3));
+    let outcome = await this.trialPackage(overlay, group, limit);
+    if (outcome.status === 'survived' || outcome.status === 'killed') return outcome;
+    if (this.remaining() < 1) return null;
+    baseline = await this.measureBaseline(group, true);
+    limit = Math.min(this.remaining(), Math.max(3000, baseline.ms * 9));
+    outcome = await this.trialPackage(overlay, group, limit);
+    if (outcome.status === 'error' || outcome.status === 'timeout') {
+      if (this.remaining() < 1) return null;
+      await this.measureBaseline(group, true);
+    }
+    return outcome;
+  }
+
+  inputMs(group) {
+    return group.tests.reduce((sum, test) => sum + median(test.durationsMs), 0);
+  }
+
+  packageOrder(site, selection) {
+    const testById = new Map(this.input.tests.map((test) => [test.id, test]));
+    const counterpart = site.source.endsWith('.go') ? `${site.source.slice(0, -3)}_test.go` : '';
+    const nearPackages = this.input.tests.filter((test) => test.file === counterpart)
+      .map((test) => this.inventory.testPkg.get(test.file)).filter(Boolean);
+    return orderGoPackages({
+      packages: selection.packages,
+      previousCatchers: this.catchers[site.id] ?? [],
+      packageOfTest: (id) => {
+        const test = testById.get(id);
+        return test ? this.inventory.testPkg.get(test.file) : undefined;
+      },
+      nearPackages,
+      inputMs: (pkg) => this.inputMs(selection.packages.get(pkg)),
+    });
+  }
+
+  targetedSelection(selection) {
+    return selection.tests.some((test) => this.targeted.has(test.unit ?? test.id));
+  }
+
+  /** Reuse must not bypass the complete run owed to a targeted unit. */
+  needsFull(site) {
+    return this.targetedSelection(selectGoTests(this.input, this.inventory, site));
+  }
+
+  /** The shared K15 basis must include every test file Go compiles. */
+  canReuse(site) { return goReuseBasisValid(this.input, this.inventory, site); }
+
+  async evaluate(site, overlay, selection) {
+    const outcomes = [];
+    let catching = 0;
+    const targeted = this.targetedSelection(selection);
+    for (const pkg of this.packageOrder(site, selection)) {
+      if (shouldStopGo({ catching, firstCatch: this.firstCatch, targeted })) break;
+      if (this.remaining() < 1) return null;
+      const outcome = await this.checkPackage(overlay, selection.packages.get(pkg));
+      if (!outcome) return null;
+      outcomes.push(outcome);
+      if (outcome.status === 'killed') catching++;
+    }
+    const killedBy = uniqueSorted(outcomes.filter((outcome) => outcome.status === 'killed').flatMap((outcome) => outcome.killedBy));
+    if (killedBy.length) return { status: 'killed', killedBy };
+    if (outcomes.some((outcome) => outcome.status === 'timeout')) return { status: 'timeout', killedBy: [] };
+    if (outcomes.some((outcome) => outcome.status === 'error')) return { status: 'error', killedBy: [] };
+    return { status: 'survived', killedBy: [] };
   }
 
   async check(site, bytes) {
-    if (!coveredByInput(this.input, site)) return { status: 'no-coverage', killedBy: [] };
+    const started = performance.now();
+    const selection = selectGoTests(this.input, this.inventory, site);
+    if (!selection.packages.size) return { status: 'no-coverage', killedBy: [] };
     if (this.remaining() < 1) return null;
     const serial = ++this.sequence;
     const mutant = join(this.scratch, `source-${serial}.go`);
@@ -119,20 +194,16 @@ export class GoSession {
     writeFileSync(mutant, applyGoSite(bytes, site));
     writeFileSync(overlay, JSON.stringify({ Replace: { [join(this.root, site.source)]: mutant } }));
     try {
-      const compile = await this.compile(overlay, site.source, mutant, this.remaining());
+      const owner = this.inventory.sourcePkg.get(site.source);
+      if (!owner) refuse('inventory', `no Go package owns ${site.source}`);
+      // The target source's package first: only its diagnostic proves a mutant compile-invalid.
+      const packages = [owner, ...uniqueSorted(this.packageOrder(site, selection)).filter((pkg) => pkg !== owner)];
+      const compile = await this.compile(overlay, site.source, mutant, packages, this.remaining());
       if (compile.kind === 'invalid') return { invalid: true };
       if (compile.kind === 'cut' || this.remaining() < 1) return null;
-      const limit = Math.min(this.remaining(), Math.max(1000, this.baselineMs * 3));
-      let outcome = await this.trial(overlay, limit);
-      if (outcome.status === 'survived' || outcome.status === 'killed') return outcome;
-      if (this.remaining() < 1) return null;
-      await this.probeBaseline();
-      const retryLimit = Math.min(this.remaining(), Math.max(3000, this.baselineMs * 9));
-      outcome = await this.trial(overlay, retryLimit);
-      if (outcome.status === 'error' || outcome.status === 'timeout') {
-        if (this.remaining() < 1) return null;
-        await this.probeBaseline();
-      }
+      const outcome = await this.evaluate(site, overlay, selection);
+      if (outcome && this.timings && outcome.status !== 'no-coverage')
+        outcome.durationMs = Math.round(performance.now() - started);
       return outcome;
     } finally {
       rmSync(mutant, { force: true });
