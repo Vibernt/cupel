@@ -6,7 +6,7 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 
 ## Current state
 
-- **Version:** npm package `@vibernt/cupel` **0.4.0**, Python collector `vibernt-cupel` **0.3.0**.
+- **Version:** npm package `@vibernt/cupel` **0.5.0**, Python collector `vibernt-cupel` **0.4.0** (candidate; see the 0.5.0 record).
 - **`main`:** merge of Vibernt/cupel#4 (the README and diagrams). Tags `v0.1.0`–`v0.4.0`. GitHub releases with the npm tarball for
   `v0.3.0` and `v0.4.0`; the asset's SHA-256 is in each release note and record.
 - **Not published to npm or PyPI.** npm keeps `"private": true` and Python `Private :: Do Not Upload`; any registry
@@ -21,6 +21,7 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 | 0.2.0 | `cupel audit` (six questions, rules U1–U7, MCP `cupel_audit`); Rust coverage on any OS; Rust fault testing through cargo-mutants (D19); `no-assertion` and `tautology` findings for Rust, JS/TS and Python; per-test coverage and fault testing of Worker code in workerd (D18, spike S30); `builtInto` and opt-in `crossRunner` for mixed-language repositories; `guard --allow-runtime-change` | [0.2.0](results/2026-11-23-0.2.0-candidate.md) |
 | 0.3.0 | Reuse of earlier fault results with a fingerprint per fault (K15, D20); pytest stops once two units caught a fault; Rust skips lines no test runs, tests only the packages that run the code, honours `maxMutants`; `guard --out`, `guard --base-input … --changed`; `docs/speed.md`, `docs/best-practices.md` | [0.3.0](results/2026-11-23-0.3.0-release.md) |
 | 0.4.0 | Cupel's own Rust fault runner `backend: "cupel"` (D21): only covering test targets and tests, ordered by the input, stop after two, switchable faults in one build with per-target trust; CI slices `mutate --plan`, `--runner R --shard I/N`, `merge-mutations` (D22); guard heads stop at the first catch (D23, rule I6); `durationMs` per fault | [0.4.0](results/2026-11-23-0.4.0-release.md) |
+| 0.5.0 | Rust build sessions in the per-user cache with reuse of unmutated passes (D24); opt-in whole-function variants and verify mode (D25); `mutate --prepare` CI slices, `sessionEnvIgnore` (D26); likely catchers first in every runner (D27); Go covering-only selection, stop after two and a switched build; Ruby stop after two (D28); Python collector 0.4.0 | [0.5.0](results/2026-11-25-0.5.0-release.md) |
 | README | Rewritten for 0.4.0; diagrams are code (Fire components) rendered by `scripts/render-readme-art.mjs` | [docs/assets/README.md](../docs/assets/README.md) |
 
 ## Decisions to know (details in DECISIONS.md)
@@ -32,6 +33,8 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 - **D21** `backend: "cupel"` runs cargo-mutants' faults itself; cargo-mutants stays the default.
 - **D22** Slices: Cupel plans, runs one and merges; CI starts machines. Default rule: one machine while the estimate
   fits 10 minutes, else ⌈time ÷ (target − startup)⌉ slices per runner, at most 20.
+- **D24–D28** (0.5.0) Rust sessions in the user cache, reuse only when nothing changed; variants opt-in with
+  verify mode; prepared CI slices; likely catchers first from inputs only; Go switched build and Go/Ruby stop rules.
 - **D23** Guard's head stops at the first catch; such input (`mutation.catches: "first"`) is refused everywhere
   except as guard's head (I6).
 - Throughout: Cupel never changes or deletes the assessed project's tests or code and never advises deleting a test.
@@ -57,6 +60,9 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 - On a machine without Node 22.23.3, Go 1.27.1, Ruby 4.0.7 with Minitest 6, the Vitest fixtures' packages and Homebrew
   Rust 1.97.1, the same 31 tests fail; compare failing test names with that list instead of expecting zero. The
   pre-push hook (`npm run verify`) then fails too: pushing with `--no-verify` needs the owner's say-so each time.
+- Go 1.27.1 (go.dev archive, checked against its published SHA-256) and Ruby 4.0.7 (built from the ruby-lang.org
+  tarball, which bundles Minitest 6.0.0) can live under `.scratch/tools/` (ignored by git); put their `bin` first on
+  `PATH` with `CUPEL_REQUIRE_NATIVE_MUTATION=1` to run the live Go and Ruby tests instead of skipping them.
 
 ## How to release (owner approval each time)
 
