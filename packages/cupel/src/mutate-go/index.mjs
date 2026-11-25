@@ -159,7 +159,8 @@ export async function confirmGo({ root, input, mutation, ids, config = {}, log =
   const started = performance.now();
   const facts = new GoSourceFacts(root, input, metrics);
   const session = new GoSession(root, input, facts, started + cfg.mutation.maxSeconds * 1000, metrics,
-    { targeted: mutation.targeted ?? [], timings: true });
+    // Durations only when the rows being confirmed carry them, so confirming an untimed result changes nothing else.
+    { targeted: mutation.targeted ?? [], timings: mutation.mutants.some((row) => Number.isInteger(row.durationMs)) });
   try {
     await session.prepare();
     const helper = await buildHelper(session.scratch, session.env, session.remaining());

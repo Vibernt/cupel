@@ -35,6 +35,8 @@ func TestSourcePin(t *testing.T) {
 }
 
 func TestTamper(t *testing.T) {
+	// Runs the faulted lines, so Cupel's covering-test selection runs this test too.
+	_, _ = Choose(1), Identity(1)
 	mode := os.Getenv("CUPEL_GO_TAMPER_MODE")
 	if mode == "" {
 		return
