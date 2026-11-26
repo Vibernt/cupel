@@ -15,7 +15,7 @@ import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
 import { mergeRunners, runnerParts, splitRunnerInput } from './merge-runners.mjs';
-import { combineRows, combineRunnerMutations, ownersFromParts } from './runner-mutations.mjs';
+import { addChanged, combineRows, combineRunnerMutations, ownersFromParts, targetedLinesForOtherRunners } from './runner-mutations.mjs';
 import { applyBuiltInto } from './built-into.mjs';
 import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
@@ -363,6 +363,9 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
           changed: scope.changed && Object.fromEntries(Object.entries(scope.changed).filter(([path]) => Object.hasOwn(part.sources, path))),
           targeted: (scope.targeted ?? []).filter((id) => part.tests.some((t) => (t.unit ?? t.id) === id)),
         };
+        // Another runner's targeted units: their mutants on sources this runner shares run against its tests too.
+        const others = targetedLinesForOtherRunners(input, scope.targeted, part);
+        if (Object.keys(others).length) selected.changed = addChanged(selected.changed ?? undefined, others);
         if (mutationRequested(selected)) {
           assertLiveMutationRunner(part, cfg, undefined, name);
           if (selected.functions && ['go', 'cargo', 'minitest'].includes(name))
@@ -499,7 +502,8 @@ async function confirmRuns(mutator, { root, cfg, input, mutation, ids, log, coll
   if (!ids.length) return mutation;
   log(`confirming ${ids.length} survivors`);
   try {
-    const parts = runnerParts(input);
+    // A merged input read from a file has no in-memory parts: split it by runner, as a run does.
+    const parts = runnerParts(input) ?? (input.runtimes?.length > 1 ? splitRunnerInput(input) : null);
     if (parts) {
       const confirmed = [];
       const targeted = [];
@@ -529,6 +533,8 @@ async function confirmRuns(mutator, { root, cfg, input, mutation, ids, log, coll
         if (!again) return row;
         const { status, killedBy, killKinds } = combineRows(again);
         const { killedBy: _k, killKinds: _kk, ...rest } = row;
+        // A row whose answer changed on confirmation is a new result, not one copied from an earlier run.
+        if (status !== row.status) delete rest.reused;
         return { ...rest, status, ...(killedBy ? { killedBy } : {}), ...(killKinds ? { killKinds } : {}) };
       });
       return { ...mutation, mutants, targeted: [...new Set(targeted)].sort(cmp) };

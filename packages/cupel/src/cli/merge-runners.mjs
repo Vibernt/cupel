@@ -41,7 +41,8 @@ export function splitRunnerInput(input) {
         rechecked: (input.coverage.rechecked ?? []).filter((id) => units.has(id)),
         unstable: choose(input.coverage.unstable, sourcePaths) },
     };
-    if (input.mutation) part.mutation = { mutants, targeted: (input.mutation.targeted ?? []).filter((id) => units.has(id)) };
+    if (input.mutation) part.mutation = { mutants, targeted: (input.mutation.targeted ?? []).filter((id) => units.has(id)),
+      ...(input.mutation.catches ? { catches: input.mutation.catches } : {}) };
     if (input.brittleness) part.brittleness = input.brittleness.filter((b) => ids.has(b.test));
     if (input.shapes) part.shapes = choose(input.shapes, units);
     return { name: runtime.runner, input: part };
@@ -109,11 +110,14 @@ export function mergeRunners(parts) {
     }
   }
   // Runners that test the same source carry the same mutants: one combined row each (K14).
-  const withMutation = parts.filter(({ input }) => input.mutation);
-  if (withMutation.length) {
-    const { mutation } = combineRunnerMutations(withMutation.map(({ name, input }) => ({ name, part: input, mutation: input.mutation })));
+  // A runner without mutation results still counts: its covering tests did not run a shared mutant (K14).
+  if (parts.some(({ input }) => input.mutation)) {
+    const modes = new Set(parts.filter(({ input }) => input.mutation).map(({ input }) => input.mutation.catches ?? 'all'));
+    if (modes.size > 1) throw environment('runners mix first-catch and full mutation results; collect every runner the same way');
+    const { mutation } = combineRunnerMutations(parts.map(({ name, input }) => ({ name, part: input, mutation: input.mutation })));
     merged.mutation = { mutants: mutation.mutants, targeted: mutation.targeted,
-      ...(mutation.sampled !== undefined ? { sampled: mutation.sampled } : {}), ...(mutation.seed !== undefined ? { seed: mutation.seed } : {}) };
+      ...(mutation.sampled !== undefined ? { sampled: mutation.sampled } : {}), ...(mutation.seed !== undefined ? { seed: mutation.seed } : {}),
+      ...(modes.has('first') ? { catches: 'first' } : {}) };
   }
   collectedParts.set(merged, parts);
   return merged;

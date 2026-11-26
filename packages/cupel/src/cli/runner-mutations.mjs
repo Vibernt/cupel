@@ -5,8 +5,9 @@
 // covering tests notice it. A mutant that no runner caught and that some runner whose tests cover its line did not
 // run (a sample or a time budget left it out) has no complete answer: it is left out and the result is `sampled`.
 
-import { lines } from '../engine/lines.mjs';
+import { format, lines, union } from '../engine/lines.mjs';
 import { cmp } from '../engine/order.mjs';
+import { environment } from './errors.mjs';
 
 /** Higher wins: a catch decides; a timeout is detected; an error is undecided; then a survivor; then no coverage. */
 const RANK = { killed: 4, timeout: 3, error: 2, survived: 1, 'no-coverage': 0 };
@@ -35,14 +36,15 @@ export function combineRows(rows) {
   const best = rows.reduce((a, b) => (rank(b.status) > rank(a.status) ? b : a));
   const { killedBy: _k, killKinds: _kk, durationMs: _d, reused: _r, basis: _b, ...rest } = rows[0];
   const out = { ...rest, status: best.status };
-  if (best.status === 'killed') {
-    const killers = rows.filter((r) => r.status === 'killed');
-    out.killedBy = [...new Set(killers.flatMap((r) => r.killedBy ?? []))].sort(cmp);
-    const kinds = Object.assign({}, ...killers.map((r) => r.killKinds ?? {}));
-    if (Object.keys(kinds).length) out.killKinds = Object.fromEntries(Object.entries(kinds).sort(([a], [b]) => cmp(a, b)));
-  }
-  const durations = rows.map((r) => r.durationMs).filter(Number.isInteger);
-  if (durations.length) out.durationMs = durations.reduce((a, b) => a + b, 0);
+  // The rows that decided the status credit their tests (catchers; for a runner that credits timeouts, those too).
+  const deciding = rows.filter((r) => r.status === best.status);
+  const credited = [...new Set(deciding.flatMap((r) => r.killedBy ?? []))].sort(cmp);
+  if (credited.length) out.killedBy = credited;
+  const kinds = Object.assign({}, ...deciding.map((r) => r.killKinds ?? {}));
+  if (Object.keys(kinds).length) out.killKinds = Object.fromEntries(Object.entries(kinds).sort(([a], [b]) => cmp(a, b)));
+  // A total time only when every runner that ran the mutant measured it.
+  const ran = rows.filter((r) => r.status !== 'no-coverage');
+  if (ran.length && ran.every((r) => Number.isInteger(r.durationMs))) out.durationMs = ran.reduce((a, r) => a + r.durationMs, 0);
   if (rows.every((r) => r.reused)) out.reused = true;
   // A copied basis names one runner's selection; the combined row gets a fresh basis over every runner's tests.
   if (rows.every((r) => r.basis && r.basis === rows[0].basis)) out.basis = rows[0].basis;
@@ -63,7 +65,11 @@ export function combineRunnerMutations(results) {
   const owners = new Map();
   const mutants = [];
   const dropped = [];
-  for (const [id, entries] of byId) {
+  for (const [id, entries] of [...byId].sort(([a], [b]) => cmp(a, b))) {
+    const first = entries[0].row;
+    for (const { name, row: other } of entries)
+      if (other.source !== first.source || other.line !== first.line || other.operator !== first.operator)
+        throw environment(`runner ${name} reports mutant ${id} at ${other.source}:${other.line} (${other.operator}), another runner at ${first.source}:${first.line} (${first.operator})`);
     const row = combineRows(entries.map((e) => e.row));
     const reporting = new Set(entries.map((e) => e.name));
     // Only a runner whose input holds the source plants its mutants; one whose tests cover the line but that did not
@@ -85,6 +91,37 @@ export function combineRunnerMutations(results) {
   const seeds = [...new Set(results.map(({ mutation }) => mutation?.seed).filter((n) => n !== undefined))];
   if (seeds.length === 1) merged.seed = seeds[0];
   return { mutation: merged, owners, dropped: dropped.map((r) => r.id) };
+}
+
+/**
+ * The lines another runner's targeted units run, in the sources `part` holds, as a `changed` scope (line-set strings,
+ * never empty: an empty string would mean the whole file). A targeted unit's mutants must also run against every other
+ * runner whose tests cover them, or a mutant its runner did not catch could be reported surviving (K14).
+ */
+export function targetedLinesForOtherRunners(input, targeted, part) {
+  const wanted = new Set(targeted ?? []);
+  if (!wanted.size) return {};
+  const own = new Set((part.tests ?? []).map((t) => t.unit ?? t.id));
+  const out = {};
+  for (const test of input.tests ?? []) {
+    const unit = test.unit ?? test.id;
+    if (!wanted.has(unit) || own.has(unit) || test.status !== 'passed') continue;
+    for (const [source, value] of Object.entries(input.coverage?.byTest?.[test.id] ?? {})) {
+      if (!Object.hasOwn(part.sources ?? {}, source)) continue;
+      out[source] = union(out[source] ?? [], lines(value));
+    }
+  }
+  return Object.fromEntries(Object.entries(out).filter(([, set]) => set.length).map(([source, set]) => [source, format(set)]));
+}
+
+/** Adds line sets to a `changed` scope; an existing empty string (the whole file) stays whole. */
+export function addChanged(changed, extra) {
+  const out = { ...(changed ?? {}) };
+  for (const [source, value] of Object.entries(extra)) {
+    if (out[source] === '') continue;
+    out[source] = out[source] === undefined ? value : format(union(lines(out[source]), lines(value)));
+  }
+  return out;
 }
 
 /** Which runners hold a mutant, when no run recorded it: those whose tests cover its line, else those with its source. */

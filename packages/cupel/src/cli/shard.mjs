@@ -8,6 +8,8 @@
 
 import { createHash } from 'node:crypto';
 import { cmp, sortedUnique } from '../engine/order.mjs';
+import { combineRunnerMutations } from './runner-mutations.mjs';
+import { splitRunnerInput } from './merge-runners.mjs';
 
 /** The default rule: one machine while the estimate fits the target time; else enough slices to fit it. */
 export const DEFAULT_RULE = Object.freeze({ startupSeconds: 60, targetMinutes: 10, maxShards: 20 });
@@ -102,22 +104,33 @@ export function mergeMutations(base, parts) {
     for (let k = 1; k <= g.total; k++) if (!g.parts.has(k)) fail(`runner ${g.runner}: slice ${k}/${g.total} is missing`);
   }
   if (runners.has('*') && runners.size > 1) fail('a run of every runner cannot be merged with runner slices');
-  const mutants = []; const seen = new Set(); let targeted = []; let sampled = false; const seeds = new Set();
+  let sampled = false; const seeds = new Set(); const perRunner = [];
   for (const g of [...runners.values()].sort((a, b) => cmp(a.runner, b.runner))) {
-    let groupTargeted = null;
+    let groupTargeted = null; const mutants = []; const seen = new Set();
     for (const { name, mutation } of [...g.parts.values()]) {
+      // Within one runner a fault belongs to one slice; runners sharing a source report it once each (K14).
       for (const m of mutation.mutants) { if (seen.has(m.id)) fail(`${name}: fault ${m.id} is in two parts`); seen.add(m.id); mutants.push(m); }
       const t = new Set(mutation.targeted ?? []);
       groupTargeted = groupTargeted === null ? t : new Set([...groupTargeted].filter((u) => t.has(u)));
       sampled ||= !!mutation.sampled;
       if (mutation.seed !== undefined) seeds.add(mutation.seed);
     }
-    targeted.push(...(groupTargeted ?? []));
+    perRunner.push({ name: g.runner, mutation: { mutants, targeted: [...(groupTargeted ?? [])] } });
   }
   if (seeds.size > 1) fail('slices used different seeds');
   const modes = new Set(parts.map(({ doc }) => doc.mutation.catches ?? 'all'));
   if (modes.size > 1) fail('some parts stopped at the first catch and others did not; run every part the same way');
-  targeted = sortedUnique(targeted);
+  let mutants; let targeted;
+  if (perRunner.length > 1) {
+    const byName = new Map(splitRunnerInput(base).map((p) => [p.name, p.input]));
+    let combined;
+    try { combined = combineRunnerMutations(perRunner.map((r) => ({ ...r, part: byName.get(r.name) }))).mutation; }
+    catch (error) { fail(error.message); }
+    mutants = combined.mutants; targeted = combined.targeted; sampled ||= !!combined.sampled;
+  } else {
+    mutants = perRunner.flatMap((r) => r.mutation.mutants);
+    targeted = sortedUnique(perRunner.flatMap((r) => r.mutation.targeted));
+  }
   return { mutants: mutants.sort((a, b) => cmp(a.id, b.id)), targeted, sampled, ...(seeds.size ? { seed: [...seeds][0] } : {}),
     ...(modes.has('first') ? { catches: 'first' } : {}) };
 }
