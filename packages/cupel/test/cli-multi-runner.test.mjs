@@ -252,3 +252,72 @@ writeFileSync(process.argv[process.argv.indexOf('--out') + 1], JSON.stringify(in
     assert.equal(run('guard', { base: merged, head: merged }, {}, {}, schemas).exit, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+// Issue 7: two JavaScript runners (node:test and Vitest) testing one shared source plant the same mutants.
+function sharedSourceInput() {
+  const source = JSON.parse(readFileSync(join(repo, 'spec/conformance/cases/001-report-minimal/input.json'), 'utf8'));
+  const a = structuredClone(source), b = structuredClone(source);
+  b.tests = b.tests.map((t) => ({ ...t, id: `web/${t.id}`, file: `web/${t.file}`, ...(t.unit ? { unit: `web/${t.unit}` } : {}) }));
+  b.coverage.byTest = Object.fromEntries(Object.entries(b.coverage.byTest ?? {}).map(([id, entry]) => [`web/${id}`, entry]));
+  b.coverage.setup = {};
+  return { input: mergeRunners([{ name: 'node', input: a }, { name: 'vitest', input: b }]), a, b };
+}
+
+test('runners sharing a source give one combined row per mutant: caught if any runner catches it (issue 7)', async () => {
+  const { input, a, b } = sharedSourceInput();
+  const path = Object.keys(a.sources)[0];
+  const covered = Object.values(a.coverage.byTest)[0][path];
+  const line = Number(String(covered).split(/[,-]/)[0]);
+  const nodeTest = a.tests[0].id, webTest = b.tests[0].id;
+  const rows = {
+    node: [
+      { id: 'm-caught-by-web', source: path, line, operator: 'cmp-flip', status: 'survived', durationMs: 5 },
+      { id: 'm-both-survive', source: path, line, operator: 'arith', status: 'survived', durationMs: 4 },
+      { id: 'm-node-only', source: path, line, operator: 'negate-cond', status: 'killed', killedBy: [nodeTest], killKinds: { [nodeTest]: 'assertion' } },
+    ],
+    vitest: [
+      { id: 'm-caught-by-web', source: path, line, operator: 'cmp-flip', status: 'killed', killedBy: [webTest], killKinds: { [webTest]: 'assertion' }, durationMs: 7 },
+      { id: 'm-both-survive', source: path, line, operator: 'arith', status: 'survived', durationMs: 6 },
+      { id: 'm-node-only', source: path, line, operator: 'negate-cond', status: 'no-coverage' },
+    ],
+  };
+  const mutator = { async mutateNode({ input: part }) {
+    const name = part.tests[0].id.startsWith('web/') ? 'vitest' : 'node';
+    return { mutants: rows[name], targeted: [], sampled: false, seed: 1 };
+  } };
+  const mutation = await mutate(mutator, { root: scratch, cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
+  const byId = Object.fromEntries(mutation.mutants.map((m) => [m.id, m]));
+  assert.deepEqual(Object.keys(byId).sort(), ['m-both-survive', 'm-caught-by-web', 'm-node-only']);
+  assert.equal(byId['m-caught-by-web'].status, 'killed');
+  assert.deepEqual(byId['m-caught-by-web'].killedBy, [webTest]);
+  assert.equal(byId['m-caught-by-web'].durationMs, 12);
+  assert.equal(byId['m-both-survive'].status, 'survived');
+  assert.equal(byId['m-node-only'].status, 'killed');
+  assert.deepEqual(byId['m-node-only'].killedBy, [nodeTest]);
+  assert.equal(mutation.sampled, false);
+  assert.equal(new Set(mutation.mutants.map((m) => m.id)).size, mutation.mutants.length);
+});
+
+test('a mutant one covering runner did not run, and nobody caught, is left out and the result is sampled (issue 7)', async () => {
+  const { input, a } = sharedSourceInput();
+  const path = Object.keys(a.sources)[0];
+  const line = Number(String(Object.values(a.coverage.byTest)[0][path]).split(/[,-]/)[0]);
+  const mutator = { async mutateNode({ input: part }) {
+    const web = part.tests[0].id.startsWith('web/');
+    // Vitest's sample left `m-partial` out; node:test ran it and it survived there.
+    return { mutants: web ? [] : [{ id: 'm-partial', source: path, line, operator: 'arith', status: 'survived' }], targeted: [], sampled: web };
+  } };
+  const mutation = await mutate(mutator, { root: scratch, cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
+  assert.deepEqual(mutation.mutants, []);
+  assert.equal(mutation.sampled, true);
+});
+
+test('merging saved runner inputs combines their shared mutants instead of refusing them (issue 7)', () => {
+  const { a, b } = sharedSourceInput();
+  const path = Object.keys(a.sources)[0];
+  const line = Number(String(Object.values(a.coverage.byTest)[0][path]).split(/[,-]/)[0]);
+  a.mutation = { mutants: [{ id: 'm', source: path, line, operator: 'arith', status: 'survived' }], targeted: [] };
+  b.mutation = { mutants: [{ id: 'm', source: path, line, operator: 'arith', status: 'killed', killedBy: [b.tests[0].id] }], targeted: [] };
+  const merged = mergeRunners([{ name: 'node', input: a }, { name: 'vitest', input: b }]);
+  assert.deepEqual(merged.mutation.mutants.map((m) => [m.id, m.status, m.killedBy]), [['m', 'killed', [b.tests[0].id]]]);
+});

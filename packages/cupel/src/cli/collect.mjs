@@ -15,6 +15,7 @@ import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
 import { collectorError } from '../collect/error-detail.mjs';
 import { mergeRunners, runnerParts, splitRunnerInput } from './merge-runners.mjs';
+import { addChanged, combineRows, combineRunnerMutations, ownersFromParts, targetedLinesForOtherRunners } from './runner-mutations.mjs';
 import { applyBuiltInto } from './built-into.mjs';
 import { detectRunners, detectedConfig, detectedNodeFiles, isVitestProject, isJestProject } from './runner-discovery.mjs';
 import { assertLiveMutationRunner, mutationRequested } from './runner-capabilities.mjs';
@@ -357,12 +358,14 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
     const parts = runnerParts(input) ?? (input.runtimes?.length > 1 ? splitRunnerInput(input) : null);
     if (parts) {
       const mutations = [];
-      const owners = new Map();
       const plans = parts.map(({ name, input: part }) => {
         const selected = { ...scope,
           changed: scope.changed && Object.fromEntries(Object.entries(scope.changed).filter(([path]) => Object.hasOwn(part.sources, path))),
           targeted: (scope.targeted ?? []).filter((id) => part.tests.some((t) => (t.unit ?? t.id) === id)),
         };
+        // Another runner's targeted units: their mutants on sources this runner shares run against its tests too.
+        const others = targetedLinesForOtherRunners(input, scope.targeted, part);
+        if (Object.keys(others).length) selected.changed = addChanged(selected.changed ?? undefined, others);
         if (mutationRequested(selected)) {
           assertLiveMutationRunner(part, cfg, undefined, name);
           if (selected.functions && ['go', 'cargo', 'minitest'].includes(name))
@@ -386,19 +389,14 @@ async function mutateRuns(mutator, { root, cfg, input, scope, log, collectorKind
         if (!mutationRequested(selected)) continue;
         const partCfg = { ...cfg, runners: { [name]: cfg.runners?.[name] ?? {} } };
         const result = await mutateRuns(mutator, { root, cfg: partCfg, input: part, scope: selected, log, collectorKind: ['vitest', 'jest'].includes(name) ? name : undefined, diagnostics, environment: runEnvironment });
-        if (result) {
-          mutations.push(result);
-          for (const mutant of result.mutants) {
-            if (owners.has(mutant.id)) throw environment(`duplicate mutant id across runners: ${mutant.id}`);
-            owners.set(mutant.id, name);
-          }
-        }
+        if (result) mutations.push({ name, part, mutation: result });
       }
       if (!mutations.length) return null;
-      let merged = { mutants: mutations.flatMap((m) => m.mutants), targeted: mutations.flatMap((m) => m.targeted ?? []) };
-      if (mutations.some((m) => m.sampled !== undefined)) merged.sampled = mutations.some((m) => m.sampled);
-      const seeds = [...new Set(mutations.map((m) => m.seed).filter((n) => n !== undefined))];
-      if (seeds.length === 1) merged.seed = seeds[0];
+      // Runners that test the same source plant the same mutants: one combined row each (K14).
+      const combined = combineRunnerMutations(mutations);
+      if (combined.dropped.length) log(`mutate: ${combined.dropped.length} fault(s) not run by every runner whose tests cover them; left out (sampled)`);
+      let merged = combined.mutation;
+      const owners = combined.owners;
       if (cfg.runners?.cargo?.mutants?.crossRunner && owners.size) {
         // Phase 7: Rust survivors in sources built into an artifact get re-tested by the tests that load it.
         const { crossRunner } = await import('./cross-runner.mjs');
@@ -504,14 +502,16 @@ async function confirmRuns(mutator, { root, cfg, input, mutation, ids, log, coll
   if (!ids.length) return mutation;
   log(`confirming ${ids.length} survivors`);
   try {
-    const parts = runnerParts(input);
+    // A merged input read from a file has no in-memory parts: split it by runner, as a run does.
+    const parts = runnerParts(input) ?? (input.runtimes?.length > 1 ? splitRunnerInput(input) : null);
     if (parts) {
       const confirmed = [];
       const targeted = [];
-      const owners = mutationOwners.get(mutation);
-      if (!owners) throw environment('merged mutation has no runner ownership for confirmation');
+      // Every runner that ran a survivor confirms it; the confirmations combine like the runs (K14).
+      const owners = mutationOwners.get(mutation) ?? ownersFromParts(mutation, parts);
+      const rowsById = new Map();
       for (const { name, input: part } of parts) {
-        const relevant = mutation.mutants.filter((m) => owners.get(m.id) === name);
+        const relevant = mutation.mutants.filter((m) => (owners.get(m.id) ?? []).includes(name));
         const selectedIds = ids.filter((id) => relevant.some((m) => m.id === id));
         const unitIds = new Set(part.tests.map((test) => test.unit ?? test.id));
         const partTargeted = (mutation.targeted ?? []).filter((id) => unitIds.has(id));
@@ -524,7 +524,20 @@ async function confirmRuns(mutator, { root, cfg, input, mutation, ids, log, coll
           targeted.push(...(result.targeted ?? []));
         } else { confirmed.push(...relevant); targeted.push(...partTargeted); }
       }
-      return { ...mutation, mutants: confirmed, targeted: [...new Set(targeted)].sort(cmp) };
+      const asked = new Set(ids);
+      for (const row of confirmed) if (asked.has(row.id)) { if (!rowsById.has(row.id)) rowsById.set(row.id, []); rowsById.get(row.id).push(row); }
+      // A confirmed row takes the combined status and catchers of its runners' confirmations; its measured time and
+      // everything else stay those of the original row. Rows not asked about are unchanged.
+      const mutants = mutation.mutants.map((row) => {
+        const again = rowsById.get(row.id);
+        if (!again) return row;
+        const { status, killedBy, killKinds } = combineRows(again);
+        const { killedBy: _k, killKinds: _kk, ...rest } = row;
+        // A row whose answer changed on confirmation is a new result, not one copied from an earlier run.
+        if (status !== row.status) delete rest.reused;
+        return { ...rest, status, ...(killedBy ? { killedBy } : {}), ...(killKinds ? { killKinds } : {}) };
+      });
+      return { ...mutation, mutants, targeted: [...new Set(targeted)].sort(cmp) };
     }
     assertLiveMutationRunner(input, cfg, collectorKind);
     if (input.runtime.name === 'python') return mutatePytest({ root, cfg, input, mutation, ids });

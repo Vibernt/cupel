@@ -208,3 +208,10 @@ missing-tool tests), opening the pull request, and "merge and deploy and release
 Pages for the documentation, tagging **v0.5.0** and a GitHub release with the npm tarball. npm 0.5.0 and the
 Python collector 0.4.0. npm and PyPI publishing remain unapproved.
 
+## Owner v0.5.1 release approval (2026-11-26)
+
+The owner asked, in chat, to look at the GitHub issue that was filed (issue 7, runners sharing a source stopped with
+`duplicate mutant id across runners`), fix it and release. That covers the fix, the hosted CI setup fixes, bumping
+the npm package to **0.5.1**, merging, tagging **v0.5.1** and a GitHub release. The Python collector stays 0.4.0.
+npm and PyPI publishing remain unapproved.
+
