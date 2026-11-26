@@ -2,7 +2,7 @@
 
 Owner direction: **2026-10-26**. This is the authoritative support matrix for
 the first-release scope. It describes supported capabilities and their evidence.
-The **0.5.0** source is MIT-licensed; **public GitHub source publication is
+The **0.5.1** source is MIT-licensed; **public GitHub source publication is
 authorized** by the owner on **2026-10-26** for `Vibernt/cupel`. npm and PyPI
 remain unpublished. Ordinary full guard is the whole-suite protection path.
 
@@ -69,10 +69,11 @@ passed both runtimes. These results certify that named artifact; they do not
 certify a later source version or licence change. Check the current version and
 corresponding handoff before using the maintainer's stable local path.
 
-The current source release uses version **0.5.0** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd; 0.3.0 makes fault testing faster: reuse of earlier results, Python stops once two units caught a fault, Rust skips lines no test runs, tests only the packages that run the code and honours `maxMutants`; 0.4.0 adds Cupel's own Rust fault runner (`backend: "cupel"`) and fault-test slices for CI; 0.5.0 keeps Rust builds between runs and shares one prepared build between CI slices, tries each fault's most likely catching tests first in every language, and brings Go and Ruby fault testing up to the other runners, with one shared build for Go) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is 0.4.0 (0.1.1 added the `no-assertion` and `tautology` findings; 0.2.0 stops early and reuses results; 0.3.0 plans and runs slices and records each fault's time; 0.4.0 tries each fault's earlier catching tests and its own test files first).
+The current source release uses version **0.5.1** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd; 0.3.0 makes fault testing faster: reuse of earlier results, Python stops once two units caught a fault, Rust skips lines no test runs, tests only the packages that run the code and honours `maxMutants`; 0.4.0 adds Cupel's own Rust fault runner (`backend: "cupel"`) and fault-test slices for CI; 0.5.0 keeps Rust builds between runs and shares one prepared build between CI slices, tries each fault's most likely catching tests first in every language, and brings Go and Ruby fault testing up to the other runners, with one shared build for Go; 0.5.1 combines the results of runners that test the same sources) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is 0.4.0 (0.1.1 added the `no-assertion` and `tautology` findings; 0.2.0 stops early and reuses results; 0.3.0 plans and runs slices and records each fault's time; 0.4.0 tries each fault's earlier catching tests and its own test files first).
 See [local installation](install.md) and [artifact provenance](private-use.md#artifact-provenance).
 The [versioned candidate record](../plans/results/2026-10-26-private-candidate.md)
 records fresh 0.1.0 verification and artifact identities. The
+[0.5.1 release record](../plans/results/2026-11-26-0.5.1-release.md), the
 [0.5.0 release record](../plans/results/2026-11-25-0.5.0-release.md), the
 [0.4.0 release record](../plans/results/2026-11-23-0.4.0-release.md), the
 [0.3.0 release record](../plans/results/2026-11-23-0.3.0-release.md) and the

@@ -66,7 +66,9 @@ to keep results between runs on CI machines that start empty.
 ## 6. Mixed-language repositories
 
 - Configure each runner in one `cupel.json`; their evidence is merged into one
-  report.
+  report. Runners may share sources (node:test and Vitest testing the same `src/`, say):
+  each fault there runs against every runner's covering tests and counts as caught when
+  any of them catches it.
 - Name code that another language's tests run with `builtInto` (for example Rust
   compiled to WebAssembly), so it is labelled instead of counted as untested.
 - Use `crossRunner` only for the few Rust files where it matters: each fault costs

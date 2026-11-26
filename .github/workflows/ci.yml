@@ -114,19 +114,30 @@ jobs:
           npm ci --prefix spec/conformance/adapters/jest --ignore-scripts --no-audit --no-fund
           node -e 'const fs=require("node:fs"),p=require("node:path");fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_JEST_MODULES="+p.resolve("spec/conformance/adapters/jest/node_modules")+"\n")'
 
+      # Each tool folder gets a complete package.json and a plain install: npm on Node 22 crashes
+      # ("reading 'edgesOut'") when named packages are installed into a folder whose manifest has no name.
       - name: Prepare Vitest 4.1.11 and 5.0.1
         run: |
-          mkdir -p .scratch/vitest-4 .scratch/vitest-5
-          node -e 'const fs=require("node:fs");for(const d of [".scratch/vitest-4",".scratch/vitest-5"])fs.writeFileSync(d+"/package.json",JSON.stringify({private:true}))'
-          npm install --prefix .scratch/vitest-4 --ignore-scripts --no-audit --no-fund --save-exact vitest@4.1.11 typescript@5.9.3 react@19.2.0
-          npm install --prefix .scratch/vitest-5 --ignore-scripts --no-audit --no-fund --save-exact vitest@5.0.1 typescript@5.9.3 react@19.2.0
+          node -e '
+            const fs = require("node:fs");
+            for (const [dir, vitest] of [[".scratch/vitest-4", "4.1.11"], [".scratch/vitest-5", "5.0.1"]]) {
+              fs.mkdirSync(dir, { recursive: true });
+              fs.writeFileSync(dir + "/package.json", JSON.stringify({ name: "cupel-ci-" + dir.split("/").pop(), version: "0.0.0", private: true,
+                dependencies: { vitest, typescript: "5.9.3", react: "19.2.0" } }, null, 2));
+            }'
+          npm install --prefix .scratch/vitest-4 --ignore-scripts --no-audit --no-fund
+          npm install --prefix .scratch/vitest-5 --ignore-scripts --no-audit --no-fund
           node -e 'const fs=require("node:fs"),p=require("node:path");fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_TEST_VITEST4_MODULES="+p.resolve(".scratch/vitest-4/node_modules")+"\nCUPEL_TEST_VITEST5_MODULES="+p.resolve(".scratch/vitest-5/node_modules")+"\n")'
 
-      - name: Prepare Miniflare 5.0.0
+      # The version the maintainer's Workers project uses. Its install scripts fetch workerd's binary, so they run.
+      - name: Prepare Miniflare 5.20261101.0-beta
         run: |
-          mkdir -p .scratch/miniflare
-          node -e 'require("node:fs").writeFileSync(".scratch/miniflare/package.json",JSON.stringify({private:true}))'
-          npm install --prefix .scratch/miniflare --ignore-scripts --no-audit --no-fund --save-exact miniflare@5.0.0
+          node -e '
+            const fs = require("node:fs");
+            fs.mkdirSync(".scratch/miniflare", { recursive: true });
+            fs.writeFileSync(".scratch/miniflare/package.json", JSON.stringify({ name: "cupel-ci-miniflare", version: "0.0.0", private: true,
+              dependencies: { miniflare: "5.20261101.0-beta" } }, null, 2));'
+          npm install --prefix .scratch/miniflare --no-audit --no-fund
           node -e 'const fs=require("node:fs"),p=require("node:path");fs.appendFileSync(process.env.GITHUB_ENV,"CUPEL_TEST_MINIFLARE="+p.resolve(".scratch/miniflare/package.json")+"\n")'
 
       - name: Record toolchain versions

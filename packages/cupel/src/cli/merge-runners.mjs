@@ -1,6 +1,7 @@
 // K14: combine independently collected runner inputs without changing the collectors.
 import { environment } from './errors.mjs';
 import { lines, union, format } from '../engine/lines.mjs';
+import { combineRunnerMutations } from './runner-mutations.mjs';
 
 const lineUnion = (a = '', b = '') => format(union(lines(a), lines(b)));
 const collectedParts = new WeakMap();
@@ -71,7 +72,7 @@ export function mergeRunners(parts) {
   };
   const runs = parts.map(({ input }) => input.collection?.runs);
   if (runs.every((n) => Number.isInteger(n) && n === runs[0])) merged.collection = { runs: runs[0] };
-  const tests = new Set(), mutants = new Set();
+  const tests = new Set();
   for (const { name, input } of parts) {
     if (input.spec !== merged.spec || input.kind !== 'input' || !input.runtime?.name || !input.runtime?.version) {
       throw environment(`runner ${name} returned an invalid input header`);
@@ -99,15 +100,6 @@ export function mergeRunners(parts) {
     mergeNested(merged.coverage.setup, cov.setup);
     merged.coverage.rechecked.push(...(cov.rechecked ?? []));
     mergeLineMap(merged.coverage.unstable, cov.unstable);
-    if (input.mutation) {
-      merged.mutation ??= { mutants: [], targeted: [] };
-      for (const mutant of input.mutation.mutants) {
-        if (mutants.has(mutant.id)) throw environment(`duplicate mutant id across runners: ${mutant.id}`);
-        mutants.add(mutant.id);
-        merged.mutation.mutants.push(mutant);
-      }
-      merged.mutation.targeted.push(...(input.mutation.targeted ?? []));
-    }
     if (input.brittleness) (merged.brittleness ??= []).push(...input.brittleness);
     if (input.shapes) {
       merged.shapes ??= {};
@@ -115,6 +107,13 @@ export function mergeRunners(parts) {
         merged.shapes[unit] = [...new Set([...(merged.shapes[unit] ?? []), ...shape])].sort((a, b) => a - b);
       }
     }
+  }
+  // Runners that test the same source carry the same mutants: one combined row each (K14).
+  const withMutation = parts.filter(({ input }) => input.mutation);
+  if (withMutation.length) {
+    const { mutation } = combineRunnerMutations(withMutation.map(({ name, input }) => ({ name, part: input, mutation: input.mutation })));
+    merged.mutation = { mutants: mutation.mutants, targeted: mutation.targeted,
+      ...(mutation.sampled !== undefined ? { sampled: mutation.sampled } : {}), ...(mutation.seed !== undefined ? { seed: mutation.seed } : {}) };
   }
   collectedParts.set(merged, parts);
   return merged;
