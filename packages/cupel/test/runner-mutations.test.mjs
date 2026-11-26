@@ -107,3 +107,29 @@ test('confirming survivors of a merged input read from disk runs every runner th
   assert.equal(out.mutants[0].durationMs, 9, 'the measured time of the run stays');
   assert.equal(out.mutants[0].reused, undefined, 'a changed answer is not a copied one');
 });
+
+test('a catch and a timeout in different runners both credit their tests; one runner may not report a mutant twice', () => {
+  const base = { id: 'm', source: 's', line: 1, operator: 'op' };
+  const out = combineRows([{ ...base, status: 'killed', killedBy: ['a'] }, { ...base, status: 'timeout', killedBy: ['b'] }]);
+  assert.equal(out.status, 'killed');
+  assert.deepEqual(out.killedBy, ['a', 'b']);
+  assert.throws(() => combineRunnerMutations([{ name: 'node', mutation: { mutants: [{ ...base, status: 'survived' }, { ...base, status: 'killed' }] } }]), /reports mutant m twice/);
+});
+
+test('at file granularity a targeted unit sends its whole-file lines, less setup, to the other runners', () => {
+  const { a, b, path } = shared();
+  const input = mergeRunners([{ name: 'node', input: a }, { name: 'vitest', input: b }]);
+  input.coverage = { granularity: 'file', byTest: {}, byFile: { [a.tests[0].file]: { [path]: '1-6' } }, setup: { [a.tests[0].file]: { [path]: '1' } } };
+  const unit = a.tests[0].unit ?? a.tests[0].id;
+  assert.deepEqual(targetedLinesForOtherRunners(input, [unit], b), { [path]: '2-6' });
+});
+
+test('merge-mutations counts every runner of the input, also one whose slices are not given, and refuses unknown runners', () => {
+  const { a, b, path, line } = shared();
+  const base = mergeRunners([{ name: 'node', input: a }, { name: 'vitest', input: b }]);
+  const doc = (runner, row) => ({ ...structuredClone(base), mutation: { mutants: [row], targeted: [], shard: { runner, index: 1, total: 1, plan: 'p' } } });
+  const nodeOnly = mergeMutations(base, [{ name: 'node.json', doc: doc('node', { id: 'm', source: path, line, operator: 'arith', status: 'survived' }) }]);
+  assert.deepEqual(nodeOnly.mutants, [], 'Vitest covers the line but its slices are absent');
+  assert.equal(nodeOnly.sampled, true);
+  assert.throws(() => mergeMutations(base, [{ name: 'x.json', doc: doc('jest', { id: 'm', source: path, line, operator: 'arith', status: 'survived' }) }]), /runner jest: not in the collected input/);
+});

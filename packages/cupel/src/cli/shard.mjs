@@ -121,10 +121,15 @@ export function mergeMutations(base, parts) {
   const modes = new Set(parts.map(({ doc }) => doc.mutation.catches ?? 'all'));
   if (modes.size > 1) fail('some parts stopped at the first catch and others did not; run every part the same way');
   let mutants; let targeted;
-  if (perRunner.length > 1) {
-    const byName = new Map(splitRunnerInput(base).map((p) => [p.name, p.input]));
+  const baseRunners = base.runtimes?.length > 1 ? splitRunnerInput(base) : null;
+  if (baseRunners && !runners.has('*')) {
+    // Every runner of the collected input counts, also one whose slices are not given: its covering tests did not
+    // run a shared mutant, so that mutant has no complete answer (K14).
+    const known = new Set(baseRunners.map((p) => p.name));
+    for (const r of perRunner) if (!known.has(r.name)) fail(`runner ${r.name}: not in the collected input`);
+    const given = new Map(perRunner.map((r) => [r.name, r.mutation]));
     let combined;
-    try { combined = combineRunnerMutations(perRunner.map((r) => ({ ...r, part: byName.get(r.name) }))).mutation; }
+    try { combined = combineRunnerMutations(baseRunners.map((p) => ({ name: p.name, part: p.input, mutation: given.get(p.name) }))).mutation; }
     catch (error) { fail(error.message); }
     mutants = combined.mutants; targeted = combined.targeted; sampled ||= !!combined.sampled;
   } else {
