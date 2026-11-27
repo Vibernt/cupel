@@ -26,16 +26,26 @@ native preview runners. Native preview fixture evidence does not
 establish acceptance on a real repository. TypeScript support retains each
 runner's exact source, loader and transform restrictions; arbitrary JSX/TSX or
 transform configurations are not implied.
-Under node:test, `.jsx` and `.tsx` sources are listed as not measured, with
-that reason: Node runs no JSX, so no node:test test can run them (Vitest and
-Jest measure them). A source a runner cannot read is listed as not measured
+Under node:test, `.jsx` and `.tsx` run only through a loader the project sets
+up (for example `--import tsx`, `@swc-node/register`, `@babel/register`, or
+its own `module.register` / `registerHooks` hook in `runners.node.env.NODE_OPTIONS`).
+A JSX source is measured when a test loads it and every script the loader made
+from it carries an inline source map back to the unchanged file: its coverable
+lines come from the project's own `typescript`, and V8's coverage of the
+transformed script is mapped back through the map (the line rule of SPEC K1;
+see [node:test: loaders and JSX](node.md)). A JSX source no test loads, one
+loaded without a usable map, or one the project's TypeScript cannot read is
+listed as not measured, with that reason. Faults in measured JSX are served
+below the loader and carry a run proof: a fault a process loaded but never ran
+is reported as `error`, never scored. Fault testing of JSX, or with any async loader, needs Node
+22.23+ or 26; on older Node 22 it stops with an environment error. A source a runner cannot read is listed as not measured
 with its cause. Reports count not-measured sources beside the coverage
 percentage, and the audit lists them; they are never counted as uncovered.
 TypeScript declaration files (`.d.ts`, `.d.mts`, `.d.cts`) hold no code and
 are never sources. When one runner measures a source another cannot, the
-combined report uses the measuring runner's lines only when the other runner
-cannot run it at all (JSX under node:test); when the other runner's tests may
-run it unseen (a source-map failure, an unreadable file), Cupel refuses
+combined report uses the measuring runner's lines only when the other runner's
+tests never ran it (JSX no node:test test loaded); when the other runner's tests may
+run it unseen (a source-map failure, JSX loaded without a usable map, an unreadable file), Cupel refuses
 rather than report faults without those tests. A guard whose head cannot
 measure a source its base measured warns `source-unmeasured`. The
 experimental Node PR profile refuses a `.tsx` it cannot read, naming JSX as

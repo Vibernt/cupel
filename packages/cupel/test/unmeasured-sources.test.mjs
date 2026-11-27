@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { collectNode, JSX_UNMEASURED } from '../src/collect/node/index.mjs';
+import { collectNode, JSX_NO_MAP, JSX_NOT_LOADED } from '../src/collect/node/index.mjs';
 import { scanSources } from '../src/collect/vitest/sources.mjs';
 import { isDeclarationFile } from '../src/lang/js/declaration.mjs';
 import { formatReport } from '../src/cli/human.mjs';
@@ -51,7 +51,7 @@ test('node:test lists JSX as unmeasured with its reason, leaves declarations out
     const input = await collectNode({ root, config: {}, runs: 1, log: (s) => logs.push(s), diagnostics });
     assert.deepEqual(Object.keys(input.sources), ['src/bad.js', 'src/plain.jsx', 'src/price.mjs', 'src/view.tsx']);
     for (const file of ['src/plain.jsx', 'src/view.tsx'])
-      assert.deepEqual(input.sources[file], { coverable: '', hash: sha(FILES[file]), unmeasured: JSX_UNMEASURED });
+      assert.deepEqual(input.sources[file], { coverable: '', hash: sha(FILES[file]), unmeasured: JSX_NOT_LOADED });
     assert.equal(input.sources['src/price.mjs'].coverable, '1-4');
     assert.equal(input.sources['src/bad.js'].coverable, '');
     assert.match(input.sources['src/bad.js'].unmeasured, /^not read by the node:test runner: Unterminated template/);
@@ -72,7 +72,7 @@ test('node:test lists JSX as unmeasured with its reason, leaves declarations out
     assert.deepEqual(audit.report.audit.coverage.unmeasured.map((u) => u.source), ['src/bad.js', 'src/plain.jsx', 'src/view.tsx']);
     const text = formatReport('audit', audit.report, plain);
     assert.match(text, /3 of 4 lines covered \(75%\); 3 sources not measured, listed below\./);
-    assert.match(text, /- `src\/view\.tsx`: JSX is not measured by the node:test runner/);
+    assert.match(text, /- `src\/view\.tsx`: JSX not loaded by any test: node:test runs JSX only through a loader/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -80,7 +80,7 @@ test('strict collection (collect-node) accepts JSX sources: a runner limit is no
   const root = project();
   try {
     const input = await collectNode({ root, config: {}, runs: 1, strict: true });
-    assert.equal(input.sources['src/view.tsx'].unmeasured, JSX_UNMEASURED);
+    assert.equal(input.sources['src/view.tsx'].unmeasured, JSX_NOT_LOADED);
     assert.equal(input.sources['src/price.d.ts'], undefined);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -127,7 +127,7 @@ test('a source that could not be measured stays in the reuse basis: its tests ma
   assert.notEqual(basis(unmeasured), before.unmeasured, 'an unmeasured source is');
 });
 
-test('combining runners: JSX node:test cannot run takes the measuring runner\'s lines; a source run unseen is refused', async () => {
+test('combining runners: JSX no node:test test loaded takes the measuring runner\'s lines; a source run unseen is refused', async () => {
   const { mergeRunners } = await import('../src/cli/merge-runners.mjs');
   const { integrityDiagnostics } = await import('../src/engine/integrity.mjs');
   const part = (sources, test, lines) => ({
@@ -137,8 +137,8 @@ test('combining runners: JSX node:test cannot run takes the measuring runner\'s 
   });
   const both = (a, b) => [[['node', a], ['vitest', b]], [['vitest', b], ['node', a]]].map((order) => mergeRunners(order.map(([name, input]) => ({ name, input }))));
   const node = part({
-    'src/App.tsx': { coverable: '', hash: 'h1', unmeasured: JSX_UNMEASURED },
-    'src/Page.tsx': { coverable: '', hash: 'h4', unmeasured: JSX_UNMEASURED },
+    'src/App.tsx': { coverable: '', hash: 'h1', unmeasured: JSX_NOT_LOADED },
+    'src/Page.tsx': { coverable: '', hash: 'h4', unmeasured: JSX_NOT_LOADED },
     'src/lib.mjs': { coverable: '1-4', hash: 'h2' },
   }, 'tests/lib.test.mjs::x', { 'src/lib.mjs': '1-2' });
   const vitest = part({
@@ -160,6 +160,10 @@ test('combining runners: JSX node:test cannot run takes the measuring runner\'s 
   const unread = structuredClone(vitest);
   unread.sources['src/lib.mjs'] = { coverable: '', unmeasured: 'not read by the Vitest runner: EACCES' };
   assert.throws(() => mergeRunners([{ name: 'a', input: node }, { name: 'b', input: unread }]), /runs it without measuring it \(not read by the Vitest runner: EACCES\)/);
+  // JSX node:test's tests loaded through a loader but could not map: they ran it unseen, so it is refused too.
+  const loadedUnmapped = structuredClone(node);
+  loadedUnmapped.sources['src/App.tsx'] = { coverable: '', hash: 'h1', unmeasured: `${JSX_NO_MAP}: evaluated script has no inline source map` };
+  assert.throws(() => mergeRunners([{ name: 'a', input: loadedUnmapped }, { name: 'b', input: vitest }]), /measures src\/App\.tsx and another runs it without measuring it \(JSX loaded without a usable source map/);
 });
 
 test('reasons carry no machine paths and no line breaks', async () => {

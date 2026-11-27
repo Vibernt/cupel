@@ -33,8 +33,10 @@ export function testEnv(extra = {}) {
   delete env.NODE_V8_COVERAGE;
   delete env.CUPEL_MUTANT;
   delete env.CUPEL_MARKS;
+  delete env.CUPEL_JSX_HOOK;
   delete env.CUPEL_REPORT;
-  env.NODE_OPTIONS = [env.NODE_OPTIONS, `--import=${HOOK_URL}`].filter(Boolean).join(' ');
+  // First, so the hook registers before a loader the project sets up (`--import tsx`) and sits inside it.
+  env.NODE_OPTIONS = [`--import=${HOOK_URL}`, env.NODE_OPTIONS].filter(Boolean).join(' ');
   return env;
 }
 

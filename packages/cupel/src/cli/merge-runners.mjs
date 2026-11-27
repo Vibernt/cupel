@@ -2,7 +2,7 @@
 import { environment } from './errors.mjs';
 import { lines, union, format } from '../engine/lines.mjs';
 import { combineRunnerMutations } from './runner-mutations.mjs';
-import { JSX_UNMEASURED } from '../collect/skipped.mjs';
+import { JSX_NOT_LOADED } from '../collect/node/jsx-reasons.mjs';
 
 const lineUnion = (a = '', b = '') => format(union(lines(a), lines(b)));
 const collectedParts = new WeakMap();
@@ -66,15 +66,16 @@ function mergeNested(into, from) {
 /**
  * One source as several runners list it (K14, I3). Measured by all: the union of lines. Measured by none: the reason
  * that says most (a runner limit only when no runner gave another). Measured by some: the measuring runners' lines
- * only when the others cannot run the source at all (JSX under node:test); a runner whose tests may run it unseen
- * (its coverage could not be mapped, or the file could not be read) leaves no complete answer, so Cupel refuses.
+ * only when the others' tests never ran the source (JSX no node:test test process loaded); a runner whose tests may
+ * run it unseen (its coverage could not be mapped, JSX loaded without a usable map, or the file could not be read)
+ * leaves no complete answer, so Cupel refuses.
  */
 function combineSource(path, old, source) {
   const un = (entry) => entry.unmeasured !== undefined;
   if (!un(old) && !un(source)) return { ...old, coverable: lineUnion(old.coverable, source.coverable) };
-  if (un(old) && un(source)) return old.unmeasured === JSX_UNMEASURED && source.unmeasured !== JSX_UNMEASURED ? { ...source } : old;
+  if (un(old) && un(source)) return old.unmeasured === JSX_NOT_LOADED && source.unmeasured !== JSX_NOT_LOADED ? { ...source } : old;
   const missing = un(old) ? old : source;
-  if (missing.unmeasured !== JSX_UNMEASURED) {
+  if (missing.unmeasured !== JSX_NOT_LOADED) {
     throw environment(`one runner measures ${path} and another runs it without measuring it (${missing.unmeasured}); `
       + 'fault results would miss that runner\'s tests. Fix the cause, or leave the source out of one runner\'s scope');
   }

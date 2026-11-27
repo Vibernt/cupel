@@ -13,7 +13,7 @@
 import { readFileSync, realpathSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readdirSync, symlinkSync, readlinkSync, copyFileSync } from 'node:fs';
 import { skipFile } from '../collect/skipped.mjs';
 import { cpus, availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { effectiveConfig } from '../engine/config.mjs';
@@ -30,6 +30,8 @@ import { VitestMutantRunner } from './vitest.mjs';
 import { JestMutantRunner } from './jest/index.mjs';
 import { SourceFacts } from './source-facts.mjs';
 import { orderTestFiles } from './order.mjs';
+import { markedSource, pidsAfter } from './jsx-mark.mjs';
+import { projectTypeScript } from '../lang/js/project-typescript.mjs';
 
 export { EnvironmentError } from './runner.mjs';
 export { generateMutants, applyMutant, sample, OPERATORS } from './operators.mjs';
@@ -41,10 +43,12 @@ const STOP_AFTER_FILES = 2; // spike S3: a unique kill needs exactly one killing
 const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
+const JSX_SOURCE = /\.[jt]sx$/;
 // Half the cores: each mutant runs a whole test file, and real suites have test processes that peak at several GB.
 const defaultJobs = () => Math.max(1, Math.floor((typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) / 2));
 
-/** Whether a sorted interval list holds line n. */
+const readText = (file) => { try { return readFileSync(file, 'utf8'); } catch { return ''; } };
+
 /**
  * A working copy of the project for scratch-mode mutation: every file, except
  * version control, build output and Cupel's own folders; node_modules folders are
@@ -67,6 +71,7 @@ export function copyProject(root, dest) {
   return realpathSync(dest);
 }
 
+/** Whether a sorted interval list holds line n. */
 function hasLine(intervals, n) {
   let lo = 0, hi = intervals.length - 1;
   while (lo <= hi) {
@@ -154,6 +159,11 @@ class Session {
       collectorKind === 'jest' ? new JestMutantRunner(this.root, cfg, this.tmp) : null; }
     catch (error) { rmSync(this.tmp, { recursive: true, force: true }); throw error; }
     this.env = { ...(this.runner?.env ?? testEnv(cfg.runners?.node?.env ?? {})), TMPDIR: this.tmp, XDG_CACHE_HOME: this.tmp };
+    // JSX runs here only through the project's loader: its faults are served below that loader (hook-jsx.mjs) and
+    // carry a run proof. Baselines run under the same hooks, so a test the hooks break is never a catch.
+    this.jsx = !this.runner && !this.scratch && Object.entries(input.sources ?? {})
+      .some(([path, s]) => JSX_SOURCE.test(path) && s.unmeasured === undefined && s.coverable);
+    if (this.jsx) this.env.CUPEL_JSX_HOOK = '1';
     this.tests = new Map(input.tests.map((t) => [t.id, t]));
     this.passedByFile = new Map();
     for (const t of input.tests) {
@@ -230,7 +240,12 @@ class Session {
       }
       if (r.cut) return; // out of time: mutants that need this file are not run
       if (this.baselineBroken(r, file)) {
-        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
+        // Node 22 before 22.23 rejects CommonJS imports while sync and async module hooks are both registered (Cupel's
+        // mutant hook with a loader such as tsx, or with Cupel's own JSX hook): every run would fail, mutated or not.
+        const hookBug = /ERR_INVALID_RETURN_PROPERTY_VALUE/.test(r.stderr) || r.results.some((x) => x.code === 'ERR_INVALID_RETURN_PROPERTY_VALUE');
+        const hint = hookBug && /^22\./.test(process.versions.node)
+          ? `; Node ${process.versions.node} breaks CommonJS imports while sync and async module hooks are both registered (Cupel's mutant hooks, the project's loader); fixed in Node 22.23` : '';
+        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}${hint}`);
       }
       const failing = new Set(r.results.filter((x) => x.s === 'fail').map((x) => (x.suite ? `suite:${x.t}` : x.t)));
       if (failing.size) this.log(`mutate: ${file} fails unmutated (${[...failing].join(', ')}); those failures are not kills`);
@@ -286,9 +301,16 @@ class Session {
     const path = join(this.tmp, `mutant-${k}.json`);
     const sourcePath = join(this.tmp, `source-${k}`);
     const seen = join(this.tmp, `seen-${k}`);
+    let proof = null;
+    if (this.jsx && JSX_SOURCE.test(m.source)) {
+      this.ts ??= projectTypeScript(this.root);
+      if (!this.ts) throw new EnvironmentError('typescript is not resolvable from the project root, and JSX faults need it');
+      proof = { mark: `cupel-ran-${basename(this.tmp).replace(/[^A-Za-z0-9]/g, '')}-${k}`, ran: join(this.tmp, `ran-${k}`) };
+      text = markedSource(this.ts, m.source, text, { mark: proof.mark, ranPath: proof.ran });
+    }
     if (!(this.runner instanceof JestMutantRunner)) writeFileSync(sourcePath, text);
-    writeFileSync(path, JSON.stringify({ url: this.url(m.source), ...(this.runner instanceof JestMutantRunner ? {} : { sourcePath }), seen }));
-    const spec = { path, sourcePath: this.runner instanceof JestMutantRunner ? null : sourcePath, seen };
+    writeFileSync(path, JSON.stringify({ url: this.url(m.source), ...(this.runner instanceof JestMutantRunner ? {} : { sourcePath }), seen, ...(proof ? { mark: proof.mark } : {}) }));
+    const spec = { path, sourcePath: this.runner instanceof JestMutantRunner ? null : sourcePath, seen, ...(proof ?? {}) };
     this.runner?.spec(spec, text);
     return spec;
   }
@@ -350,9 +372,19 @@ class Session {
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
     const go = async (timeoutMs) => {
+      const before = spec.ran ? { seen: readText(spec.seen).length, ran: readText(spec.ran).length } : null;
       const r = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp,
         mutantSpec: spec.path, timeoutMs, stopAt: deadline, source: m.source });
-      return r.cut ? CUT : this.classify(file, r, base, covering);
+      if (r.cut) return CUT;
+      const out = this.classify(file, r, base, covering);
+      if (before) {
+        // Every process of this run that loaded the fault must have run it (jsx-mark.mjs), or nothing it did counts.
+        // A timeout or crash is re-run first (a run killed between loading and running the module proves nothing);
+        // the run that decides the result must carry the proof.
+        const ran = pidsAfter(readText(spec.ran), before.ran);
+        out.unproven = [...pidsAfter(readText(spec.seen), before.seen)].some((pid) => !ran.has(pid));
+      }
+      return out;
     };
     let out = await go(limit);
     if (out.kind === 'cut' || ((out.kind === 'timeout' || out.kind === 'crash') && performance.now() > deadline)) return CUT;
@@ -363,8 +395,11 @@ class Session {
       if (fresh.cut) return CUT;
       if (this.baselineBroken(fresh, file)) return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
       out = await go(RECHECK_FACTOR * Math.max(limit, TIMEOUT_FACTOR * fresh.wallMs));
+      if (out.kind === 'cut') return CUT;
     }
     if (out.kind === 'crash') out = await go(limit);
+    if (out.kind === 'cut') return CUT;
+    if (out.unproven) return { kind: 'unproven', killers: new Set(), ended: out.kind };
     if (out.kind === 'crash') return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
     return out;
   }
@@ -394,10 +429,16 @@ class Session {
         const out = await this.runFile(m, spec, file, sel.tests);
         if (out.kind === 'cut') return null;
         outcomes.push(out);
+        if (out.kind === 'unproven') break;
         if (out.kind === 'killed' || out.kind === 'timeout') killing++;
       }
       const kinds = new Set(outcomes.map((o) => o.kind));
       const loaded = existsSync(spec.seen);
+      if (kinds.has('unproven')) {
+        const ended = outcomes.find((o) => o.kind === 'unproven').ended;
+        this.log(`mutate: ${m.id} was loaded but never ran: the project's loader did not run the served fault (its run proof is missing; the run ended as ${ended}); reported as error`);
+        return { status: 'error', killedBy: [] };
+      }
       const status = !loaded ? 'error' : kinds.has('killed') ? 'killed' : kinds.has('timeout') ? 'timeout' : kinds.has('error') ? 'error' : 'survived';
       if (!loaded) this.log(`mutate: ${m.id} was never loaded by its tests; reported as error`);
       const killedBy = status === 'error' ? [] : sortedUnique(outcomes.filter((o) => o.kind === 'killed' || o.kind === 'timeout').flatMap((o) => [...o.killers]));
@@ -407,6 +448,7 @@ class Session {
       if (spec.path) rmSync(spec.path, { force: true });
       if (spec.sourcePath) rmSync(spec.sourcePath, { force: true });
       rmSync(spec.seen, { force: true });
+      if (spec.ran) rmSync(spec.ran, { force: true });
     }
   }
 }

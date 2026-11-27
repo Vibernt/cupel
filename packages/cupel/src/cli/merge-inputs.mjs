@@ -2,6 +2,7 @@ import { cmp } from '../engine/order.mjs';
 import { lines, union, format } from '../engine/lines.mjs';
 import { environment, usage } from './errors.mjs';
 import { canonical, digest } from './collection.mjs';
+import { JSX_NOT_LOADED } from '../collect/node/jsx-reasons.mjs';
 
 const lineUnion = (a = '', b = '') => format(union(lines(a), lines(b)));
 const same = (a, b) => canonical(a) === canonical(b);
@@ -20,11 +21,11 @@ export function mergeInputs(parts) {
     ['coverage.granularity', (x) => x.coverage.granularity], ['collection.runs', (x) => x.collection.runs],
     ['collection.config', (x) => x.collection.config], ['collection.commit', (x) => x.collection.commit],
     ['shard.total', (x) => x.collection.shard.total], ['shard.suite', (x) => x.collection.shard.suite],
-    ['sources', (x) => x.sources],
   ];
   for (const { file, input } of parts.slice(1)) for (const [field, get] of comparisons) {
     if (!same(get(first), get(input))) throw environment(`${firstFile} and ${file} differ in ${field}`);
   }
+  const { sources, dropped } = mergeSources(parts);
   const total = first.collection.shard.total;
   const indices = new Map(), files = new Map(), ids = new Map(), setup = new Map();
   for (const { file, input } of parts) {
@@ -53,7 +54,7 @@ export function mergeInputs(parts) {
   const merged = {
     spec: first.spec, kind: 'input', runtime: first.runtime,
     ...(first.runtimes ? { runtimes: first.runtimes } : {}),
-    sources: first.sources,
+    sources,
     tests: parts.flatMap(({ input }) => input.tests).sort((a, b) => cmp(a.id, b.id)),
     coverage: { granularity: first.coverage.granularity, byTest: {}, setup: {} },
     collection: { runs: first.collection.runs, ...(first.collection.config ? { config: first.collection.config } : {}),
@@ -71,6 +72,12 @@ export function mergeInputs(parts) {
     if (input.brittleness) (merged.brittleness ??= []).push(...input.brittleness);
     if (input.shapes) Object.assign(merged.shapes ??= {}, input.shapes);
   }
+  if (dropped.size) {
+    // A JSX source one shard could not map is unmeasured as a whole; another shard's lines for it are not kept.
+    const strip = (lineMap) => Object.fromEntries(Object.entries(lineMap).filter(([source]) => !dropped.has(source)));
+    for (const index of [cov.byTest, cov.setup, cov.byFile]) if (index) for (const key of Object.keys(index)) index[key] = strip(index[key]);
+    if (cov.unstable) cov.unstable = strip(cov.unstable);
+  }
   cov.byTest = sorted(cov.byTest);
   cov.setup = sorted(cov.setup);
   if (cov.byFile) cov.byFile = sorted(cov.byFile);
@@ -79,4 +86,39 @@ export function mergeInputs(parts) {
   if (merged.shapes) merged.shapes = sorted(merged.shapes);
   if (merged.brittleness) merged.brittleness.sort((a, b) => cmp(a.test, b.test) || cmp(a.kind, b.kind) || a.line - b.line || Number(a.deliberate === true) - Number(b.deliberate === true));
   return merged;
+}
+
+const JSX = /\.[jt]sx$/;
+
+/**
+ * Shards agree on every source, except a JSX source under node:test, which a shard measures only when its own tests
+ * load it (K2): with the same hash, an entry a shard loaded but could not measure wins (its reason, the least by
+ * text when shards differ), then a measured entry (shards that measured it must agree), then "not loaded".
+ * Returns the merged sources and the JSX sources whose lines some shard had but the merge leaves unmeasured.
+ */
+function mergeSources(parts) {
+  const [{ file: firstFile, input: first }] = parts;
+  const paths = Object.keys(first.sources);
+  const names = (k) => `${firstFile} and ${parts[k].file}`;
+  for (const { file, input } of parts.slice(1)) {
+    if (!same(Object.keys(input.sources), paths)) throw environment(`${firstFile} and ${file} differ in sources`);
+  }
+  const sources = {};
+  const dropped = new Set();
+  for (const path of paths) {
+    const entries = parts.map(({ input }) => input.sources[path]);
+    if (entries.every((entry) => same(entry, entries[0]))) { sources[path] = entries[0]; continue; }
+    const differ = () => environment(`${names(entries.findIndex((entry) => !same(entry, entries[0])))} differ in sources: ${path}`);
+    if (!JSX.test(path) || entries.some((entry) => entry.hash === undefined || entry.hash !== entries[0].hash)) throw differ();
+    const notLoaded = entries.filter((entry) => entry.unmeasured === JSX_NOT_LOADED && entry.coverable === '');
+    const unusable = entries.filter((entry) => entry.unmeasured !== undefined && !notLoaded.includes(entry));
+    const measured = entries.filter((entry) => entry.unmeasured === undefined);
+    if (measured.some((entry) => !same(entry, measured[0]))) throw differ();
+    if (unusable.some((entry) => entry.coverable !== '')) throw differ();
+    if (unusable.length) {
+      sources[path] = [...unusable].sort((a, b) => cmp(a.unmeasured, b.unmeasured))[0];
+      if (measured.length) dropped.add(path);
+    } else sources[path] = measured[0];
+  }
+  return { sources, dropped };
 }

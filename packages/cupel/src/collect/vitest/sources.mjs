@@ -67,6 +67,14 @@ export function scanSources(root, scope, log = () => {}, diagnostics = [], unmea
   return sources;
 }
 
+// A script object's decoded source map, kept while the caller keeps the object (one decode per script, not per call).
+const decodedMaps = new WeakMap();
+const mapOf = (script) => {
+  let map = decodedMaps.get(script);
+  if (!map) { map = inlineSourceMap(script.source); decodedMaps.set(script, map); }
+  return map;
+};
+
 /** A null line set means a matching file could not be mapped and must be omitted. */
 export function sourceMapLines(root, script, intervals, sources, log, diagnostics = []) {
   const url = script.url.replace(/[?#].*$/, '');
@@ -81,7 +89,7 @@ export function sourceMapLines(root, script, intervals, sources, log, diagnostic
     catch (error) { skipFile(diagnostics, log, 'mapping', rel, error); return [rel, null]; }
   }
   try {
-    const map = inlineSourceMap(script.source);
+    const map = mapOf(script);
     let index = -1;
     for (let i = 0; i < map.sources.length; i++) {
       const entry = map.sources[i];

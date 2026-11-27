@@ -26,7 +26,7 @@ in the release records, newest first: [0.5.0](../plans/results/2026-11-25-0.5.0-
 
 ## Runners
 
-- Core: [Jest](jest.md), [Vitest](vitest.md), [Python/pytest](python.md); `node:test` uses the [CLI](cli.md) and [config](extending/config.md).
+- Core: [Jest](jest.md), [Vitest](vitest.md), [Python/pytest](python.md); `node:test` uses the [CLI](cli.md) and [config](extending/config.md); [loaders and JSX](node.md).
 - Bounded previews: [Go](go.md), [Ruby/Minitest](ruby.md), [Rust/Cargo](rust.md). Each page retains its exact restrictions.
 - Preview: [Worker code in workerd](workerd.md), per-test coverage of Worker code that node:test tests run in workerd.
 

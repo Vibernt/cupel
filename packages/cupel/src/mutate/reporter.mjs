@@ -1,6 +1,6 @@
 // A node:test reporter for mutant runs (spike S3): one JSON line per finished test or failed suite, written
 // synchronously to the file named by CUPEL_REPORT (never to standard output, where the tests' own output goes).
-//   {"s":"pass"|"fail"|"skip","t":"suite > test"}          a test
+//   {"s":"pass"|"fail"|"skip","t":"suite > test"}          a test (a failure may add "code", the error's code)
 //   {"s":"fail","t":"suite","suite":true}                  a suite that failed (its body or a hook threw)
 // Use with --test-isolation=none and one file per run, so names are the file's own test names. A file that fails to
 // load is reported by node:test as a failing test named after the file.
@@ -27,7 +27,10 @@ export default async function* reporter(source) {
     } else if (d.todo !== undefined && d.todo !== false) {
       line = { s: 'skip', t };
     } else if (event.type === 'test:fail') {
-      line = { s: 'fail', t };
+      // The error code, when there is one (a file that failed to load says why); only diagnostics read it.
+      const error = d.details?.error;
+      const code = error?.cause?.code ?? error?.code;
+      line = { s: 'fail', t, ...(typeof code === 'string' && code !== 'ERR_TEST_FAILURE' ? { code } : {}) };
     } else {
       line = { s: d.skip !== undefined && d.skip !== false ? 'skip' : 'pass', t };
     }

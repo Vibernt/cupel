@@ -30,7 +30,7 @@ test is worth. It never changes your tests or code and sends nothing off your ma
 
 | Language | Support | Guide |
 | --- | --- | --- |
-| JavaScript and TypeScript (node:test, Vitest, Jest) | Core | [Vitest](../vitest.md), [Jest](../jest.md), [CLI](../cli.md) |
+| JavaScript and TypeScript (node:test, Vitest, Jest) | Core | [node:test loaders and JSX](../node.md), [Vitest](../vitest.md), [Jest](../jest.md), [CLI](../cli.md) |
 | Python (pytest) | Core | [Python](../python.md) |
 | Rust (Cargo) | Preview | [Rust](../rust.md) |
 | Go | Preview | [Go](../go.md) |
