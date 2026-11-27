@@ -1,0 +1,11 @@
+{
+  "description": "A source measured at base that head could not measure counts its covered lines as lost, with a warning naming it and the reason.",
+  "command": "guard",
+  "rules": [
+    {
+      "id": "G4",
+      "polarity": "negative"
+    }
+  ],
+  "expectExit": 1
+}

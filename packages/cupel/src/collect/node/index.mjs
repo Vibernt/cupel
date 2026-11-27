@@ -36,7 +36,7 @@ import { analyse, coveredLines, formatLines, unionLines } from './lines.mjs';
 import { positiveIntervals, unionIntervals } from './intervals.mjs';
 import { analyseTestFile, patternFindings } from './testfile.mjs';
 import { collectorError } from '../error-detail.mjs';
-import { skipFile } from '../skipped.mjs';
+import { causeText, skipFile } from '../skipped.mjs';
 import { readWorkerJson } from '../read-json.mjs';
 import { foldRuns, unstableObject } from '../coverage-runs.mjs';
 
@@ -126,10 +126,8 @@ function scanSources(root, scope, testFiles, log, diagnostics) {
       if (JSX_SOURCE.test(rel)) { unmeasured.set(rel, { hash, reason: JSX_UNMEASURED }); continue; }
       measured.set(rel, { an: analyse(buf.toString('utf8'), { strict: true }), hash });
     } catch (error) {
-      const before = diagnostics.length;
       skipFile(diagnostics, log, 'Node', rel, error);
-      const cause = diagnostics.length > before ? diagnostics.at(-1).cause : String(error?.message ?? error);
-      unmeasured.set(rel, { ...(hash ? { hash } : {}), reason: `not read by the node:test runner: ${cause}` });
+      unmeasured.set(rel, { ...(hash ? { hash } : {}), reason: `not read by the node:test runner: ${causeText(error)}` });
     }
   }
   const jsx = [...unmeasured].filter(([, u]) => u.reason === JSX_UNMEASURED).map(([rel]) => rel);

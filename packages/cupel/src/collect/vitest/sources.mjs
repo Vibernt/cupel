@@ -7,7 +7,7 @@ import { analyse, coveredLines } from '../node/lines.mjs';
 import { isDeclarationFile } from '../../lang/js/declaration.mjs';
 import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
 import { classifyTypeScript } from '../../lang/js/classify-typescript.mjs';
-import { skipFile } from '../skipped.mjs';
+import { causeText, skipFile } from '../skipped.mjs';
 import { inlineSourceMap, mappedLines } from './sourcemap.mjs';
 
 export const posix = (p) => p.split(sep).join('/');
@@ -61,7 +61,7 @@ export function scanSources(root, scope, log = () => {}, diagnostics = [], unmea
       sources.set(file, { text, an, hash });
     } catch (error) {
       skipFile(diagnostics, log, 'Vitest', file, error);
-      unmeasured?.set(file, { ...(hash ? { hash } : {}), reason: `not read by the Vitest runner: ${String(error?.message ?? error).replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ')}` });
+      unmeasured?.set(file, { ...(hash ? { hash } : {}), reason: `not read by the Vitest runner: ${causeText(error)}` });
     }
   }
   return sources;

@@ -81,8 +81,12 @@ export function mergeRunners(parts) {
     merged.runtimes.push({ runner: name, ...input.runtime });
     for (const [path, source] of Object.entries(input.sources ?? {})) {
       const old = merged.sources[path];
-      if (old && old.hash !== source.hash) throw environment(`runners disagree on source hash: ${path}`);
-      merged.sources[path] = old ? { ...old, coverable: lineUnion(old.coverable, source.coverable) } : { ...source };
+      if (old && old.hash !== undefined && source.hash !== undefined && old.hash !== source.hash) throw environment(`runners disagree on source hash: ${path}`);
+      // A source one runner measured keeps that runner's lines; one no runner measured keeps the first reason (I3).
+      merged.sources[path] = !old ? { ...source }
+        : source.unmeasured !== undefined ? old
+        : old.unmeasured !== undefined ? { ...source }
+        : { ...old, coverable: lineUnion(old.coverable, source.coverable) };
     }
     for (const test of input.tests ?? []) {
       if (tests.has(test.id)) throw environment(`duplicate test id across runners: ${test.id}`);

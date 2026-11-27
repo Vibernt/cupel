@@ -110,3 +110,65 @@ test('Vitest and Jest source scan: declarations are not sources; unreadable file
     assert.deepEqual(diagnostics.map((d) => d.file).sort(), ['src/bad.js', 'src/plain.jsx', 'src/view.tsx']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+// Review findings on the first version of this change.
+
+test('a source that could not be measured stays in the reuse basis: its tests may run it unseen', async (t) => {
+  const { ReuseBasis } = await import('../src/mutate/reuse.mjs');
+  const { makeProject } = await import('./mutate-helpers.mjs');
+  const p = makeProject({});
+  t.after(p.cleanup);
+  const row = { id: 'src/calc.mjs:2:9:cmp:abc', source: 'src/calc.mjs', line: 2, operator: 'cmp', status: 'killed' };
+  const basis = (input) => new ReuseBasis({ root: p.root, input, cfg: {}, env: {} }).of(row);
+  const unmeasured = { ...p.input, sources: { ...p.input.sources, 'src/guard.mjs': { coverable: '', hash: p.input.sources['src/guard.mjs'].hash, unmeasured: 'not read' } } };
+  const before = { measured: basis(p.input), unmeasured: basis(unmeasured) };
+  writeFileSync(join(p.root, 'src/guard.mjs'), `${readFileSync(join(p.root, 'src/guard.mjs'), 'utf8')}// edit\n`);
+  assert.equal(basis(p.input), before.measured, 'a measured source no selected test covers is not read');
+  assert.notEqual(basis(unmeasured), before.unmeasured, 'an unmeasured source is');
+});
+
+test('combining runners keeps the lines of the runner that measured a source', async () => {
+  const { mergeRunners } = await import('../src/cli/merge-runners.mjs');
+  const { integrityDiagnostics } = await import('../src/engine/integrity.mjs');
+  const part = (runner, sources, test, lines) => ({
+    spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'node', version: '26.7.0' }, sources,
+    tests: [{ id: test, file: test.split('::')[0], name: 'x', status: 'passed' }],
+    coverage: { granularity: 'test', byTest: lines ? { [test]: lines } : {}, setup: {} },
+  });
+  const node = part('node', {
+    'src/App.tsx': { coverable: '', hash: 'h1', unmeasured: JSX_UNMEASURED },
+    'src/lib.mjs': { coverable: '1-4', hash: 'h2' },
+    'src/gone.mjs': { coverable: '', unmeasured: 'not read by the node:test runner: EACCES' },
+  }, 'tests/lib.test.mjs::x', { 'src/lib.mjs': '1-2' });
+  const vitest = part('vitest', {
+    'src/App.tsx': { coverable: '1-3', hash: 'h1' },
+    'src/lib.mjs': { coverable: '', hash: 'h2', unmeasured: 'its coverage could not be mapped back' },
+    'src/gone.mjs': { coverable: '', hash: 'h3', unmeasured: 'not read by the Vitest runner: EACCES' },
+  }, 'tests/App.test.tsx::x', { 'src/App.tsx': '1-3' });
+  for (const order of [[['node', node], ['vitest', vitest]], [['vitest', vitest], ['node', node]]]) {
+    const merged = mergeRunners(order.map(([name, input]) => ({ name, input })));
+    assert.deepEqual(merged.sources['src/App.tsx'], { coverable: '1-3', hash: 'h1' });
+    assert.deepEqual(merged.sources['src/lib.mjs'], { coverable: '1-4', hash: 'h2' });
+    assert.equal(merged.sources['src/gone.mjs'].coverable, '');
+    assert.match(merged.sources['src/gone.mjs'].unmeasured, /EACCES$/);
+    assert.deepEqual(integrityDiagnostics(merged), []);
+  }
+});
+
+test('reasons carry no machine paths and no line breaks', async () => {
+  const { causeText } = await import('../src/collect/skipped.mjs');
+  const denied = Object.assign(new Error("EACCES: permission denied, open '/home/me/project/src/x.mjs'"), { code: 'EACCES' });
+  assert.equal(causeText(denied), 'EACCES');
+  assert.equal(causeText(new Error('Unterminated regex\nat offset 3')), 'Unterminated regex at offset 3');
+});
+
+test('the experimental Node PR profile refuses JSX instead of misreading or dropping it', async () => {
+  const { profileSources } = await import('../src/pr/profiles/node/input-lines.mjs');
+  const root = project();
+  try {
+    const manifest = Object.fromEntries(Object.keys(FILES).map((f) => [f, sha(FILES[f])]));
+    assert.throws(() => profileSources(root, manifest, new Set(['tests/price.test.mjs'])), /cannot measure JSX source: src\/plain\.jsx/);
+    const plainOnly = Object.fromEntries(Object.entries(manifest).filter(([f]) => !/\.[jt]sx$/.test(f)));
+    assert.deepEqual([...profileSources(root, plainOnly, new Set(['tests/price.test.mjs'])).keys()], ['src/price.mjs']);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

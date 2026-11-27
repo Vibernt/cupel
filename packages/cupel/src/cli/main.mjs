@@ -437,7 +437,7 @@ const commands = {
       mutation = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind });
       const measured = { ...part, mutation };
       const sites = part.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg: partCfg, input: measured }) :
-      Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
+      Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source) && part.sources[source].unmeasured === undefined).sort(cmp)
         .flatMap((source) => {
           const found = sourceMutants(ctx.root, source, readFileSync(join(ctx.root, source), 'utf8'), undefined, true);
           if (found === null) throw environment(`body sites cannot parse ${source}: TypeScript is not resolvable`);

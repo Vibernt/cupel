@@ -233,7 +233,9 @@ export class ReuseBasis {
     for (const index of this.fileIndexes) for (const file of files) for (const source of Object.keys(index[file] ?? {})) sourcesRun.add(source);
     const h = createHash('sha256');
     for (const [path, hash] of this.hashes) {
-      if (!allSources && Object.hasOwn(this.input.sources ?? {}, path) && !sourcesRun.has(path)) continue;
+      // A source no selected test covers cannot change the result, unless it could not be measured: then tests may
+      // run it unseen, so its bytes stay in the basis.
+      if (!allSources && Object.hasOwn(this.input.sources ?? {}, path) && this.input.sources[path].unmeasured === undefined && !sourcesRun.has(path)) continue;
       if (this.testFiles.has(path) && !ran.has(path)) continue;
       if (this.ignore.length && anyGlobMatches(this.ignore, path)) continue;
       h.update(`${path}\0${hash}\n`);
