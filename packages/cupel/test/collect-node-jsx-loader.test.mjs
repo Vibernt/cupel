@@ -19,7 +19,7 @@ import { mergeInputs } from '../src/cli/merge-inputs.mjs';
 import { mutateNode } from '../src/mutate/index.mjs';
 import { applyMutant } from '../src/mutate/operators.mjs';
 import { sourceMutants } from '../src/mutate/sites.mjs';
-import { markedSource, pidsAfter } from '../src/mutate/jsx-mark.mjs';
+import { eventsAfter, markedSource } from '../src/mutate/jsx-mark.mjs';
 import { projectTypeScript, scanJsx } from '../src/lang/js/project-typescript.mjs';
 import { formatLines } from '../src/collect/node/lines.mjs';
 import { validate } from '../src/engine/schema.mjs';
@@ -38,17 +38,18 @@ const noTypeScript = existsSync(join(TYPESCRIPT, 'package.json')) ? false : `no 
 const noTsx = TSX_MODULES && existsSync(join(TSX_MODULES, 'tsx/package.json')) && existsSync(join(TSX_MODULES, 'typescript/package.json'))
   ? false : 'set CUPEL_TEST_TSX to a node_modules folder with tsx and typescript';
 
-// The loader: JSX through typescript's transpileModule, with an inline map unless the file name says `nomap`.
-// FIXTURE_LOADER=sync uses registerHooks; =own-read reads the file itself instead of the text it is handed.
+// The loader: JSX and TypeScript through typescript's transpileModule, with an inline map unless the file name says
+// `nomap`. FIXTURE_LOADER=sync uses registerHooks; =own-read reads the file itself instead of the text it is handed;
+// =tsx-like adds, as tsx does, a CommonJS handler for .tsx that reads the file itself.
 const LOADER = {
   'loader/transform.mjs': `import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 const ts = createRequire(import.meta.url)('typescript');
-export const isJsx = (url) => /\\.[jt]sx$/.test(url.split('?')[0]);
-export function transform(url, source) {
+export const isJsx = (url) => /\\.(?:[jt]sx|ts)$/.test(url.split('?')[0]);
+export function transform(url, source, kind = 'esm') {
   const fileName = fileURLToPath(url);
   const map = !fileName.includes('nomap');
-  return ts.transpileModule(source, { fileName, compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022,
+  return ts.transpileModule(source, { fileName, compilerOptions: { module: kind === 'cjs' ? ts.ModuleKind.CommonJS : ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022,
     jsx: ts.JsxEmit.React, jsxFactory: 'h', inlineSourceMap: map, inlineSources: map } }).outputText;
 }
 export const text = (source) => typeof source === 'string' ? source : new TextDecoder().decode(source);
@@ -63,8 +64,15 @@ export async function load(url, context, nextLoad) {
   return { format: 'module', source: transform(url, source), shortCircuit: true };
 }
 `,
-  'loader/register.mjs': `import { register, registerHooks } from 'node:module';
+  'loader/register.mjs': `import Module, { register, registerHooks } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { isJsx, text, transform } from './transform.mjs';
+if (process.env.FIXTURE_LOADER === 'tsx-like') {
+  Module._extensions['.tsx'] = function (mod, filename) {
+    mod._compile(transform(pathToFileURL(filename).href, readFileSync(filename, 'utf8'), 'cjs'), filename);
+  };
+}
 if (process.env.FIXTURE_LOADER === 'sync') {
   registerHooks({ load(url, context, next) {
     if (!isJsx(url)) return next(url, context);
@@ -128,6 +136,13 @@ const plainEnv = (extra) => {
   return env;
 };
 
+/** Fault testing with a loader in play: on Node 22 before 22.23 it must be refused (null), elsewhere it runs. */
+async function mutateWithLoader(args) {
+  if (!HOOK_BUG) return mutateNode(args);
+  await assert.rejects(mutateNode(args), /fault testing needs Node 22\.23 or later/);
+  return null;
+}
+
 const configFor = (root, loader = 'async') => ({
   runners: { node: { tests: 'tests/**/*.test.mjs', env: { NODE_OPTIONS: `--import=${pathToFileURL(join(root, 'loader/register.mjs')).href}`, FIXTURE_LOADER: loader } } },
 });
@@ -148,8 +163,15 @@ test('a source mark goes after directives and leading comments, and moves no lin
     assert.ok(out.includes('"cupel-ran-x-1 "+globalThis.process.pid'), out);
     assert.equal(ts.createSourceFile('x.tsx', out, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX).parseDiagnostics.length, 0);
   }
-  assert.deepEqual([...pidsAfter('12\nmark 34\n', 0)], ['12', '34']);
-  assert.deepEqual([...pidsAfter('12\nmark 34\n', 3)], ['34']);
+  const events = eventsAfter('L 12\nL 12\nmark 12\nU 34\n', 0);
+  assert.deepEqual([...events.get('L')], [['12', 2]]);
+  assert.deepEqual([...events.get('mark')], [['12', 1]]);
+  assert.deepEqual([...eventsAfter('L 12\nU 34\n', 5).keys()], ['U']);
+  // Plain JavaScript and TypeScript without the project's typescript: the shared lexer finds the place.
+  assert.equal(markedSource(null, 'a.mjs', "'use strict';\nexport const a = 1;\n", opts).startsWith("'use strict';try{"), true);
+  assert.equal(markedSource(null, 'a.ts', '// c\nexport const a: number = 1;\n', opts).startsWith('// c\ntry{'), true);
+  assert.equal(markedSource(null, 'a.cjs', '"use strict"\nmodule.exports = 1;\n', opts).startsWith('"use strict";try{'), true);
+  assert.equal(markedSource(null, 'a.mjs', "'x'.length;\n", opts).startsWith("try{"), true);
 });
 
 for (const loader of ['async', 'sync']) {
@@ -225,7 +247,8 @@ for (const loader of ['async', 'sync']) {
       const input = await collectNode({ root, config, runs: 1, strict: true });
       assert.deepEqual(input.tests.map((t) => t.status), ['passed', 'passed', 'passed', 'passed']);
       const logs = [];
-      const mutation = await mutateNode({ root, config, input, scope: { changed: { 'src/view.tsx': '', 'src/badge.jsx': '' } }, log: (s) => logs.push(s), jobs: 2 });
+      const mutation = await mutateWithLoader({ root, config, input, scope: { changed: { 'src/view.tsx': '', 'src/badge.jsx': '' } }, log: (s) => logs.push(s), jobs: 2 });
+      if (!mutation) return;
       const statuses = new Map(mutation.mutants.map((m) => [m.id, m.status]));
       assert.ok([...statuses.values()].includes('killed'), logs.join('\n'));
       assert.ok([...statuses.values()].includes('survived'), logs.join('\n'));
@@ -251,11 +274,12 @@ test('a loader that ignores the text it is handed never runs the fault: refused,
     const input = await collectNode({ root, config: configFor(root, 'async'), runs: 1, strict: true });
     assert.equal(input.sources['src/view.tsx'].unmeasured, undefined);
     const logs = [];
-    const mutation = await mutateNode({ root, config: configFor(root, 'own-read'), input, scope: { changed: { 'src/view.tsx': '' } }, log: (s) => logs.push(s), jobs: 2 });
+    const mutation = await mutateWithLoader({ root, config: configFor(root, 'own-read'), input, scope: { changed: { 'src/view.tsx': '' } }, log: (s) => logs.push(s), jobs: 2 });
+    if (!mutation) return;
     const ran = mutation.mutants.filter((m) => m.status !== 'no-coverage');
     assert.ok(ran.length > 0);
     for (const m of ran) assert.equal(m.status, 'error', `${m.id}: ${m.status}`);
-    assert.ok(logs.some((l) => l.includes('was loaded but never ran')), logs.join('\n'));
+    assert.ok(logs.some((l) => l.includes('was loaded but never shown to run')), logs.join('\n'));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -313,7 +337,7 @@ test('a loader that breaks CommonJS imports under the mutant hooks breaks the un
     const input = await collectNode({ root, config, runs: 1, strict: true });
     assert.equal(input.tests[0].status, 'passed');
     const run = mutateNode({ root, config, input, scope: { changed: { 'src/label.mjs': '' } }, jobs: 2 });
-    if (HOOK_BUG) return void await assert.rejects(run, /the unmutated run of tests\/label\.test\.mjs did not complete.*fixed in Node 22\.23/);
+    if (HOOK_BUG) return void await assert.rejects(run, /the unmutated run of tests\/label\.test\.mjs failed: fault testing needs Node 22\.23 or later/);
     const mutation = await run;
     const boundary = mutation.mutants.find((m) => m.line === 2 && m.operator === 'boundary');
     assert.equal(boundary.status, 'survived', 'n >= 1 still gives "many" for 2');
@@ -397,5 +421,185 @@ test('shards that load different JSX merge: measured beats not loaded; an unusab
     const changed = structuredClone(shards[1]);
     changed.input.sources['src/price.mjs'].coverable = '1';
     assert.throws(() => mergeInputs([shards[0], changed]), /differ in sources: src\/price\.mjs/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// Review findings on fd3b446. Every killed or survived fault is checked against a full run of the mutated file.
+
+/** The project's tests on a copy whose `source` holds `text`: 'killed' when they fail, else 'survived'. */
+function fullRunOf(root, source, text, args, env) {
+  const copy = mkdtempSync(join(repo, '.scratch/jsx-review-full-'));
+  try {
+    cpSync(root, copy, { recursive: true, verbatimSymlinks: true, filter: (from) => !from.slice(root.length).includes('/.scratch') });
+    writeFileSync(join(copy, source), text);
+    const r = spawnSync(process.execPath, args, { cwd: copy, encoding: 'utf8', env: plainEnv(env(copy)) });
+    return r.status === 0 ? 'survived' : 'killed';
+  } finally { rmSync(copy, { recursive: true, force: true }); }
+}
+
+/** Asserts no fault is scored differently from a full run; returns the statuses by id. */
+function agreeWithFullRuns(root, mutation, args, env) {
+  const statuses = new Map(mutation.mutants.map((m) => [m.id, m.status]));
+  const ts = projectTypeScript(root);
+  for (const source of new Set(mutation.mutants.map((m) => m.source))) {
+    const text = readFileSync(join(root, source), 'utf8');
+    for (const m of sourceMutants(root, source, text, ts)) {
+      const status = statuses.get(m.id);
+      if (status !== 'killed' && status !== 'survived') continue;
+      assert.equal(fullRunOf(root, source, applyMutant(text, m), args, env), status, `${m.id} (${m.operator} on line ${m.line})`);
+    }
+  }
+  return statuses;
+}
+
+const loaderEnv = (loader) => (dir) => ({ NODE_OPTIONS: `--import=${pathToFileURL(join(dir, 'loader/register.mjs')).href}`, FIXTURE_LOADER: loader });
+const LABEL_TSX = "const h = (tag: string, props: object | null, ...children: unknown[]) => ({ tag, props, children });\nexport function label(n: number): string {\n  if (n > 1) return 'many';\n  return 'one';\n}\nexport const View = ({ n }: { n: number }) => <p>{label(n)}</p>;\n";
+
+for (const layout of ['two files', 'one process']) {
+  test(`finding 1 (${layout}): a loader that reads the file itself for require() never gets a fault scored`, { skip: noTypeScript || (HOOK_BUG && 'Node 22 before 22.23 refuses loaders') }, async () => {
+    // ESM import goes through the hooks; tsx-like require() reads view.tsx from disk and runs the original.
+    const tests = layout === 'two files' ? {
+      'tests/a.test.mjs': "import test from 'node:test';\nimport { label } from '../src/view.tsx';\ntest('a', () => { label(2); label(1); });\n",
+      'tests/b.test.cjs': "const test = require('node:test');\nconst assert = require('node:assert/strict');\nconst { label } = require('../src/view.tsx');\ntest('b', () => { assert.equal(label(2), 'many'); assert.equal(label(1), 'one'); });\n",
+    } : {
+      'tests/a.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { createRequire } from 'node:module';\nimport { label } from '../src/view.tsx';\nconst cjs = createRequire(import.meta.url)('../src/view.tsx');\ntest('a', () => { label(2); assert.equal(cjs.label(2), 'many'); assert.equal(cjs.label(1), 'one'); });\n",
+    };
+    const root = project({ ...LOADER, 'package.json': '{"private":true,"type":"module"}\n', 'src/view.tsx': LABEL_TSX, ...tests });
+    try {
+      const config = { runners: { node: { tests: 'tests/**/*.test.*', env: loaderEnv('tsx-like')(root) } } };
+      const input = await collectNode({ root, config, runs: 1, strict: true });
+      assert.equal(input.sources['src/view.tsx'].unmeasured, undefined);
+      const logs = [];
+      const mutation = await mutateNode({ root, config, input, scope: { changed: { 'src/view.tsx': '' } }, log: (s) => logs.push(s), jobs: 2 });
+      const statuses = agreeWithFullRuns(root, mutation, ['--test', ...Object.keys(tests)], loaderEnv('tsx-like'));
+      assert.ok([...statuses.values()].includes('error'), logs.join('\n'));
+      assert.ok(![...statuses.values()].includes('survived'), 'the full run kills every fault on line 3');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
+test('finding 1 with tsx: ESM import plus CommonJS require never scores a fault the full run disagrees with', { skip: noTsx }, async () => {
+  const root = project({
+    'package.json': '{"private":true,"type":"module"}\n', 'tsconfig.json': '{"compilerOptions":{"jsx":"react","jsxFactory":"h"}}\n',
+    'src/view.tsx': LABEL_TSX,
+    'tests/a.test.mjs': "import test from 'node:test';\nimport { label } from '../src/view.tsx';\ntest('a', () => { label(2); label(1); });\n",
+    'tests/b.test.cjs': "const test = require('node:test');\nconst assert = require('node:assert/strict');\nconst { label } = require('../src/view.tsx');\ntest('b', () => { assert.equal(label(2), 'many'); assert.equal(label(1), 'one'); });\n",
+  }, { tsx: join(TSX_MODULES, 'tsx'), typescript: join(TSX_MODULES, 'typescript') });
+  try {
+    const config = { runners: { node: { tests: 'tests/**/*.test.*', env: { NODE_OPTIONS: '--import tsx' } } } };
+    const input = await collectNode({ root, config, runs: 1, strict: true });
+    const run = mutateNode({ root, config, input, scope: { changed: { 'src/view.tsx': '' } }, jobs: 2 });
+    if (HOOK_BUG) return void await assert.rejects(run, /fixed in Node 22\.23/);
+    const statuses = agreeWithFullRuns(root, await run, ['--import', 'tsx', '--test', 'tests/a.test.mjs', 'tests/b.test.cjs'], () => ({}));
+    assert.ok(![...statuses.values()].includes('survived'));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('finding 2: on Node 22 before 22.23 a loader refuses fault testing even when only a test body breaks', async () => {
+  const root = project({
+    'package.json': '{"private":true,"type":"module"}\n',
+    'loader/register.mjs': "import { register } from 'node:module';\nregister('./hooks.mjs', import.meta.url);\n",
+    'loader/hooks.mjs': 'export async function load(url, context, nextLoad) { return nextLoad(url, context); }\n',
+    'src/label.mjs': "export function label(n) {\n  if (n > 1) return 'many';\n  return 'one';\n}\n",
+    'tests/label.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { label } from '../src/label.mjs';\ntest('smoke', () => { label(2); });\ntest('many', async () => { const { two } = await import('cjsdep'); assert.equal(label(two), 'many'); assert.equal(label(1), 'one'); });\n",
+    'node_modules/cjsdep/package.json': '{"name":"cjsdep","main":"index.js"}\n',
+    'node_modules/cjsdep/index.js': 'exports.two = 2;\n',
+  }, {});
+  try {
+    const env = (dir) => ({ NODE_OPTIONS: `--import=${pathToFileURL(join(dir, 'loader/register.mjs')).href}` });
+    const config = { runners: { node: { tests: 'tests/**/*.test.mjs', env: env(root) } } };
+    const input = await collectNode({ root, config, runs: 1, strict: true });
+    const run = mutateNode({ root, config, input, scope: { changed: { 'src/label.mjs': '' } }, jobs: 2 });
+    if (HOOK_BUG) return void await assert.rejects(run, /tests run with a loader \([^)]*\bregister\b[^)]*\): fault testing needs Node 22\.23 or later/);
+    const statuses = agreeWithFullRuns(root, await run, ['--test', 'tests/label.test.mjs'], env);
+    assert.equal([...statuses.values()].filter((s) => s === 'killed').length, statuses.size, 'label(1) and label(2) both asserted');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('findings 3 and 4: without a project loader no async hook and no warning reach the tests, even with --throw-deprecation', async () => {
+  const root = project({
+    'package.json': '{"private":true,"type":"module"}\n',
+    'src/label.mjs': "export function label(n) {\n  if (n > 1) return 'many';\n  return 'one';\n}\n",
+    // A child's stderr must stay empty, as it is outside Cupel.
+    'tests/label.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { spawnSync } from 'node:child_process';\nimport { label } from '../src/label.mjs';\ntest('quiet', () => { assert.equal(spawnSync(process.execPath, ['-e', '0'], { encoding: 'utf8' }).stderr, ''); assert.equal(label(2), 'many'); assert.equal(label(1), 'one'); });\n",
+  }, {});
+  try {
+    const env = () => ({ NODE_OPTIONS: '--throw-deprecation' });
+    const config = { runners: { node: { tests: 'tests/**/*.test.mjs', env: env() } } };
+    const input = await collectNode({ root, config, runs: 1, strict: true });
+    // As a runner merge gives the node part: a JSX source another runner measured, which node's tests never load.
+    input.sources['src/App.tsx'] = { coverable: '1-3', hash: `sha256:${'0'.repeat(64)}` };
+    const logs = [];
+    const mutation = await mutateNode({ root, config, input, scope: { changed: { 'src/label.mjs': '' } }, log: (s) => logs.push(s), jobs: 2 });
+    assert.ok(!logs.some((l) => l.includes('fails unmutated')), logs.join('\n'));
+    const statuses = agreeWithFullRuns(root, mutation, ['--test', 'tests/label.test.mjs'], env);
+    assert.equal([...statuses.values()].filter((s) => s === 'killed').length, statuses.size);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('finding 5: JSX only a child process may load is not "not loaded", so a runner merge refuses it; its re-check keeps shared coverage', { skip: noTypeScript }, async () => {
+  const { mergeRunners } = await import('../src/cli/merge-runners.mjs');
+  const { JSX_IN_CHILD } = await import('../src/collect/node/index.mjs');
+  const root = project({
+    ...LOADER, 'package.json': '{"private":true,"type":"module"}\n', 'src/view.tsx': LABEL_TSX,
+    'tests/child.mjs': "import { label } from '../src/view.tsx';\nif (label(2) !== 'many') process.exit(1);\n",
+    'tests/view.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { spawnSync } from 'node:child_process';\nimport { fileURLToPath } from 'node:url';\ntest('child', () => { assert.equal(spawnSync(process.execPath, [fileURLToPath(new URL('./child.mjs', import.meta.url))]).status, 0); });\n",
+  });
+  try {
+    const config = configFor(root);
+    const logs = [];
+    const input = await collectNode({ root, config, runs: 1, strict: true, recheck: ['tests/view.test.mjs::child'], log: (s) => logs.push(s) });
+    assert.equal(input.sources['src/view.tsx'].unmeasured, JSX_IN_CHILD);
+    assert.equal(input.coverage.rechecked, undefined);
+    assert.ok(logs.some((l) => l.includes('ran JSX in a child process')), logs.join('\n'));
+    const vitest = { ...structuredClone(input), sources: { ...input.sources, 'src/view.tsx': { coverable: '1-6', hash: input.sources['src/view.tsx'].hash } },
+      tests: [{ id: 'tests/view.test.tsx::v', file: 'tests/view.test.tsx', name: 'v', status: 'passed' }], coverage: { granularity: 'test', byTest: {}, setup: {} } };
+    assert.throws(() => mergeRunners([{ name: 'node', input }, { name: 'vitest', input: vitest }]), /runs it without measuring it \(JSX not loaded in any test process Cupel measures/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('finding 7: TypeScript faults under an async loader run through it and agree with a full run', { skip: noTypeScript || (HOOK_BUG && 'Node 22 before 22.23 refuses loaders') }, async () => {
+  const root = project({
+    ...LOADER, 'package.json': '{"private":true,"type":"module"}\n',
+    // An enum: Node's own type stripping cannot run it, so only the loader's output can.
+    'src/label.ts': "enum K { A = 1 }\nexport function label(n: number): string {\n  if (n > K.A) return 'many';\n  return 'one';\n}\n",
+    'tests/label.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { label } from '../src/label.ts';\ntest('many', () => { assert.equal(label(2), 'many'); });\n",
+  });
+  try {
+    const config = { runners: { node: { tests: 'tests/**/*.test.mjs', env: loaderEnv('async')(root) } } };
+    const input = await collectNode({ root, config, runs: 1, strict: true });
+    const mutation = await mutateNode({ root, config, input, scope: { changed: { 'src/label.ts': '' } }, jobs: 2 });
+    const statuses = agreeWithFullRuns(root, mutation, ['--test', 'tests/label.test.mjs'], loaderEnv('async'));
+    const boundary = mutation.mutants.find((m) => m.line === 3 && m.operator === 'boundary');
+    assert.equal(boundary.status, 'survived', 'n >= 1 still gives "many" for 2');
+    assert.ok([...statuses.values()].includes('killed'));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('finding 8: the "no usable map" reason does not depend on the order processes finished', async () => {
+  const { settleJsx } = await import('../src/collect/node/index.mjs');
+  const pick = (failures) => {
+    const unmeasured = new Map();
+    settleJsx(new Map([['src/a.jsx', { hash: 'h', an: {}, problem: null }]]), new Map([['src/a.jsx', { loaded: true, failures, child: false }]]), new Map(), unmeasured, () => {});
+    return unmeasured.get('src/a.jsx').reason;
+  };
+  const a = { url: 'file:///p/src/a.jsx', cause: 'evaluated script has no inline source map' };
+  const b = { url: 'file:///p/src/a.jsx?v=2', cause: 'source map content differs from original' };
+  assert.equal(pick([a, b]), pick([b, a]));
+  assert.equal(pick([b, a]), `${JSX_NO_MAP}: ${a.cause}`);
+});
+
+test('finding 6: hooks from --experimental-loader sit below Cupel and out of its reach: faults are refused, never scored', { skip: noTypeScript }, async () => {
+  const root = project({ ...LOADER, 'package.json': '{"private":true,"type":"module"}\n',
+    'src/label.mjs': "export function label(n) {\n  if (n > 1) return 'many';\n  return 'one';\n}\n",
+    'tests/a.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { label } from '../src/label.mjs';\ntest('a', () => { assert.equal(label(2), 'many'); assert.equal(label(1), 'one'); });\n" });
+  try {
+    const config = { runners: { node: { tests: 'tests/**/*.test.mjs', env: { NODE_OPTIONS: `--experimental-loader=${pathToFileURL(join(root, 'loader/hooks.mjs')).href}` } } } };
+    const input = await collectNode({ root, config, runs: 1, strict: true });
+    const mutation = await mutateWithLoader({ root, config, input, scope: { changed: { 'src/label.mjs': '' } }, jobs: 2 });
+    if (!mutation) return;
+    const ran = mutation.mutants.filter((m) => m.status !== 'no-coverage');
+    assert.ok(ran.length > 0);
+    for (const m of ran) assert.equal(m.status, 'error', m.id);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

@@ -33,7 +33,7 @@ export function testEnv(extra = {}) {
   delete env.NODE_V8_COVERAGE;
   delete env.CUPEL_MUTANT;
   delete env.CUPEL_MARKS;
-  delete env.CUPEL_JSX_HOOK;
+  delete env.CUPEL_LOADERS;
   delete env.CUPEL_REPORT;
   // First, so the hook registers before a loader the project sets up (`--import tsx`) and sits inside it.
   env.NODE_OPTIONS = [`--import=${HOOK_URL}`, env.NODE_OPTIONS].filter(Boolean).join(' ');
@@ -65,7 +65,7 @@ export async function pool(items, jobs, fn) {
 let counter = 0;
 
 /**
- * Runs one test file. Returns { code, signal, timedOut, cut, wallMs, results, started, ended, stderr }, where
+ * Runs one test file. Returns { code, signal, timedOut, cut, wallMs, results, started, ended, stderr, pid }, where
  * `results` are the reporter's lines and `started`/`ended` the full names of tests whose beforeEach/afterEach ran.
  * `stopAt` (a performance.now() time) kills the run when the time budget ends: then `cut` is true.
  */
@@ -110,7 +110,7 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
           else if (l.startsWith('E ')) endedTests.push(l.slice(2));
         }
       }
-      resolve({ code, signal, timedOut, cut, wallMs, results, started: startedTests, ended: endedTests, stderr });
+      resolve({ code, signal, timedOut, cut, wallMs, results, started: startedTests, ended: endedTests, stderr, pid: child.pid });
     };
     child.on('error', (error) => { stderr += String(error); finish(-1, null); });
     child.on('close', finish);

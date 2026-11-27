@@ -42,7 +42,8 @@ reasons, and counted apart in reports (never as uncovered):
 
 | Reason | When |
 | --- | --- |
-| `JSX not loaded by any test: …` | No test process loaded it: there is no loader, or no test imports it. |
+| `JSX not loaded by any test: …` | No test process loaded it: there is no loader, or no test imports it, and no test starts a node process. |
+| `JSX not loaded in any test process Cupel measures, but tests start node processes …` | Not loaded in a test process, but some test starts a node process (K11), which may run it unseen; or a re-check saw a child process run it. |
 | `JSX loaded without a usable source map, …: <cause>` | A loaded script had no inline map, a map without this file, embedded text that differs from the file, or text Cupel could not read. |
 | `JSX lines come from the project's typescript, which is not resolvable …` | It was loaded, but no `typescript` resolves from the project root. |
 | `JSX the project's typescript cannot parse, …: <cause>` | It was loaded, but TypeScript reports a syntax error in it. |
@@ -55,48 +56,67 @@ shard that measured it, else it stays "not loaded". Any other difference
 between shards still refuses the merge.
 
 **With Vitest or Jest in the same repository** (K14): when another runner
-measures a JSX source, the combined input uses its lines if no node:test test
-loaded the source. If node:test's tests loaded it but Cupel could not map it,
-they ran it unseen, and Cupel refuses to combine rather than test faults
-without those tests.
+measures a JSX source, the combined input uses its lines only with the reason
+"not loaded by any test". With any other reason node:test's tests may have run
+it unseen (loaded without a usable map, or possibly in a child process), and
+Cupel refuses to combine rather than test faults without those tests.
 
 Not measured in this release: JSX run in child processes that tests start (a
-re-check adds node children's coverage for other sources, but a child's coverage
-file holds no script text to map JSX with), and source maps in separate `.map`
-files.
+child's coverage file holds no script text to map it with; a re-check whose
+child runs JSX keeps the unit's shared coverage and does not list it as
+re-checked), and source maps in separate `.map` files.
+
+**Other sources a loader transforms.** A `.ts` or `.js` file a loader such as
+tsx compiles is measured as before, against the file's own text, without its
+source map: where the loader moves code, its lines can be off. This is older
+behaviour, not specific to JSX.
 
 ## Fault testing
 
-Faults in measured JSX are planted in the text the loader transforms, never on
-disk:
+Faults are planted in the text the loader transforms, never on disk. Cupel's
+mutant hook goes first in `NODE_OPTIONS`, so it registers before the project's
+loader, and each test process reports the loaders it sees: `module.register`,
+`module.registerHooks`, `--loader` / `--experimental-loader`, a changed
+`Module._extensions`, or any `--import` / `--require` preload besides Cupel's.
 
-- Cupel's mutant hook is put first in `NODE_OPTIONS`, so it registers before the
-  project's loader. For JSX it also registers an innermost async hook
-  (`module.register`) that hands the mutated text to the project's loader, which
-  then transforms it as it would the file. A synchronous loader
-  (`registerHooks`) or a CommonJS require hook (`Module._extensions`, as
-  `@babel/register` and `@swc-node/register` use) transforms the text the
+- **Where the fault is served.** When the project first calls
+  `module.register` (an async loader, such as tsx 4.21), Cupel registers an
+  innermost async hook just before it, which hands the mutated text to the
+  project's loader. Nothing is registered otherwise, so a test process gets no
+  hook or warning it would not have had. A synchronous loader (`registerHooks`,
+  tsx 4.23 on Node 26) and a CommonJS handler that compiles the text Node read
+  (`Module._extensions`, wrapping `module._compile`) transform the text Cupel's
   synchronous hook serves.
-- **Run proof.** The served text has one extra statement, ahead of the module's
-  code and after any directive prologue (`'use client'`, `'use strict'`), on the
-  first code line, so no line moves. It records the process when the module runs.
-  If a process loaded the fault but never ran that statement, the loader did not
-  run the served text (its own cache keyed by file time, its own file read, or a
-  chain that skipped it), and the fault is reported as `error`: never `killed`,
-  `survived` or `no-coverage`.
+- **Run proof.** Every JSX fault, and every fault while a loader is in play,
+  carries one extra statement, ahead of the module's code and after any
+  directive prologue (`'use client'`, `'use strict'`), on the first code line,
+  so no line moves. It records the process each time the module runs. A fault
+  is scored only when, in the run that decides it, every process ran it as many
+  times as it loaded it, the run's own test process ran it, no CommonJS compile
+  of the file lacked the statement, and no process reported that the fault
+  could not be served beneath its loader. Otherwise it is `error`: never
+  `killed`, `survived` or `no-coverage`.
 - Unmutated (baseline) runs go through the same hooks, so a test the hooks
   themselves break fails unmutated, and its failure is never taken for a catch.
 
-The tests check every `killed` and `survived` JSX fault against a full run of
-the mutated file, with an async loader, a sync loader, a CommonJS require hook,
-and tsx 4.21.
+| Setup | Faults |
+| --- | --- |
+| ESM `import` through an async loader (`module.register`: tsx 4.21, a project hook) | scored; tested, with tsx 4.21 and a fixture loader |
+| ESM `import` through a synchronous loader (`registerHooks`: tsx 4.23 on Node 26, a project hook) | scored; tested, with tsx 4.23.15 and a fixture loader |
+| CommonJS `require` through a `Module._extensions` handler that compiles the text Node read (wraps `module._compile`) | scored; tested with a fixture hook in that style |
+| `.ts` faults under an async loader | scored; tested with a fixture loader and tsx 4.21 |
+| CommonJS `require` through a handler that reads the file itself (tsx's CommonJS path: a default CommonJS package with tsx, or `require()` of a `.tsx` in a `"type": "module"` package) | `error` (the file ran without the fault); tested with tsx 4.21, 4.23.15 and a fixture |
+| A loader that ignores the text it is handed and reads the file itself | `error`; tested with a fixture |
+| `--loader` / `--experimental-loader` hooks (registered below Cupel's hook, out of its reach) | `error`; tested with a fixture |
+| `@babel/register` (its cache is keyed by file time), `@swc-node/register` | untested; a cached or self-read original is caught by the run proof and gives `error` |
 
 ## Node versions
 
-Node 22.23 or later, or Node 26 (tested: 22.23.1 and 26.7.0). Node 22 before
-22.23 (seen on 22.16 and 22.22) rejects CommonJS imports while synchronous and
-asynchronous module hooks are both registered: Cupel's mutant hooks with tsx or
-any `module.register` loader, or with Cupel's own JSX hook. Fault testing then
-stops with an environment error naming this, rather than scoring faults. Before
-this release, such runs scored surviving faults as killed. Collection is not
-affected.
+Node 22.23 or later, or Node 26 (tested: 22.23.1, 26.7.0; tsx also on 26.7.0).
+Node 22 before 22.23 (seen on 22.16 and 22.22) breaks module loading while
+Cupel's hooks and a project loader are both registered: CommonJS imports fail
+beside async hooks, and `require()` of an extension only a loader knows (such as
+`.tsx`) fails beside any synchronous hook. On those versions fault testing stops
+with an environment error, before anything is scored, as soon as a baseline run
+shows a loader or preload in play. Before this release, such runs scored
+surviving faults as killed. Collection is not affected.

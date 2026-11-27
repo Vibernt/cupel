@@ -52,8 +52,8 @@ const SPEC = 'cupel-spec/1';
 const DEFAULT_TESTS = 'tests/**/*.test.mjs';
 const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|jsx|tsx)$/;
 const JSX_SOURCE = /\.[jt]sx$/;
-import { JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED } from './jsx-reasons.mjs';
-export { JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED };
+import { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED } from './jsx-reasons.mjs';
+export { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED };
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__test__']);
 const DEPENDENCY_DIRS = new Set(['node_modules', 'bower_components', 'jspm_packages']);
@@ -160,11 +160,16 @@ function scanSources(root, scope, testFiles, log, diagnostics) {
  * JSX after the runs: each JSX source becomes measured (its lines into `measured`) or unmeasured (with the reason),
  * from what the runs saw: whether any test process loaded it, and whether every transformed script mapped back.
  */
-function settleJsx(jsx, state, measured, unmeasured, log) {
+export function settleJsx(jsx, state, measured, unmeasured, log, spawnsNode = false) {
   const counted = { measured: [], notLoaded: [], other: [] };
   for (const [rel, j] of jsx) {
     const st = state.get(rel);
-    const reason = !st.loaded ? JSX_NOT_LOADED : j.problem ?? (st.failure ? `${JSX_NO_MAP}: ${st.failure}` : null);
+    // The first failure by script URL, then cause, so the reason does not depend on the order processes finished.
+    const failure = [...st.failures].sort((a, b) => cmp(a.url, b.url) || cmp(a.cause, b.cause))[0];
+    // Not loaded in a measured process, but tests start node processes (K11) or a re-check saw it in one: those
+    // may have run it unseen, which is not "no test ran it".
+    const reason = !st.loaded ? (st.child || spawnsNode ? JSX_IN_CHILD : JSX_NOT_LOADED)
+      : j.problem ?? (failure ? `${JSX_NO_MAP}: ${failure.cause}` : null);
     if (reason) {
       unmeasured.set(rel, { hash: j.hash, reason });
       (st.loaded ? counted.other : counted.notLoaded).push(rel);
@@ -256,7 +261,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
   if (strict && diagnostics.length) throw new CollectorError(`source or test inventory is incomplete: ${diagnostics[0].file ?? diagnostics[0].cause}`);
   log(`${testFiles.length} test files, ${sources.size} sources${jsx.size ? `, ${jsx.size} JSX` : ''}${unmeasured.size ? `, ${unmeasured.size} not measured` : ''}`);
   // Per JSX source: whether a test process loaded it, and the first reason a transformed script did not map back.
-  const jsxState = new Map([...jsx.keys()].map((rel) => [rel, { loaded: false, failure: null }]));
+  const jsxState = new Map([...jsx.keys()].map((rel) => [rel, { loaded: false, failures: [], child: false }]));
   const jsxSources = new Map([...jsx].filter(([, j]) => j.an).map(([rel, j]) => [rel, { text: j.text, an: j.an }]));
   if (testFiles.length === 0) settleJsx(jsx, jsxState, sources, unmeasured, log);
   if (testFiles.length === 0) return {
@@ -296,7 +301,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       const mapped = sourceMapLines(root, script, [], jsxSources, () => {}, found);
       if (!mapped || mapped[0] !== script.rel || mapped[1] === null) failure = found[0]?.cause ?? 'its script does not map back to the file';
     }
-    if (failure) st.failure ??= failure;
+    if (failure) st.failures.push({ url: String(script.url ?? ''), cause: failure });
     return (script.ok = !failure && jsxSources.has(script.rel));
   };
   /** { rel: intervals } (JSX keyed `rel\0scriptId`, with the process's `scripts`) -> Map rel -> ascending lines. */
@@ -389,15 +394,17 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         });
       }
       rmSync(out, { recursive: true, force: true });
-      const childLines = children ? readChildCoverage(children) : null;
+      const childJsx = new Map();
+      const childLines = children ? readChildCoverage(children, childJsx) : null;
       if (strict && diagnostics.length) {
         preserveTmp = true;
         throw new CollectorError(collectorError(`incomplete node coverage: ${diagnostics[0].file ?? diagnostics[0].cause}`, readFileSync(detailFile, 'utf8'), tmp));
       }
-      return { results: results.filter((x) => x.type !== 'summary'), hook, ms: r.ms, childLines };
+      return { results: results.filter((x) => x.type !== 'summary'), hook, ms: r.ms, childLines, childJsx };
     };
     /** NODE_V8_COVERAGE output of child processes, per directory name -> Map rel -> lines. Raw files are removed. */
-    const readChildCoverage = (dir) => {
+    /** `jsxBySub` gets, per directory name, the JSX sources a child loaded (its file holds no text to map them). */
+    const readChildCoverage = (dir, jsxBySub) => {
       const out = new Map();
       if (!existsSync(dir)) return out;
       const jsxInChild = new Set();
@@ -412,7 +419,14 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
             const rel = sourceOfUrl(sc.url);
             if (!rel) {
               // A child's coverage file holds no script text, so JSX a loader transformed there cannot be mapped.
-              try { const r = posix(relative(root, fileURLToPath(sc.url.replace(/[?#].*$/, '')))); if (jsxState.has(r)) jsxInChild.add(r); } catch { /* not a file */ }
+              try {
+                const r = posix(relative(root, fileURLToPath(sc.url.replace(/[?#].*$/, ''))));
+                if (jsxState.has(r)) {
+                  jsxInChild.add(r);
+                  if (!jsxBySub.has(sub)) jsxBySub.set(sub, new Set());
+                  jsxBySub.get(sub).add(r);
+                }
+              } catch { /* not a file */ }
               continue;
             }
             const iv = positiveIntervals(sc.functions);
@@ -421,7 +435,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         }
         out.set(sub, toLines(Object.fromEntries(acc)));
       }
-      if (jsxInChild.size) log(`recheck: coverage of JSX run in child processes is not added (no script text to map it): ${[...jsxInChild].sort(cmp).join(', ')}`);
+      for (const rel of jsxInChild) jsxState.get(rel).child = true;
+      if (jsxInChild.size) log(`recheck: child processes ran JSX whose coverage cannot be mapped (no script text): ${[...jsxInChild].sort(cmp).join(', ')}`);
       rmSync(dir, { recursive: true, force: true });
       return out;
     };
@@ -650,8 +665,11 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           const index = hookIndex(r.hook);
           const byIndex = new Map(); // hook test index -> record, for child coverage
           for (const h of r.hook) h.tests.forEach((t, i) => byIndex.set(`${h.file}\u0000${i}`, t));
+          // A row whose child process ran JSX has coverage this re-check cannot supply: its shared coverage stays.
+          const unmapped = new Set();
           for (const h of r.hook) {
             for (const [dir, owners] of Object.entries(h.childDirs ?? {})) {
+              if (r.childJsx.get(dir)?.size) for (const i of owners) { const t = byIndex.get(`${h.file}\u0000${i}`); if (t) unmapped.add(t); }
               const lines = r.childLines?.get(dir);
               if (!lines) continue;
               for (const i of owners) { const t = byIndex.get(`${h.file}\u0000${i}`); if (t?.lines) addLines(t.lines, lines); }
@@ -666,8 +684,14 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
             if (row.firstStatus === 'skipped') continue;
             const h = t.hookKey ? index.get(`${t.file}\u0000${t.hookKey}`) : null;
             if (!h) { ok = false; break; }
+            if ([...unmapped].some((x) => x.fullName === h.fullName && x.n === h.n)) {
+              log(`recheck: ${u} ran JSX in a child process, whose coverage cannot be mapped; its shared coverage is kept`);
+              ok = null;
+              break;
+            }
             replaced.push([row, h.lines]);
           }
+          if (ok === null) continue;
           if (!ok) {
             log(`recheck: ${u} did not run alone as it ran in the suite; its shared coverage is kept`);
             continue;
@@ -681,7 +705,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     }
 
     // JSX: measured or not, now that every run is in; lines of an unmeasured one are never kept.
-    const dropped = settleJsx(jsx, jsxState, sources, unmeasured, log);
+    const dropped = settleJsx(jsx, jsxState, sources, unmeasured, log, [...tests.values()].some((t) => t.interp));
     if (dropped.size) {
       const strip = (m) => { for (const rel of dropped) m?.delete(rel); };
       for (const t of tests.values()) strip(t.lines);

@@ -30,7 +30,7 @@ import { VitestMutantRunner } from './vitest.mjs';
 import { JestMutantRunner } from './jest/index.mjs';
 import { SourceFacts } from './source-facts.mjs';
 import { orderTestFiles } from './order.mjs';
-import { markedSource, pidsAfter } from './jsx-mark.mjs';
+import { eventsAfter, markedSource } from './jsx-mark.mjs';
 import { projectTypeScript } from '../lang/js/project-typescript.mjs';
 
 export { EnvironmentError } from './runner.mjs';
@@ -44,6 +44,12 @@ const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
 const JSX_SOURCE = /\.[jt]sx$/;
+const [NODE_MAJOR, NODE_MINOR] = process.versions.node.split('.').map(Number);
+// Node 22 before 22.23 rejects CommonJS imports while sync and async module hooks are both registered.
+const HOOK_BUG = NODE_MAJOR === 22 && NODE_MINOR < 23;
+// Loaders a test process reported (hook.mjs): with any of them in play, every fault carries a run proof. A preload
+// (--import or --require besides Cupel's) counts: it runs before Cupel's hook and may install a loader unseen.
+const LOADER_KINDS = ['register', 'registerHooks', 'loader-flag', 'extensions', 'preload'];
 // Half the cores: each mutant runs a whole test file, and real suites have test processes that peak at several GB.
 const defaultJobs = () => Math.max(1, Math.floor((typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) / 2));
 
@@ -159,11 +165,13 @@ class Session {
       collectorKind === 'jest' ? new JestMutantRunner(this.root, cfg, this.tmp) : null; }
     catch (error) { rmSync(this.tmp, { recursive: true, force: true }); throw error; }
     this.env = { ...(this.runner?.env ?? testEnv(cfg.runners?.node?.env ?? {})), TMPDIR: this.tmp, XDG_CACHE_HOME: this.tmp };
-    // JSX runs here only through the project's loader: its faults are served below that loader (hook-jsx.mjs) and
-    // carry a run proof. Baselines run under the same hooks, so a test the hooks break is never a catch.
-    this.jsx = !this.runner && !this.scratch && Object.entries(input.sources ?? {})
-      .some(([path, s]) => JSX_SOURCE.test(path) && s.unmeasured === undefined && s.coverable);
-    if (this.jsx) this.env.CUPEL_JSX_HOOK = '1';
+    // Test processes note the loaders they see (hook.mjs). Faults served through a loader, and every JSX fault, carry
+    // a run proof (jsx-mark.mjs); baselines run under the same hooks, so a test the hooks break is never a catch.
+    this.proofs = !this.runner && !this.scratch;
+    if (this.proofs) {
+      this.loaderLog = join(this.tmp, 'loaders.txt');
+      this.env.CUPEL_LOADERS = this.loaderLog;
+    }
     this.tests = new Map(input.tests.map((t) => [t.id, t]));
     this.passedByFile = new Map();
     for (const t of input.tests) {
@@ -227,6 +235,18 @@ class Session {
     return this.fileDurations.get(file) ?? 0;
   }
 
+  /** The loader kinds test processes of this session reported so far (hook.mjs), sorted. */
+  loaders() {
+    if (!this.loaderLog) return [];
+    return [...eventsAfter(readText(this.loaderLog), 0).keys()].filter((kind) => LOADER_KINDS.includes(kind)).sort(cmp);
+  }
+
+  /** Fault testing refused on Node 22 before 22.23 with a loader in play (`file`: whose unmutated run broke). */
+  loaderRefusal(file) {
+    const kinds = this.loaders();
+    return new EnvironmentError(`Node ${process.versions.node} breaks module loading while Cupel's hooks and a project loader are both registered (CommonJS imports beside async hooks, require() of extensions only a loader knows), and the tests run with a loader (${kinds.length ? kinds.join(', ') : 'seen in the failure'})${file ? `; the unmutated run of ${file} failed` : ''}: fault testing needs Node 22.23 or later; fixed in Node 22.23`);
+  }
+
   /** Runs each file once unmutated: its time sets the timeout, and a crash means the environment is broken. */
   async baseline(files) {
     const todo = files.filter((f) => !this.baselines.has(f)).sort(cmp);
@@ -240,17 +260,19 @@ class Session {
       }
       if (r.cut) return; // out of time: mutants that need this file are not run
       if (this.baselineBroken(r, file)) {
-        // Node 22 before 22.23 rejects CommonJS imports while sync and async module hooks are both registered (Cupel's
-        // mutant hook with a loader such as tsx, or with Cupel's own JSX hook): every run would fail, mutated or not.
-        const hookBug = /ERR_INVALID_RETURN_PROPERTY_VALUE/.test(r.stderr) || r.results.some((x) => x.code === 'ERR_INVALID_RETURN_PROPERTY_VALUE');
-        const hint = hookBug && /^22\./.test(process.versions.node)
-          ? `; Node ${process.versions.node} breaks CommonJS imports while sync and async module hooks are both registered (Cupel's mutant hooks, the project's loader); fixed in Node 22.23` : '';
-        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}${hint}`);
+        // Node 22 before 22.23 breaks module loading under Cupel's sync hook together with a project loader (CommonJS
+        // imports beside async hooks, require() of extensions only a loader knows): every run fails, mutated or not.
+        const codes = new Set([...r.results.map((x) => x.code), ...(r.stderr.match(/ERR_[A-Z_]+/g) ?? [])]);
+        if (HOOK_BUG && this.proofs && (this.loaders().length || codes.has('ERR_INVALID_RETURN_PROPERTY_VALUE'))) throw this.loaderRefusal(file);
+        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
       }
       const failing = new Set(r.results.filter((x) => x.s === 'fail').map((x) => (x.suite ? `suite:${x.t}` : x.t)));
       if (failing.size) this.log(`mutate: ${file} fails unmutated (${[...failing].join(', ')}); those failures are not kills`);
       this.baselines.set(file, { wallMs: r.wallMs, code: r.code, failing, count: r.results.filter((x) => !x.suite).length });
     }); } finally { this.baselineElapsedMs += performance.now() - started; }
+    // On Node 22 before 22.23 a loader in a test process can make a test fail only under Cupel's hooks, inside its body,
+    // in baselines and mutant runs alike: its faults would look unnoticed. Refuse before anything is scored.
+    if (HOOK_BUG && this.proofs && this.loaders().length) throw this.loaderRefusal();
     // The known-good probe: the fastest file that passed cleanly unmutated.
     if (!this.probeFile) {
       const clean = [...this.baselines.keys()].filter((f) => this.baselines.get(f).failing.size === 0);
@@ -302,11 +324,14 @@ class Session {
     const sourcePath = join(this.tmp, `source-${k}`);
     const seen = join(this.tmp, `seen-${k}`);
     let proof = null;
-    if (this.jsx && JSX_SOURCE.test(m.source)) {
-      this.ts ??= projectTypeScript(this.root);
-      if (!this.ts) throw new EnvironmentError('typescript is not resolvable from the project root, and JSX faults need it');
-      proof = { mark: `cupel-ran-${basename(this.tmp).replace(/[^A-Za-z0-9]/g, '')}-${k}`, ran: join(this.tmp, `ran-${k}`) };
-      text = markedSource(this.ts, m.source, text, { mark: proof.mark, ranPath: proof.ran });
+    if (this.proofs && (JSX_SOURCE.test(m.source) || this.loaders().length)) {
+      if (this.ts === undefined) { try { this.ts = projectTypeScript(this.root); } catch { this.ts = null; } }
+      if (JSX_SOURCE.test(m.source) && !this.ts) throw new EnvironmentError('typescript is not resolvable from the project root, and JSX faults need it');
+      const mark = `cupel-ran-${basename(this.tmp).replace(/[^A-Za-z0-9]/g, '')}-${k}`;
+      const ran = join(this.tmp, `ran-${k}`);
+      const marked = markedSource(this.ts, m.source, text, { mark, ranPath: ran });
+      // Without a safe place for the proof the fault is served unmarked; the hook then refuses it under a loader.
+      if (marked !== null) { proof = { mark, ran }; text = marked; }
     }
     if (!(this.runner instanceof JestMutantRunner)) writeFileSync(sourcePath, text);
     writeFileSync(path, JSON.stringify({ url: this.url(m.source), ...(this.runner instanceof JestMutantRunner ? {} : { sourcePath }), seen, ...(proof ? { mark: proof.mark } : {}) }));
@@ -372,17 +397,24 @@ class Session {
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
     const go = async (timeoutMs) => {
-      const before = spec.ran ? { seen: readText(spec.seen).length, ran: readText(spec.ran).length } : null;
+      const before = this.proofs ? { seen: readText(spec.seen).length, ran: spec.ran ? readText(spec.ran).length : 0 } : null;
       const r = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp,
         mutantSpec: spec.path, timeoutMs, stopAt: deadline, source: m.source });
       if (r.cut) return CUT;
       const out = this.classify(file, r, base, covering);
       if (before) {
-        // Every process of this run that loaded the fault must have run it (jsx-mark.mjs), or nothing it did counts.
-        // A timeout or crash is re-run first (a run killed between loading and running the module proves nothing);
-        // the run that decides the result must carry the proof.
-        const ran = pidsAfter(readText(spec.ran), before.ran);
-        out.unproven = [...pidsAfter(readText(spec.seen), before.seen)].some((pid) => !ran.has(pid));
+        // What ran must be the fault (hook.mjs, jsx-mark.mjs), or nothing this run did counts. A timeout or crash is
+        // re-run first (a run killed between loading and running the module proves nothing); the run that decides the
+        // result must carry the proof. Every fault: no process reported that it could not serve it (U) or that a
+        // loader compiled the file itself (B). A marked fault also: every process ran it as often as it loaded it,
+        // and the run's own test process ran it (its tests' coverage holds the file).
+        const events = eventsAfter(readText(spec.seen), before.seen);
+        out.unproven = events.has('U') || events.has('B');
+        if (spec.mark && !out.unproven) {
+          const ran = eventsAfter(readText(spec.ran), before.ran).get(spec.mark) ?? new Map();
+          const loads = events.get('L') ?? new Map();
+          out.unproven = [...loads].some(([pid, n]) => (ran.get(pid) ?? 0) < n) || !ran.get(String(r.pid));
+        }
       }
       return out;
     };
@@ -436,7 +468,7 @@ class Session {
       const loaded = existsSync(spec.seen);
       if (kinds.has('unproven')) {
         const ended = outcomes.find((o) => o.kind === 'unproven').ended;
-        this.log(`mutate: ${m.id} was loaded but never ran: the project's loader did not run the served fault (its run proof is missing; the run ended as ${ended}); reported as error`);
+        this.log(`mutate: ${m.id} was loaded but never shown to run: the project's loader did not run the served fault, or a test process ran the file without it (the run ended as ${ended}); reported as error`);
         return { status: 'error', killedBy: [] };
       }
       const status = !loaded ? 'error' : kinds.has('killed') ? 'killed' : kinds.has('timeout') ? 'timeout' : kinds.has('error') ? 'error' : 'survived';
