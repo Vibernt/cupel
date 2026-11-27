@@ -142,7 +142,9 @@ test('good', () => { assert.equal(good(1), true); });
   const input = await collectNode({ root, runs: 1, diagnostics });
   assert.deepEqual(diagnostics.map((d) => d.file), ['src/bad.js']);
   assert.ok(input.sources['src/good.mjs']);
-  assert.equal(input.sources['src/bad.js'], undefined);
+  // Listed apart with its cause (issue 9), never measured and never dropped.
+  assert.equal(input.sources['src/bad.js'].coverable, '');
+  assert.match(input.sources['src/bad.js'].unmeasured, /^not read by the node:test runner: Unterminated template/);
   assert.ok(input.coverage.byTest['tests/good.test.mjs::good']['src/good.mjs']);
 });
 

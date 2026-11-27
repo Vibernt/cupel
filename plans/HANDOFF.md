@@ -6,7 +6,7 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 
 ## Current state
 
-- **Version:** npm package `@vibernt/cupel` **0.5.1**, Python collector `vibernt-cupel` **0.4.0**.
+- **Version:** npm package `@vibernt/cupel` **0.5.2**, Python collector `vibernt-cupel` **0.4.0**.
 - **`main`:** merge of Vibernt/cupel#4 (the README and diagrams). Tags `v0.1.0`–`v0.4.0`. GitHub releases with the npm tarball for
   `v0.3.0` and `v0.4.0`; the asset's SHA-256 is in each release note and record.
 - **Not published to npm or PyPI.** npm keeps `"private": true` and Python `Private :: Do Not Upload`; any registry
@@ -23,6 +23,7 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 | 0.4.0 | Cupel's own Rust fault runner `backend: "cupel"` (D21): only covering test targets and tests, ordered by the input, stop after two, switchable faults in one build with per-target trust; CI slices `mutate --plan`, `--runner R --shard I/N`, `merge-mutations` (D22); guard heads stop at the first catch (D23, rule I6); `durationMs` per fault | [0.4.0](results/2026-11-23-0.4.0-release.md) |
 | 0.5.0 | Rust build sessions in the per-user cache with reuse of unmutated passes (D24); opt-in whole-function variants and verify mode (D25); `mutate --prepare` CI slices, `sessionEnvIgnore` (D26); likely catchers first in every runner (D27); Go covering-only selection, stop after two and a switched build; Ruby stop after two (D28); Python collector 0.4.0 | [0.5.0](results/2026-11-25-0.5.0-release.md) |
 | 0.5.1 | Runners sharing a source combine their mutant rows (issue 7, K14); hosted CI setup fixes | [0.5.1](results/2026-11-26-0.5.1-release.md) |
+| 0.5.2 | Sources a runner cannot measure (JSX under node:test, unreadable files) listed apart and counted in reports; `.d.ts` files are not sources (issue 9, K2, R3) | [0.5.2](results/2026-11-27-0.5.2-release.md) |
 | README | Rewritten for 0.4.0; diagrams are code (Fire components) rendered by `scripts/render-readme-art.mjs` | [docs/assets/README.md](../docs/assets/README.md) |
 
 ## Decisions to know (details in DECISIONS.md)

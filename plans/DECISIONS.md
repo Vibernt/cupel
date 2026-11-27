@@ -215,3 +215,12 @@ The owner asked, in chat, to look at the GitHub issue that was filed (issue 7, r
 the npm package to **0.5.1**, merging, tagging **v0.5.1** and a GitHub release. The Python collector stays 0.4.0.
 npm and PyPI publishing remain unapproved.
 
+## Owner v0.5.2 release approval (2026-11-27)
+
+The owner asked, in chat, about the GitHub issue that was filed (issue 9: under node:test `.tsx` was skipped as
+"Unterminated regex", `.jsx` silently, and reports did not say sources were left out), then asked to fix it and
+release, and asked whether `.d.ts` files count as uncovered code (they did). That covers listing sources a runner
+cannot measure apart (SPEC K2, R3), leaving declaration files out of sources, bumping the npm package to **0.5.2**,
+merging, tagging **v0.5.2** and a GitHub release. The Python collector stays 0.4.0. npm and PyPI publishing remain
+unapproved. Measuring JSX that node:test runs through a loader is separate work on its own branch.
+
