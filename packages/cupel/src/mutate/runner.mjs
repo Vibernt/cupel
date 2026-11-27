@@ -13,7 +13,8 @@ const [NODE_MAJOR, NODE_MINOR] = process.versions.node.split('.').map(Number);
 const ISOLATION_FLAG = NODE_MAJOR > 23 || (NODE_MAJOR === 23 && NODE_MINOR >= 6) ? '--test-isolation=none' : '--experimental-test-isolation=none';
 
 const HOOK_URL = pathToFileURL(fileURLToPath(new URL('./hook.mjs', import.meta.url))).href;
-const REPORTER = fileURLToPath(new URL('./reporter.mjs', import.meta.url));
+// A file URL: node:test loads reporters as modules, and on Windows a plain D:\\ path reads as a URL with scheme d:.
+const REPORTER = new URL('./reporter.mjs', import.meta.url).href;
 
 /** Thrown when the test environment cannot be trusted (spec E1: exit 3). */
 export class EnvironmentError extends Error {

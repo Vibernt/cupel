@@ -48,6 +48,14 @@ const JSX_SOURCE = /\.[jt]sx$/;
 const BUG_CODES = { ERR_INVALID_RETURN_PROPERTY_VALUE: 'asyncCjs', ERR_UNKNOWN_FILE_EXTENSION: 'unknownExtension' };
 // Loaders a test process reported (hook.mjs): with any of them in play, every fault carries a run proof. A preload
 // (--import or --require besides Cupel's) counts: it runs before Cupel's hook and may install a loader unseen.
+/** A failed run's output in one line: its first error line (often the cause) and its last lines. */
+function stderrSummary(stderr) {
+  const lines = stderr.trim().split('\n');
+  const first = lines.find((line) => /\b(?:[A-Z][A-Za-z]*Error|ERR_[A-Z_]+)\b/.test(line));
+  const tail = lines.slice(-3);
+  return [...(first && !tail.includes(first) ? [first.trim(), '…'] : []), ...tail].join(' | ');
+}
+
 const LOADER_KINDS = ['register', 'registerHooks', 'loader-flag', 'extensions', 'preload'];
 // Half the cores: each mutant runs a whole test file, and real suites have test processes that peak at several GB.
 const defaultJobs = () => Math.max(1, Math.floor((typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) / 2));
@@ -284,7 +292,7 @@ class Session {
         const codes = new Set([...r.results.map((x) => x.code), ...(r.stderr.match(/ERR_[A-Z_]+/g) ?? [])]);
         const bug = this.hookBug(codes);
         if (bug) throw this.loaderRefusal(bug, file);
-        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
+        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${stderrSummary(r.stderr)}`);
       }
       for (const x of r.results) if (x.s === 'fail' && x.code) baselineCodes.add(x.code);
       const failing = new Set(r.results.filter((x) => x.s === 'fail').map((x) => (x.suite ? `suite:${x.t}` : x.t)));

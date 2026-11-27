@@ -509,7 +509,7 @@ test('links: one into the project points into the copy, one outside stays and ma
   writeFileSync(join(dest, 'abs-flag'), 'off\n');
   assert.equal(readFileSync(join(root, 'data/flag'), 'utf8'), 'on\n');
 
-  assert.equal(readlinkSync(join(dest, 'rel-flag')), 'data/flag');
+  assert.equal(readlinkSync(join(dest, 'rel-flag')), join('data', 'flag'));
   rmSync(join(root, 'ext')); rmSync(join(root, 'data/up'));
   const second = syncProject(root, dest, manifest);
   assert.equal(second.linked, false);

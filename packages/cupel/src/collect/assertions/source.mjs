@@ -22,7 +22,8 @@ export function sourceReader(root) {
   const cache = new Map();
   return (stack, matcher, framework) => {
     for (const line of stack.split('\n').slice(1)) {
-      const m = line.match(/(?:\(|\s)((?:file:\/\/\/|\/).*?):(\d+):(\d+)\)?$/);
+      // A file URL, a POSIX path, or a Windows path with its drive letter (D:\\a\\x.test.mjs or D:/a/x.test.mjs).
+      const m = line.match(/(?:\(|\s)((?:file:\/\/\/|\/|[A-Za-z]:[\\/]).*?):(\d+):(\d+)\)?$/);
       if (!m) continue;
       const abs = m[1].startsWith('file:') ? fileURLToPath(m[1]) : m[1];
       const file = relative(root, abs).split(sep).join('/');

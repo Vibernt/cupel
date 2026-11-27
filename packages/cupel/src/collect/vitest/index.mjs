@@ -52,12 +52,16 @@ function run(command, args, options) {
   });
 }
 
-export function splitCommand(value) {
+/**
+ * Words of a configured command, as a shell would split them: quotes group, and on POSIX a backslash escapes the next
+ * character. On Windows a backslash is a path separator (D:\\tools\\node.exe), so it is kept as written.
+ */
+export function splitCommand(value, platform = process.platform) {
   const words = [];
   let word = '', quote = null, escaped = false, started = false;
   for (const char of value) {
     if (escaped) { word += char; escaped = false; started = true; continue; }
-    if (char === '\\' && quote !== "'") { escaped = true; started = true; continue; }
+    if (char === '\\' && quote !== "'" && platform !== 'win32') { escaped = true; started = true; continue; }
     if (quote) {
       if (char === quote) quote = null;
       else word += char;

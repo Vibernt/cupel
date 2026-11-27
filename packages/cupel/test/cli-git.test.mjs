@@ -150,7 +150,8 @@ test('guard --base collects the base from git archive in a temp dir, runs prepar
   assert.equal(r.status, 0);
 
   const [baseCall, headCall] = logOf(log);
-  assert.ok(baseCall.root.startsWith(realpathSync(tmpdir())), baseCall.root);
+  // realpathSync.native: Windows' TEMP uses a short name (RUNNER~1) that the plain realpath keeps.
+  assert.ok(baseCall.root.startsWith(realpathSync.native(tmpdir())), baseCall.root);
   assert.notEqual(baseCall.root, dir);
   assert.equal(baseCall.prepared, true, 'prepare ran in the base directory');
   assert.equal(baseCall.prepare, null, 'the collector does not run prepare a second time');
