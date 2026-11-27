@@ -60,7 +60,9 @@ test('transform-only TS is skipped once without project TypeScript while other f
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const diagnostics = [], logs = [];
     const input = await collectVitest({ root, runs: 1, diagnostics, log: (s) => logs.push(s) });
-    assert.equal(input.sources['src/errors.ts'], undefined);
+    // Listed apart with its cause (issue 9), never measured and never dropped.
+    assert.equal(input.sources['src/errors.ts'].coverable, '');
+    assert.match(input.sources['src/errors.ts'].unmeasured, /^not read by the Vitest runner: .*typescript is not resolvable from the project root/);
     assert.ok(input.sources['src/other.ts']);
     assert.deepEqual(diagnostics.map((d) => d.file), ['src/errors.ts', 'tests/errors.test.ts']);
     assert.equal(logs.filter((s) => s.includes('skipped src/errors.ts')).length, 1);
