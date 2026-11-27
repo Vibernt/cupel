@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { globMatches } from '../../../engine/match.mjs';
 import { cmp } from '../../../engine/order.mjs';
+import { isDeclarationFile } from '../../../lang/js/declaration.mjs';
 import { analyse, coveredLines, formatLines } from '../../../collect/node/lines.mjs';
 import { foldRuns, unstableObject } from '../../../collect/coverage-runs.mjs';
 
@@ -18,7 +19,7 @@ export function profileSources(root, manifest, testFiles, scope = {}) {
   const exclude = scope.exclude ?? [];
   const sources = new Map();
   for (const file of Object.keys(manifest).sort(cmp)) {
-    if (!SOURCE_EXT.test(file) || TEST_FILE.test(file) || testFiles.has(file) ||
+    if (!SOURCE_EXT.test(file) || isDeclarationFile(file) || TEST_FILE.test(file) || testFiles.has(file) ||
         file.split('/').slice(0, -1).some(part => part.startsWith('.') || TEST_DIRS.has(part))) continue;
     if (!include.some(pattern => globMatches(pattern, file)) ||
         exclude.some(pattern => globMatches(pattern, file))) continue;

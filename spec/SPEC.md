@@ -318,6 +318,7 @@ Optional fields in checks: `coverage-lines` always has `lost.lines` (`{}` when i
   - Counts: `tests` (ids), `units`, `passed`, `failed` and `skipped` (ids).
   - `durationMs`: the sum over units.
   - `coverage`: covered lines over all coverable lines.
+  - `unmeasured`: present only when the input lists sources with `unmeasured`, their count. Their lines are in neither side of `coverage`, so a reader sees that the percentage leaves sources out.
   - `criticalCoverage`: the same over critical sources.
   - `mutation` and `criticalMutation`.
   - `advice`: a count per advice value, with every value present.

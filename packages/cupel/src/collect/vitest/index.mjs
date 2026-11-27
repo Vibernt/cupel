@@ -16,6 +16,9 @@ import { collectorError } from '../error-detail.mjs';
 import { findVitestWorkspace } from './projects.mjs';
 import { copyInjectedVitestModules } from './injected.mjs';
 import { posix, scanSources, sourceMapLines, TEST, walk } from './sources.mjs';
+
+/** A source whose run coverage could not be mapped back to its lines (I3: listed with no coverable lines). */
+const MAPPING_FAILED = 'its coverage could not be mapped back to the file (transformed without a usable source map)';
 import { foldRuns, unstableObject } from '../coverage-runs.mjs';
 
 const sort = (a, b) => a < b ? -1 : a > b ? 1 : 0;
@@ -90,7 +93,8 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     }
   }
   if (!fileNames.length) throw new VitestCollectorError('no Vitest test files found');
-  const sources = scanSources(root, config.scope, log, diagnostics);
+  const unmeasured = new Map();
+  const sources = scanSources(root, config.scope, log, diagnostics, unmeasured);
   mkdirSync(join(root, '.scratch'), { recursive: true });
   const work = mkdtempSync(join(root, '.scratch/cupel-vitest-'));
   const cache = join(work, 'cache');
@@ -306,7 +310,11 @@ export async function collectVitest({ root, config = {}, files, runs = 2, rechec
     const ordered = [...tests.values()].sort((a, b) => sort(a.id, b.id));
     const input = {
       spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'node', version: process.versions.node },
-      sources: object([...sources].filter(([file]) => !mappingFailed.has(file)).map(([file, source]) => [file, { coverable: formatLines(source.an.coverable), hash: source.hash }])),
+      sources: object([
+        ...[...sources].filter(([file]) => !mappingFailed.has(file)).map(([file, source]) => [file, { coverable: formatLines(source.an.coverable), hash: source.hash }]),
+        ...[...sources].filter(([file]) => mappingFailed.has(file)).map(([file, source]) => [file, { coverable: '', hash: source.hash, unmeasured: MAPPING_FAILED }]),
+        ...[...unmeasured].map(([file, u]) => [file, { coverable: '', ...(u.hash ? { hash: u.hash } : {}), unmeasured: u.reason }]),
+      ]),
       tests: ordered.map((t) => {
         const tags = [...new Set([...t.name.matchAll(/\[(critical|standard|minor)\]/g)].map((m) => m[1]))].sort(sort);
         return { id: t.id, file: t.file, name: t.name, ...(t.unit ? { unit: t.unit } : {}), ...(tags.length ? { tags } : {}), status: t.status, durationsMs: t.durationsMs, ...(t.runStatuses.length === repeats.length ? { runStatuses: t.runStatuses } : {}), ...(first.spawns.has(t.taskId) ? { spawnsInterpreter: true } : {}) };

@@ -1366,10 +1366,14 @@ kase('091-check-head-unstable', { description: 'A line unstable at head is left 
   head: moved({ unstable: { 'src/a.mjs': '3' }, collection: { runs: 2 } }),
   expectExit: 0, expected: { check: { verdicts: [{ id: 'a', verdict: 'adds-value' }] } } });
 
-kase('092-unmeasured-source', { description: 'A source the collector could not measure carries its reason and no coverable lines; the report is unaffected.',
-  command: 'report', rules: rules('+I3'),
+kase('092-unmeasured-source', { description: 'A source the collector could not measure carries its reason and no coverable lines; the report counts it apart from coverage.',
+  command: 'report', rules: rules('+I3 +R3'),
   input: input({ sources: { 'src/a.mjs': { coverable: '1-10' }, 'src/wasm.mjs': { coverable: '', unmeasured: 'runs inside another runtime' } }, tests: SIMPLE_TESTS, cov: { t1: '1-4', t2: '3-6' } }),
-  expectExit: 0, expected: { diagnostics: [] } });
+  expectExit: 0, expected: { diagnostics: [], suite: { coverage: { covered: 6, coverable: 10, pct: 60 }, unmeasured: 1 } } });
+kase('115-report-all-measured', { description: 'With every source measured the suite carries no unmeasured count.',
+  command: 'report', rules: rules('-R3'),
+  input: input({ sources: { 'src/a.mjs': { coverable: '1-10' } }, tests: SIMPLE_TESTS, cov: { t1: '1-4', t2: '3-6' } }),
+  expectExit: 0, expected: { diagnostics: [], suite: { coverage: { covered: 6, coverable: 10, pct: 60 }, unmeasured: '$absent' } } });
 kase('093-unmeasured-with-coverable', { description: 'An unmeasured source that also lists coverable lines is refused.',
   command: 'report', rules: rules('-I3'),
   input: input({ sources: { 'src/a.mjs': { coverable: '1-10', unmeasured: 'not compiled for this host' } }, tests: SIMPLE_TESTS, cov: { t1: '1-4' } }),

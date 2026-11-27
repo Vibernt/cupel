@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { globMatches } from '../../engine/match.mjs';
 import { analyse, coveredLines } from '../node/lines.mjs';
+import { isDeclarationFile } from '../../lang/js/declaration.mjs';
 import { projectTypeScript, scanJsx } from '../../lang/js/project-typescript.mjs';
 import { classifyTypeScript } from '../../lang/js/classify-typescript.mjs';
 import { skipFile } from '../skipped.mjs';
@@ -36,24 +37,31 @@ export function walk(root, testFiles = false, log = () => {}, diagnostics = []) 
   return found.sort();
 }
 
-export function scanSources(root, scope, log = () => {}, diagnostics = []) {
-  const files = walk(root, false, log, diagnostics).filter((file) => SOURCE.test(file) && !TEST.test(file) &&
+/**
+ * Sources in scope: Map file -> { text, an, hash }. A file that cannot be read is named in `diagnostics` and, when
+ * `unmeasured` is given, recorded there as file -> { hash?, reason } so the input lists it apart instead of dropping it.
+ */
+export function scanSources(root, scope, log = () => {}, diagnostics = [], unmeasured = null) {
+  const files = walk(root, false, log, diagnostics).filter((file) => SOURCE.test(file) && !isDeclarationFile(file) && !TEST.test(file) &&
     (scope?.include ?? ['**']).some((g) => globMatches(g, file)) && !(scope?.exclude ?? []).some((g) => globMatches(g, file)));
   const sources = new Map();
   let ts;
   for (const file of files) {
+    let hash;
     try {
+      const buf = readFileSync(join(root, file));
+      hash = `sha256:${createHash('sha256').update(buf).digest('hex')}`;
       if (/\.[jt]sx$/.test(file)) {
         ts ??= projectTypeScript(root);
         if (!ts) throw new Error('typescript is not resolvable from the project root');
       }
-      const buf = readFileSync(join(root, file));
       const text = buf.toString('utf8');
       const an = /\.[jt]sx$/.test(file) ? scanJsx(ts, file, text).analysis :
         /\.[cm]?ts$/.test(file) ? classifyTypeScript(root, file, text).analysis : analyse(text, { strict: true });
-      sources.set(file, { text, an, hash: `sha256:${createHash('sha256').update(buf).digest('hex')}` });
+      sources.set(file, { text, an, hash });
     } catch (error) {
       skipFile(diagnostics, log, 'Vitest', file, error);
+      unmeasured?.set(file, { ...(hash ? { hash } : {}), reason: `not read by the Vitest runner: ${String(error?.message ?? error).replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ')}` });
     }
   }
   return sources;

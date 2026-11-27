@@ -26,7 +26,8 @@ function diagnostics(report, c) {
 }
 
 export function summaryLine(s) {
-  return `${s.tests} tests, ${s.units} units, coverage ${pct(s.coverage)} (${s.coverage.covered}/${s.coverage.coverable}), mutation score ${score(s.mutation)}`;
+  const left = s.unmeasured ? `, ${s.unmeasured} ${s.unmeasured === 1 ? 'source' : 'sources'} not measured` : '';
+  return `${s.tests} tests, ${s.units} units, coverage ${pct(s.coverage)} (${s.coverage.covered}/${s.coverage.coverable})${left}, mutation score ${score(s.mutation)}`;
 }
 
 function report(r, c) {
@@ -165,7 +166,8 @@ function audit(r) {
   out.push('', '## 5. Coverage', '');
   const files = a.coverage.files;
   const covered = files.reduce((n, x) => n + x.covered, 0); const coverable = files.reduce((n, x) => n + x.coverable, 0);
-  out.push(`${covered} of ${coverable} lines covered${coverable ? ` (${Math.floor((10000 * covered) / coverable) / 100}%)` : ''}.`, '');
+  const left = a.coverage.unmeasured.length;
+  out.push(`${covered} of ${coverable} lines covered${coverable ? ` (${Math.floor((10000 * covered) / coverable) / 100}%)` : ''}${left ? `; ${left} ${left === 1 ? 'source' : 'sources'} not measured, listed below` : ''}.`, '');
   const gaps = files.filter((x) => x.uncovered).sort((x, y) => Number(y.critical) - Number(x.critical) || (y.coverable - y.covered) - (x.coverable - x.covered));
   if (gaps.length) {
     out.push('| File | Covered | Uncovered lines |', '| --- | --- | --- |');

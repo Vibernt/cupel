@@ -18,6 +18,12 @@ function scoreOf(mutants) {
   return mutationScore(detected, undetected);
 }
 
+/** R3: how many sources the collector could not measure, only when there are any. */
+function unmeasuredCount(model) {
+  const n = Object.values(model.input.sources ?? {}).filter((s) => s.unmeasured !== undefined).length;
+  return n ? { unmeasured: n } : {};
+}
+
 /** R3. */
 export function suiteSection(model) {
   const count = (s) => model.input.tests.filter((t) => t.status === s).length;
@@ -32,6 +38,7 @@ export function suiteSection(model) {
     skipped: count('skipped'),
     durationMs: model.units.reduce((n, u) => n + u.durationMs, 0),
     coverage: coverageRatio(all.covered, all.coverable),
+    ...unmeasuredCount(model),
     criticalCoverage: coverageRatio(crit.covered, crit.coverable),
     mutation: model.mutation ? scoreOf(model.mutants) : null,
     criticalMutation: model.mutation ? scoreOf(model.mutants.filter((m) => m.critical)) : null,

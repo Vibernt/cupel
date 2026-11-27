@@ -53,6 +53,7 @@
         "skipped": { "type": "integer", "minimum": 0 },
         "durationMs": { "type": "integer", "minimum": 0 },
         "coverage": { "$ref": "#/$defs/coverageRatio" },
+        "unmeasured": { "type": "integer", "minimum": 1, "description": "Sources the collector could not measure (R3); absent when there are none." },
         "criticalCoverage": { "$ref": "#/$defs/coverageRatio" },
         "mutation": { "anyOf": [{ "$ref": "#/$defs/mutationScore" }, { "type": "null" }] },
         "criticalMutation": { "anyOf": [{ "$ref": "#/$defs/mutationScore" }, { "type": "null" }] },

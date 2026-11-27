@@ -30,6 +30,7 @@ import { availableParallelism } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { globMatches } from '../../engine/match.mjs';
+import { isDeclarationFile } from '../../lang/js/declaration.mjs';
 import { cmp } from '../../engine/order.mjs';
 import { analyse, coveredLines, formatLines, unionLines } from './lines.mjs';
 import { positiveIntervals, unionIntervals } from './intervals.mjs';
@@ -44,7 +45,10 @@ const HOOK = pathToFileURL(join(HERE, 'hook.mjs')).href;
 const REPORTER = pathToFileURL(join(HERE, 'reporter.mjs')).href;
 const SPEC = 'cupel-spec/1';
 const DEFAULT_TESTS = 'tests/**/*.test.mjs';
-const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|tsx)$/;
+const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|jsx|tsx)$/;
+const JSX_SOURCE = /\.[jt]sx$/;
+/** JSX needs a transform node:test does not apply, so its lines are never measured here (I3). */
+export const JSX_UNMEASURED = 'JSX is not measured by the node:test runner (Vitest and Jest measure it)';
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__test__']);
 const DEPENDENCY_DIRS = new Set(['node_modules', 'bower_components', 'jspm_packages']);
@@ -102,20 +106,43 @@ export function resolveTestFiles(root, files, glob, log = () => {}, diagnostics 
   return walk(root, () => false, log, diagnostics).filter((f) => globMatches(glob, f));
 }
 
-/** Sources in scope (K2): Map rel -> { an, hash }. */
+/**
+ * Sources in scope (K2): `measured` maps rel -> { an, hash }; `unmeasured` maps rel -> { hash?, reason } for sources
+ * in scope whose lines this runner cannot measure (JSX, or a file it could not read), listed with no coverable lines
+ * so reports show them apart instead of leaving them out. Declaration files hold no code and are not sources.
+ */
 function scanSources(root, scope, testFiles, log, diagnostics) {
   const include = scope?.include ?? ['**'];
   const exclude = scope?.exclude ?? [];
-  const out = new Map();
+  const measured = new Map();
+  const unmeasured = new Map();
   for (const rel of walk(root, (name) => TEST_DIRS.has(name), log, diagnostics)) {
-    if (!SOURCE_EXT.test(rel) || TEST_FILE.test(rel) || testFiles.has(rel)) continue;
+    if (!SOURCE_EXT.test(rel) || isDeclarationFile(rel) || TEST_FILE.test(rel) || testFiles.has(rel)) continue;
     if (!include.some((g) => globMatches(g, rel)) || exclude.some((g) => globMatches(g, rel))) continue;
+    let hash;
     try {
       const buf = readFileSync(join(root, rel));
-      out.set(rel, { an: analyse(buf.toString('utf8'), { strict: true }), hash: `sha256:${createHash('sha256').update(buf).digest('hex')}` });
-    } catch (error) { skipFile(diagnostics, log, 'Node', rel, error); }
+      hash = `sha256:${createHash('sha256').update(buf).digest('hex')}`;
+      if (JSX_SOURCE.test(rel)) { unmeasured.set(rel, { hash, reason: JSX_UNMEASURED }); continue; }
+      measured.set(rel, { an: analyse(buf.toString('utf8'), { strict: true }), hash });
+    } catch (error) {
+      const before = diagnostics.length;
+      skipFile(diagnostics, log, 'Node', rel, error);
+      const cause = diagnostics.length > before ? diagnostics.at(-1).cause : String(error?.message ?? error);
+      unmeasured.set(rel, { ...(hash ? { hash } : {}), reason: `not read by the node:test runner: ${cause}` });
+    }
   }
-  return out;
+  const jsx = [...unmeasured].filter(([, u]) => u.reason === JSX_UNMEASURED).map(([rel]) => rel);
+  if (jsx.length) log(`Node: ${jsx.length} JSX ${jsx.length === 1 ? 'source' : 'sources'} not measured (node:test runs no JSX; Vitest and Jest measure it): ${jsx.slice(0, 5).join(', ')}${jsx.length > 5 ? ', …' : ''}`);
+  return { measured, unmeasured };
+}
+
+/** The input's `sources`: measured ones with their coverable lines, unmeasured ones with none and their reason. */
+function sourceEntries(sources, unmeasured, extra = () => ({})) {
+  return sortedObject([
+    ...[...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash, ...extra(rel) }]),
+    ...[...unmeasured].map(([rel, u]) => [rel, { coverable: '', ...(u.hash ? { hash: u.hash } : {}), unmeasured: u.reason }]),
+  ]);
 }
 
 /** Runs a command; resolves with { code, signal, ms, tail } (the last 4 kB of its output). */
@@ -182,12 +209,12 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     }
   }
 
-  const sources = scanSources(root, config?.scope, new Set(testFiles), log, diagnostics);
+  const { measured: sources, unmeasured } = scanSources(root, config?.scope, new Set(testFiles), log, diagnostics);
   if (strict && diagnostics.length) throw new CollectorError(`source or test inventory is incomplete: ${diagnostics[0].file ?? diagnostics[0].cause}`);
-  log(`${testFiles.length} test files, ${sources.size} sources`);
+  log(`${testFiles.length} test files, ${sources.size} sources${unmeasured.size ? `, ${unmeasured.size} not measured` : ''}`);
   if (testFiles.length === 0) return {
     spec: SPEC, kind: 'input', runtime: { name: 'node', version: process.versions.node },
-    sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash }])),
+    sources: sourceEntries(sources, unmeasured),
     tests: [], coverage: { granularity: 'test', byTest: {}, setup: {}, ...(runs > 1 ? { unstable: {} } : {}) },
     collection: { runs, shard: { index: shard.index, total: shard.total, suite: suiteHash, files: {} } },
     brittleness: [], shapes: {},
@@ -622,7 +649,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
       spec: SPEC,
       kind: 'input',
       runtime: { name: 'node', version: process.versions.node },
-      sources: sortedObject([...sources].map(([rel, s]) => [rel, { coverable: formatLines(s.an.coverable), hash: s.hash, ...(inWorkerd.has(rel) ? { measuredIn: 'workerd' } : {}) }])),
+      sources: sourceEntries(sources, unmeasured, (rel) => (inWorkerd.has(rel) ? { measuredIn: 'workerd' } : {})),
       tests: ordered.map((t) => {
         const tags = [...new Set([...t.name.matchAll(TIER_TAG)].map((m) => m[1]))].sort(cmp);
         return {
