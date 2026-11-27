@@ -57,9 +57,9 @@ export class SourceFacts {
         throw new SourceChangedError(source, `refused before reading source: ${error.message}`);
       throw error;
     }
-    if (constants.O_NOFOLLOW === undefined)
-      throw new SourceChangedError(source, 'safe source open is unavailable on this host');
-    const fd = openSync(path.realPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    // O_NOFOLLOW refuses a link swapped in after the path was resolved. Windows has no such flag; there the identity
+    // check below (the opened file's device and file index against the ones resolved before) refuses a swap alike.
+    const fd = openSync(path.realPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     let bytes;
     try {
       const opened = fstatSync(fd);

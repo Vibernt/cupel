@@ -9,6 +9,17 @@ import { parseRust } from '../src/mutate-rust/grammar.mjs';
 import { run } from '../src/mutate-rust/process.mjs';
 import { classify, invalidCompile, parseResults } from '../src/mutate-rust/results.mjs';
 import { RustSession } from '../src/mutate-rust/runner.mjs';
+import { inspectRestrictedRustProfile } from '../../../scripts/restricted-rust-profile.mjs';
+
+// The restricted backend runs only its exact Homebrew Rust 1.97.1 profile; tests that run its compiler skip elsewhere
+// unless CUPEL_REQUIRE_RESTRICTED_RUST=1 (as the restricted CLI test does).
+function needsRestrictedRust(t) {
+  const profile = inspectRestrictedRustProfile();
+  if (profile.available) return true;
+  if (process.env.CUPEL_REQUIRE_RESTRICTED_RUST === '1') assert.fail(profile.reason);
+  t.skip(profile.reason);
+  return false;
+}
 const scratchBase=resolve('.scratch/rust-mutation-tests');mkdirSync(scratchBase,{recursive:true});
 const proof=resolve(import.meta.dirname,'fixtures/rust-mutation');
 const sha=(bytes)=>`sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -34,7 +45,8 @@ function fixture() {
  return {root,input,inner};
 }
 const config={mutation:{maxMutants:10,maxSeconds:120,seed:7}};
-test('real bounded Rust graph: behavior kill, executed survivor, no coverage and pristine source pins',async()=>{
+test('real bounded Rust graph: behavior kill, executed survivor, no coverage and pristine source pins',async(t)=>{
+ if(!needsRestrictedRust(t))return;
  const {root,input}=fixture();const before=Object.fromEntries(Object.keys(input.sources).map((f)=>[f,sha(readFileSync(join(root,f)))]));const metrics={};
  const result=await mutateRust({root,input,config,scope:{changed:{'src/outer/inner.rs':input.sources['src/outer/inner.rs'].coverable}},metrics});
  assert.equal(result.mutants.length,3);assert.deepEqual(result.mutants.map((r)=>r.status),['killed','survived','no-coverage']);
@@ -71,7 +83,8 @@ test('timeout terminates inherited child process group without crediting a kill'
  await new Promise((resolve)=>setTimeout(resolve,800));assert.throws(()=>readFileSync(marker),{code:'ENOENT'});
 });
 
-test('real Cargo type-invalid replacement is excluded after unmutated compile probe',async()=>{
+test('real Cargo type-invalid replacement is excluded after unmutated compile probe',async(t)=>{
+ if(!needsRestrictedRust(t))return;
  const {root,input}=fixture();
  const file='src/outer/inner.rs'; const line=readFileSync(join(root,file),'utf8').split('\n').length;
  writeFileSync(join(root,file),readFileSync(join(root,file),'utf8')+'pub fn invalid() -> String { String::from("a") + "b" }\n');
@@ -79,7 +92,8 @@ test('real Cargo type-invalid replacement is excluded after unmutated compile pr
  const metrics={};const result=await mutateRust({root,input,config,scope:{changed:{[file]:[line]}},metrics});
  assert.deepEqual(result.mutants,[]);assert.equal(metrics.invalid,1);assert.equal(result.sampled,false);
 });
-test('deterministic caps keep only complete targeted units',async()=>{
+test('deterministic caps keep only complete targeted units',async(t)=>{
+ if(!needsRestrictedRust(t))return;
  const {root,input}=fixture();const limited={mutation:{maxMutants:1,maxSeconds:120,seed:4}};
  const scope={targeted:['src/lib.rs::behavior','src/lib.rs::identity']};
  const a=await mutateRust({root,input,config:limited,scope});const b=await mutateRust({root,input,config:limited,scope});

@@ -86,6 +86,15 @@ Without a loader nothing is read, so plain projects measure exactly as before
 collection takes the same time). Before this release such a file was measured
 against its own text, so lines could be wrong.
 
+**A V8 limit.** Coverage comes from V8's block coverage. In one rare shape V8
+reports code as run that did not run: a statement that never runs, after a
+`continue`, `break` or `return`, which holds a conditional expression (`?:`)
+inside a template literal. V8 ends its zero-count ranges at the `?:` and counts
+the rest of the statement, and a closing brace after it, as run. Such a line can
+show as covered. Fault results are not affected: a fault there runs against the
+tests whose coverage includes the line, survives, and a full run agrees. Worker
+code measured in workerd (from breakpoints) does not have this limit.
+
 ## Fault testing
 
 Faults are planted in the text the loader transforms, never on disk. Cupel's

@@ -20,10 +20,14 @@ Cupel:
 **How it measures.** workerd keeps `Profiler.enable` for its own CPU profiler,
 so V8's precise coverage cannot run there. Cupel instead sets never-pausing
 breakpoints at every location V8 can stop at and rebuilds V8-style block coverage
-from the hits. On Cupel's engine this matches V8's own block coverage on 965 of
-965 lines in the permanent test and on 1,265 of 1,270 lines in a larger run; see
-S30 for the remaining differences. Module top-level code runs when workerd
-starts and is counted then, as module loading is in Node.
+from the hits. On Cupel's engine this matched V8's own block coverage on 965 of
+965 lines in the permanent test when it was written, and on 1,265 of 1,270 lines in
+a larger run; see S30 for those differences. Since 0.5.0 the engine holds one
+statement where they differ by two lines, and there the rebuild is right: V8
+counts the tail of a never-run statement after `continue` that holds a `?:` as run
+(see [node:test](node.md)); the permanent test names that statement. Module
+top-level code runs when workerd starts and is counted then, as module loading is
+in Node.
 
 **Results are never changed by measuring.** Breakpoints slow code, which can
 break a test's own time budget. After the measured runs, Cupel runs every test

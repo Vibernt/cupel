@@ -46,13 +46,16 @@ print(json.dumps({'legal':legal,'project':project,'metadata':dict(fields.items()
 `, wheel, join(root, 'packages/cupel-py/pyproject.toml')], options);
   const archive = JSON.parse(inspection.stdout);
   for (const name of ['LICENSE', 'NOTICE']) assert.equal(archive.legal[name], readFileSync(join(root, name), 'utf8'));
-  assert.equal(archive.project.version, manifest.version);
+  // The Python collector is versioned on its own (packages/cupel-py/pyproject.toml), not with the npm package.
+  const pyVersion = /^version\s*=\s*"([^"]+)"/m.exec(readFileSync(join(root, 'packages/cupel-py/pyproject.toml'), 'utf8'))?.[1];
+  assert.ok(pyVersion, 'pyproject.toml names a version');
+  assert.equal(archive.project.version, pyVersion);
   assert.equal(archive.project.license, manifest.license);
-  assert.equal(archive.metadata.Version, manifest.version);
+  assert.equal(archive.metadata.Version, pyVersion);
   assert.equal(archive.metadata['License-Expression'], manifest.license);
   assert.ok(archive.classifiers.includes('Private :: Do Not Upload'));
   assert.equal(archive.metadata['Requires-Python'], '>=3.12');
-  assert.ok(wheels[0].startsWith(`vibernt_cupel-${manifest.version}-`),
+  assert.ok(wheels[0].startsWith(`vibernt_cupel-${pyVersion}-`),
     'wheel filename version differs from package metadata');
   const env = join(scratch, 'python-install');
   checked(python, ['-m', 'venv', env], options);
@@ -63,7 +66,7 @@ print(json.dumps({'legal':legal,'project':project,'metadata':dict(fields.items()
     'import json,vibernt_cupel; from importlib.metadata import metadata; m=metadata("vibernt-cupel"); print(json.dumps({"spec":vibernt_cupel.SPEC_VERSION,"file":vibernt_cupel.__file__,"version":m["Version"],"license":m["License-Expression"]}))'], options);
   const importedPackage = JSON.parse(imported.stdout);
   assert.equal(importedPackage.spec, 'cupel-spec/1');
-  assert.equal(importedPackage.version, manifest.version);
+  assert.equal(importedPackage.version, pyVersion);
   assert.equal(importedPackage.license, manifest.license);
   assert.ok(importedPackage.file.startsWith(env), 'collector import escaped the installed environment');
   const out = join(scratch, 'python-input.json');

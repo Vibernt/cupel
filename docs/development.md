@@ -49,7 +49,11 @@ Each job prepares Go **1.27.1**, Ruby **4.0.7** with Minitest **6.0.0**, Python
 **3.14** with pytest **9.1.1** and setuptools **80.9.0**, rustup Rust/Cargo
 **1.97.1** with `llvm-tools-preview`, cargo-mutants **27.1.0**, Jest **30.2.0**,
 Vitest **4.1.11** and **5.0.1**, TypeScript **5.9.3**, React **19.2.0**, and
-Miniflare **5.20261101.0-beta**. cargo-mutants is cached per OS and architecture. Python's
+Miniflare **5.20261101.0-beta**. The JavaScript tools install with `npm ci` from the
+lockfiles in `scripts/ci-tools/` (exact versions on every OS); to run the same tests
+locally, copy a folder's `package.json` and `package-lock.json` into `.scratch/<tool>/`,
+run `npm ci --prefix .scratch/<tool> --ignore-scripts`, and point the variables below at
+it. cargo-mutants is cached per OS and architecture. Python's
 package-smoke environment and complete pytest wheel folder are prepared before
 tests; installed-package validation itself remains offline.
 
