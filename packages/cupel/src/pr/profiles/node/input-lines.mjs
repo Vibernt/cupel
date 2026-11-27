@@ -7,7 +7,7 @@ import { isDeclarationFile } from '../../../lang/js/declaration.mjs';
 import { analyse, coveredLines, formatLines } from '../../../collect/node/lines.mjs';
 import { foldRuns, unstableObject } from '../../../collect/coverage-runs.mjs';
 
-const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|jsx|tsx)$/;
+const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|tsx)$/;
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__test__']);
 const sortedObject = entries => Object.fromEntries([...entries].sort((a, b) => cmp(a[0], b[0])));
@@ -23,11 +23,16 @@ export function profileSources(root, manifest, testFiles, scope = {}) {
         file.split('/').slice(0, -1).some(part => part.startsWith('.') || TEST_DIRS.has(part))) continue;
     if (!include.some(pattern => globMatches(pattern, file)) ||
         exclude.some(pattern => globMatches(pattern, file))) continue;
-    // The native profile measures no JSX; it refuses rather than leave a source out or misread it.
-    if (/\.[jt]sx$/.test(file)) throw new Error(`Node PR native profile cannot measure JSX source: ${file}`);
     const bytes = readFileSync(join(root, file));
     if (sha(bytes) !== manifest[file]) throw new Error(`profile source changed while building input: ${file}`);
-    sources.set(file, { hash: manifest[file], an: analyse(bytes.toString('utf8'), { strict: true }) });
+    let an;
+    try { an = analyse(bytes.toString('utf8'), { strict: true }); }
+    catch (error) {
+      // The native profile reads no JSX: say so instead of blaming the file's syntax.
+      if (/\.tsx$/.test(file)) throw new Error(`Node PR native profile cannot measure JSX source: ${file}`);
+      throw error;
+    }
+    sources.set(file, { hash: manifest[file], an });
   }
   return sources;
 }

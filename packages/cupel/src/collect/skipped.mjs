@@ -8,6 +8,9 @@ export function causeText(error) {
   return text.replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ');
 }
 
+/** JSX needs a transform node:test does not apply, so no node:test test can run it and its lines are never measured. */
+export const JSX_UNMEASURED = 'JSX is not measured by the node:test runner (Vitest and Jest measure it)';
+
 /** File-level failures are kept outside the cupel-spec/1 input schema. */
 export function skipFile(diagnostics, log, area, file, error) {
   const cause = String(error?.message ?? error).replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ');

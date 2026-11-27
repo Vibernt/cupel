@@ -33,10 +33,13 @@ with its cause. Reports count not-measured sources beside the coverage
 percentage, and the audit lists them; they are never counted as uncovered.
 TypeScript declaration files (`.d.ts`, `.d.mts`, `.d.cts`) hold no code and
 are never sources. When one runner measures a source another cannot, the
-combined report uses the measuring runner's lines. A guard whose head cannot
-measure a source its base measured counts that source's lines as lost and
-warns `source-unmeasured`. The experimental Node PR profile refuses JSX
-sources.
+combined report uses the measuring runner's lines only when the other runner
+cannot run it at all (JSX under node:test); when the other runner's tests may
+run it unseen (a source-map failure, an unreadable file), Cupel refuses
+rather than report faults without those tests. A guard whose head cannot
+measure a source its base measured warns `source-unmeasured`. The
+experimental Node PR profile refuses a `.tsx` it cannot read, naming JSX as
+the reason.
 
 Selective results always have `wholeGuardPass: false`; they cannot approve a
 whole-suite guard. Historical S12 false greens and later profile failures remain

@@ -36,7 +36,7 @@ import { analyse, coveredLines, formatLines, unionLines } from './lines.mjs';
 import { positiveIntervals, unionIntervals } from './intervals.mjs';
 import { analyseTestFile, patternFindings } from './testfile.mjs';
 import { collectorError } from '../error-detail.mjs';
-import { causeText, skipFile } from '../skipped.mjs';
+import { causeText, JSX_UNMEASURED, skipFile } from '../skipped.mjs';
 import { readWorkerJson } from '../read-json.mjs';
 import { foldRuns, unstableObject } from '../coverage-runs.mjs';
 
@@ -47,8 +47,7 @@ const SPEC = 'cupel-spec/1';
 const DEFAULT_TESTS = 'tests/**/*.test.mjs';
 const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|jsx|tsx)$/;
 const JSX_SOURCE = /\.[jt]sx$/;
-/** JSX needs a transform node:test does not apply, so its lines are never measured here (I3). */
-export const JSX_UNMEASURED = 'JSX is not measured by the node:test runner (Vitest and Jest measure it)';
+export { JSX_UNMEASURED };
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__test__']);
 const DEPENDENCY_DIRS = new Set(['node_modules', 'bower_components', 'jspm_packages']);

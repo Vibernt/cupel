@@ -127,32 +127,39 @@ test('a source that could not be measured stays in the reuse basis: its tests ma
   assert.notEqual(basis(unmeasured), before.unmeasured, 'an unmeasured source is');
 });
 
-test('combining runners keeps the lines of the runner that measured a source', async () => {
+test('combining runners: JSX node:test cannot run takes the measuring runner\'s lines; a source run unseen is refused', async () => {
   const { mergeRunners } = await import('../src/cli/merge-runners.mjs');
   const { integrityDiagnostics } = await import('../src/engine/integrity.mjs');
-  const part = (runner, sources, test, lines) => ({
+  const part = (sources, test, lines) => ({
     spec: 'cupel-spec/1', kind: 'input', runtime: { name: 'node', version: '26.7.0' }, sources,
     tests: [{ id: test, file: test.split('::')[0], name: 'x', status: 'passed' }],
     coverage: { granularity: 'test', byTest: lines ? { [test]: lines } : {}, setup: {} },
   });
-  const node = part('node', {
+  const both = (a, b) => [[['node', a], ['vitest', b]], [['vitest', b], ['node', a]]].map((order) => mergeRunners(order.map(([name, input]) => ({ name, input }))));
+  const node = part({
     'src/App.tsx': { coverable: '', hash: 'h1', unmeasured: JSX_UNMEASURED },
+    'src/Page.tsx': { coverable: '', hash: 'h4', unmeasured: JSX_UNMEASURED },
     'src/lib.mjs': { coverable: '1-4', hash: 'h2' },
-    'src/gone.mjs': { coverable: '', unmeasured: 'not read by the node:test runner: EACCES' },
   }, 'tests/lib.test.mjs::x', { 'src/lib.mjs': '1-2' });
-  const vitest = part('vitest', {
+  const vitest = part({
     'src/App.tsx': { coverable: '1-3', hash: 'h1' },
-    'src/lib.mjs': { coverable: '', hash: 'h2', unmeasured: 'its coverage could not be mapped back' },
-    'src/gone.mjs': { coverable: '', hash: 'h3', unmeasured: 'not read by the Vitest runner: EACCES' },
+    'src/Page.tsx': { coverable: '', hash: 'h4', unmeasured: 'not read by the Vitest runner: typescript is not resolvable from the project root' },
+    'src/lib.mjs': { coverable: '1-4', hash: 'h2' },
   }, 'tests/App.test.tsx::x', { 'src/App.tsx': '1-3' });
-  for (const order of [[['node', node], ['vitest', vitest]], [['vitest', vitest], ['node', node]]]) {
-    const merged = mergeRunners(order.map(([name, input]) => ({ name, input })));
+  for (const merged of both(node, vitest)) {
     assert.deepEqual(merged.sources['src/App.tsx'], { coverable: '1-3', hash: 'h1' });
-    assert.deepEqual(merged.sources['src/lib.mjs'], { coverable: '1-4', hash: 'h2' });
-    assert.equal(merged.sources['src/gone.mjs'].coverable, '');
-    assert.match(merged.sources['src/gone.mjs'].unmeasured, /EACCES$/);
+    assert.match(merged.sources['src/Page.tsx'].unmeasured, /typescript is not resolvable/, 'the reason that says most');
     assert.deepEqual(integrityDiagnostics(merged), []);
   }
+  // Vitest's tests load lib.mjs but its coverage could not be mapped: they may catch faults node's tests miss.
+  const unmapped = structuredClone(vitest);
+  unmapped.sources['src/lib.mjs'] = { coverable: '', hash: 'h2', unmeasured: 'its coverage could not be mapped back to the file (transformed without a usable source map)' };
+  for (const order of [[node, unmapped], [unmapped, node]])
+    assert.throws(() => mergeRunners([{ name: 'a', input: order[0] }, { name: 'b', input: order[1] }]), /measures src\/lib\.mjs and another runs it without measuring it/);
+  // A runner that could not read the file has no hash to compare, and no complete answer either.
+  const unread = structuredClone(vitest);
+  unread.sources['src/lib.mjs'] = { coverable: '', unmeasured: 'not read by the Vitest runner: EACCES' };
+  assert.throws(() => mergeRunners([{ name: 'a', input: node }, { name: 'b', input: unread }]), /runs it without measuring it \(not read by the Vitest runner: EACCES\)/);
 });
 
 test('reasons carry no machine paths and no line breaks', async () => {
@@ -162,13 +169,14 @@ test('reasons carry no machine paths and no line breaks', async () => {
   assert.equal(causeText(new Error('Unterminated regex\nat offset 3')), 'Unterminated regex at offset 3');
 });
 
-test('the experimental Node PR profile refuses JSX instead of misreading or dropping it', async () => {
+test('the experimental Node PR profile names JSX as the reason it refuses a .tsx, and ignores .jsx as before', async () => {
   const { profileSources } = await import('../src/pr/profiles/node/input-lines.mjs');
-  const root = project();
+  const root = project({ 'src/typed.tsx': 'export const n: number = 1;\n' });
   try {
-    const manifest = Object.fromEntries(Object.keys(FILES).map((f) => [f, sha(FILES[f])]));
-    assert.throws(() => profileSources(root, manifest, new Set(['tests/price.test.mjs'])), /cannot measure JSX source: src\/plain\.jsx/);
-    const plainOnly = Object.fromEntries(Object.entries(manifest).filter(([f]) => !/\.[jt]sx$/.test(f)));
-    assert.deepEqual([...profileSources(root, plainOnly, new Set(['tests/price.test.mjs'])).keys()], ['src/price.mjs']);
+    const files = { ...FILES, 'src/typed.tsx': 'export const n: number = 1;\n' };
+    const manifest = Object.fromEntries(Object.keys(files).map((f) => [f, sha(files[f])]));
+    assert.throws(() => profileSources(root, manifest, new Set(['tests/price.test.mjs'])), /cannot measure JSX source: src\/view\.tsx/);
+    const { 'src/view.tsx': _v, ...rest } = manifest;
+    assert.deepEqual([...profileSources(root, rest, new Set(['tests/price.test.mjs'])).keys()], ['src/price.mjs', 'src/typed.tsx']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

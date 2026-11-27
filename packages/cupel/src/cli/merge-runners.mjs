@@ -2,6 +2,7 @@
 import { environment } from './errors.mjs';
 import { lines, union, format } from '../engine/lines.mjs';
 import { combineRunnerMutations } from './runner-mutations.mjs';
+import { JSX_UNMEASURED } from '../collect/skipped.mjs';
 
 const lineUnion = (a = '', b = '') => format(union(lines(a), lines(b)));
 const collectedParts = new WeakMap();
@@ -62,6 +63,24 @@ function mergeNested(into, from) {
   }
 }
 
+/**
+ * One source as several runners list it (K14, I3). Measured by all: the union of lines. Measured by none: the reason
+ * that says most (a runner limit only when no runner gave another). Measured by some: the measuring runners' lines
+ * only when the others cannot run the source at all (JSX under node:test); a runner whose tests may run it unseen
+ * (its coverage could not be mapped, or the file could not be read) leaves no complete answer, so Cupel refuses.
+ */
+function combineSource(path, old, source) {
+  const un = (entry) => entry.unmeasured !== undefined;
+  if (!un(old) && !un(source)) return { ...old, coverable: lineUnion(old.coverable, source.coverable) };
+  if (un(old) && un(source)) return old.unmeasured === JSX_UNMEASURED && source.unmeasured !== JSX_UNMEASURED ? { ...source } : old;
+  const missing = un(old) ? old : source;
+  if (missing.unmeasured !== JSX_UNMEASURED) {
+    throw environment(`one runner measures ${path} and another runs it without measuring it (${missing.unmeasured}); `
+      + 'fault results would miss that runner\'s tests. Fix the cause, or leave the source out of one runner\'s scope');
+  }
+  return un(old) ? { ...source } : old;
+}
+
 export function mergeRunners(parts) {
   if (!parts.length) throw environment('no runners were selected');
   if (parts.length === 1) return parts[0].input;
@@ -81,12 +100,10 @@ export function mergeRunners(parts) {
     merged.runtimes.push({ runner: name, ...input.runtime });
     for (const [path, source] of Object.entries(input.sources ?? {})) {
       const old = merged.sources[path];
-      if (old && old.hash !== undefined && source.hash !== undefined && old.hash !== source.hash) throw environment(`runners disagree on source hash: ${path}`);
-      // A source one runner measured keeps that runner's lines; one no runner measured keeps the first reason (I3).
-      merged.sources[path] = !old ? { ...source }
-        : source.unmeasured !== undefined ? old
-        : old.unmeasured !== undefined ? { ...source }
-        : { ...old, coverable: lineUnion(old.coverable, source.coverable) };
+      // Only a runner that could not read the file has no hash to compare.
+      const unread = (entry) => entry.unmeasured !== undefined && entry.hash === undefined;
+      if (old && !unread(old) && !unread(source) && old.hash !== source.hash) throw environment(`runners disagree on source hash: ${path}`);
+      merged.sources[path] = !old ? { ...source } : combineSource(path, old, source);
     }
     for (const test of input.tests ?? []) {
       if (tests.has(test.id)) throw environment(`duplicate test id across runners: ${test.id}`);

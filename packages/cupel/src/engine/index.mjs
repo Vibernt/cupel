@@ -148,12 +148,12 @@ export function run(command, inputs = {}, config = {}, args = {}, schemas) {
     return m;
   });
   for (const m of models) diagnostics.push(...m.diagnostics);
-  // G4: a source measured at base that head could not measure counts its lines as lost; say why.
+  // G4: a source measured at base that head could not measure; say why its coverage changed.
   if (command === 'guard') for (const [src, s] of Object.entries(inputs.head.sources ?? {}).sort(([a], [b]) => cmp(a, b))) {
     const before = inputs.base.sources?.[src];
     if (s.unmeasured !== undefined && before && before.unmeasured === undefined && before.coverable) diagnostics.push({
       code: 'source-unmeasured', severity: 'warning', path: `/sources/${String(src).replace(/~/g, '~0').replace(/\//g, '~1')}`,
-      message: `head: ${src} was measured at base but not at head (${s.unmeasured}); its lines count as lost coverage`,
+      message: `head: ${src} was measured at base but not at head (${s.unmeasured})`,
     });
   }
   if (command === 'guard') for (const [label, doc] of docs) if (doc.collection?.runs === 1) diagnostics.push({
