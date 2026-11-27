@@ -2,8 +2,8 @@
 // process per file, killed as a process group at its timeout, with our reporter writing to a private file.
 // Nothing is written inside the project: reports, marks and mutant specs live in a temporary directory.
 
-import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
@@ -119,3 +119,29 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
 
 /** Whether a failing reporter line is node:test's report of a file that failed to load. */
 export const isFileFailure = (file, line) => !line.suite && (line.t === file || line.t === basename(file));
+
+let probed = null;
+
+/**
+ * Whether this Node has the module-hook bugs that break a project's loader under Cupel's sync hook, probed once in
+ * `dir` (two small node processes) rather than read from a version table:
+ *  - asyncCjs: with sync and async hooks both registered, an ESM import of a CommonJS package fails
+ *    (ERR_INVALID_RETURN_PROPERTY_VALUE; nodejs/node#59929, fixed in 22.22.3, 24.11.1 and 25.1.0, never in 23);
+ *  - unknownExtension: with any sync hook registered, require() of an extension only a loader handles fails
+ *    (ERR_UNKNOWN_FILE_EXTENSION; seen on 22.22.0, not on 22.23.1 or 26.7.0).
+ */
+export function hookBugs(dir) {
+  if (probed) return probed;
+  mkdirSync(join(dir, 'node_modules/cupel-probe'), { recursive: true });
+  writeFileSync(join(dir, 'node_modules/cupel-probe/package.json'), '{"name":"cupel-probe","main":"index.js"}');
+  writeFileSync(join(dir, 'node_modules/cupel-probe/index.js'), 'exports.ok = 1;\n');
+  writeFileSync(join(dir, 'probe-hooks.mjs'), 'export async function load(url, context, nextLoad) { return nextLoad(url, context); }\n');
+  writeFileSync(join(dir, 'probe-async.mjs'), "import { register } from 'node:module';\nregister('./probe-hooks.mjs', import.meta.url);\nawait import('cupel-probe');\n");
+  writeFileSync(join(dir, 'probe-ext.cjs'), "require('node:module')._extensions['.cupelx'] = (m, f) => m._compile('module.exports = 1;', f);\nrequire('./probe.cupelx');\n");
+  writeFileSync(join(dir, 'probe.cupelx'), '');
+  const env = { ...process.env };
+  for (const k of ['NODE_OPTIONS', 'NODE_TEST_CONTEXT', 'NODE_V8_COVERAGE', 'CUPEL_MUTANT', 'CUPEL_MARKS', 'CUPEL_REPORT', 'CUPEL_LOADERS']) delete env[k];
+  const fails = (file) => spawnSync(process.execPath, ['--no-warnings', `--import=${HOOK_URL}`, file], { cwd: dir, env, stdio: 'ignore' }).status !== 0;
+  probed = { asyncCjs: fails('probe-async.mjs'), unknownExtension: fails('probe-ext.cjs') };
+  return probed;
+}

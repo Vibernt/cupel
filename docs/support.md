@@ -35,12 +35,15 @@ lines come from the project's own `typescript`, and V8's coverage of the
 transformed script is mapped back through the map (the line rule of SPEC K1;
 see [node:test: loaders and JSX](node.md)). A JSX source no test loads, one
 loaded without a usable map, or one the project's TypeScript cannot read is
-listed as not measured, with that reason. Faults in measured JSX, and every
+listed as not measured, with that reason. The same goes for any source a
+loader transforms (tsx compiling a `.ts`): mapped through its source map, or
+not measured without one. Faults in measured JSX, and every
 fault while a loader is in play, are served beneath the loader and carry a run
 proof: a fault not shown to run in every process that loaded it is reported as
-`error`, never scored ([which setups score](node.md#fault-testing)). Fault
-testing with a loader or preload needs Node 22.23+ or 26; on older Node 22 it
-stops with an environment error. A source a runner cannot read is listed as not measured
+`error`, never scored ([which setups score](node.md#fault-testing)). On a
+Node with the module-hook bugs Cupel probes for (22.16 to 22.22, for example),
+fault testing that would run into them stops with an environment error
+([Node versions](node.md#node-versions)). A source a runner cannot read is listed as not measured
 with its cause. Reports count not-measured sources beside the coverage
 percentage, and the audit lists them; they are never counted as uncovered.
 TypeScript declaration files (`.d.ts`, `.d.mts`, `.d.cts`) hold no code and

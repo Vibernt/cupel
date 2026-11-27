@@ -25,7 +25,7 @@ import { unitOf } from '../engine/integrity.mjs';
 import { generateMutants, applyMutant, sample, prng } from './operators.mjs';
 import { candidateValidity, enumerateSites, sourceMutants } from './sites.mjs';
 import { mutationModel } from './model.mjs';
-import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure } from './runner.mjs';
+import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure, hookBugs } from './runner.mjs';
 import { VitestMutantRunner } from './vitest.mjs';
 import { JestMutantRunner } from './jest/index.mjs';
 import { SourceFacts } from './source-facts.mjs';
@@ -44,9 +44,10 @@ const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
 const JSX_SOURCE = /\.[jt]sx$/;
-const [NODE_MAJOR, NODE_MINOR] = process.versions.node.split('.').map(Number);
-// Node 22 before 22.23 rejects CommonJS imports while sync and async module hooks are both registered.
-const HOOK_BUG = NODE_MAJOR === 22 && NODE_MINOR < 23;
+// Async loaders, the kinds that meet the asyncCjs module-hook bug (runner.mjs hookBugs).
+const ASYNC_KINDS = ['register', 'loader-flag'];
+// Failure codes of the two module-hook bugs, when this Node has them.
+const BUG_CODES = { ERR_INVALID_RETURN_PROPERTY_VALUE: 'asyncCjs', ERR_UNKNOWN_FILE_EXTENSION: 'unknownExtension' };
 // Loaders a test process reported (hook.mjs): with any of them in play, every fault carries a run proof. A preload
 // (--import or --require besides Cupel's) counts: it runs before Cupel's hook and may install a loader unseen.
 const LOADER_KINDS = ['register', 'registerHooks', 'loader-flag', 'extensions', 'preload'];
@@ -241,10 +242,26 @@ class Session {
     return [...eventsAfter(readText(this.loaderLog), 0).keys()].filter((kind) => LOADER_KINDS.includes(kind)).sort(cmp);
   }
 
-  /** Fault testing refused on Node 22 before 22.23 with a loader in play (`file`: whose unmutated run broke). */
-  loaderRefusal(file) {
-    const kinds = this.loaders();
-    return new EnvironmentError(`Node ${process.versions.node} breaks module loading while Cupel's hooks and a project loader are both registered (CommonJS imports beside async hooks, require() of extensions only a loader knows), and the tests run with a loader (${kinds.length ? kinds.join(', ') : 'seen in the failure'})${file ? `; the unmutated run of ${file} failed` : ''}: fault testing needs Node 22.23 or later; fixed in Node 22.23`);
+  /**
+   * The module-hook bug this Node has and this session triggers, or null: an async loader registered while Node breaks
+   * CommonJS imports beside async hooks, or an unmutated run that failed with either bug's code (`codes`). Probed only
+   * when there is something to check, so plain projects never pay for it.
+   */
+  hookBug(codes = new Set()) {
+    if (!this.proofs) return null;
+    const asyncLoader = this.loaders().some((kind) => ASYNC_KINDS.includes(kind));
+    const coded = [...codes].filter((code) => Object.hasOwn(BUG_CODES, code));
+    if (!asyncLoader && !coded.length) return null;
+    const bugs = hookBugs(join(this.tmp, 'probe'));
+    if (asyncLoader && bugs.asyncCjs) return 'asyncCjs';
+    return coded.map((code) => BUG_CODES[code]).find((bug) => bugs[bug]) ?? null;
+  }
+
+  /** Fault testing refused: this Node's module-hook bug makes tests fail only under Cupel's hooks. */
+  loaderRefusal(bug, file) {
+    const what = bug === 'asyncCjs' ? 'CommonJS imports while sync and async module hooks are both registered (nodejs/node#59929; fixed in 22.22.3, 24.11.1, 25.1.0)'
+      : 'require() of a file extension only a loader handles while a sync module hook is registered';
+    return new EnvironmentError(`Node ${process.versions.node} breaks ${what}, and these tests run into it under Cupel's hooks${file ? ` (the unmutated run of ${file} failed)` : ''}: a test could fail only because of the hooks and its faults would look unnoticed, so fault testing is refused; use a Node release without the bug (22.23 or later, or 26)`);
   }
 
   /** Runs each file once unmutated: its time sets the timeout, and a crash means the environment is broken. */
@@ -252,6 +269,7 @@ class Session {
     const todo = files.filter((f) => !this.baselines.has(f)).sort(cmp);
     if (!todo.length) return;
     const started = performance.now();
+    const baselineCodes = new Set();
     try { await pool(todo, this.jobs, async (file) => {
       let r;
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -263,16 +281,19 @@ class Session {
         // Node 22 before 22.23 breaks module loading under Cupel's sync hook together with a project loader (CommonJS
         // imports beside async hooks, require() of extensions only a loader knows): every run fails, mutated or not.
         const codes = new Set([...r.results.map((x) => x.code), ...(r.stderr.match(/ERR_[A-Z_]+/g) ?? [])]);
-        if (HOOK_BUG && this.proofs && (this.loaders().length || codes.has('ERR_INVALID_RETURN_PROPERTY_VALUE'))) throw this.loaderRefusal(file);
+        const bug = this.hookBug(codes);
+        if (bug) throw this.loaderRefusal(bug, file);
         throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
       }
+      for (const x of r.results) if (x.s === 'fail' && x.code) baselineCodes.add(x.code);
       const failing = new Set(r.results.filter((x) => x.s === 'fail').map((x) => (x.suite ? `suite:${x.t}` : x.t)));
       if (failing.size) this.log(`mutate: ${file} fails unmutated (${[...failing].join(', ')}); those failures are not kills`);
       this.baselines.set(file, { wallMs: r.wallMs, code: r.code, failing, count: r.results.filter((x) => !x.suite).length });
     }); } finally { this.baselineElapsedMs += performance.now() - started; }
-    // On Node 22 before 22.23 a loader in a test process can make a test fail only under Cupel's hooks, inside its body,
-    // in baselines and mutant runs alike: its faults would look unnoticed. Refuse before anything is scored.
-    if (HOOK_BUG && this.proofs && this.loaders().length) throw this.loaderRefusal();
+    // With this Node's module-hook bug in play, a test can fail only under Cupel's hooks, inside its body, in baselines
+    // and mutant runs alike: its faults would look unnoticed. Refuse before anything is scored.
+    const bug = this.hookBug(baselineCodes);
+    if (bug) throw this.loaderRefusal(bug);
     // The known-good probe: the fastest file that passed cleanly unmutated.
     if (!this.probeFile) {
       const clean = [...this.baselines.keys()].filter((f) => this.baselines.get(f).failing.size === 0);
@@ -406,14 +427,14 @@ class Session {
         // What ran must be the fault (hook.mjs, jsx-mark.mjs), or nothing this run did counts. A timeout or crash is
         // re-run first (a run killed between loading and running the module proves nothing); the run that decides the
         // result must carry the proof. Every fault: no process reported that it could not serve it (U) or that a
-        // loader compiled the file itself (B). A marked fault also: every process ran it as often as it loaded it,
-        // and the run's own test process ran it (its tests' coverage holds the file).
+        // loader compiled the file itself (B). A marked fault also: it ran in this run (in the test process or a
+        // child it started, K11), and every process that loaded it ran it (a module imported and also required
+        // loads twice but runs once, so a load is matched per process, not per call).
         const events = eventsAfter(readText(spec.seen), before.seen);
         out.unproven = events.has('U') || events.has('B');
         if (spec.mark && !out.unproven) {
           const ran = eventsAfter(readText(spec.ran), before.ran).get(spec.mark) ?? new Map();
-          const loads = events.get('L') ?? new Map();
-          out.unproven = [...loads].some(([pid, n]) => (ran.get(pid) ?? 0) < n) || !ran.get(String(r.pid));
+          out.unproven = !ran.size || [...(events.get('L') ?? new Map()).keys()].some((pid) => !ran.get(pid));
         }
       }
       return out;

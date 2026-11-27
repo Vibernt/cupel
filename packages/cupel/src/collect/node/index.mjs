@@ -52,8 +52,8 @@ const SPEC = 'cupel-spec/1';
 const DEFAULT_TESTS = 'tests/**/*.test.mjs';
 const SOURCE_EXT = /\.(mjs|cjs|js|mts|cts|ts|jsx|tsx)$/;
 const JSX_SOURCE = /\.[jt]sx$/;
-import { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED } from './jsx-reasons.mjs';
-export { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED };
+import { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED, SOURCE_NO_MAP } from './jsx-reasons.mjs';
+export { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED, SOURCE_NO_MAP };
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__test__']);
 const DEPENDENCY_DIRS = new Set(['node_modules', 'bower_components', 'jspm_packages']);
@@ -165,7 +165,7 @@ export function settleJsx(jsx, state, measured, unmeasured, log, spawnsNode = fa
   for (const [rel, j] of jsx) {
     const st = state.get(rel);
     // The first failure by script URL, then cause, so the reason does not depend on the order processes finished.
-    const failure = [...st.failures].sort((a, b) => cmp(a.url, b.url) || cmp(a.cause, b.cause))[0];
+    const failure = firstFailure(st.failures);
     // Not loaded in a measured process, but tests start node processes (K11) or a re-check saw it in one: those
     // may have run it unseen, which is not "no test ran it".
     const reason = !st.loaded ? (st.child || spawnsNode ? JSX_IN_CHILD : JSX_NOT_LOADED)
@@ -183,6 +183,27 @@ export function settleJsx(jsx, state, measured, unmeasured, log, spawnsNode = fa
   if (counted.notLoaded.length) log(`Node: ${counted.notLoaded.length} JSX ${counted.notLoaded.length === 1 ? 'source' : 'sources'} not measured, not loaded by any test (node:test runs JSX only through a loader such as --import tsx): ${list(counted.notLoaded)}`);
   if (counted.other.length) log(`Node: ${counted.other.length} JSX ${counted.other.length === 1 ? 'source' : 'sources'} loaded but not measured: ${counted.other.map((rel) => `${rel} (${unmeasured.get(rel).reason})`).slice(0, 5).join('; ')}${counted.other.length > 5 ? '; …' : ''}`);
   return new Set([...counted.notLoaded, ...counted.other]);
+}
+
+const firstFailure = (failures) => [...failures].sort((a, b) => cmp(a.url, b.url) || cmp(a.cause, b.cause))[0];
+
+/**
+ * Sources other than JSX that a loader transformed (`transformed`: rel -> failures of its scripts): one whose every
+ * transformed script mapped back stays measured, its lines mapped; one with a script that did not becomes unmeasured
+ * (K1, K2), its lines dropped. Returns the dropped sources.
+ */
+export function settleTransformed(transformed, measured, unmeasured, log) {
+  const dropped = new Set();
+  let mapped = 0;
+  for (const [rel, failures] of [...transformed].sort(([a], [b]) => cmp(a, b))) {
+    if (!failures.length) { mapped++; continue; }
+    unmeasured.set(rel, { hash: measured.get(rel).hash, reason: `${SOURCE_NO_MAP}: ${firstFailure(failures).cause}` });
+    measured.delete(rel);
+    dropped.add(rel);
+  }
+  if (mapped) log(`Node: ${mapped} ${mapped === 1 ? 'source' : 'sources'} transformed by a loader, measured through ${mapped === 1 ? 'its source map' : 'their source maps'}`);
+  if (dropped.size) log(`Node: ${dropped.size} ${dropped.size === 1 ? 'source' : 'sources'} transformed by a loader without a usable source map, not measured: ${[...dropped].slice(0, 5).join(', ')}${dropped.size > 5 ? ', …' : ''}`);
+  return dropped;
 }
 
 /** The input's `sources`: measured ones with their coverable lines, unmeasured ones with none and their reason. */
@@ -263,6 +284,17 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
   // Per JSX source: whether a test process loaded it, and the first reason a transformed script did not map back.
   const jsxState = new Map([...jsx.keys()].map((rel) => [rel, { loaded: false, failures: [], child: false }]));
   const jsxSources = new Map([...jsx].filter(([, j]) => j.an).map(([rel, j]) => [rel, { text: j.text, an: j.an }]));
+  // Other sources a loader transformed (the text V8 ran is not at the file's offsets): failures of their scripts.
+  const transformed = new Map();
+  // What sourceMapLines maps against: JSX, plus other sources once a transformed script of theirs shows up.
+  const mapSources = new Map(jsxSources);
+  const mapSourceOf = (rel) => {
+    if (!mapSources.has(rel) && sources.has(rel)) {
+      try { mapSources.set(rel, { text: readFileSync(join(root, rel), 'utf8'), an: sources.get(rel).an }); }
+      catch { return null; }
+    }
+    return mapSources.get(rel) ?? null;
+  };
   if (testFiles.length === 0) settleJsx(jsx, jsxState, sources, unmeasured, log);
   if (testFiles.length === 0) return {
     spec: SPEC, kind: 'input', runtime: { name: 'node', version: process.versions.node },
@@ -286,33 +318,39 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     return rel;
   };
   /**
-   * A transformed JSX script a test process recorded ({ rel, url, source } or { rel, url, error }): marks its source
-   * loaded and checks once that its source map leads back to the file as it is. Returns whether its lines can be used.
+   * A transformed script a test process recorded ({ rel, url, source } or { rel, url, error }), JSX or another source a
+   * loader made: marks a JSX source loaded and checks once that the script's source map leads back to the file as it
+   * is. Returns whether its lines can be used.
    */
-  const jsxScriptOk = (script) => {
+  const scriptOk = (script) => {
     if (script.ok !== undefined) return script.ok;
-    const st = jsxState.get(script.rel);
-    if (!st) return (script.ok = false);
-    st.loaded = true;
+    const isJsx = jsxState.has(script.rel);
+    if (!isJsx && !sources.has(script.rel)) return (script.ok = false);
+    if (isJsx) jsxState.get(script.rel).loaded = true;
+    const target = isJsx ? (jsxSources.has(script.rel) ? jsxSources.get(script.rel) : null) : mapSourceOf(script.rel);
     let failure = null;
     if (typeof script.source !== 'string') failure = `the transformed script could not be read${script.error ? ` (${script.error})` : ''}`;
-    else if (jsxSources.has(script.rel)) {
+    else if (target) {
       const found = [];
-      const mapped = sourceMapLines(root, script, [], jsxSources, () => {}, found);
+      const mapped = sourceMapLines(root, script, [], mapSources, () => {}, found);
       if (!mapped || mapped[0] !== script.rel || mapped[1] === null) failure = found[0]?.cause ?? 'its script does not map back to the file';
-    }
-    if (failure) st.failures.push({ url: String(script.url ?? ''), cause: failure });
-    return (script.ok = !failure && jsxSources.has(script.rel));
+    } else if (!isJsx) failure = 'the file could not be read again to map it';
+    if (failure) {
+      const entry = { url: String(script.url ?? ''), cause: failure };
+      if (isJsx) jsxState.get(script.rel).failures.push(entry);
+      else { if (!transformed.has(script.rel)) transformed.set(script.rel, []); transformed.get(script.rel).push(entry); }
+    } else if (!isJsx && !transformed.has(script.rel)) transformed.set(script.rel, []);
+    return (script.ok = !failure && !!target);
   };
-  /** { rel: intervals } (JSX keyed `rel\0scriptId`, with the process's `scripts`) -> Map rel -> ascending lines. */
+  /** { rel: intervals } (transformed scripts keyed `rel\0scriptId`, with the process's `scripts`) -> Map rel -> lines. */
   const toLines = (cov, scripts = {}) => {
     const m = new Map();
     for (const [key, iv] of Object.entries(cov)) {
       const cut = key.indexOf('\u0000');
       if (cut >= 0) {
         const script = scripts[key.slice(cut + 1)];
-        if (!script || script.rel !== key.slice(0, cut) || !jsxScriptOk(script)) continue;
-        const mapped = sourceMapLines(root, script, iv, jsxSources, () => {}, []);
+        if (!script || script.rel !== key.slice(0, cut) || !scriptOk(script)) continue;
+        const mapped = sourceMapLines(root, script, iv, mapSources, () => {}, []);
         if (mapped?.[1]?.length) m.set(script.rel, unionLines(m.get(script.rel) ?? [], mapped[1]));
         continue;
       }
@@ -382,9 +420,10 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         rmSync(p);
         if (!d) continue;
         const scripts = d.scripts ?? {};
-        for (const script of Object.values(scripts)) jsxScriptOk(script);
+        for (const script of Object.values(scripts)) scriptOk(script);
         hook.push({
           file: d.file,
+          loader: d.loader === true,
           setup: mode === 'coverage' ? toLines(d.setup, scripts) : null,
           childDirs: d.childDirs,
           workerdSources: d.workerdSources ?? [],
@@ -417,6 +456,14 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
           if (!data) continue;
           for (const sc of data.result ?? []) {
             const rel = sourceOfUrl(sc.url);
+            // A child's coverage file holds no script text: a source a loader transforms there (it has a source map, or
+            // the measured runs saw it transformed) cannot be mapped either.
+            if (rel && (transformed.has(rel) || data['source-map-cache']?.[sc.url])) {
+              jsxInChild.add(rel);
+              if (!jsxBySub.has(sub)) jsxBySub.set(sub, new Set());
+              jsxBySub.get(sub).add(rel);
+              continue;
+            }
             if (!rel) {
               // A child's coverage file holds no script text, so JSX a loader transformed there cannot be mapped.
               try {
@@ -435,8 +482,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         }
         out.set(sub, toLines(Object.fromEntries(acc)));
       }
-      for (const rel of jsxInChild) jsxState.get(rel).child = true;
-      if (jsxInChild.size) log(`recheck: child processes ran JSX whose coverage cannot be mapped (no script text): ${[...jsxInChild].sort(cmp).join(', ')}`);
+      for (const rel of jsxInChild) if (jsxState.has(rel)) jsxState.get(rel).child = true;
+      if (jsxInChild.size) log(`recheck: child processes ran transformed code whose coverage cannot be mapped (no script text): ${[...jsxInChild].sort(cmp).join(', ')}`);
       rmSync(dir, { recursive: true, force: true });
       return out;
     };
@@ -685,7 +732,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
             const h = t.hookKey ? index.get(`${t.file}\u0000${t.hookKey}`) : null;
             if (!h) { ok = false; break; }
             if ([...unmapped].some((x) => x.fullName === h.fullName && x.n === h.n)) {
-              log(`recheck: ${u} ran JSX in a child process, whose coverage cannot be mapped; its shared coverage is kept`);
+              log(`recheck: ${u} ran JSX or transformed code in a child process, whose coverage cannot be mapped; its shared coverage is kept`);
               ok = null;
               break;
             }
@@ -705,7 +752,11 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     }
 
     // JSX: measured or not, now that every run is in; lines of an unmeasured one are never kept.
-    const dropped = settleJsx(jsx, jsxState, sources, unmeasured, log, [...tests.values()].some((t) => t.interp));
+    // A child process may run JSX unseen only through a loader: count tests that start node processes only when a
+    // measured test process had one in play (K11); a re-check that saw JSX in a child counts on its own.
+    const loaderSeen = all.some((run) => run.hook.some((h) => h.loader));
+    const dropped = settleJsx(jsx, jsxState, sources, unmeasured, log, loaderSeen && [...tests.values()].some((t) => t.interp));
+    for (const rel of settleTransformed(transformed, sources, unmeasured, log)) dropped.add(rel);
     if (dropped.size) {
       const strip = (m) => { for (const rel of dropped) m?.delete(rel); };
       for (const t of tests.values()) strip(t.lines);

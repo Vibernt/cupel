@@ -9,7 +9,8 @@
 //
 // Lines appended to `seen`, one per event, so the runner can tell whether the served fault ran:
 //   L <pid>  the module was loaded through the hooks (a mutant served or attempted);
-//   U <pid>  a loader is in play and the fault could not be served beneath it: what runs is not the fault;
+//   U <pid>  a loader below this hook changed the file's text, or a loader's own handler may ignore what is served:
+//            serving here would skip it, so what runs is not the fault;
 //   B <pid>  CommonJS compiled the file from text without the run proof: a loader read the file itself.
 // A marked mutant (`mark`, jsx-mark.mjs) appends `<mark> <pid>` to its own file each time its code runs.
 //
@@ -70,16 +71,21 @@ if (typeof register === 'function') {
   };
 }
 const registerHooks = Module.registerHooks;
+let disk;
 registerHooks.call(Module, {
   load(url, context, next) {
     if (!isMutant(url)) return next(url, context);
     note('L');
     const original = next(url, context);
-    if (spec.mark && text(original.source).includes(spec.mark)) return original; // served below and passed up
-    // A loader below this hook (async, or --loader) would be skipped by serving here, and a loader of the project's
-    // own for this extension may not use what is served: what runs then is not the fault, so say so.
+    const below = original.source == null ? null : text(original.source);
+    if (spec.mark && below?.includes(spec.mark)) return original; // served beneath the loader and passed up
+    // Text from below that is not the file's own bytes: a loader below this hook (registered from a --require
+    // preload, a --loader flag, or an async loader the inner hook did not reach) changed it, and serving here would
+    // skip that loader. A loader's own handler for this extension may also ignore what is served (unmarked faults
+    // cannot show it ran). Either way what runs is not the fault, so say so.
+    disk ??= readFileSync(target, 'utf8');
     const replaced = Module._extensions[extname(target)] !== extensions[extname(target)];
-    if (inner || loaderFlag || (!spec.mark && replaced)) {
+    if ((below !== null && below !== disk) || (!spec.mark && replaced)) {
       note('U');
       return original;
     }

@@ -91,9 +91,10 @@ export function mergeInputs(parts) {
 const JSX = /\.[jt]sx$/;
 
 /**
- * Shards agree on every source, except a JSX source under node:test, which a shard measures only when its own tests
- * load it (K2): with the same hash, an entry a shard loaded but could not measure wins (its reason, the least by
- * text when shards differ), then a measured entry (shards that measured it must agree), then "not loaded".
+ * Shards agree on every source, except one a shard's own tests ran through a loader (K1, K2): JSX, measured only when
+ * a shard's tests load it, and any source a loader transformed without a usable source map. With the same hash, an
+ * entry a shard loaded but could not measure wins (its reason, the least by text when shards differ), then a measured
+ * entry (shards that measured it must agree), then "not loaded".
  * Returns the merged sources and the JSX sources whose lines some shard had but the merge leaves unmeasured.
  */
 function mergeSources(parts) {
@@ -109,8 +110,8 @@ function mergeSources(parts) {
     const entries = parts.map(({ input }) => input.sources[path]);
     if (entries.every((entry) => same(entry, entries[0]))) { sources[path] = entries[0]; continue; }
     const differ = () => environment(`${names(entries.findIndex((entry) => !same(entry, entries[0])))} differ in sources: ${path}`);
-    if (!JSX.test(path) || entries.some((entry) => entry.hash === undefined || entry.hash !== entries[0].hash)) throw differ();
-    const notLoaded = entries.filter((entry) => entry.unmeasured === JSX_NOT_LOADED && entry.coverable === '');
+    if (entries.some((entry) => entry.hash === undefined || entry.hash !== entries[0].hash)) throw differ();
+    const notLoaded = entries.filter((entry) => JSX.test(path) && entry.unmeasured === JSX_NOT_LOADED && entry.coverable === '');
     const unusable = entries.filter((entry) => entry.unmeasured !== undefined && !notLoaded.includes(entry));
     const measured = entries.filter((entry) => entry.unmeasured === undefined);
     if (measured.some((entry) => !same(entry, measured[0]))) throw differ();
