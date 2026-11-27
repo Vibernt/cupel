@@ -5,7 +5,7 @@
 // either way; one loaded without a usable source map cannot be mapped back.
 
 export const JSX_NOT_LOADED = 'JSX not loaded by any test: node:test runs JSX only through a loader the project sets up (for example --import tsx), so its lines are not measured';
-export const JSX_IN_CHILD = 'JSX not loaded in any test process Cupel measures, but tests start node processes that may run it unseen through the loader, so its lines are not measured';
+export const JSX_IN_CHILD = 'JSX not loaded in any test process Cupel measures, but tests start node processes that may run it unseen (with a loader of their own), so its lines are not measured';
 export const JSX_NO_MAP = 'JSX loaded without a usable source map, so its lines are not measured';
 export const SOURCE_NO_MAP = 'transformed by a loader without a usable source map, so its lines are not measured';
 export const JSX_NO_TYPESCRIPT = 'JSX lines come from the project\'s typescript, which is not resolvable from the project root';

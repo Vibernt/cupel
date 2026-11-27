@@ -21,7 +21,9 @@
 //  - in re-check runs (`childCoverage`), points NODE_V8_COVERAGE of every child process at a directory per
 //    running test, so the coverage of node children can be added to that test (K4);
 //  - with a loader in play (a preload, `--loader`, `--experimental-transform-types`, `module.register`,
-//    `registerHooks`, or a changed `Module._extensions` / `Module.prototype._compile`), and for every JSX script, reads
+//    `registerHooks`, any change to `Module._extensions` even if undone later (loader-watch.mjs), or a changed
+//    `Module.prototype._compile`), for every JSX script, and for any script whose length is not its file's (a patched
+//    `Module.wrap`, Node's type stripping, which then compares equal), reads
 //    the exact text V8 runs the first time an in-scope script shows up (`Debugger.getScriptSource`, while the script
 //    is alive). Text at the file's own offsets (the file itself, or Node's type stripping: same-offsets.mjs) keys its
 //    intervals by `<rel>` as before. Text a loader made keys them by `<rel>\0<scriptId>` and is written out under
@@ -44,6 +46,7 @@ import { installNodeAssertions } from '../assertions/node.mjs';
 import { promisify } from 'node:util';
 import { positiveIntervals, unionIntervals, addAll } from './intervals.mjs';
 import { sameOffsets } from './same-offsets.mjs';
+import { watchLoaders } from './loader-watch.mjs';
 import { WorkerdCoverage, freePort, isWorkerd, textReader, wasmIndex, watchWorkerd } from './workerd.mjs';
 
 const real = (p) => { try { return realpathSync(p); } catch { return p; } };
@@ -63,10 +66,10 @@ async function install(cfg, mainFile) {
   const words = [...process.execArgv, ...String(process.env.NODE_OPTIONS ?? '').split(/\s+/).filter(Boolean)];
   let loader = words.some((w, i) => /^--(experimental-)?loader(=|$)|^--experimental-transform-types$/.test(w) ||
     (/^(--import|--require|-r)(=|$)/.test(w) && (w.includes('=') ? w.slice(w.indexOf('=') + 1) : words[i + 1]) !== self));
-  const extensionHandlers = { ...Module._extensions };
+  // A handler set and restored before the first checkpoint still changed what ran: watch the setters, and keep it.
+  watchLoaders(Module, () => { loader = true; });
   const compileHandler = Module.prototype._compile;
-  const loaderInPlay = () => loader ||= Module.prototype._compile !== compileHandler ||
-    Object.keys(Module._extensions).some((ext) => Module._extensions[ext] !== extensionHandlers[ext]);
+  const loaderInPlay = () => loader ||= Module.prototype._compile !== compileHandler;
   const relOf = new Map();
   const pathOf = (url) => {
     let rel = relOf.get(url);
@@ -146,7 +149,12 @@ async function install(cfg, mainFile) {
       const rel = pathOf(s.url);
       if (!rel || scriptsSeen.has(s.scriptId)) continue;
       scriptsSeen.add(s.scriptId);
-      if (reading || jsx.has(rel)) fresh.push([s.scriptId, { rel, url: s.url }]);
+      // Without a loader in play, a script whose length (its top-level function's range) differs from the file's
+      // was still changed by something (a patched Module.wrap, a transform undone before now): read it too.
+      const length = s.functions?.[0]?.ranges?.[0]?.endOffset;
+      const file = reading || jsx.has(rel) ? null : fileText(rel);
+      const fileLength = file === null ? null : file.charCodeAt(0) === 0xfeff ? [file.length, file.length - 1] : [file.length];
+      if (reading || jsx.has(rel) || fileLength === null || !fileLength.includes(length)) fresh.push([s.scriptId, { rel, url: s.url }]);
       else same.add(s.scriptId);
     }
     if (fresh.length) {
@@ -391,7 +399,6 @@ async function install(cfg, mainFile) {
       setup: Object.fromEntries(setup),
       childDirs,
       ...(Object.keys(scripts).length ? { scripts } : {}),
-      ...(loaderInPlay() ? { loader: true } : {}),
       ...(workerdNotes.started ? { workerd: workerdNotes, workerdSources: [...workerdSources].sort() } : {}),
     };
     writeAtomicJson(join(cfg.out, `${process.pid}.json`), body);

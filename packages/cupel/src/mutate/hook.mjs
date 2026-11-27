@@ -29,6 +29,7 @@ import Module, { syncBuiltinESMExports } from 'node:module';
 import { readFileSync, appendFileSync, openSync, writeSync } from 'node:fs';
 import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { watchLoaders } from '../collect/node/loader-watch.mjs';
 
 const SELF = import.meta.url;
 const specPath = process.env.CUPEL_MUTANT;
@@ -36,6 +37,8 @@ const spec = specPath ? JSON.parse(readFileSync(specPath, 'utf8')) : null;
 const target = spec ? fileURLToPath(spec.url) : null;
 const isMutant = (url) => spec !== null && url.split('?')[0].split('#')[0] === spec.url;
 const text = (source) => (typeof source === 'string' ? source : source == null ? '' : new TextDecoder().decode(source));
+// A leading byte-order mark: TextDecoder drops it, readFileSync keeps it, V8 runs ESM without it. Compare without.
+const unBom = (value) => (value.charCodeAt(0) === 0xfeff ? value.slice(1) : value);
 const note = (kind) => { if (spec?.seen) appendFileSync(spec.seen, `${kind} ${process.pid}\n`); };
 const loaderLog = process.env.CUPEL_LOADERS;
 const noted = new Set();
@@ -57,6 +60,8 @@ for (let i = 0; i < words.length; i++) {
   if (value !== SELF) noteLoader('preload');
 }
 const extensions = { ...Module._extensions };
+// A handler set and undone before exit still ran: note it as it happens.
+watchLoaders(Module, () => noteLoader('extensions'));
 
 let inner = false;
 const register = Module.register;
@@ -85,7 +90,7 @@ registerHooks.call(Module, {
     // cannot show it ran). Either way what runs is not the fault, so say so.
     disk ??= readFileSync(target, 'utf8');
     const replaced = Module._extensions[extname(target)] !== extensions[extname(target)];
-    if ((below !== null && below !== disk) || (!spec.mark && replaced)) {
+    if ((below !== null && unBom(below) !== unBom(disk)) || (!spec.mark && replaced)) {
       note('U');
       return original;
     }

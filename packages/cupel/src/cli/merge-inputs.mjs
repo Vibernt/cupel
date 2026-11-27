@@ -2,7 +2,7 @@ import { cmp } from '../engine/order.mjs';
 import { lines, union, format } from '../engine/lines.mjs';
 import { environment, usage } from './errors.mjs';
 import { canonical, digest } from './collection.mjs';
-import { JSX_NOT_LOADED } from '../collect/node/jsx-reasons.mjs';
+import { JSX_IN_CHILD, JSX_NOT_LOADED, JSX_NO_MAP, JSX_NO_TYPESCRIPT, JSX_UNPARSED, SOURCE_NO_MAP } from '../collect/node/jsx-reasons.mjs';
 
 const lineUnion = (a = '', b = '') => format(union(lines(a), lines(b)));
 const same = (a, b) => canonical(a) === canonical(b);
@@ -89,6 +89,9 @@ export function mergeInputs(parts) {
 }
 
 const JSX = /\.[jt]sx$/;
+// Reasons a shard gives a source its own tests ran through a loader but could not measure (K2).
+const LOADER_REASONS = [JSX_NO_MAP, JSX_IN_CHILD, JSX_NO_TYPESCRIPT, JSX_UNPARSED, SOURCE_NO_MAP];
+const loaderReason = (reason) => LOADER_REASONS.some((r) => reason === r || reason.startsWith(`${r}: `));
 
 /**
  * Shards agree on every source, except one a shard's own tests ran through a loader (K1, K2): JSX, measured only when
@@ -115,7 +118,8 @@ function mergeSources(parts) {
     const unusable = entries.filter((entry) => entry.unmeasured !== undefined && !notLoaded.includes(entry));
     const measured = entries.filter((entry) => entry.unmeasured === undefined);
     if (measured.some((entry) => !same(entry, measured[0]))) throw differ();
-    if (unusable.some((entry) => entry.coverable !== '')) throw differ();
+    // Only a loader explains shards disagreeing; any other reason (a read failure in one shard) refuses the merge.
+    if (unusable.some((entry) => entry.coverable !== '' || !loaderReason(entry.unmeasured))) throw differ();
     if (unusable.length) {
       sources[path] = [...unusable].sort((a, b) => cmp(a.unmeasured, b.unmeasured))[0];
       if (measured.length) dropped.add(path);

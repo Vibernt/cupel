@@ -44,8 +44,6 @@ const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
 const JSX_SOURCE = /\.[jt]sx$/;
-// Async loaders, the kinds that meet the asyncCjs module-hook bug (runner.mjs hookBugs).
-const ASYNC_KINDS = ['register', 'loader-flag'];
 // Failure codes of the two module-hook bugs, when this Node has them.
 const BUG_CODES = { ERR_INVALID_RETURN_PROPERTY_VALUE: 'asyncCjs', ERR_UNKNOWN_FILE_EXTENSION: 'unknownExtension' };
 // Loaders a test process reported (hook.mjs): with any of them in play, every fault carries a run proof. A preload
@@ -243,17 +241,19 @@ class Session {
   }
 
   /**
-   * The module-hook bug this Node has and this session triggers, or null: an async loader registered while Node breaks
-   * CommonJS imports beside async hooks, or an unmutated run that failed with either bug's code (`codes`). Probed only
-   * when there is something to check, so plain projects never pay for it.
+   * The module-hook bug this Node has, when this session could run into it; else null. With a bug present, any
+   * loader, preload or extension entry in play counts: a test can catch the bug's failure and fall back (the code
+   * never surfaces), so error codes cannot be relied on, and such Node releases are below the supported minimum.
+   * An unmutated run failing with a bug's code (`codes`) counts too. Probed only when there is something to check,
+   * so plain projects never pay for it.
    */
   hookBug(codes = new Set()) {
     if (!this.proofs) return null;
-    const asyncLoader = this.loaders().some((kind) => ASYNC_KINDS.includes(kind));
+    const kinds = this.loaders();
     const coded = [...codes].filter((code) => Object.hasOwn(BUG_CODES, code));
-    if (!asyncLoader && !coded.length) return null;
+    if (!kinds.length && !coded.length) return null;
     const bugs = hookBugs(join(this.tmp, 'probe'));
-    if (asyncLoader && bugs.asyncCjs) return 'asyncCjs';
+    if (kinds.length) return bugs.asyncCjs ? 'asyncCjs' : bugs.unknownExtension ? 'unknownExtension' : null;
     return coded.map((code) => BUG_CODES[code]).find((bug) => bugs[bug]) ?? null;
   }
 
@@ -261,7 +261,8 @@ class Session {
   loaderRefusal(bug, file) {
     const what = bug === 'asyncCjs' ? 'CommonJS imports while sync and async module hooks are both registered (nodejs/node#59929; fixed in 22.22.3, 24.11.1, 25.1.0)'
       : 'require() of a file extension only a loader handles while a sync module hook is registered';
-    return new EnvironmentError(`Node ${process.versions.node} breaks ${what}, and these tests run into it under Cupel's hooks${file ? ` (the unmutated run of ${file} failed)` : ''}: a test could fail only because of the hooks and its faults would look unnoticed, so fault testing is refused; use a Node release without the bug (22.23 or later, or 26)`);
+    const kinds = this.loaders();
+    return new EnvironmentError(`Node ${process.versions.node} breaks ${what}, and these tests run ${kinds.length ? `with a loader or preload in play (${kinds.join(', ')})` : 'into it'} under Cupel's hooks${file ? ` (the unmutated run of ${file} failed)` : ''}: a test could fail only because of the hooks, even inside a try/catch, and its faults would look unnoticed, so fault testing is refused; use a Node release without the bug (22.23 or later, or 26)`);
   }
 
   /** Runs each file once unmutated: its time sets the timeout, and a crash means the environment is broken. */
@@ -414,6 +415,13 @@ class Session {
   /** One file with one mutant: a timeout is re-run once with a longer limit, a crash is re-run once, then `error`. */
   async runFile(m, spec, file, covering) {
     const deadline = this.deadline;
+    // The input says the test process itself ran the file (in-process coverage: a test outside the re-checked units,
+    // whose lines may come from children, or this file's setup): then that process must run the fault, so a test
+    // process that evaluates the file some other way (vm, eval of the file's text) cannot borrow a child's proof.
+    const rechecked = new Set(this.input.coverage?.rechecked ?? []);
+    const setupLines = this.model.setup.get(file)?.[m.source];
+    const inProcess = covering.some((t) => t.file === file && !rechecked.has(unitOf(t))) ||
+      (setupLines !== undefined && hasLine(parseLines(setupLines), m.line));
     const CUT = { kind: 'cut', killers: new Set() };
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
@@ -428,13 +436,15 @@ class Session {
         // re-run first (a run killed between loading and running the module proves nothing); the run that decides the
         // result must carry the proof. Every fault: no process reported that it could not serve it (U) or that a
         // loader compiled the file itself (B). A marked fault also: it ran in this run (in the test process or a
-        // child it started, K11), and every process that loaded it ran it (a module imported and also required
-        // loads twice but runs once, so a load is matched per process, not per call).
+        // child it started, K11; the test process itself when the input says it ran the file), and every process
+        // that loaded it ran it (a module imported and also required loads twice but runs once, so a load is matched
+        // per process, not per call).
         const events = eventsAfter(readText(spec.seen), before.seen);
         out.unproven = events.has('U') || events.has('B');
         if (spec.mark && !out.unproven) {
           const ran = eventsAfter(readText(spec.ran), before.ran).get(spec.mark) ?? new Map();
-          out.unproven = !ran.size || [...(events.get('L') ?? new Map()).keys()].some((pid) => !ran.get(pid));
+          out.unproven = !ran.size || [...(events.get('L') ?? new Map()).keys()].some((pid) => !ran.get(pid)) ||
+            (inProcess && !ran.get(String(r.pid)));
         }
       }
       return out;

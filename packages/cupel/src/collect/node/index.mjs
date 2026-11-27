@@ -172,7 +172,7 @@ export function settleJsx(jsx, state, measured, unmeasured, log, spawnsNode = fa
       : j.problem ?? (failure ? `${JSX_NO_MAP}: ${failure.cause}` : null);
     if (reason) {
       unmeasured.set(rel, { hash: j.hash, reason });
-      (st.loaded ? counted.other : counted.notLoaded).push(rel);
+      (reason === JSX_NOT_LOADED ? counted.notLoaded : counted.other).push(rel);
     } else {
       measured.set(rel, { an: j.an, hash: j.hash });
       counted.measured.push(rel);
@@ -181,7 +181,7 @@ export function settleJsx(jsx, state, measured, unmeasured, log, spawnsNode = fa
   const list = (rels) => `${rels.slice(0, 5).join(', ')}${rels.length > 5 ? ', …' : ''}`;
   if (counted.measured.length) log(`Node: ${counted.measured.length} JSX ${counted.measured.length === 1 ? 'source' : 'sources'} measured through the project's loader and its source maps`);
   if (counted.notLoaded.length) log(`Node: ${counted.notLoaded.length} JSX ${counted.notLoaded.length === 1 ? 'source' : 'sources'} not measured, not loaded by any test (node:test runs JSX only through a loader such as --import tsx): ${list(counted.notLoaded)}`);
-  if (counted.other.length) log(`Node: ${counted.other.length} JSX ${counted.other.length === 1 ? 'source' : 'sources'} loaded but not measured: ${counted.other.map((rel) => `${rel} (${unmeasured.get(rel).reason})`).slice(0, 5).join('; ')}${counted.other.length > 5 ? '; …' : ''}`);
+  if (counted.other.length) log(`Node: ${counted.other.length} JSX ${counted.other.length === 1 ? 'source' : 'sources'} not measured: ${counted.other.map((rel) => `${rel} (${unmeasured.get(rel).reason})`).slice(0, 5).join('; ')}${counted.other.length > 5 ? '; …' : ''}`);
   return new Set([...counted.notLoaded, ...counted.other]);
 }
 
@@ -423,7 +423,6 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         for (const script of Object.values(scripts)) scriptOk(script);
         hook.push({
           file: d.file,
-          loader: d.loader === true,
           setup: mode === 'coverage' ? toLines(d.setup, scripts) : null,
           childDirs: d.childDirs,
           workerdSources: d.workerdSources ?? [],
@@ -683,6 +682,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
 
     // Re-check (K4): each unit alone in its own process; its rows' coverage replaces the shared coverage.
     const rechecked = [];
+    const childMeasured = new Set(); // ids of rows re-checked with their child processes' coverage
     const wanted = [...new Set(recheck ?? [])];
     if (wanted.length) {
       const jobs = [];
@@ -743,7 +743,7 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
             log(`recheck: ${u} did not run alone as it ran in the suite; its shared coverage is kept`);
             continue;
           }
-          for (const [row, lines] of replaced) row.lines = lines;
+          for (const [row, lines] of replaced) { row.lines = lines; childMeasured.add(row.id); }
           rechecked.push(u);
         }
       };
@@ -752,10 +752,9 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
     }
 
     // JSX: measured or not, now that every run is in; lines of an unmeasured one are never kept.
-    // A child process may run JSX unseen only through a loader: count tests that start node processes only when a
-    // measured test process had one in play (K11); a re-check that saw JSX in a child counts on its own.
-    const loaderSeen = all.some((run) => run.hook.some((h) => h.loader));
-    const dropped = settleJsx(jsx, jsxState, sources, unmeasured, log, loaderSeen && [...tests.values()].some((t) => t.interp));
+    // A node process a test starts (K11) may run JSX unseen, with a loader of its own (`node --import tsx cli.tsx`, a
+    // tsx bin): "not loaded" holds only when no such test is left whose children a re-check did not measure.
+    const dropped = settleJsx(jsx, jsxState, sources, unmeasured, log, [...tests.values()].some((t) => t.interp && !childMeasured.has(t.id)));
     for (const rel of settleTransformed(transformed, sources, unmeasured, log)) dropped.add(rel);
     if (dropped.size) {
       const strip = (m) => { for (const rel of dropped) m?.delete(rel); };

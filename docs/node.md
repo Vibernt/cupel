@@ -43,7 +43,7 @@ reasons, and counted apart in reports (never as uncovered):
 | Reason | When |
 | --- | --- |
 | `JSX not loaded by any test: …` | No test process loaded it: there is no loader, or no test imports it, and no test starts a node process. |
-| `JSX not loaded in any test process Cupel measures, but tests start node processes …` | Not loaded in a test process, but some test starts a node process (K11), which may run it unseen; or a re-check saw a child process run it. |
+| `JSX not loaded in any test process Cupel measures, but tests start node processes …` | Not loaded in a test process, but some test starts a node process (K11), which may run it unseen with a loader of its own (`node --import tsx cli.tsx`), and no re-check measured that test's children; or a re-check saw a child run it. |
 | `JSX loaded without a usable source map, …: <cause>` | A loaded script had no inline map, a map without this file, embedded text that differs from the file, or text Cupel could not read. |
 | `JSX lines come from the project's typescript, which is not resolvable …` | It was loaded, but no `typescript` resolves from the project root. |
 | `JSX the project's typescript cannot parse, …: <cause>` | It was loaded, but TypeScript reports a syntax error in it. |
@@ -51,8 +51,8 @@ reasons, and counted apart in reports (never as uncovered):
 
 **Shards.** A shard (`collect-node --shard`) measures a JSX source only if its
 own tests load it, and finds a source a loader transformed without a map only
-if its own tests load it, so shards can disagree. `merge-inputs` accepts that
-with the same hash: a shard that loaded it but could not measure it decides
+if its own tests load it, so shards can disagree. `merge-inputs` accepts that,
+and only that (one of the loader reasons above), with the same hash: a shard that loaded it but could not measure it decides
 (the source is unmeasured, and other shards' lines for it are dropped), else a
 shard that measured it, else it stays "not loaded". Any other difference
 between shards still refuses the merge.
@@ -71,8 +71,11 @@ re-checked), and source maps in separate `.map` files.
 **Other sources a loader transforms.** The same holds for every in-scope
 `.ts`, `.js` or other source. Once a test process has a loader in play (a
 preload, `--loader`, `--experimental-transform-types`, `module.register`,
-`registerHooks`, or a changed `Module._extensions` / `Module.prototype._compile`),
-the hook reads the text V8 runs for each in-scope script. Text at the file's own
+`registerHooks`, any change to `Module._extensions` even if a test undoes it
+before Cupel looks, or a changed `Module.prototype._compile`), the hook reads the
+text V8 runs for each in-scope script; without one it still reads a script whose
+length differs from its file's (a patched `Module.wrap` gives itself away so).
+A leading byte-order mark is allowed for: V8 runs an ES module without it. Text at the file's own
 offsets (the file itself, or Node's own type stripping, which blanks types and
 keeps every line) is measured as always. Text a loader made (tsx compiling a
 `.ts`) is mapped back through its inline source map; without a usable map the
@@ -111,10 +114,12 @@ process reports the loaders it sees: `module.register`, `module.registerHooks`,
   directive prologue (`'use client'`, `'use strict'`), on the first code line,
   so no line moves. It records the process each time the module runs. A fault
   is scored only when, in the run that decides it, it ran (in the test process
-  or a node process the test started, K11), every process that loaded it ran it
-  (a module imported and also required loads twice and runs once), no CommonJS
-  compile of the file lacked the statement, and no process reported that it
-  could not serve the fault. Otherwise it is `error`: never `killed`,
+  or a node process the test started, K11; in the test process itself whenever
+  the collected coverage says that process ran the file), every process that
+  loaded it ran it (a module imported and also required loads twice and runs
+  once), no CommonJS compile of the file lacked the statement, and no process
+  reported that it could not serve the fault. A leading byte-order mark does not
+  count as a change. Otherwise it is `error`: never `killed`,
   `survived` or `no-coverage`.
 - Unmutated (baseline) runs go through the same hooks, so a test the hooks
   themselves break fails unmutated, and its failure is never taken for a catch.
@@ -149,11 +154,12 @@ table:
   handles (such as `.tsx`) fails (`ERR_UNKNOWN_FILE_EXTENSION`; no fix found in
   Node's changelogs; seen on 22.16.0 and 22.22.0, not on 22.23.1 or 26.7.0).
 
-When the running Node has a bug and the tests run into it (an async loader is
-registered, or an unmutated run fails with that bug's code), fault testing stops
-with an environment error before anything is scored: a test could fail only
-under Cupel's hooks and its faults would look unnoticed. A preload that installs
-nothing, an unrelated `require.extensions` entry, or a child process started
-with `--import` does not stop it. Before this release such runs scored surviving
-faults as killed. Collection is not affected. Probed here: both bugs on 22.16.0
+When the running Node has either bug and any loader, preload or
+`Module._extensions` entry is in play in a test process (or an unmutated run
+fails with a bug's code), fault testing stops with an environment error before
+anything is scored: a test could fail only under Cupel's hooks, even inside a
+`try`/`catch` that hides the error, and its faults would look unnoticed. Such
+Node releases are below the supported minimum, so this is deliberately
+conservative: even a preload that installs nothing stops it there. Before this
+release such runs scored surviving faults as killed. Collection is not affected. Probed here: both bugs on 22.16.0
 and 22.22.0, neither on 22.23.1 and 26.7.0; 23.x, 24.x and 25.x were not run.
