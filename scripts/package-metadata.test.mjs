@@ -8,10 +8,10 @@ const root = JSON.parse(read('package.json'));
 const npm = JSON.parse(read('packages/cupel/package.json'));
 const python = read('packages/cupel-py/pyproject.toml');
 
-test('npm is at 0.5.2 and the Python collector at 0.4.0, both with MIT metadata', () => {
+test('npm is at 0.6.0 and the Python collector at 0.4.0, both with MIT metadata', () => {
   assert.equal(root.license, 'MIT');
   assert.equal(npm.license, 'MIT');
-  assert.equal(npm.version, '0.5.2');
+  assert.equal(npm.version, '0.6.0');
   assert.match(python, /^version = "0\.4\.0"$/m);
   assert.match(python, /^license = "MIT"$/m);
   assert.match(python, /^license-files = \["LICENSE", "NOTICE"\]$/m);

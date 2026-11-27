@@ -1,6 +1,6 @@
 {
   "name": "@vibernt/cupel",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "private": true,
   "description": "Know which tests protect you. CLI and MCP for people and coding agents.",
   "license": "MIT",

@@ -215,12 +215,14 @@ The owner asked, in chat, to look at the GitHub issue that was filed (issue 7, r
 the npm package to **0.5.1**, merging, tagging **v0.5.1** and a GitHub release. The Python collector stays 0.4.0.
 npm and PyPI publishing remain unapproved.
 
-## Owner v0.5.2 release approval (2026-11-27)
+## Owner v0.6.0 release approval (2026-11-27)
 
 The owner asked, in chat, about the GitHub issue that was filed (issue 9: under node:test `.tsx` was skipped as
 "Unterminated regex", `.jsx` silently, and reports did not say sources were left out), then asked to fix it and
-release, and asked whether `.d.ts` files count as uncovered code (they did). That covers listing sources a runner
-cannot measure apart (SPEC K2, R3), leaving declaration files out of sources, bumping the npm package to **0.5.2**,
-merging, tagging **v0.5.2** and a GitHub release. The Python collector stays 0.4.0. npm and PyPI publishing remain
-unapproved. Measuring JSX that node:test runs through a loader is separate work on its own branch.
-
+release, and asked whether `.d.ts` files count as uncovered code (they did). The owner then asked for JSX that
+node:test runs through a loader to be measured in a parallel session, for both pieces to ship in one release
+("Wait, ship both"), and for the older coverage bug of loader-transformed `.ts`/`.js` sources to be fixed in it too
+("Yes, include it"). That covers listing sources a runner cannot measure apart (SPEC K2, R3), leaving declaration
+files out of sources, measuring and fault-testing loader-run JSX and TypeScript (K1, K6, K14), the fix for `.ts`
+faults falsely reported caught under a loader, bumping the npm package to **0.6.0**, merging, tagging **v0.6.0** and
+a GitHub release. The Python collector stays 0.4.0. npm and PyPI publishing remain unapproved.
