@@ -8,7 +8,10 @@ experimental capability; no promotion is implied by installed fixture evidence.
 The source tree includes the opt-in `node-readonly-files-v2` profile for exact
 Node **26.7.0**. It retains per-test V8 coverage, uses isolated whole test-file
 processes and requires a sealed, complete baseline. Node 22 selective execution
-refuses; ordinary collection and full guard continue to support Node 22.
+refuses; ordinary collection and full guard continue to support Node 22. The
+profile is POSIX-only (Linux and macOS): it relies on absolute POSIX paths,
+private permission bits and its own process trace, so on Windows it refuses
+before running anything.
 
 This is a scoped check. Every result has `spec: "cupel-pr-result/1"`,
 `wholeGuardPass: false`, and explicit executed and unexecuted file lists. Run

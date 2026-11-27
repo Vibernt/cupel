@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // D22: fault-test slices for CI. Plan, run slices, merge: the merge equals one whole run.
 
 import { test } from 'node:test';
@@ -51,7 +52,7 @@ test('plan, two slices and merge give exactly the whole run', async (t) => {
   const env = { ...process.env, NO_COLOR: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
     GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
   for (const args of [['init', '-q'], ['add', '-A'], ['commit', '-qm', 'init']]) assert.equal(spawnSync('git', args, { cwd: p.root, env }).status, 0);
-  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
   const cli = (...args) => { const r = spawnSync(process.execPath, [bin, ...args], { cwd: p.root, env, encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr); return r; };
   cli('report', '--runs', '1', '--no-mutation', '--out', '.cupel/collected.json', '--json');
   const plan = JSON.parse(cli('mutate', '--input', '.cupel/collected.json', '--plan', '--json').stdout);
@@ -81,7 +82,7 @@ test('plan, two slices and merge give exactly the whole run', async (t) => {
 test('mutate parses --cache-dir and refuses invalid prepare combinations before any Rust tool runs', async (t) => {
   const p = makeProject(); const cache = mkdtempSync(join(tmpdir(), 'cupel-cli-cache-'));
   t.after(() => { p.cleanup(); rmSync(cache, { recursive: true, force: true }); });
-  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
   const env = { ...process.env, NO_COLOR: '1' };
   const run = (...args) => spawnSync(process.execPath, [bin, ...args], { cwd: p.root, env, encoding: 'utf8' });
   assert.equal(run('report', '--runs', '1', '--no-mutation', '--out', '.cupel/collected.json', '--json').status, 0);
@@ -149,7 +150,7 @@ test('guard stops its head at the first catch by default; firstCatch: false reco
   const env = { ...process.env, NO_COLOR: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
     GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
   for (const args of [['init', '-q'], ['add', '-A'], ['commit', '-qm', 'init']]) assert.equal(spawnSync('git', args, { cwd: p.root, env }).status, 0);
-  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
   const cli = (...args) => spawnSync(process.execPath, [bin, ...args], { cwd: p.root, env, encoding: 'utf8' });
   const g = cli('guard', '--base', 'HEAD', '--runs', '1', '--out', '.cupel/head.json', '--json');
   assert.equal(g.status, 0, g.stderr);

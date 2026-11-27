@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Local M5 wrapper: no install, network call or upload.
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +34,9 @@ function main() {
   const base = process.env.CUPEL_BASE_COMMIT ?? '';
   if (!/^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/.test(base)) throw new Error('base-commit must be a full 40- or 64-character Git commit id');
   const root = git(['rev-parse', '--show-toplevel']).trim();
-  if (resolve(root) !== resolve(repo)) throw new Error('run the Action at the checked-out repository root');
+  // git prints D:/a/... with long names on Windows; compare real native paths.
+  const real = (path) => { try { return realpathSync.native(resolve(path)); } catch { return resolve(path); } };
+  if (real(root) !== real(repo)) throw new Error('run the Action at the checked-out repository root');
   const actual = git(['rev-parse', '--verify', '--quiet', `${base}^{commit}`]).trim();
   if (actual.toLowerCase() !== base.toLowerCase()) throw new Error('base-commit does not resolve to that exact commit');
   // Base material is outside the proposed tree; the head cannot replace guard rules or approvals.

@@ -14,11 +14,17 @@ function git(args, cwd, opts = {}) {
   return r;
 }
 
+/** A path's real, native spelling (long names and the platform's separators on Windows); itself if it is gone. */
+export function realPath(path) {
+  try { return realpathSync.native(resolve(path)); } catch { return resolve(path); }
+}
+
 /** The repository root containing `cwd`, or null outside a git repository. */
 export function gitRoot(cwd) {
   const r = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' });
   if (r.error || r.status !== 0) return null;
-  const root = r.stdout.trim() || null;
+  // git prints D:/a/... with long names on Windows; the real native path matches what other paths resolve to.
+  const root = r.stdout.trim() ? realPath(r.stdout.trim()) : null;
   // Scratch projects are independent even when TMPDIR sits inside this repository.
   if (root && relative(root, cwd).split(sep)[0] === '.scratch') return null;
   return root;
@@ -55,7 +61,8 @@ export function extractRef(root, ref) {
     mkdirSync(dir);
     const a = git(['archive', '--format=tar', `--output=${tar}`, commit], root);
     if (a.status !== 0) throw new CliError(EXIT_ENV, `git archive failed: ${a.stderr.trim().split('\n')[0]}`);
-    const x = spawnSync('tar', ['-x', '-f', tar, '-C', dir], { encoding: 'utf8' });
+    // Relative names: GNU tar (first on PATH in Git for Windows' bash) reads `D:\\...` as a remote host.
+    const x = spawnSync('tar', ['-x', '-f', 'base.tar', '-C', 'tree'], { cwd: parent, encoding: 'utf8' });
     if (x.error || x.status !== 0) throw new CliError(EXIT_ENV, `tar failed: ${(x.error?.message ?? x.stderr).trim().split('\n')[0]}`);
     rmSync(tar, { force: true });
     return { dir, commit, cleanup };
@@ -155,7 +162,7 @@ export function parseUnifiedDiff(text) {
  * Untracked files that git does not ignore count as new, changed in full.
  */
 export function changedLines(root, ref) {
-  if (!root || gitRoot(root) !== resolve(root)) throw new CliError(EXIT_ENV, 'git: not inside a git repository');
+  if (!root || gitRoot(root) !== realPath(root)) throw new CliError(EXIT_ENV, 'git: not inside a git repository');
   const commit = resolveCommit(root, ref);
   const d = git(['-c', 'core.quotePath=false', 'diff', '--unified=0', '--no-color', '--no-ext-diff', '--no-renames',
     '--src-prefix=a/', '--dst-prefix=b/', commit, '--'], root);

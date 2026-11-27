@@ -1,4 +1,7 @@
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
+// The experimental Node PR profile is POSIX-only (absolute POSIX paths, private permission bits, its trace); on
+// Windows it refuses, so its execution tests skip there (docs/selective-pr.md).
+const test = process.platform === 'win32' ? nodeTest.skip : nodeTest;
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';

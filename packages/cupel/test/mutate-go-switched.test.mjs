@@ -3,7 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import test from 'node:test';
+import nodeTest from 'node:test';
+// Go fault testing needs POSIX process-group termination; on Windows it refuses, so these tests skip there (docs/go.md).
+const test = process.platform === 'win32' ? nodeTest.skip : nodeTest;
 import { collectGo } from '../src/collect/go/index.mjs';
 import { mutateGo } from '../src/mutate-go/index.mjs';
 import { goBodyVariants } from '../src/mutate-go/schemata.mjs';

@@ -10,6 +10,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { spawnSync } from 'node:child_process';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { quote } from './shell-quote.mjs';
 import { environment, usage } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
@@ -37,7 +38,6 @@ const REAL = {
 const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url));
 const CUPEL_BIN = fileURLToPath(new URL('../../bin/cupel.mjs', import.meta.url));
 const RUBY_BIN = fileURLToPath(new URL('../../ruby/bin/cupel-ruby', import.meta.url));
-const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 const mutationOwners = new WeakMap();
 
 function externalRunner(root, cfg) {

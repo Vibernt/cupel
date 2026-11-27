@@ -514,7 +514,8 @@ export async function collectNode({ root, config = {}, files, runs = 2, recheck 
         for (const r of recs) {
           if (r.type !== 'test' || r.parent) continue;
           // node:test emits a synthetic file pass for a file with no test definitions.
-          if (r.name === file && r.callFile && posix(relative(root, abs(r.callFile))) === file && r.line === 1 && r.column === 1) continue;
+          // On Windows node:test names it with backslashes.
+          if (posix(r.name) === file && r.callFile && posix(relative(root, abs(r.callFile))) === file && r.line === 1 && r.column === 1) continue;
           const name = [...r.path, r.name].join(' > ');
           const occ = seen.get(name) ?? 0;
           seen.set(name, occ + 1);

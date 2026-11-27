@@ -5,6 +5,8 @@ import { runtimeVersion } from './profiles/node/snapshot.mjs';
 
 /** Bind the exact local Node executable, beyond its printable version. */
 export function nodeProfileRuntimeIdentity(nodePath) {
+  if (process.platform === 'win32')
+    throw new Error('the experimental Node PR profile is POSIX-only; Windows is not supported');
   if (typeof nodePath !== 'string' || !nodePath.startsWith('/'))
     throw new Error('Node PR requires an absolute Node executable path');
   const path = resolve(nodePath), stat = lstatSync(path);

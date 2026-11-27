@@ -18,6 +18,13 @@ const SCRATCH = createSmokeWorkspace(join(ROOT, '.scratch/package-smoke'));
 const CASES = join(ROOT, 'spec/conformance/cases');
 
 function run(command, args, options = {}) {
+  // Windows has npm only as npm.cmd, which Node will not start without a shell; run npm's own script with this Node
+  // (npm test sets npm_execpath), else the .cmd through the shell.
+  if (command === 'npm' && process.platform === 'win32') {
+    const cli = process.env.npm_execpath;
+    if (cli && /\.c?js$/.test(cli)) [command, args] = [process.execPath, [cli, ...args]];
+    else options = { ...options, shell: true };
+  }
   const result = spawnSync(command, args, {
     encoding: 'utf8', timeout: 60_000, maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, NO_COLOR: '1', npm_config_audit: 'false', npm_config_fund: 'false' },

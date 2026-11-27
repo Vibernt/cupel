@@ -870,7 +870,7 @@ for (const how of ['extensions', 'wrap']) {
   test(`review 3 finding 5 (${how}): a CommonJS transform set up and undone before Cupel looks is still seen: lines are never guessed`, async () => {
     const { SOURCE_NO_MAP } = await import('../src/collect/node/index.mjs');
     const install = how === 'extensions'
-      ? "const orig = Module._extensions['.js'];\nModule._extensions['.js'] = (m, f) => { if (!f.includes('/src/')) return orig(m, f); m._compile('\"use strict\";\\nvar __a = 1;\\n' + require('node:fs').readFileSync(f, 'utf8'), f); };\nconst { label } = require('../src/label.js');\nModule._extensions['.js'] = orig;\n"
+      ? "const orig = Module._extensions['.js'];\nModule._extensions['.js'] = (m, f) => { if (!/[\\\\/]src[\\\\/]/.test(f)) return orig(m, f); m._compile('\"use strict\";\\nvar __a = 1;\\n' + require('node:fs').readFileSync(f, 'utf8'), f); };\nconst { label } = require('../src/label.js');\nModule._extensions['.js'] = orig;\n"
       : "const orig = Module.wrap;\nModule.wrap = (script) => orig('var __a = 1;\\n' + script);\nconst { label } = require('../src/label.js');\nModule.wrap = orig;\n";
     const root = project({ 'package.json': '{"private":true}\n',
       'src/label.js': "exports.label = function label(n) {\n  if (n > 1) {\n    return 'many';\n  }\n  return 'one';\n};\nexports.other = function other() {\n  return 2;\n};\n",

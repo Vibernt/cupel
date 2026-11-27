@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { environment } from './errors.mjs';
+import { quote } from './shell-quote.mjs';
 
-const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 
 function actionCommand(collector, action) {
   if (typeof collector !== 'string' || !/\scollect\s*$/.test(collector))

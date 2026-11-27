@@ -2,7 +2,7 @@
 import { createInterface } from 'node:readline';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { gitRoot } from '../cli/git.mjs';
+import { gitRoot, realPath } from '../cli/git.mjs';
 import { TOOLS, callTool, validateCall } from './tools.mjs';
 import { ReportSnapshots } from './report-snapshots.mjs';
 
@@ -56,7 +56,7 @@ export async function startServer({ cwd, env, rootOption, err }) {
     err(`cupel mcp: ${requested} is not inside a git repository\n`);
     return 3;
   }
-  if (rootOption !== undefined && resolve(root) !== requested) {
+  if (rootOption !== undefined && root !== realPath(requested)) {
     err(`cupel mcp: --root must name the git repository root (${root})\n`);
     return 2;
   }

@@ -184,7 +184,7 @@ test('rustc parity: each text mutant equals its selected body variant', { skip: 
   try {
     const build = (name, code) => {
       const rust = join(directory, `${name}.rs`);
-      const binary = join(directory, name);
+      const binary = join(directory, process.platform === 'win32' ? `${name}.exe` : name);
       writeFileSync(rust, code);
       const compiled = spawnSync('rustc', ['--edition', '2021', '-O', '-o', binary, rust], { encoding: 'utf8' });
       assert.equal(compiled.status, 0, compiled.stderr);

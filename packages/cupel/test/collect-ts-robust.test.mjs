@@ -123,7 +123,7 @@ test('CLI writes skipped.json beside --out and keeps the input schema clean',
     assert.equal(exit, 0, err);
     const skipped = JSON.parse(readFileSync(join(root, '.cupel/skipped.json'), 'utf8'));
     assert.deepEqual(skipped.skipped.map((row) => row.file), ['src/errors.ts', 'tests/errors.test.ts']);
-    assert.match(err, /2 files skipped: see .cupel\/skipped.json/);
+    assert.match(err, /2 files skipped: see \.cupel[\\/]skipped\.json/);
     assert.equal(JSON.parse(readFileSync(join(root, '.cupel/input.json'), 'utf8')).skipped, undefined);
   });
 
