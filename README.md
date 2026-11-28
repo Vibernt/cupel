@@ -170,7 +170,7 @@ build in a verification run. Method and raw numbers: the
 
 *Core* runs the full guard with installed acceptance; a *preview* is bounded to the
 documented profile. The [selective PR commands](docs/selective-pr.md) are experimental:
-a Node 26.7.0 profile outside the supported first release. macOS only so far: Linux and Windows are not verified. The
+a Node 26.7.0 profile outside the supported first release, on Linux and macOS (it refuses on Windows). The
 [support matrix](docs/support.md) is the authoritative contract, and each runner has its
 own page: [Vitest](docs/vitest.md), [Jest](docs/jest.md), [Python](docs/python.md),
 [Rust](docs/rust.md), [Go](docs/go.md), [Ruby](docs/ruby.md), [workerd](docs/workerd.md).

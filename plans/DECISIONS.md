@@ -225,4 +225,10 @@ node:test runs through a loader to be measured in a parallel session, for both p
 ("Yes, include it"). That covers listing sources a runner cannot measure apart (SPEC K2, R3), leaving declaration
 files out of sources, measuring and fault-testing loader-run JSX and TypeScript (K1, K6, K14), the fix for `.ts`
 faults falsely reported caught under a loader, bumping the npm package to **0.6.0**, merging, tagging **v0.6.0** and
-a GitHub release. The Python collector stays 0.4.0. npm and PyPI publishing remain unapproved.
+a GitHub release. npm and PyPI publishing remain unapproved.
+
+Asked why the hosted CI had never passed, the owner said to create the tool lockfiles, install what this machine can,
+"run those tests and fix all of them", and approved pushing with `--no-verify` "until green". That covers the CI
+lockfiles and the Linux, macOS and Windows fixes in this release, and the Python collector **0.4.1** they required
+(other-drive files, safe opens and timeouts on Windows). The owner also asked for the parallel session's pirates
+require-hook test to be included ("Yes, include it").

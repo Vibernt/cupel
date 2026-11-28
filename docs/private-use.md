@@ -54,8 +54,9 @@ removal or downgrade. A guard only establishes its measured scope and rules.
 
 Mutation checks source bytes and paths before and after execution. Source changes,
 opaque hashes, unsafe/hardlinked paths or missing required `O_NOFOLLOW` filesystem
-capability refuse with exit 3. Current artifact acceptance covers macOS on Node
-22.23.3 and 26.7.0; other operating systems remain unverified.
+capability refuse with exit 3 (Windows has no `O_NOFOLLOW`: there the opened file's
+identity is checked against its path instead). Current artifact acceptance covers
+macOS, Linux and Windows on Node 22.23.3 and 26.7.0 (the hosted CI, from 0.6.0).
 
 ## Local MCP and Python
 
