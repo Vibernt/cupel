@@ -18,7 +18,7 @@ const FIX = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const schemas = Object.fromEntries(['input', 'config', 'report'].map((n) => [n, read(`${SPEC}schemas/${n}.schema.json`)]));
 
-const TMP = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cli-git-')));
+const TMP = realpathSync.native(mkdtempSync(join(tmpdir(), 'cupel-cli-git-')));
 process.on('exit', () => rmSync(TMP, { recursive: true, force: true }));
 
 const GIT_ENV = {

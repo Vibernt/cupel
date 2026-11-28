@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { mutateRuby } from '../src/cli/native-mutation.mjs';
+import { quote } from '../src/cli/shell-quote.mjs';
 
 test('native Ruby mutation passes first-catch and catcher history in its scope JSON', (t) => {
   const scratch = resolve('.scratch');
@@ -25,7 +26,7 @@ test('native Ruby mutation passes first-catch and catcher history in its scope J
     catchers: { 'ruby:fault': ['test/a_test.rb::ATest > test_a'] },
   };
   const result = mutateRuby({
-    runner: { name: 'minitest', collector: `'${process.execPath}' '${stub}' collect` },
+    runner: { name: 'minitest', collector: `${quote(process.execPath)} ${quote(stub)} collect` },
     root,
     cfg: {},
     input: { runtime: { name: 'ruby', version: '4.0.7' } },

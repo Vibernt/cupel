@@ -53,7 +53,7 @@ module Cupel
         stat = File.lstat(real)
         raise SourceError, "mutation source is not a single-link regular file: #{@relative}" unless stat.file? && stat.nlink == 1
         raise SourceError, "mutation source exceeds #{MAX_BYTES} bytes: #{@relative}" if stat.size > MAX_BYTES
-        flags = File::RDONLY | File::NOFOLLOW
+        flags = File::RDONLY | (File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0)
         bytes = File.open(real, flags) do |file|
           opened = file.stat
           raise SourceError, "mutation source changed during open: #{@relative}" unless opened.file? && opened.nlink == 1 &&

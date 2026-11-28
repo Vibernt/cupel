@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { quote } from '../packages/cupel/src/cli/shell-quote.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const example = join(root, 'docs/extending/unittest-example');
@@ -18,7 +19,7 @@ test('independent docs-only adapter preserves its operation and negative-case sm
 });
 
 test('independent adapter matches its hand-derived conformance fixture', (t) => {
-  const adapter = `python3 '${join(example, 'adapter.py').replaceAll("'", "'\"'\"'")}'`;
+  const adapter = `python3 ${quote(join(example, 'adapter.py'))}`;
   // The fixture was derived on Python 3.14.8; the runtime it reports is whichever python3 runs it, so a copy of
   // the fixtures expects that version and everything else exactly as written.
   const version = spawnSync('python3', ['-c', 'import platform; print(platform.python_version())'], { env, encoding: 'utf8' }).stdout.trim();

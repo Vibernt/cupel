@@ -14,7 +14,7 @@ import { cmp } from '../engine/order.mjs';
 import { match } from '../conformance/match.mjs';
 import { CliError, EXIT_OK, EXIT_FAILED, EXIT_USAGE, EXIT_ENV, usage, environment } from './errors.mjs';
 import { loadSchemas, readJson, writeJson, projectRoot, loadConfig } from './context.mjs';
-import { checkRef, changedLines } from './git.mjs';
+import { checkRef, changedLines, realPath } from './git.mjs';
 import { loadModule, requireCollector, collectTree, collectRef, mutate, confirm, lostSurvivors, mergeMutation } from './collect.mjs';
 import { formatReport } from './human.mjs';
 import { junitToInput } from './junit.mjs';
@@ -712,7 +712,8 @@ function expandTests(ctx, names, head) {
     else if (!ids.has(name)) {
       const abs = ctx.path(name);
       if (existsSync(abs) && statSync(abs).isFile()) {
-        const rel = relative(ctx.root, abs).split(sep).join('/');
+        // Real paths on both sides: Windows can name one folder by its long and short (RUNNER~1) names.
+        const rel = relative(realPath(ctx.root), realPath(abs)).split(sep).join('/');
         if (unitsByFile.has(rel)) file = rel;
       }
     }

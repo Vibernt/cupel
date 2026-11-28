@@ -119,8 +119,16 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
   });
 }
 
-/** Whether a failing reporter line is node:test's report of a file that failed to load. */
-export const isFileFailure = (file, line) => !line.suite && (line.t === file || line.t === basename(file));
+/**
+ * Whether a failing reporter line is node:test's report of a file that failed to load. node:test names it after the
+ * path it listed: as given on POSIX; on Windows with backslashes, possibly absolute (D:\project\tests\a.test.mjs).
+ */
+export const isFileFailure = (file, line) => {
+  if (line.suite || typeof line.t !== 'string') return false;
+  if (line.t === file || line.t === basename(file)) return true;
+  const name = line.t.replaceAll('\\', '/').replace(/^file:\/\/\/(?=[A-Za-z]:\/)/, '');
+  return name === file || (/^[A-Za-z]:\//.test(name) && name.endsWith(`/${file}`));
+};
 
 let probed = null;
 

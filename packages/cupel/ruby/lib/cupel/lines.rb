@@ -26,7 +26,7 @@ module Cupel
 
         stat = File.lstat(absolute)
         raise "unsafe Ruby source: #{relative}" unless stat.file? && stat.nlink == 1
-        raw = File.open(absolute, File::RDONLY | File::NOFOLLOW) do |file|
+        raw = File.open(absolute, File::RDONLY | (File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0)) do |file|
           opened = file.stat
           raise "Ruby source changed during open: #{relative}" unless [opened.dev, opened.ino] == [stat.dev, stat.ino]
           file.read

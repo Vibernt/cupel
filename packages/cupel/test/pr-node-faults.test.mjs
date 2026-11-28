@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test as nodeTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { fixedEnv, profileRequestSnapshot } from '../src/pr/profiles/node/snapshot.mjs';
 import { verifyCoverageProof } from '../src/pr/profiles/node/coverage-proof.mjs';
 import { NODE26 } from './support/node-paths.mjs';
+
+// The experimental Node PR profile is POSIX-only (docs/support.md).
+const test = process.platform === 'win32' ? nodeTest.skip : nodeTest;
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const profile = fileURLToPath(new URL('../src/pr/profiles/node/', import.meta.url));

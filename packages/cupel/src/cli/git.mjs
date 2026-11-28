@@ -26,7 +26,7 @@ export function gitRoot(cwd) {
   // git prints D:/a/... with long names on Windows; the real native path matches what other paths resolve to.
   const root = r.stdout.trim() ? realPath(r.stdout.trim()) : null;
   // Scratch projects are independent even when TMPDIR sits inside this repository.
-  if (root && relative(root, cwd).split(sep)[0] === '.scratch') return null;
+  if (root && relative(root, realPath(cwd)).split(sep)[0] === '.scratch') return null;
   return root;
 }
 

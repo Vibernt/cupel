@@ -75,7 +75,7 @@ python3 -m pip --isolated --disable-pip-version-check wheel --no-index \
   --no-build-isolation --no-deps --wheel-dir .scratch/local-package \
   "$CUPEL_REPO/packages/cupel-py"
 python3 -m pip --isolated --disable-pip-version-check install --no-index --no-deps \
-  "$CUPEL_REPO/.scratch/local-package/vibernt_cupel-0.4.0-py3-none-any.whl"
+  "$CUPEL_REPO/.scratch/local-package/vibernt_cupel-0.4.1-py3-none-any.whl"
 python3 -m vibernt_cupel --help
 ```
 

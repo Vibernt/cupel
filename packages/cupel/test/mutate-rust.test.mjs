@@ -20,6 +20,13 @@ function needsRestrictedRust(t) {
   t.skip(profile.reason);
   return false;
 }
+// The backend reads sources with O_NOFOLLOW and stops runs by POSIX process group; on Windows it refuses (below).
+const posixTest = process.platform === 'win32' ? test.skip : test;
+test('Windows refuses the Rust backend before reading sources or running Cargo', { skip: process.platform !== 'win32' }, async () => {
+ const {root,input}=fixture();
+ assert.throws(()=>new RustInventory(root,input,{}),{code:'source-path',message:/O_NOFOLLOW unavailable/});
+ await assert.rejects(run(process.execPath,['-e',''],{root,env:process.env,timeoutMs:1000}),{code:'unsupported-process-host'});
+});
 const scratchBase=resolve('.scratch/rust-mutation-tests');mkdirSync(scratchBase,{recursive:true});
 const proof=resolve(import.meta.dirname,'fixtures/rust-mutation');
 const sha=(bytes)=>`sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -59,7 +66,7 @@ test('real bounded Rust graph: behavior kill, executed survivor, no coverage and
 test('fail-closed grammar rejects unmodeled Rust syntax and macro channels',()=>{
  for(const text of ['include!("x.rs");','#[cfg(test)] mod tests {}','#[path="x.rs"] mod x;','macro_rules! x { () => {} }','extern "C" {}','pub struct S;','fn x() { custom!(); }','fn x() { std::process::Command::new("rustc"); }','mod x; fn y() {}','fn x<T>() {}','fn x() { let x = r"foo"; }','fn x() { let x = |a| a; }','fn x() { println!("{}", std::env::var("HOME")); }','fn x() { include_str!("../private.rs"); }']) assert.throws(()=>parseRust(text,'src/lib.rs'),{code:'unsupported-rust-syntax'},text);
 });
-test('metadata, manifest, hash and incomplete inventory refusals happen explicitly',()=>{
+posixTest('metadata, manifest, hash and incomplete inventory refusals happen explicitly',()=>{
  for(const [name,change,code] of [
  ['hash',({input})=>input.sources['src/lib.rs'].hash='opaque','source-hash'],
  ['workspace',({root})=>writeFileSync(join(root,'Cargo.toml'),'[workspace]\nmembers = []\n'),'unsupported-rust-manifest'],
@@ -70,13 +77,13 @@ test('metadata, manifest, hash and incomplete inventory refusals happen explicit
  ['orphan',({root,input})=>{writeFileSync(join(root,'src/z.rs'),'fn z() {}');input.sources['src/z.rs']={hash:sha(Buffer.from('fn z() {}')),coverable:'1'};},'unsupported-rust-graph'],
  ]){const f=fixture();change(f);const metrics={};assert.throws(()=>new RustInventory(f.root,f.input,metrics),{code},name);if(['private','symlink','hash','build'].includes(name))assert.equal(metrics.sourceReads??0,0,name);}
 });
-test('request-local source and test freshness across child boundaries',async()=>{
+posixTest('request-local source and test freshness across child boundaries',async()=>{
  for(const file of ['src/outer/inner.rs','src/lib.rs']) {
  const {root,input}=fixture();const inventory=new RustInventory(root,input);const session=new RustSession(inventory,input,performance.now()+30_000);
  try {await assert.rejects(session.guarded(process.execPath,['-e',`require('node:fs').appendFileSync(${JSON.stringify(join(root,file))},'\\n')`]),{code:'source-changed'});}finally{session.close();}
  }
 });
-test('timeout terminates inherited child process group without crediting a kill',async()=>{
+posixTest('timeout terminates inherited child process group without crediting a kill',async()=>{
  const dir=mkdtempSync(join(scratchBase,'timeout-'));const marker=join(dir,'late');
  const code=`const {spawn}=require('node:child_process');spawn(process.execPath,['-e',${JSON.stringify(`setTimeout(()=>require('node:fs').writeFileSync(${JSON.stringify(marker)},'bad'),600)`)}],{stdio:'inherit'});setTimeout(()=>{},10000);`;
  const result=await run(process.execPath,['-e',code],{root:dir,env:process.env,timeoutMs:100});assert.equal(result.timedOut,true);
@@ -99,7 +106,7 @@ test('deterministic caps keep only complete targeted units',async(t)=>{
  const a=await mutateRust({root,input,config:limited,scope});const b=await mutateRust({root,input,config:limited,scope});
  assert.deepEqual(a,b);assert.equal(a.mutants.length,1);assert.equal(a.sampled,true);assert.deepEqual(a.targeted,['src/lib.rs::behavior']);
 });
-test('historical confirmation refuses stale hash and current changed assertion source',async()=>{
+posixTest('historical confirmation refuses stale hash and current changed assertion source',async()=>{
  const {root,input}=fixture();const bad=structuredClone(input);bad.sources['src/lib.rs'].hash='sha256:'+ '0'.repeat(64);
  const mutation={mutants:[{id:'historic',source:'src/lib.rs',line:1,operator:'arithmetic-replacement',status:'survived'}],targeted:[],seed:1,sampled:false};
  await assert.rejects(confirmRust({root,input:bad,mutation,ids:['historic'],config}),{code:'source-changed'});
@@ -114,7 +121,7 @@ test('crash, missing terminals and timeouts have no invented Rust killers',()=>{
  assert.throws(()=>parseResults('test unknown ... ok\n',{tests:new Map()}),{code:'rust-results'});
 });
 
-test('compiler-control environment and receipt accessors refuse before Cargo',async()=>{
+posixTest('compiler-control environment and receipt accessors refuse before Cargo',async()=>{
  for(const accessor of ['std::env::var_os("RUSTC_WRAPPER")','std::env::var("CUPEL_RUST_WRAPPER_SPEC")','option_env!("RUSTC_WRAPPER")','env!("RUSTC_WRAPPER")','env!("CUPEL_RUST_WRAPPER_SPEC")']) {
   const {root,input}=fixture();const path=join(root,'src/lib.rs');writeFileSync(path,readFileSync(path,'utf8')+`\n#[test]\nfn observes_compile_environment() { let value = ${accessor}; }\n`);
   input.sources['src/lib.rs'].hash=sha(readFileSync(path));const metrics={};
@@ -122,7 +129,7 @@ test('compiler-control environment and receipt accessors refuse before Cargo',as
  }
 });
 
-test('incomplete graph and unknown/invalid changed ranges refuse; empty ranges select nothing',async()=>{
+posixTest('incomplete graph and unknown/invalid changed ranges refuse; empty ranges select nothing',async()=>{
  const {root,input}=fixture();const incomplete=structuredClone(input);delete incomplete.sources['src/outer/inner.rs'];for(const row of Object.values(incomplete.coverage.byTest))delete row['src/outer/inner.rs'];
  await assert.rejects(mutateRust({root,input:incomplete,config,scope:{changed:{'src/outer/inner.rs':'1'}}}),{code:'source-hash'});
  for(const changed of [{'src/missing.rs':'1'},{'src/outer/inner.rs':'wat'},{'src/outer/inner.rs':'9-1'},{'src/outer/inner.rs':[0]},{'src/outer/inner.rs':[1.5]},{'src/outer/inner.rs':null}])await assert.rejects(mutateRust({root,input,config,scope:{changed}}),{code:'scope'});
@@ -132,7 +139,7 @@ test('direct Rust API refuses custom Cargo runner semantics',async()=>{
  const {root,input}=fixture();for(const runner of [{command:'custom test'},{collector:'custom'},{prepare:'custom'},{env:{RUSTFLAGS:'x'}},{args:[]},{project:'other'}])await assert.rejects(mutateRust({root,input,config:{runners:{cargo:runner}},scope:{critical:true}}),{code:'unsupported-rust-config'});
 });
 
-test('native source readers refuse external, computed, unpinned and aliased paths',async()=>{
+posixTest('native source readers refuse external, computed, unpinned and aliased paths',async()=>{
  for(const expression of ['std::fs::read_to_string("README.md")','std::fs::read("/etc/hosts")','std::fs::read_to_string(String::from("src/") + "lib.rs")','std::fs::read_to_string','std::fs::read_to_string("src/missing.rs")']){
   const {root,input}=fixture();const path=join(root,'src/lib.rs');writeFileSync(path,readFileSync(path,'utf8')+`\n#[test]\nfn external_read() { let value = ${expression}; }\n`);input.sources['src/lib.rs'].hash=sha(readFileSync(path));const metrics={};
   await assert.rejects(mutateRust({root,input,config,scope:{changed:{'src/outer/inner.rs':[1]}},metrics}),(error)=>['unsupported-rust-syntax','unsupported-rust-channel'].includes(error.code));assert.equal(metrics.commands??0,0);

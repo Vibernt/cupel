@@ -53,7 +53,8 @@ test('npm tarball installs offline and runs CLI, guard, and MCP smoke checks', (
   const tarball = join(SCRATCH, tarballName);
   assert.ok(existsSync(tarball), `npm pack did not create ${tarball}`);
 
-  const archive = checked('tar', ['-tzf', tarball]).stdout.split('\n');
+  // A relative name: GNU tar on Windows reads 'D:' in an absolute path as a remote host.
+  const archive = checked('tar', ['-tzf', tarballName], { cwd: SCRATCH }).stdout.split('\n');
   for (const asset of ['package/package.json', 'package/bin/cupel.mjs',
     'package/schemas/case.schema.json', 'package/schemas/config.schema.json',
     'package/schemas/input.schema.json', 'package/schemas/report.schema.json',

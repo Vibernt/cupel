@@ -6,7 +6,7 @@ Updated 2026-11-24. Read this first when picking the work up again; then
 
 ## Current state
 
-- **Version:** npm package `@vibernt/cupel` **0.6.0**, Python collector `vibernt-cupel` **0.4.0**.
+- **Version:** npm package `@vibernt/cupel` **0.6.0**, Python collector `vibernt-cupel` **0.4.1**.
 - **`main`:** merge of Vibernt/cupel#4 (the README and diagrams). Tags `v0.1.0`–`v0.4.0`. GitHub releases with the npm tarball for
   `v0.3.0` and `v0.4.0`; the asset's SHA-256 is in each release note and record.
 - **Not published to npm or PyPI.** npm keeps `"private": true` and Python `Private :: Do Not Upload`; any registry
