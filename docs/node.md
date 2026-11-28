@@ -134,21 +134,21 @@ process reports the loaders it sees: `module.register`, `module.registerHooks`,
   themselves break fails unmutated, and its failure is never taken for a catch.
 
 What was run (macOS; Node 26.7.0, 22.23.1 and 22.22.0; each fixture loader is
-written in the tests; tsx runs once per `CUPEL_TEST_TSX`, done separately with
+written in the tests; pirates runs when `CUPEL_TEST_PIRATES` names it; tsx runs once per `CUPEL_TEST_TSX`, done separately with
 tsx 4.21.0 and tsx 4.23.15 on Node 26.7.0):
 
 | Setup | Faults | Evidence |
 | --- | --- | --- |
 | ESM `import` through an async loader registered with `--import` or from test files (`module.register`) | scored | fixture loader; tsx 4.21.0 |
 | ESM `import` through a synchronous loader registered after Cupel's hook (`registerHooks`) | scored | fixture loader; tsx 4.23.15 |
-| CommonJS `require` through a `Module._extensions` handler that compiles the text Node read | scored | fixture hook in that style |
+| CommonJS `require` through a `Module._extensions` handler that compiles the text Node read | scored | fixture hook in that style; pirates 4.0.7 (the hook `@babel/register` and `@swc-node/register` use for CommonJS) with a TypeScript transform |
 | `.ts` faults under an async loader | scored | fixture loader |
 | Plain files a `--loader` / `--experimental-loader` hook passes through unchanged | scored | fixture loader |
 | A loader a `--require` preload registers, sync or async, that changes the file's text | `error` | fixture loaders |
 | CommonJS `require` through a handler that reads the file itself (tsx's CommonJS path: a default CommonJS package with tsx, or `require()` of a `.tsx` in a `"type": "module"` package) | `error` | fixture; tsx 4.21.0 and 4.23.15 |
 | A loader that ignores the text it is handed and reads the file itself | `error` | fixture loader |
 | `--experimental-loader` hooks that transform code | environment error: such a project's tests fail under node:test's `--test-isolation=none`, which Cupel's fault runs use (older behaviour) | fixture loader |
-| `@babel/register` (pirates; its cache is keyed by file time), `@swc-node/register` | untested; a cached or self-read original is caught by the run proof and gives `error` | none |
+| `@babel/register` and `@swc-node/register` themselves (their transforms, `@babel/register`'s cache keyed by file time) | untested; their CommonJS hook, pirates, is tested above; a cached or self-read original is caught by the run proof and gives `error` | none |
 
 ## Node versions
 

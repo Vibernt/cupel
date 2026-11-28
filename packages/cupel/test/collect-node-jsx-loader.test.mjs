@@ -354,27 +354,39 @@ test('a loader that breaks CommonJS imports under the mutant hooks breaks the un
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('a CommonJS require hook (the @babel/register style): JSX measured, faults run through it and agree with a full run', { skip: noTypeScript }, async () => {
-  const view = `${VIEW.replace(/^export /gm, '')}module.exports = { label, View, unused };\n`;
-  const root = project({
-    'package.json': '{"private":true}\n',
-    // Wraps module._compile for .tsx, as pirates does, and transforms the text the loader read.
-    'register.cjs': `const Module = require('node:module');
+// CUPEL_TEST_PIRATES names a pirates package folder (the require hook @babel/register and @swc-node/register use for
+// CommonJS) for a run with the real hook in place of the hand-written one.
+const PIRATES = process.env.CUPEL_TEST_PIRATES;
+const noPirates = PIRATES && existsSync(join(PIRATES, 'package.json')) ? false : 'set CUPEL_TEST_PIRATES to a pirates package folder';
+const TRANSPILE_CJS = `(code, filename) => ts.transpileModule(code, { fileName: filename, compilerOptions: { module: ts.ModuleKind.CommonJS,
+  target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, jsxFactory: 'h', inlineSourceMap: true, inlineSources: true } }).outputText`;
+const REQUIRE_HOOKS = {
+  // Wraps module._compile for .tsx, as pirates does, and transforms the text the loader read.
+  'hand-written': `const Module = require('node:module');
 const ts = require('typescript');
+const transpile = ${TRANSPILE_CJS};
 Module._extensions['.tsx'] = function (mod, filename) {
   const compile = mod._compile;
   mod._compile = function (code) {
     mod._compile = compile;
-    const out = ts.transpileModule(code, { fileName: filename, compilerOptions: { module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, jsxFactory: 'h', inlineSourceMap: true, inlineSources: true } }).outputText;
-    return compile.call(this, out, filename);
+    return compile.call(this, transpile(code, filename), filename);
   };
   return Module._extensions['.js'](mod, filename);
 };
 `,
+  pirates: `const ts = require('typescript');
+require('pirates').addHook(${TRANSPILE_CJS}, { exts: ['.tsx'] });
+`,
+};
+
+for (const [kind, hook] of Object.entries(REQUIRE_HOOKS)) test(`a CommonJS require hook (${kind}, the @babel/register style): JSX measured, faults run through it and agree with a full run`, { skip: noTypeScript || (kind === 'pirates' && noPirates) }, async () => {
+  const view = `${VIEW.replace(/^export /gm, '')}module.exports = { label, View, unused };\n`;
+  const root = project({
+    'package.json': '{"private":true}\n',
+    'register.cjs': hook,
     'src/view.tsx': view,
     'tests/view.test.cjs': "const test = require('node:test');\nconst assert = require('node:assert/strict');\nconst { View, label } = require('../src/view.tsx');\ntest('many', () => { assert.equal(label(2), 'many'); });\ntest('view', () => { assert.equal(View({ n: 2 }).children[0], 'many'); });\n",
-  });
+  }, kind === 'pirates' ? { typescript: TYPESCRIPT, pirates: PIRATES } : undefined);
   try {
     const register = join(root, 'register.cjs');
     const config = { runners: { node: { tests: 'tests/**/*.test.cjs', env: { NODE_OPTIONS: `--require ${register}` } } } };
