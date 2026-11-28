@@ -20,6 +20,7 @@ import { copyProject } from '../mutate/index.mjs';
 import { runTestFile, testEnv } from '../mutate/runner.mjs';
 import { diffMatches, mutantId } from '../mutate-cargo/import.mjs';
 import { environment } from './errors.mjs';
+import { killLeftovers, killTree } from '../process-tree.mjs';
 
 /** Applies a cargo-mutants unified diff (one file) to its original text. */
 export function applyDiff(text, diff) {
@@ -49,7 +50,7 @@ function shell(command, { cwd, env, timeoutMs }) {
     const child = spawn(command, { cwd, env, shell: true, stdio: ['ignore', 'ignore', 'pipe'], detached: process.platform !== 'win32' });
     let stderr = '';
     child.stderr.on('data', (d) => { stderr = (stderr + d).slice(-2000); });
-    const timer = setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }, timeoutMs);
+    const timer = setTimeout(() => killTree(child), timeoutMs);
     child.on('close', (code) => { clearTimeout(timer); resolve({ code, stderr }); });
     child.on('error', (error) => { clearTimeout(timer); resolve({ code: -1, stderr: String(error) }); });
   });

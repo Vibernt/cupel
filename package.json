@@ -8,7 +8,7 @@
   },
   "scripts": {
     "check": "node scripts/check.mjs",
-    "test": "node --test --test-reporter=dot \"packages/cupel/test/**/*.test.mjs\" \"scripts/**/*.test.mjs\" \"bench/**/*.test.mjs\"",
+    "test": "node --test --test-timeout=900000 --test-reporter=dot \"packages/cupel/test/**/*.test.mjs\" \"scripts/**/*.test.mjs\" \"bench/**/*.test.mjs\"",
     "test:py": "node scripts/test-python.mjs",
     "test:ruby": "node scripts/test-ruby.mjs",
     "verify": "npm run -s check && npm test && npm run -s test:py && npm run -s test:ruby"

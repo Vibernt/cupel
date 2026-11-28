@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
+import { killLeftovers, killTree } from '../process-tree.mjs';
 
 // Node renamed --experimental-test-isolation to --test-isolation in 23.6; Node 22 accepts only the old name.
 const [NODE_MAJOR, NODE_MINOR] = process.versions.node.split('.').map(Number);
@@ -90,7 +91,7 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
     const timer = setTimeout(() => {
       if (byBudget) cut = true;
       else timedOut = true;
-      try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
+      killTree(child);
     }, Math.max(1, Math.round(Math.min(timeoutMs, budget))));
     let finished = false;
     const finish = (code, signal) => {
@@ -98,7 +99,7 @@ export function runTestFile({ root, file, env, tmp, mutantSpec = null, timeoutMs
       finished = true;
       clearTimeout(timer);
       // Children the tests left behind in the group do not outlive the run.
-      try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
+      killLeftovers(child);
       const wallMs = Math.round(performance.now() - started);
       const results = existsSync(report)
         ? readFileSync(report, 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } })
