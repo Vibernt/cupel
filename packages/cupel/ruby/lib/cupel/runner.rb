@@ -18,6 +18,16 @@ module Cupel
       (lines.length > 40 ? lines.first(20) + ['...'] + lines.last(20) : lines).join("\n")
     end
 
+    # Load the plugin in the test process, after Bundler has selected the project's gems. On Windows `env` is MSYS's,
+    # which rewrites path-like arguments (D:/a/... became D:A:/...); there Bundler keeps a RUBYOPT that already starts
+    # with bundler/setup, so the same order is set directly.
+    def self.bundled(root, env, command, rubyopt)
+      return [env.merge('RUBYOPT' => rubyopt), command] unless File.file?(File.join(root, 'Gemfile')) || ENV['BUNDLE_GEMFILE']
+      return [env.merge('RUBYOPT' => "-rbundler/setup #{rubyopt}"), ['bundle', 'exec', *command]] if Gem.win_platform?
+
+      [env.merge('RUBYOPT' => nil), ['bundle', 'exec', 'env', "RUBYOPT=-rbundler/setup #{rubyopt}", *command]]
+    end
+
     def self.execute(root, files, args, result_dir, select: nil)
       prefix = File.join(result_dir, 'result')
       rubyopt = [ENV['RUBYOPT'], "-r#{File.expand_path('minitest_plugin', __dir__)}"].compact.join(' ')
@@ -33,13 +43,7 @@ module Cupel
                   load_path << '-Ispec' if File.directory?(File.join(root, 'spec'))
                   ['ruby', *load_path, '-rjson', '-e', 'JSON.parse(ENV.fetch("CUPEL_RUBY_FILES")).each { |file| path = File.expand_path(file); abort "File does not exist: #{path}" unless File.file?(path); require path; Cupel::MinitestPlugin.record_file_setup(file) }']
                 end
-      if File.file?(File.join(root, 'Gemfile')) || ENV['BUNDLE_GEMFILE']
-        # Load the plugin in the test process, after Bundler has selected the project's gems.
-        env['RUBYOPT'] = nil
-        command = ['bundle', 'exec', 'env', "RUBYOPT=-rbundler/setup #{rubyopt}", *command]
-      else
-        env['RUBYOPT'] = rubyopt
-      end
+      env, command = bundled(root, env, command, rubyopt)
       if select
         pattern = "/^#{Regexp.escape(select)}$/"
         if args.first == 'rake'
