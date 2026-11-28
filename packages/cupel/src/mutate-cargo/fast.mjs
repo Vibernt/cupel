@@ -28,6 +28,7 @@ import { environmentFor, execute, findTool, INSTALL, planCargoMutants, planEntri
 import { orderTargets } from './order.mjs';
 import { selectorDigest, stableSelectors } from './batches.mjs';
 import { cacheDir, DEFAULT_CAP_GB, enforceCap, hashFile, openSession, sessionId } from './session.mjs';
+import { killLeftovers, killTree } from '../process-tree.mjs';
 
 const SCHEMA = JSON.parse(readFileSync(new URL('../../schemas/config.schema.json', import.meta.url), 'utf8'));
 const noop = () => {};
@@ -61,7 +62,7 @@ function run(command, args, { cwd, env, timeoutMs = 0 }) {
     child.stderr.on('data', (c) => { text += c; });
     const timer = timeoutMs ? setTimeout(() => {
       timedOut = true;
-      try { if (process.platform === 'win32') child.kill('SIGKILL'); else process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ }
+      killTree(child);
     }, timeoutMs) : null;
     child.on('error', (e) => { if (timer) clearTimeout(timer); reject(new CargoMutantsError(`${command}: ${e.message}`)); });
     child.on('close', (code, signal) => { if (timer) clearTimeout(timer); resolve({ code, signal, timedOut, text, stdout, ms: performance.now() - started }); });

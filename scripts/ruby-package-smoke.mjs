@@ -48,7 +48,9 @@ export function rubyPackageSmoke({ scratch, bin, checked }) {
   writeFileSync(join(project, 'test/thing_test.rb'), rubyTests.replace('assert_equal 2, Thing.value', 'Thing.value; assert true'));
   const headPath = join(project, 'head-input.json');
   checked(bin, ['report', '--runs', '1', '--out', headPath, '--json'], { cwd: project });
-  const guarded = spawnSync(bin, ['guard', '--base-input', basePath, '--head-input', headPath, '--json'], {
+  // On Windows `bin` is the installed package's cupel.mjs, which runs through this Node (package-smoke.test.mjs).
+  const guardArgs = ['guard', '--base-input', basePath, '--head-input', headPath, '--json'];
+  const guarded = spawnSync(...(bin.endsWith('.mjs') ? [process.execPath, [bin, ...guardArgs]] : [bin, guardArgs]), {
     cwd: project, encoding: 'utf8', timeout: 120_000, maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, NO_COLOR: '1' },
   });

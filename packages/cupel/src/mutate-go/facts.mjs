@@ -72,10 +72,9 @@ export class GoSourceFacts {
   }
 
   #read(source) {
-    if (constants.O_NOFOLLOW === undefined)
-      refuse('source-path', 'safe Go source open is unavailable on this host');
     const { logical, actual, stat } = this.#validate(source);
-    const fd = openSync(actual, constants.O_RDONLY | constants.O_NOFOLLOW);
+    // Windows has no O_NOFOLLOW; there the lstat, realpath and fstat identity checks guard the open, as for Cargo.
+    const fd = openSync(actual, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
     let bytes;
     try {
       const opened = fstatSync(fd);

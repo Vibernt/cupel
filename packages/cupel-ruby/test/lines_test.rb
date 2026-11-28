@@ -10,11 +10,15 @@ class LinesTest < Minitest::Test
     Dir.mktmpdir('cupel-ruby-lines-') do |root|
       %w[lib test spec vendor .hidden].each { |dir| FileUtils.mkdir_p(File.join(root, dir)) }
       %w[lib/a.rb test/a.rb spec/a.rb vendor/a.rb .hidden/a.rb lib/credentials.rb].each do |path|
-        File.write(File.join(root, path), "# comment\nmodule A\n  X = 1\nend\n")
+        File.binwrite(File.join(root, path), "# comment\nmodule A\n  X = 1\nend\n")
       end
       outside = File.join(File.dirname(root), 'external.rb')
-      File.write(outside, 'X = 1')
-      File.symlink(outside, File.join(root, 'lib/outside.rb'))
+      File.binwrite(outside, 'X = 1')
+      begin
+        File.symlink(outside, File.join(root, 'lib/outside.rb'))
+      rescue NotImplementedError, SystemCallError
+        nil # Windows without the symlink privilege: the scan below must give the same answer without the link.
+      end
       assert_equal({ 'lib/a.rb' => { 'coverable' => '2-3',
                                      'hash' => 'sha256:ad01ee8979a59222863aecf4be85b03f0cc435db65e0c3ddb72ee2c9c0adef53' } },
                    Cupel::Lines.scan(root))
@@ -27,7 +31,7 @@ class LinesTest < Minitest::Test
     Dir.mktmpdir('cupel-ruby-lines-') do |root|
       FileUtils.mkdir_p(File.join(root, 'lib'))
       path = File.join(root, 'lib/a.rb')
-      File.write(path, "module A\n  X = 1\n  Y = 2\nend\n")
+      File.binwrite(path, "module A\n  X = 1\n  Y = 2\nend\n")
       sources = { 'lib/a.rb' => { 'coverable' => '1-3' } }
       full = Cupel::Lines.covered({ path => { 'lines' => [1, 0, 2, nil] } }, root, sources)
       compact = Cupel::Lines.covered({ path => { 'covered' => [1, 3] } }, root, sources)

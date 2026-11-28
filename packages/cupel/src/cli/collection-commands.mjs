@@ -117,6 +117,11 @@ export const collectionCommands = {
     if (input.collection?.shard) throw usage('merge shards before mutation');
     for (const [source, facts] of Object.entries(input.sources)) {
       const sourcePath = resolve(ctx.root, source);
+      // A source that could not be read has no hash and no lines: nothing is planted in it.
+      if (facts.unmeasured !== undefined && facts.hash === undefined) {
+        if (relative(ctx.root, sourcePath).split(sep)[0] === '..' || sourcePath === ctx.root) throw usage(`source path is outside working tree: ${source}`);
+        continue;
+      }
       if (relative(ctx.root, sourcePath).split(sep)[0] === '..' || sourcePath === ctx.root) throw usage(`source path is outside working tree: ${source}`);
       let actual, realSource;
       try { realSource = realpathSync(sourcePath); }

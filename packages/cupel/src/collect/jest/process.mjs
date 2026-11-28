@@ -5,6 +5,7 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
+import { killLeftovers, killTree } from '../../process-tree.mjs';
 
 export class JestCollectorError extends Error {
   constructor(message) { super(message); this.name = 'JestCollectorError'; this.code = 'environment'; this.exit = 3; }
@@ -29,7 +30,7 @@ export function runJest(root, entry, args, env = process.env, timeoutMs = 120000
       [child.stderr, (s) => stderr = (stderr + s).slice(-1 << 22)]]) {
       stream.setEncoding('utf8').on('data', append);
     }
-    const timer = setTimeout(() => { timedOut = true; try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, timeoutMs);
+    const timer = setTimeout(() => { timedOut = true; killTree(child); }, timeoutMs);
     child.on('error', (error) => { stderr += String(error); });
     child.on('close', (code, signal) => {
       clearTimeout(timer);

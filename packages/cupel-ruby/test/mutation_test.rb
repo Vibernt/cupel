@@ -15,8 +15,8 @@ class MutationTest < Minitest::Test
     Dir.mktmpdir('cupel-rubymut-test-', File.join(REPO, '.scratch')) do |root|
       FileUtils.mkdir_p(File.join(root, 'lib'))
       FileUtils.mkdir_p(File.join(root, 'test'))
-      File.write(File.join(root, 'lib/thing.rb'), source)
-      File.write(File.join(root, 'test/thing_test.rb'), test)
+      File.binwrite(File.join(root, 'lib/thing.rb'), source)
+      File.binwrite(File.join(root, 'test/thing_test.rb'), test)
       yield root
     end
   end
@@ -53,7 +53,7 @@ class MutationTest < Minitest::Test
       end
     RUBY
     fixture(source, test) do |root|
-      File.write(File.join(root, 'lib/helper.rb'), "module Helper\n  VALUE = 9\nend\n")
+      File.binwrite(File.join(root, 'lib/helper.rb'), "module Helper\n  VALUE = 9\nend\n")
       input = input_for(root)
       hash = input.dig('sources', 'lib/thing.rb', 'hash')
       result = mutate(root, input)
@@ -95,7 +95,7 @@ class MutationTest < Minitest::Test
       confirmed = Cupel::Mutation::Run.confirm(root, input, base, [survivor['id']])
       assert_equal 'survived', confirmed['mutants'].find { |row| row['id'] == survivor['id'] }['status']
 
-      File.write(File.join(root, 'test/thing_test.rb'), test.sub('assert_equal 1, Thing.value', 'Thing.value; assert true'))
+      File.binwrite(File.join(root, 'test/thing_test.rb'), test.sub('assert_equal 1, Thing.value', 'Thing.value; assert true'))
       head_input = input_for(root)
       head = mutate(root, head_input)
       same = head['mutants'].find { |row| row['id'] == killed['id'] }
@@ -115,7 +115,7 @@ class MutationTest < Minitest::Test
     RUBY
     fixture(source, normal) do |root|
       input = input_for(root)
-      File.write(File.join(root, 'lib/thing.rb'), "# changed\n#{source}")
+      File.binwrite(File.join(root, 'lib/thing.rb'), "# changed\n#{source}")
       assert_raises(Cupel::Mutation::SourceError) { mutate(root, input) }
     end
     loaded = normal.sub("require_relative '../lib/thing'", "load File.expand_path('../lib/thing.rb', __dir__)")
@@ -128,7 +128,7 @@ class MutationTest < Minitest::Test
     wrapped = normal.sub("require_relative '../lib/thing'", "load File.expand_path('../lib/thing.rb', __dir__), true")
     fixture(source, wrapped) do |root|
       # Wrapped load has no direct module constant; a passing row still exercises setup coverage.
-      File.write(File.join(root, 'test/thing_test.rb'), wrapped.sub('assert_equal 1, Thing.value', 'assert true'))
+      File.binwrite(File.join(root, 'test/thing_test.rb'), wrapped.sub('assert_equal 1, Thing.value', 'assert true'))
       input = input_for(root)
       result = mutate(root, input)
       assert_equal ['error'], result['mutants'].map { |row| row['status'] }.uniq
@@ -143,17 +143,17 @@ class MutationTest < Minitest::Test
       class ThingTest < Minitest::Test
         def test_value
           path = File.expand_path('../lib/thing.rb', __dir__)
-          File.write(path, File.read(path) + "\\n") if ENV['CUPEL_RUBY_RESULT']
+          File.binwrite(path, File.read(path) + "\\n") if ENV['CUPEL_RUBY_RESULT']
           assert_equal 1, Thing.value
         end
       end
     RUBY
     fixture(source, test) do |root|
       # Collector itself runs the test, so collect first without the writer and then restore it.
-      safe = test.sub("File.write(path, File.read(path) + \"\\n\") if ENV['CUPEL_RUBY_RESULT']", 'nil')
-      File.write(File.join(root, 'test/thing_test.rb'), safe)
+      safe = test.sub("File.binwrite(path, File.read(path) + \"\\n\") if ENV['CUPEL_RUBY_RESULT']", 'nil')
+      File.binwrite(File.join(root, 'test/thing_test.rb'), safe)
       input = input_for(root)
-      File.write(File.join(root, 'test/thing_test.rb'), test)
+      File.binwrite(File.join(root, 'test/thing_test.rb'), test)
       assert_raises(Cupel::Mutation::SourceError) { mutate(root, input) }
     end
   end
@@ -176,7 +176,7 @@ class MutationTest < Minitest::Test
       result = mutate(root, input)
       assert_equal 'killed', result['mutants'].find { |row| row['id'] == site.id }['status']
       invalid = "module Thing\n  def self.value = 1\n"
-      File.write(File.join(root, 'lib/thing.rb'), invalid)
+      File.binwrite(File.join(root, 'lib/thing.rb'), invalid)
       input['sources']['lib/thing.rb']['hash'] = "sha256:#{Digest::SHA256.hexdigest(invalid)}"
       assert_raises(Cupel::Mutation::SourceError) { mutate(root, input) }
     end
@@ -215,7 +215,7 @@ class MutationTest < Minitest::Test
         def test_value
           if ENV['CUPEL_RUBY_MUTATION_SPEC']
             path = File.expand_path('../lib/thing.rb', __dir__)
-            File.write(path, File.read(path) + "\\n")
+            File.binwrite(path, File.read(path) + "\\n")
           end
           assert_equal 1, Thing.value
         end
@@ -252,8 +252,8 @@ class MutationTest < Minitest::Test
       input_file = File.join(root, '.input.json')
       scope_file = File.join(root, '.scope.json')
       mutation_file = File.join(root, '.mutation.json')
-      File.write(input_file, JSON.generate(input))
-      File.write(scope_file, JSON.generate('changed' => { 'lib/thing.rb' => '' }))
+      File.binwrite(input_file, JSON.generate(input))
+      File.binwrite(scope_file, JSON.generate('changed' => { 'lib/thing.rb' => '' }))
       executable = File.join(REPO, 'packages/cupel-ruby/bin/cupel-ruby')
       stdout, stderr, status = Open3.capture3(RbConfig.ruby, executable, 'mutate', '--root', root,
                                               '--input', input_file, '--scope', scope_file)
@@ -261,7 +261,7 @@ class MutationTest < Minitest::Test
       mutation = JSON.parse(stdout)
       assert_equal %w[mutants sampled seed targeted], mutation.keys.sort
       survivor = mutation['mutants'].find { |row| row['status'] == 'survived' }
-      File.write(mutation_file, stdout)
+      File.binwrite(mutation_file, stdout)
       confirmed, error, status = Open3.capture3(RbConfig.ruby, executable, 'confirm', '--root', root,
                                                 '--input', input_file, '--mutation', mutation_file,
                                                 '--ids', survivor['id'])
@@ -342,7 +342,7 @@ class MutationTest < Minitest::Test
         def test_value
           if ENV['CUPEL_RUBY_MUTATION_SPEC']
             counter = File.expand_path('../.scratch/crashes', __dir__)
-            File.write(counter, (File.exist?(counter) ? File.read(counter).to_i + 1 : 1).to_s)
+            File.binwrite(counter, (File.exist?(counter) ? File.read(counter).to_i + 1 : 1).to_s)
             exit! 7
           end
           assert_equal 1, Thing.value
@@ -365,7 +365,7 @@ class MutationTest < Minitest::Test
       class ThingTest < Minitest::Test
         def test_value
           if ENV['CUPEL_RUBY_MUTATION_SPEC']
-            File.write(File.expand_path('../.scratch/mutant-started', __dir__), 'yes')
+            File.binwrite(File.expand_path('../.scratch/mutant-started', __dir__), 'yes')
             sleep 9
           elsif File.exist?(File.expand_path('../.scratch/mutant-started', __dir__)) && ENV['FAIL_PROBE']
             flunk 'known-good probe failed'

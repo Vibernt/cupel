@@ -81,7 +81,7 @@ test('Cargo artifact and harness parsing rejects missing results', () => {
   assert.deepEqual(targetEnvironment('/a', {}), {});
   assert.notEqual(targetEnvironment('/a', { CARGO_TARGET_DIR: '/cache/target' }).CARGO_TARGET_DIR,
     targetEnvironment('/b', { CARGO_TARGET_DIR: '/cache/target' }).CARGO_TARGET_DIR);
-  assert.match(targetEnvironment('/a', { CARGO_TARGET_DIR: '/cache/target' }).CARGO_TARGET_DIR, /^\/cache\/target\/cupel\//);
+  assert.match(targetEnvironment('/a', { CARGO_TARGET_DIR: '/cache/target' }).CARGO_TARGET_DIR, /^(?:[A-Za-z]:)?[\\/]cache[\\/]target[\\/]cupel[\\/]/);
 });
 
 test('missing matching LLVM tools gives the exact installation remedy', { skip: rust.status !== 0 && 'rustc unavailable' }, async () => {
@@ -168,7 +168,8 @@ test('runner records report only what Cargo added, and merge case-insensitively 
   assert.deepEqual(record, { binary: '/t/bin', cwd: '/w/core', added: { PATH: '/t/deps:/usr/bin', CARGO_MANIFEST_DIR: '/w/core' }, removed: [] });
   assert.equal(JSON.stringify(record).includes('secret-value'), false);
   const line = `noise\n${MARKER}${Buffer.from(JSON.stringify(record)).toString('base64')}\nmore`;
-  assert.deepEqual(runnerRecords(line).get(nodePath.resolve('/t/bin')), record);
+  // Keys are the resolved binary path, lowercased on Windows (case-insensitive paths).
+  assert.deepEqual([...runnerRecords(line).values()], [record]);
   assert.deepEqual(withVariables({ Path: 'C:\\a', HOME: 'h' }, { PATH: 'C:\\deps;C:\\a' }, [], 'win32'), { HOME: 'h', PATH: 'C:\\deps;C:\\a' });
   assert.deepEqual(withVariables({ Path: '/a', HOME: 'h' }, { PATH: '/b' }, ['HOME'], 'linux'), { Path: '/a', PATH: '/b' });
 });

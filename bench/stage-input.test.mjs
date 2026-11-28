@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { inputAt, parseJson, reportOptions } from './stage-input.mjs';
 
 test('stage input requires a fresh populated collector file with the expected runtime', () => {
-  const dir = mkdtempSync('/tmp/cupel-input-');
+  const dir = mkdtempSync(join(tmpdir(), 'cupel-input-'));
   const path = join(dir, 'input.json');
   const repo = { dir, runner: 'pytest' };
   try {

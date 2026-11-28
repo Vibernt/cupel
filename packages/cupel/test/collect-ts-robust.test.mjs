@@ -60,7 +60,9 @@ test('transform-only TS is skipped once without project TypeScript while other f
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const diagnostics = [], logs = [];
     const input = await collectVitest({ root, runs: 1, diagnostics, log: (s) => logs.push(s) });
-    assert.equal(input.sources['src/errors.ts'], undefined);
+    // Listed apart with its cause (issue 9), never measured and never dropped.
+    assert.equal(input.sources['src/errors.ts'].coverable, '');
+    assert.match(input.sources['src/errors.ts'].unmeasured, /^not read by the Vitest runner: .*typescript is not resolvable from the project root/);
     assert.ok(input.sources['src/other.ts']);
     assert.deepEqual(diagnostics.map((d) => d.file), ['src/errors.ts', 'tests/errors.test.ts']);
     assert.equal(logs.filter((s) => s.includes('skipped src/errors.ts')).length, 1);
@@ -121,7 +123,7 @@ test('CLI writes skipped.json beside --out and keeps the input schema clean',
     assert.equal(exit, 0, err);
     const skipped = JSON.parse(readFileSync(join(root, '.cupel/skipped.json'), 'utf8'));
     assert.deepEqual(skipped.skipped.map((row) => row.file), ['src/errors.ts', 'tests/errors.test.ts']);
-    assert.match(err, /2 files skipped: see .cupel\/skipped.json/);
+    assert.match(err, /2 files skipped: see \.cupel[\\/]skipped\.json/);
     assert.equal(JSON.parse(readFileSync(join(root, '.cupel/input.json'), 'utf8')).skipped, undefined);
   });
 
@@ -142,7 +144,9 @@ test('good', () => { assert.equal(good(1), true); });
   const input = await collectNode({ root, runs: 1, diagnostics });
   assert.deepEqual(diagnostics.map((d) => d.file), ['src/bad.js']);
   assert.ok(input.sources['src/good.mjs']);
-  assert.equal(input.sources['src/bad.js'], undefined);
+  // Listed apart with its cause (issue 9), never measured and never dropped.
+  assert.equal(input.sources['src/bad.js'].coverable, '');
+  assert.match(input.sources['src/bad.js'].unmeasured, /^not read by the node:test runner: Unterminated template/);
   assert.ok(input.coverage.byTest['tests/good.test.mjs::good']['src/good.mjs']);
 });
 

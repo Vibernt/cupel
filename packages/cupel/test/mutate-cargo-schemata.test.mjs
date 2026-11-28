@@ -528,9 +528,10 @@ test('rustc: the rewritten program behaves like the original with switches off',
   try {
     const build = (name, code) => {
       const file = join(dir, `${name}.rs`); writeFileSync(file, code);
-      const out = spawnSync('rustc', ['--edition', '2021', '--crate-type', 'bin', '-o', join(dir, name), file], { encoding: 'utf8' });
+      const binary = join(dir, process.platform === 'win32' ? `${name}.exe` : name);
+      const out = spawnSync('rustc', ['--edition', '2021', '--crate-type', 'bin', '-o', binary, file], { encoding: 'utf8' });
       assert.equal(out.status, 0, out.stderr);
-      return (fault) => spawnSync(join(dir, name), [], { encoding: 'utf8', env: { ...process.env, CUPEL_FAULT: String(fault) } }).stdout;
+      return (fault) => spawnSync(binary, [], { encoding: 'utf8', env: { ...process.env, CUPEL_FAULT: String(fault) } }).stdout;
     };
     const original = build('orig', src);
     const switched = build('switched', `${r.text}\n${FAULT_MODULE}\n`);

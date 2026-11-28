@@ -13,7 +13,7 @@
 import { readFileSync, realpathSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readdirSync, symlinkSync, readlinkSync, copyFileSync } from 'node:fs';
 import { skipFile } from '../collect/skipped.mjs';
 import { cpus, availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { effectiveConfig } from '../engine/config.mjs';
@@ -25,11 +25,13 @@ import { unitOf } from '../engine/integrity.mjs';
 import { generateMutants, applyMutant, sample, prng } from './operators.mjs';
 import { candidateValidity, enumerateSites, sourceMutants } from './sites.mjs';
 import { mutationModel } from './model.mjs';
-import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure } from './runner.mjs';
+import { EnvironmentError, testEnv, pool, runTestFile, isFileFailure, hookBugs } from './runner.mjs';
 import { VitestMutantRunner } from './vitest.mjs';
 import { JestMutantRunner } from './jest/index.mjs';
 import { SourceFacts } from './source-facts.mjs';
 import { orderTestFiles } from './order.mjs';
+import { eventsAfter, markedSource } from './jsx-mark.mjs';
+import { projectTypeScript } from '../lang/js/project-typescript.mjs';
 
 export { EnvironmentError } from './runner.mjs';
 export { generateMutants, applyMutant, sample, OPERATORS } from './operators.mjs';
@@ -41,10 +43,25 @@ const STOP_AFTER_FILES = 2; // spike S3: a unique kill needs exactly one killing
 const BASELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const noop = () => {};
+const JSX_SOURCE = /\.[jt]sx$/;
+// Failure codes of the two module-hook bugs, when this Node has them.
+const BUG_CODES = { ERR_INVALID_RETURN_PROPERTY_VALUE: 'asyncCjs', ERR_UNKNOWN_FILE_EXTENSION: 'unknownExtension' };
+// Loaders a test process reported (hook.mjs): with any of them in play, every fault carries a run proof. A preload
+// (--import or --require besides Cupel's) counts: it runs before Cupel's hook and may install a loader unseen.
+/** A failed run's output in one line: its first error line (often the cause) and its last lines. */
+function stderrSummary(stderr) {
+  const lines = stderr.trim().split('\n');
+  const first = lines.find((line) => /\b(?:[A-Z][A-Za-z]*Error|ERR_[A-Z_]+)\b/.test(line));
+  const tail = lines.slice(-3);
+  return [...(first && !tail.includes(first) ? [first.trim(), '…'] : []), ...tail].join(' | ');
+}
+
+const LOADER_KINDS = ['register', 'registerHooks', 'loader-flag', 'extensions', 'preload'];
 // Half the cores: each mutant runs a whole test file, and real suites have test processes that peak at several GB.
 const defaultJobs = () => Math.max(1, Math.floor((typeof availableParallelism === 'function' ? availableParallelism() : cpus().length) / 2));
 
-/** Whether a sorted interval list holds line n. */
+const readText = (file) => { try { return readFileSync(file, 'utf8'); } catch { return ''; } };
+
 /**
  * A working copy of the project for scratch-mode mutation: every file, except
  * version control, build output and Cupel's own folders; node_modules folders are
@@ -67,6 +84,7 @@ export function copyProject(root, dest) {
   return realpathSync(dest);
 }
 
+/** Whether a sorted interval list holds line n. */
 function hasLine(intervals, n) {
   let lo = 0, hi = intervals.length - 1;
   while (lo <= hi) {
@@ -154,6 +172,13 @@ class Session {
       collectorKind === 'jest' ? new JestMutantRunner(this.root, cfg, this.tmp) : null; }
     catch (error) { rmSync(this.tmp, { recursive: true, force: true }); throw error; }
     this.env = { ...(this.runner?.env ?? testEnv(cfg.runners?.node?.env ?? {})), TMPDIR: this.tmp, XDG_CACHE_HOME: this.tmp };
+    // Test processes note the loaders they see (hook.mjs). Faults served through a loader, and every JSX fault, carry
+    // a run proof (jsx-mark.mjs); baselines run under the same hooks, so a test the hooks break is never a catch.
+    this.proofs = !this.runner && !this.scratch;
+    if (this.proofs) {
+      this.loaderLog = join(this.tmp, 'loaders.txt');
+      this.env.CUPEL_LOADERS = this.loaderLog;
+    }
     this.tests = new Map(input.tests.map((t) => [t.id, t]));
     this.passedByFile = new Map();
     for (const t of input.tests) {
@@ -217,11 +242,43 @@ class Session {
     return this.fileDurations.get(file) ?? 0;
   }
 
+  /** The loader kinds test processes of this session reported so far (hook.mjs), sorted. */
+  loaders() {
+    if (!this.loaderLog) return [];
+    return [...eventsAfter(readText(this.loaderLog), 0).keys()].filter((kind) => LOADER_KINDS.includes(kind)).sort(cmp);
+  }
+
+  /**
+   * The module-hook bug this Node has, when this session could run into it; else null. With a bug present, any
+   * loader, preload or extension entry in play counts: a test can catch the bug's failure and fall back (the code
+   * never surfaces), so error codes cannot be relied on, and such Node releases are below the supported minimum.
+   * An unmutated run failing with a bug's code (`codes`) counts too. Probed only when there is something to check,
+   * so plain projects never pay for it.
+   */
+  hookBug(codes = new Set()) {
+    if (!this.proofs) return null;
+    const kinds = this.loaders();
+    const coded = [...codes].filter((code) => Object.hasOwn(BUG_CODES, code));
+    if (!kinds.length && !coded.length) return null;
+    const bugs = hookBugs(join(this.tmp, 'probe'));
+    if (kinds.length) return bugs.asyncCjs ? 'asyncCjs' : bugs.unknownExtension ? 'unknownExtension' : null;
+    return coded.map((code) => BUG_CODES[code]).find((bug) => bugs[bug]) ?? null;
+  }
+
+  /** Fault testing refused: this Node's module-hook bug makes tests fail only under Cupel's hooks. */
+  loaderRefusal(bug, file) {
+    const what = bug === 'asyncCjs' ? 'CommonJS imports while sync and async module hooks are both registered (nodejs/node#59929; fixed in 22.22.3, 24.11.1, 25.1.0)'
+      : 'require() of a file extension only a loader handles while a sync module hook is registered';
+    const kinds = this.loaders();
+    return new EnvironmentError(`Node ${process.versions.node} breaks ${what}, and these tests run ${kinds.length ? `with a loader or preload in play (${kinds.join(', ')})` : 'into it'} under Cupel's hooks${file ? ` (the unmutated run of ${file} failed)` : ''}: a test could fail only because of the hooks, even inside a try/catch, and its faults would look unnoticed, so fault testing is refused; use a Node release without the bug (22.23 or later, or 26)`);
+  }
+
   /** Runs each file once unmutated: its time sets the timeout, and a crash means the environment is broken. */
   async baseline(files) {
     const todo = files.filter((f) => !this.baselines.has(f)).sort(cmp);
     if (!todo.length) return;
     const started = performance.now();
+    const baselineCodes = new Set();
     try { await pool(todo, this.jobs, async (file) => {
       let r;
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -230,12 +287,22 @@ class Session {
       }
       if (r.cut) return; // out of time: mutants that need this file are not run
       if (this.baselineBroken(r, file)) {
-        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
+        // Node 22 before 22.23 breaks module loading under Cupel's sync hook together with a project loader (CommonJS
+        // imports beside async hooks, require() of extensions only a loader knows): every run fails, mutated or not.
+        const codes = new Set([...r.results.map((x) => x.code), ...(r.stderr.match(/ERR_[A-Z_]+/g) ?? [])]);
+        const bug = this.hookBug(codes);
+        if (bug) throw this.loaderRefusal(bug, file);
+        throw new EnvironmentError(`the unmutated run of ${file} did not complete (exit ${r.code}${r.signal ? `, ${r.signal}` : ''}${r.timedOut ? ', timed out' : ''}, ${r.results.length} tests reported): ${stderrSummary(r.stderr)}`);
       }
+      for (const x of r.results) if (x.s === 'fail' && x.code) baselineCodes.add(x.code);
       const failing = new Set(r.results.filter((x) => x.s === 'fail').map((x) => (x.suite ? `suite:${x.t}` : x.t)));
       if (failing.size) this.log(`mutate: ${file} fails unmutated (${[...failing].join(', ')}); those failures are not kills`);
       this.baselines.set(file, { wallMs: r.wallMs, code: r.code, failing, count: r.results.filter((x) => !x.suite).length });
     }); } finally { this.baselineElapsedMs += performance.now() - started; }
+    // With this Node's module-hook bug in play, a test can fail only under Cupel's hooks, inside its body, in baselines
+    // and mutant runs alike: its faults would look unnoticed. Refuse before anything is scored.
+    const bug = this.hookBug(baselineCodes);
+    if (bug) throw this.loaderRefusal(bug);
     // The known-good probe: the fastest file that passed cleanly unmutated.
     if (!this.probeFile) {
       const clean = [...this.baselines.keys()].filter((f) => this.baselines.get(f).failing.size === 0);
@@ -286,9 +353,19 @@ class Session {
     const path = join(this.tmp, `mutant-${k}.json`);
     const sourcePath = join(this.tmp, `source-${k}`);
     const seen = join(this.tmp, `seen-${k}`);
+    let proof = null;
+    if (this.proofs && (JSX_SOURCE.test(m.source) || this.loaders().length)) {
+      if (this.ts === undefined) { try { this.ts = projectTypeScript(this.root); } catch { this.ts = null; } }
+      if (JSX_SOURCE.test(m.source) && !this.ts) throw new EnvironmentError('typescript is not resolvable from the project root, and JSX faults need it');
+      const mark = `cupel-ran-${basename(this.tmp).replace(/[^A-Za-z0-9]/g, '')}-${k}`;
+      const ran = join(this.tmp, `ran-${k}`);
+      const marked = markedSource(this.ts, m.source, text, { mark, ranPath: ran });
+      // Without a safe place for the proof the fault is served unmarked; the hook then refuses it under a loader.
+      if (marked !== null) { proof = { mark, ran }; text = marked; }
+    }
     if (!(this.runner instanceof JestMutantRunner)) writeFileSync(sourcePath, text);
-    writeFileSync(path, JSON.stringify({ url: this.url(m.source), ...(this.runner instanceof JestMutantRunner ? {} : { sourcePath }), seen }));
-    const spec = { path, sourcePath: this.runner instanceof JestMutantRunner ? null : sourcePath, seen };
+    writeFileSync(path, JSON.stringify({ url: this.url(m.source), ...(this.runner instanceof JestMutantRunner ? {} : { sourcePath }), seen, ...(proof ? { mark: proof.mark } : {}) }));
+    const spec = { path, sourcePath: this.runner instanceof JestMutantRunner ? null : sourcePath, seen, ...(proof ?? {}) };
     this.runner?.spec(spec, text);
     return spec;
   }
@@ -346,13 +423,39 @@ class Session {
   /** One file with one mutant: a timeout is re-run once with a longer limit, a crash is re-run once, then `error`. */
   async runFile(m, spec, file, covering) {
     const deadline = this.deadline;
+    // The input says the test process itself ran the file (in-process coverage: a test outside the re-checked units,
+    // whose lines may come from children, or this file's setup): then that process must run the fault, so a test
+    // process that evaluates the file some other way (vm, eval of the file's text) cannot borrow a child's proof.
+    const rechecked = new Set(this.input.coverage?.rechecked ?? []);
+    const setupLines = this.model.setup.get(file)?.[m.source];
+    const inProcess = covering.some((t) => t.file === file && !rechecked.has(unitOf(t))) ||
+      (setupLines !== undefined && hasLine(parseLines(setupLines), m.line));
     const CUT = { kind: 'cut', killers: new Set() };
     const base = this.baselines.get(file);
     const limit = Math.max(TIMEOUT_FACTOR * base.wallMs, this.timeoutFloorMs);
     const go = async (timeoutMs) => {
+      const before = this.proofs ? { seen: readText(spec.seen).length, ran: spec.ran ? readText(spec.ran).length : 0 } : null;
       const r = await this.run({ root: this.runRoot, file, env: this.env, tmp: this.tmp,
         mutantSpec: spec.path, timeoutMs, stopAt: deadline, source: m.source });
-      return r.cut ? CUT : this.classify(file, r, base, covering);
+      if (r.cut) return CUT;
+      const out = this.classify(file, r, base, covering);
+      if (before) {
+        // What ran must be the fault (hook.mjs, jsx-mark.mjs), or nothing this run did counts. A timeout or crash is
+        // re-run first (a run killed between loading and running the module proves nothing); the run that decides the
+        // result must carry the proof. Every fault: no process reported that it could not serve it (U) or that a
+        // loader compiled the file itself (B). A marked fault also: it ran in this run (in the test process or a
+        // child it started, K11; the test process itself when the input says it ran the file), and every process
+        // that loaded it ran it (a module imported and also required loads twice but runs once, so a load is matched
+        // per process, not per call).
+        const events = eventsAfter(readText(spec.seen), before.seen);
+        out.unproven = events.has('U') || events.has('B');
+        if (spec.mark && !out.unproven) {
+          const ran = eventsAfter(readText(spec.ran), before.ran).get(spec.mark) ?? new Map();
+          out.unproven = !ran.size || [...(events.get('L') ?? new Map()).keys()].some((pid) => !ran.get(pid)) ||
+            (inProcess && !ran.get(String(r.pid)));
+        }
+      }
+      return out;
     };
     let out = await go(limit);
     if (out.kind === 'cut' || ((out.kind === 'timeout' || out.kind === 'crash') && performance.now() > deadline)) return CUT;
@@ -363,8 +466,11 @@ class Session {
       if (fresh.cut) return CUT;
       if (this.baselineBroken(fresh, file)) return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
       out = await go(RECHECK_FACTOR * Math.max(limit, TIMEOUT_FACTOR * fresh.wallMs));
+      if (out.kind === 'cut') return CUT;
     }
     if (out.kind === 'crash') out = await go(limit);
+    if (out.kind === 'cut') return CUT;
+    if (out.unproven) return { kind: 'unproven', killers: new Set(), ended: out.kind };
     if (out.kind === 'crash') return (await this.knownGood()) ? { kind: 'error', killers: new Set() } : CUT;
     return out;
   }
@@ -394,10 +500,16 @@ class Session {
         const out = await this.runFile(m, spec, file, sel.tests);
         if (out.kind === 'cut') return null;
         outcomes.push(out);
+        if (out.kind === 'unproven') break;
         if (out.kind === 'killed' || out.kind === 'timeout') killing++;
       }
       const kinds = new Set(outcomes.map((o) => o.kind));
       const loaded = existsSync(spec.seen);
+      if (kinds.has('unproven')) {
+        const ended = outcomes.find((o) => o.kind === 'unproven').ended;
+        this.log(`mutate: ${m.id} was loaded but never shown to run: the project's loader did not run the served fault, or a test process ran the file without it (the run ended as ${ended}); reported as error`);
+        return { status: 'error', killedBy: [] };
+      }
       const status = !loaded ? 'error' : kinds.has('killed') ? 'killed' : kinds.has('timeout') ? 'timeout' : kinds.has('error') ? 'error' : 'survived';
       if (!loaded) this.log(`mutate: ${m.id} was never loaded by its tests; reported as error`);
       const killedBy = status === 'error' ? [] : sortedUnique(outcomes.filter((o) => o.kind === 'killed' || o.kind === 'timeout').flatMap((o) => [...o.killers]));
@@ -407,6 +519,7 @@ class Session {
       if (spec.path) rmSync(spec.path, { force: true });
       if (spec.sourcePath) rmSync(spec.sourcePath, { force: true });
       rmSync(spec.seen, { force: true });
+      if (spec.ran) rmSync(spec.ran, { force: true });
     }
   }
 }

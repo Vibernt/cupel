@@ -18,7 +18,7 @@ const FIX = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const schemas = Object.fromEntries(['input', 'config', 'report'].map((n) => [n, read(`${SPEC}schemas/${n}.schema.json`)]));
 
-const TMP = realpathSync(mkdtempSync(join(tmpdir(), 'cupel-cli-git-')));
+const TMP = realpathSync.native(mkdtempSync(join(tmpdir(), 'cupel-cli-git-')));
 process.on('exit', () => rmSync(TMP, { recursive: true, force: true }));
 
 const GIT_ENV = {
@@ -150,7 +150,8 @@ test('guard --base collects the base from git archive in a temp dir, runs prepar
   assert.equal(r.status, 0);
 
   const [baseCall, headCall] = logOf(log);
-  assert.ok(baseCall.root.startsWith(realpathSync(tmpdir())), baseCall.root);
+  // realpathSync.native: Windows' TEMP uses a short name (RUNNER~1) that the plain realpath keeps.
+  assert.ok(baseCall.root.startsWith(realpathSync.native(tmpdir())), baseCall.root);
   assert.notEqual(baseCall.root, dir);
   assert.equal(baseCall.prepared, true, 'prepare ran in the base directory');
   assert.equal(baseCall.prepare, null, 'the collector does not run prepare a second time');

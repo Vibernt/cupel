@@ -107,14 +107,17 @@ test('JSX sources without a project TypeScript package are skipped with one line
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('a resolved TypeScript package without createScanner reports the incompatibility', { skip: !existsSync(join(VITEST5_TYPESCRIPT, 'package.json')) }, () => {
+test('a resolved TypeScript package without createScanner reports the incompatibility', () => {
   mkdirSync(join(repo, '.scratch'), { recursive: true });
   const root = mkdtempSync(join(repo, '.scratch/typescript-api-'));
   try {
     writeFileSync(join(root, 'package.json'), '{"private":true}');
-    mkdirSync(join(root, 'node_modules'));
     mkdirSync(join(root, 'src'));
-    symlinkSync(VITEST5_TYPESCRIPT, join(root, 'node_modules/typescript'));
+    // A stand-in for a TypeScript release without the scanner API (TypeScript 7's native preview, say), so the test
+    // does not depend on which TypeScript happens to be installed.
+    mkdirSync(join(root, 'node_modules/typescript'), { recursive: true });
+    writeFileSync(join(root, 'node_modules/typescript/package.json'), '{"name":"typescript","version":"7.0.0-stub","main":"index.js"}');
+    writeFileSync(join(root, 'node_modules/typescript/index.js'), 'module.exports = { version: "7.0.0-stub" };\n');
     writeFileSync(join(root, 'src/a.tsx'), 'export const a = <b>one</b>;');
     const logs = [], diagnostics = [];
     assert.equal(scanSources(root, {}, (line) => logs.push(line), diagnostics).size, 0);

@@ -23,10 +23,14 @@ def _run(root, sources, args, mode='run'):
                    TMPDIR=tmp, XDG_CACHE_HOME=tmp)
         src = str(Path(__file__).resolve().parents[1])
         env['PYTHONPATH'] = os.pathsep.join(filter(None, (src, env.get('PYTHONPATH', ''))))
+        if os.name == 'nt':
+            # Windows pipes default to the ANSI code page; output it cannot encode fails at exit (status 120).
+            env.setdefault('PYTHONIOENCODING', 'utf-8')
         command = [sys.executable, '-m', 'pytest', '-p', 'vibernt_cupel.plugin', '-p', 'no:cacheprovider', *args]
-        proc = subprocess.run(command, cwd=root, env=env, text=True, capture_output=True)
+        proc = subprocess.run(command, cwd=root, env=env, capture_output=True, encoding='utf-8', errors='replace')
         if not result.exists():
-            raise RuntimeError(f'pytest collector failed (exit {proc.returncode}): {(proc.stderr or proc.stdout).strip()[-1000:]}')
+            detail = ' | '.join(f'{name}: {text.strip()[-600:]}' for name, text in (('stderr', proc.stderr), ('stdout', proc.stdout)) if text.strip())
+            raise RuntimeError(f'pytest collector failed (exit {proc.returncode}): {detail or "no output"}')
         accepted = (0, 5) if mode == 'list' else (0, 1)
         if proc.returncode not in accepted:
             raise RuntimeError(f'pytest failed before completing tests (exit {proc.returncode}): {(proc.stderr or proc.stdout).strip()[-1000:]}')

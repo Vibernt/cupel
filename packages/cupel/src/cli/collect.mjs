@@ -10,6 +10,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { spawnSync } from 'node:child_process';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { quote } from './shell-quote.mjs';
 import { environment, usage } from './errors.mjs';
 import { extractRef } from './git.mjs';
 import { cmp } from '../engine/order.mjs';
@@ -37,7 +38,6 @@ const REAL = {
 const PY_SRC = fileURLToPath(new URL('../../../cupel-py/src/', import.meta.url));
 const CUPEL_BIN = fileURLToPath(new URL('../../bin/cupel.mjs', import.meta.url));
 const RUBY_BIN = fileURLToPath(new URL('../../ruby/bin/cupel-ruby', import.meta.url));
-const quote = (value) => `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 const mutationOwners = new WeakMap();
 
 function externalRunner(root, cfg) {
@@ -146,7 +146,7 @@ export function mutatePytest({ root, cfg, input, scope, mutation, ids = [] }) {
     if (mutation) writeFileSync(mutationFile, JSON.stringify(mutation));
     const action = mutation ? 'confirm' : 'mutate';
     const args = mutation
-      ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${ids.map(quote).join(' ')}`
+      ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${ids.map((id) => quote(id)).join(' ')}`
       : `--input ${quote(inputFile)} --scope ${quote(scopeFile)}`;
     const env = { ...process.env, ...(runner.env ?? {}), TMPDIR: dir, XDG_CACHE_HOME: dir };
     env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);

@@ -23,9 +23,21 @@ test('hosted CI prepares every pinned runtime and makes acceptance gates mandato
     "node-version: '22.23.3'", "node-version: '26.7.0'", "go-version: '1.27.1'",
     "ruby-version: '4.0.7'", "python-version: '3.14'", 'pytest==9.1.1',
     'setuptools==80.9.0', 'rustup toolchain install 1.97.1',
-    'cargo-mutants --version 27.1.0', 'vitest-4", "4.1.11"', 'vitest-5", "5.0.1"',
-    'miniflare: "5.20261101.0-beta"', 'npm ci --prefix spec/conformance/adapters/jest',
+    'cargo-mutants --version 27.1.0', 'npm ci --prefix spec/conformance/adapters/jest',
+    'for tool in vitest-4 vitest-5 miniflare', 'scripts/ci-tools/$tool/package-lock.json', 'npm ci --prefix ".scratch/$tool"',
   ]) assert.ok(workflow.includes(text), `workflow is missing ${text}`);
+
+  // The JavaScript tools install from committed lockfiles: exact versions, the same on every OS.
+  for (const [tool, pins] of Object.entries({
+    'vitest-4': { vitest: '4.1.11', typescript: '5.9.3', react: '19.2.0' },
+    'vitest-5': { vitest: '5.0.1', typescript: '5.9.3', react: '19.2.0' },
+    miniflare: { miniflare: '5.20261101.0-beta' },
+  })) {
+    const dir = new URL(`ci-tools/${tool}/`, import.meta.url);
+    assert.deepEqual(JSON.parse(readFileSync(new URL('package.json', dir), 'utf8')).dependencies, pins);
+    const lock = JSON.parse(readFileSync(new URL('package-lock.json', dir), 'utf8'));
+    for (const [name, version] of Object.entries(pins)) assert.equal(lock.packages[`node_modules/${name}`].version, version, `${tool} lock pins ${name}`);
+  }
 
   for (const flag of [
     'CUPEL_REQUIRE_NATIVE_MUTATION', 'CUPEL_REQUIRE_JEST', 'CUPEL_REQUIRE_PACKAGE_SMOKE',

@@ -14,7 +14,7 @@ import { cmp } from '../engine/order.mjs';
 import { match } from '../conformance/match.mjs';
 import { CliError, EXIT_OK, EXIT_FAILED, EXIT_USAGE, EXIT_ENV, usage, environment } from './errors.mjs';
 import { loadSchemas, readJson, writeJson, projectRoot, loadConfig } from './context.mjs';
-import { checkRef, changedLines } from './git.mjs';
+import { checkRef, changedLines, realPath } from './git.mjs';
 import { loadModule, requireCollector, collectTree, collectRef, mutate, confirm, lostSurvivors, mergeMutation } from './collect.mjs';
 import { formatReport } from './human.mjs';
 import { junitToInput } from './junit.mjs';
@@ -437,7 +437,7 @@ const commands = {
       mutation = await confirm(mutator, { ownFiles: ctx.ownFiles(), root: ctx.root, cfg: partCfg, input: part, mutation, ids: survivors, log: ctx.log, collectorKind: ['vitest', 'jest'].includes(name) ? name : collector.kind });
       const measured = { ...part, mutation };
       const sites = part.runtime.name === 'python' ? bodySitesPytest({ root: ctx.root, cfg: partCfg, input: measured }) :
-      Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source)).sort(cmp)
+      Object.keys(part.sources).filter((source) => /\.[cm]?[jt]sx?$/.test(source) && part.sources[source].unmeasured === undefined).sort(cmp)
         .flatMap((source) => {
           const found = sourceMutants(ctx.root, source, readFileSync(join(ctx.root, source), 'utf8'), undefined, true);
           if (found === null) throw environment(`body sites cannot parse ${source}: TypeScript is not resolvable`);
@@ -712,7 +712,8 @@ function expandTests(ctx, names, head) {
     else if (!ids.has(name)) {
       const abs = ctx.path(name);
       if (existsSync(abs) && statSync(abs).isFile()) {
-        const rel = relative(ctx.root, abs).split(sep).join('/');
+        // Real paths on both sides: Windows can name one folder by its long and short (RUNNER~1) names.
+        const rel = relative(realPath(ctx.root), realPath(abs)).split(sep).join('/');
         if (unitsByFile.has(rel)) file = rel;
       }
     }

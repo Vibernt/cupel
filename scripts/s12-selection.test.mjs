@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { baseFiles, inject, writeFiles } from '../plans/spikes/s12/fixtures.mjs';
 import { fileInventory, makeEvidence, select } from '../plans/spikes/s12/selection.mjs';
 
 function fixture() {
-  const root = mkdtempSync('/tmp/cupel-s12-test-');
+  const root = mkdtempSync(join(tmpdir(), 'cupel-s12-test-'));
   const base = join(root, 'base'); const head = join(root, 'head');
   writeFiles(base, baseFiles('node'));
   cpSync(base, head, { recursive: true });

@@ -1,9 +1,13 @@
 {
-  "description": "A source the collector could not measure carries its reason and no coverable lines; the report is unaffected.",
+  "description": "A source the collector could not measure carries its reason and no coverable lines; the report counts it apart from coverage.",
   "command": "report",
   "rules": [
     {
       "id": "I3",
+      "polarity": "positive"
+    },
+    {
+      "id": "R3",
       "polarity": "positive"
     }
   ],

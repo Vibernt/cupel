@@ -7,6 +7,7 @@ import { performance } from 'node:perf_hooks';
 import { resolveVitest, splitCommand } from '../collect/vitest/index.mjs';
 import { findVitestWorkspace } from '../collect/vitest/projects.mjs';
 import { copyInjectedVitestModules } from '../collect/vitest/injected.mjs';
+import { killLeftovers, killTree } from '../process-tree.mjs';
 
 let counter = 0;
 
@@ -63,13 +64,13 @@ export class VitestMutantRunner {
       const byBudget = budget < timeoutMs;
       const timer = setTimeout(() => {
         if (byBudget) cut = true; else timedOut = true;
-        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already exited */ }
+        killTree(child);
       }, Math.max(1, Math.round(Math.min(timeoutMs, budget))));
       const finish = (code, signal) => {
         if (finished) return;
         finished = true;
         clearTimeout(timer);
-        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already exited */ }
+        killLeftovers(child);
         const results = existsSync(report) ? readFileSync(report, 'utf8').split('\n').filter(Boolean).flatMap((line) => {
           try { return [JSON.parse(line)]; } catch { return []; }
         }) : [];

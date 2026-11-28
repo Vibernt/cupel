@@ -26,9 +26,12 @@ module Cupel
 
         stat = File.lstat(absolute)
         raise "unsafe Ruby source: #{relative}" unless stat.file? && stat.nlink == 1
-        raw = File.open(absolute, File::RDONLY | File::NOFOLLOW) do |file|
+        raw = File.open(absolute, File::RDONLY | File::BINARY | (File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0)) do |file|
           opened = file.stat
-          raise "Ruby source changed during open: #{relative}" unless [opened.dev, opened.ino] == [stat.dev, stat.ino]
+          # Windows Ruby gives an open file another device and index than its path, and has no NOFOLLOW: there the
+          # path's identity and the content hash are checked again after the read (below) instead.
+          same = Gem.win_platform? ? opened.file? && opened.size == stat.size : [opened.dev, opened.ino] == [stat.dev, stat.ino]
+          raise "Ruby source changed during open: #{relative}" unless same
           file.read
         end
         hash = "sha256:#{Digest::SHA256.hexdigest(raw)}"

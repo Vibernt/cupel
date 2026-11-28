@@ -14,8 +14,8 @@ class MutationSafetyTest < Minitest::Test
     Dir.mktmpdir('cupel-rubymut-safety-', File.join(REPO, '.scratch')) do |root|
       FileUtils.mkdir_p(File.join(root, 'lib'))
       FileUtils.mkdir_p(File.join(root, 'test'))
-      File.write(File.join(root, 'lib/thing.rb'), SOURCE)
-      File.write(File.join(root, 'test/thing_test.rb'), test)
+      File.binwrite(File.join(root, 'lib/thing.rb'), SOURCE)
+      File.binwrite(File.join(root, 'test/thing_test.rb'), test)
       input = Cupel::Runner.collect(root, 1, [], [])
       yield root, input
     end
@@ -92,7 +92,7 @@ class MutationSafetyTest < Minitest::Test
       class ThingTest < Minitest::Test
         def test_value
           if ENV['CUPEL_RUBY_MUTATION_SPEC'] && !File.exist?(File.expand_path('../.scratch/first-loaded', __dir__))
-            File.write(File.expand_path('../.scratch/first-loaded', __dir__), 'yes')
+            File.binwrite(File.expand_path('../.scratch/first-loaded', __dir__), 'yes')
             exit! 7
           end
           assert_equal 1, Thing.value unless ENV['CUPEL_RUBY_MUTATION_SPEC']

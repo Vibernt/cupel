@@ -119,7 +119,7 @@ test("builds the real docs with zero broken links and byte-identical output", as
   const firstResult = await buildSite({ root: ROOT, out: first, base: "/cupel/" });
   const secondResult = await buildSite({ root: ROOT, out: second, base: "/cupel/" });
   assert.equal(firstResult.brokenLinks, 0);
-  assert.equal(firstResult.pages, 23);
+  assert.equal(firstResult.pages, 24);
   assert.equal(secondResult.brokenLinks, 0);
 
   const firstFiles = await filesUnder(first);

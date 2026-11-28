@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  MIT · version <code>0.5.1</code> · zero dependencies · JavaScript & TypeScript · Python · Rust · Go · Ruby · Cloudflare Workers
+  MIT · version <code>0.6.0</code> · zero dependencies · JavaScript & TypeScript · Python · Rust · Go · Ruby · Cloudflare Workers
 </p>
 
 <p align="center">
@@ -73,11 +73,11 @@ guard failed                                              # exit code 1
 
 You need Node **22+** and Git, with the project's own dependencies installed (pytest
 projects also need Python **3.12+** and the Python collector). Download
-`vibernt-cupel-0.5.1.tgz` from the [v0.5.1 release](https://github.com/Vibernt/cupel/releases/tag/v0.5.1)
+`vibernt-cupel-0.6.0.tgz` from the [v0.6.0 release](https://github.com/Vibernt/cupel/releases/tag/v0.6.0)
 and install it offline:
 
 ```sh
-npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.5.1.tgz
+npm install --offline --ignore-scripts --no-audit --no-fund --prefix ~/.cupel ./vibernt-cupel-0.6.0.tgz
 alias cupel=~/.cupel/node_modules/.bin/cupel
 ```
 
@@ -170,7 +170,7 @@ build in a verification run. Method and raw numbers: the
 
 *Core* runs the full guard with installed acceptance; a *preview* is bounded to the
 documented profile. The [selective PR commands](docs/selective-pr.md) are experimental:
-a Node 26.7.0 profile outside the supported first release. macOS only so far: Linux and Windows are not verified. The
+a Node 26.7.0 profile outside the supported first release, on Linux and macOS (it refuses on Windows). The
 [support matrix](docs/support.md) is the authoritative contract, and each runner has its
 own page: [Vitest](docs/vitest.md), [Jest](docs/jest.md), [Python](docs/python.md),
 [Rust](docs/rust.md), [Go](docs/go.md), [Ruby](docs/ruby.md), [workerd](docs/workerd.md).
@@ -202,7 +202,7 @@ Point Claude Code, Cursor or Codex at that command. Agents read `cupel_review` a
 The full documentation is at **[vibernt.github.io/cupel](https://vibernt.github.io/cupel/)**
 and in [`docs/`](docs/README.md): installation, guides, CI recipes, every runner, the CLI
 and config reference, and the extension contracts. What each version adds and what was
-verified is in the [release records](plans/results/2026-11-26-0.5.1-release.md); design
+verified is in the [release records](plans/results/2026-11-27-0.6.0-release.md); design
 decisions are in [`plans/DECISIONS.md`](plans/DECISIONS.md).
 
 ## Contributing

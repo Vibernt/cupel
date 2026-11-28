@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // Persistent Rust build sessions: id, sync, lock, cap and eviction (session.mjs).
 
 import { test } from 'node:test';
@@ -78,7 +79,8 @@ test('sync makes the copy what copyProject makes (less node_modules), copies onl
     assert.deepEqual(shape(snapshot(dest)), noNodeModules(shape(snapshot(reference))));
     assert.ok(first.copied > 0);
     assert.equal(existsSync(join(dest, 'web/node_modules')), false);
-    assert.equal(lstatSync(join(dest, 'run.sh')).mode & 0o777, 0o755);
+    // Windows has no execute bits.
+    if (process.platform !== 'win32') assert.equal(lstatSync(join(dest, 'run.sh')).mode & 0o777, 0o755);
     assert.equal(existsSync(join(dest, 'target')), false);
     assert.equal(existsSync(join(dest, 'a/target')), false);
     assert.equal(existsSync(join(dest, '.scratch')), false);
@@ -290,7 +292,7 @@ test('cupel clean --rust-sessions removes every session, --project only the curr
   try {
     mkdirSync(join(root, '.git'));
     fakeSession(env, 'x1', 1, 2048, root); fakeSession(env, 'x2', 2, 2048, other);
-    const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+    const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
     const cli = (...args) => spawnSync(process.execPath, [bin, 'clean', ...args, '--root', root], { cwd: root, env, encoding: 'utf8' });
     const mine = cli('--rust-sessions', '--project');
     assert.equal(mine.status, 0, mine.stderr);
@@ -322,7 +324,7 @@ test('the sync digest covers every file: a changed data file of the same size an
     put(root, 'a/mode.txt', 'x\n', 0o644);
     const d1 = syncProject(root, dest, manifest).digest;
     chmodSync(join(root, 'a/mode.txt'), 0o755);
-    assert.notEqual(syncProject(root, dest, manifest).digest, d1, 'a mode change is part of it');
+    if (process.platform !== 'win32') assert.notEqual(syncProject(root, dest, manifest).digest, d1, 'a mode change is part of it');
     rmSync(join(root, 'a/mode.txt'));
     put(root, 'a/data.txt', 'aaaa\n');
     assert.equal(syncProject(root, dest, manifest).digest, first.digest, 'back to the first project');
@@ -499,7 +501,7 @@ test('links: one into the project points into the copy, one outside stays and ma
   const dest = join(tmp(), 'copy');
   const manifest = join(dest, '..', 'sync.json');
   const first = syncProject(root, dest, manifest);
-  assert.equal(readlinkSync(join(dest, 'abs-flag')), 'data/flag');
+  assert.equal(readlinkSync(join(dest, 'abs-flag')), join('data', 'flag'));
   assert.equal(realpathSync(join(dest, 'abs-flag')), realpathSync(join(dest, 'data/flag')));
   assert.equal(readlinkSync(join(dest, 'ext')), join(outside, 'shared'));
   assert.equal(first.linked, true);
@@ -507,7 +509,7 @@ test('links: one into the project points into the copy, one outside stays and ma
   writeFileSync(join(dest, 'abs-flag'), 'off\n');
   assert.equal(readFileSync(join(root, 'data/flag'), 'utf8'), 'on\n');
 
-  assert.equal(readlinkSync(join(dest, 'rel-flag')), 'data/flag');
+  assert.equal(readlinkSync(join(dest, 'rel-flag')), join('data', 'flag'));
   rmSync(join(root, 'ext')); rmSync(join(root, 'data/up'));
   const second = syncProject(root, dest, manifest);
   assert.equal(second.linked, false);

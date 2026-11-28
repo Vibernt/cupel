@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { globMatches } from '../../../engine/match.mjs';
 import { cmp } from '../../../engine/order.mjs';
+import { isDeclarationFile } from '../../../lang/js/declaration.mjs';
 import { analyse, coveredLines, formatLines } from '../../../collect/node/lines.mjs';
 import { foldRuns, unstableObject } from '../../../collect/coverage-runs.mjs';
 
@@ -18,13 +19,20 @@ export function profileSources(root, manifest, testFiles, scope = {}) {
   const exclude = scope.exclude ?? [];
   const sources = new Map();
   for (const file of Object.keys(manifest).sort(cmp)) {
-    if (!SOURCE_EXT.test(file) || TEST_FILE.test(file) || testFiles.has(file) ||
+    if (!SOURCE_EXT.test(file) || isDeclarationFile(file) || TEST_FILE.test(file) || testFiles.has(file) ||
         file.split('/').slice(0, -1).some(part => part.startsWith('.') || TEST_DIRS.has(part))) continue;
     if (!include.some(pattern => globMatches(pattern, file)) ||
         exclude.some(pattern => globMatches(pattern, file))) continue;
     const bytes = readFileSync(join(root, file));
     if (sha(bytes) !== manifest[file]) throw new Error(`profile source changed while building input: ${file}`);
-    sources.set(file, { hash: manifest[file], an: analyse(bytes.toString('utf8'), { strict: true }) });
+    let an;
+    try { an = analyse(bytes.toString('utf8'), { strict: true }); }
+    catch (error) {
+      // The native profile reads no JSX: say so instead of blaming the file's syntax.
+      if (/\.tsx$/.test(file)) throw new Error(`Node PR native profile cannot measure JSX source: ${file}`);
+      throw error;
+    }
+    sources.set(file, { hash: manifest[file], an });
   }
   return sources;
 }

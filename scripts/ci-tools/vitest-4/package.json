@@ -1,0 +1,10 @@
+{
+  "name": "cupel-ci-vitest-4",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "vitest": "4.1.11",
+    "typescript": "5.9.3",
+    "react": "19.2.0"
+  }
+}

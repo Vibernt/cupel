@@ -3,6 +3,7 @@ import { installVitestAssertions } from '../assertions/vitest.mjs';
 // Loaded in each Vitest fork. The inspector session never opens a listening port.
 import { Session } from 'node:inspector';
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { writeAtomicJson } from '../atomic-json.mjs';
 import { createHash } from 'node:crypto';
 import { positiveIntervals, unionIntervals } from '../node/intervals.mjs';
@@ -31,10 +32,12 @@ const failures = [];
 if (cfg.assertions) installVitestAssertions(vitest, recorder(cfg.root, () => [...active].map((id) => tests.get(id).assertions), cfg.assertionCap));
 let currentFile = null;
 watchInterpreters(() => { for (const id of active) tests.get(id).spawnsInterpreter = true; });
+// Script URLs are file URLs: on Windows (and for roots with spaces) the plain root path is not a substring of them.
+const rootUrl = `${pathToFileURL(cfg.root).href}/`;
 const take = () => {
   const owners = [...active];
   for (const sc of post('Profiler.takePreciseCoverage').result) {
-    if (!sc.url.includes(cfg.root)) continue;
+    if (!sc.url.includes(cfg.root) && !sc.url.startsWith(rootUrl)) continue;
     const intervals = positiveIntervals(sc.functions);
     if (!intervals.length) continue;
     if (!scripts.has(sc.scriptId)) {

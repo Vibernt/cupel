@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import test from 'node:test';
+import nodeTest from 'node:test';
+// Go fault testing needs POSIX process-group termination; on Windows it refuses, so these tests skip there (docs/go.md).
+const test = process.platform === 'win32' ? nodeTest.skip : nodeTest;
 import { cli, gitBase, project, requireRuntime } from './native-cli-helpers.mjs';
 
 const fixture = resolve(import.meta.dirname, 'fixtures/mutate-go');

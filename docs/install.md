@@ -1,6 +1,6 @@
 # Install Cupel locally
 
-Cupel **0.5.1** source is [MIT-licensed](../LICENSE) at
+Cupel **0.6.0** source is [MIT-licensed](../LICENSE) at
 [Vibernt/cupel](https://github.com/Vibernt/cupel). Public GitHub source publication
 was authorized by the owner on **2026-10-26**; npm and PyPI remain unpublished. The
 [support matrix](support.md) defines JS/TS/Python core ordinary full guard,
@@ -48,7 +48,7 @@ npm pack --offline --ignore-scripts ./packages/cupel \
   --pack-destination .scratch/local-package
 npm install --offline --ignore-scripts --no-audit --no-fund \
   --prefix .scratch/local-install \
-  .scratch/local-package/vibernt-cupel-0.5.1.tgz
+  .scratch/local-package/vibernt-cupel-0.6.0.tgz
 CUPEL="$CUPEL_REPO/.scratch/local-install/node_modules/.bin/cupel"
 "$CUPEL" --version
 "$CUPEL" --help
@@ -75,7 +75,7 @@ python3 -m pip --isolated --disable-pip-version-check wheel --no-index \
   --no-build-isolation --no-deps --wheel-dir .scratch/local-package \
   "$CUPEL_REPO/packages/cupel-py"
 python3 -m pip --isolated --disable-pip-version-check install --no-index --no-deps \
-  "$CUPEL_REPO/.scratch/local-package/vibernt_cupel-0.4.0-py3-none-any.whl"
+  "$CUPEL_REPO/.scratch/local-package/vibernt_cupel-0.4.1-py3-none-any.whl"
 python3 -m vibernt_cupel --help
 ```
 

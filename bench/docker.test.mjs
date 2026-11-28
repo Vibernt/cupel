@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cacheEnv, dockerArgs, dockerBuildArgs, cupelCommand } from './docker.mjs';
 
 test('timed report fails explicitly when RSS measurement tool is missing', () => {
@@ -51,7 +52,7 @@ test('Tauri benchmark keeps Rust tools in cache and uses a built image', () => {
   assert.match(repo.install, /llvm-tools-preview/);
   assert.match(repo.install, /\(cd src-tauri && .*cargo fetch --locked\)/);
   assert.match(repo.install, /mkdir -p src-tauri\/bin src-tauri\/resources\/llama\/\$triple dist/);
-  assert.deepEqual(dockerBuildArgs(repo, '/bench'), ['build', '--platform', 'linux/arm64', '-t', repo.image, '-f', '/bench/images/locally-uncensored.Dockerfile', '/bench']);
+  assert.deepEqual(dockerBuildArgs(repo, '/bench'), ['build', '--platform', 'linux/arm64', '-t', repo.image, '-f', resolve('/bench', 'images/locally-uncensored.Dockerfile'), '/bench']);
 });
 
 test('mixed benchmark repositories configure both collected suites', () => {

@@ -108,8 +108,8 @@ class RunnerTest(unittest.TestCase):
             shutil.rmtree(self.root)
 
     def input(self, source, test, covered='1-4'):
-        self.source.write_text(source)
-        self.test.write_text(test)
+        self.source.write_text(source, newline='\n')
+        self.test.write_text(test, newline='\n')
         uid = 'tests/test_logic.py::test_value'
         return {'sources': {'logic.py': {'coverable': covered, 'hash': 'sha256:' + hashlib.sha256(self.source.read_bytes()).hexdigest()}}, 'tests': [{'id': uid, 'file': 'tests/test_logic.py', 'name': 'test_value', 'status': 'passed', 'durationsMs': [1]}], 'coverage': {'granularity': 'test', 'byTest': {uid: {'logic.py': covered}}, 'setup': {'tests/test_logic.py': {}}}}
 
@@ -121,7 +121,7 @@ class RunnerTest(unittest.TestCase):
         changed = original.replace('HEADER = 1', 'HEADER = 2')
         self.assertEqual(len(changed), len(original))
         self.assertIn(site.id, {s.id for s in generate('logic.py', changed)})
-        self.source.write_text(changed)
+        self.source.write_text(changed, newline='\n')
         os.utime(self.source, ns=(before.st_atime_ns, before.st_mtime_ns))
         self.assertEqual(self.source.stat().st_size, before.st_size)
         self.assertEqual(self.source.stat().st_mtime_ns, before.st_mtime_ns)
@@ -194,8 +194,8 @@ class RunnerTest(unittest.TestCase):
         tests = ('from logic import ignored, checked\n'
                  'def test_calls_only():\n    ignored(3)\n\n'
                  'def test_checks_value():\n    assert checked(3) == 5\n')
-        self.source.write_text(source)
-        self.test.write_text(tests)
+        self.source.write_text(source, newline='\n')
+        self.test.write_text(tests, newline='\n')
         before = {str(path.relative_to(self.root)): hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in (self.source, self.test)}
         input_data = collect(self.root, 1, [], [])

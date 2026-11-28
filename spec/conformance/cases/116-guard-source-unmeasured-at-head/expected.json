@@ -1,0 +1,58 @@
+{
+  "diagnostics": [
+    {
+      "code": "source-unmeasured",
+      "severity": "warning",
+      "path": "/sources/src~1a.mjs"
+    }
+  ],
+  "guard": {
+    "pass": false,
+    "removed": [],
+    "checks": [
+      {
+        "id": "head-passes",
+        "pass": true
+      },
+      {
+        "id": "coverage-lines",
+        "pass": false,
+        "lost": {
+          "lines": {
+            "src/a.mjs": "1-5"
+          }
+        }
+      },
+      {
+        "id": "coverage-ratio",
+        "pass": false,
+        "base": {
+          "covered": 9,
+          "coverable": 20,
+          "pct": 45
+        },
+        "head": {
+          "covered": 4,
+          "coverable": 10,
+          "pct": 40
+        }
+      },
+      {
+        "id": "critical-coverage",
+        "pass": true
+      },
+      {
+        "id": "critical-mutation",
+        "pass": true
+      },
+      {
+        "id": "critical-removed",
+        "pass": true
+      },
+      {
+        "id": "critical-downgraded",
+        "pass": true
+      }
+    ]
+  }
+}

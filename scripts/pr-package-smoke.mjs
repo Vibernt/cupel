@@ -6,6 +6,8 @@ import { join } from 'node:path';
 // Reused against source and the offline npm install. Never executes the project
 // being developed: this creates and commits a separate, disposable subject.
 export function prPackageSmoke({ scratch, bin, checked, nodePath, inputPolicy = 'strict-v1' }) {
+  // The experimental Node PR profile is POSIX-only (docs/support.md); on Windows it refuses.
+  if (process.platform === 'win32') return { skipped: 'the experimental Node PR profile is POSIX-only' };
   const project = join(scratch, 'pr-project');
   mkdirSync(join(project, 'src'), { recursive: true });
   mkdirSync(join(project, 'tests'));

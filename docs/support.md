@@ -2,7 +2,7 @@
 
 Owner direction: **2026-10-26**. This is the authoritative support matrix for
 the first-release scope. It describes supported capabilities and their evidence.
-The **0.5.1** source is MIT-licensed; **public GitHub source publication is
+The **0.6.0** source is MIT-licensed; **public GitHub source publication is
 authorized** by the owner on **2026-10-26** for `Vibernt/cupel`. npm and PyPI
 remain unpublished. Ordinary full guard is the whole-suite protection path.
 
@@ -15,8 +15,8 @@ remain unpublished. Ordinary full guard is the whole-suite protection path.
 | **Bounded preview — Go** | Go **1.27.1**, offline pure-Go profile, within [Go limits](go.md) | Source and installed fixture acceptance pass. **Real-repository acceptance is unrun**; broader Go support is unverified. |
 | **Bounded preview — Ruby** | MRI Ruby **4.0.7** / Minitest **6.0.0**, direct-file loader, within [Ruby limits](ruby.md) | Source and installed fixture acceptance pass. **Real-repository acceptance is unrun**; Rails, Rake and custom mutation loaders are unclaimed. |
 | **Bounded preview — Rust** | Coverage on any OS with rustup and matching LLVM tools (evidence: Rust **1.94.1** / LLVM 21 on `aarch64-apple-darwin`); mutation through the user's cargo-mutants (evidence: **27.1.0**); the restricted built-in mutator (`backend: "cupel-rust"`) keeps its Rust/Cargo **1.97.1** closed-grammar profile, within [Rust limits](rust.md) | Source fixture acceptance passes for workspace coverage and cargo-mutants import/run; installed fixture acceptance pass in prior runs for the restricted backend. **Real-repository acceptance is unrun** as a recorded gate: coverage matched plain LLVM line for line on one private 5,828-line workspace. cargo-mutants timeouts are re-run alone and never credit a test; the [timeout concern](rust.md) remains for the restricted backend. Linux and Windows are unverified. |
-| **Preview — Worker code in workerd** | node:test tests that start workerd (Miniflare 5 evidence), within [workerd limits](workerd.md) | Per-test coverage rebuilt from breakpoints matches V8 block coverage on 965 of 965 lines in the permanent test (1,265 of 1,270 in a larger run); statuses and durations come from a plain rerun; fault testing runs in a scratch copy. One private Workers codebase: 17 of 17 tests unchanged. Real-repository acceptance is unrun as a recorded gate. |
-| **Experimental — selective PR** | `node-readonly-files-v2` on Node **26.7.0** only, within [selective PR limits](selective-pr.md) | Experimental CLI/MCP commands remain available, with installed fixtures and the derived 65-test Express lane. **Outside the supported first release**. Node 22 selective execution refuses. Jest, Vitest, pytest and native selective profiles are unsupported or blocked. |
+| **Preview — Worker code in workerd** | node:test tests that start workerd (Miniflare 5 evidence), within [workerd limits](workerd.md) | Per-test coverage rebuilt from breakpoints matches V8 block coverage line for line in the permanent test except one named statement where V8 over-reports two lines and the rebuild is right (1,265 of 1,270 in a larger run); statuses and durations come from a plain rerun; fault testing runs in a scratch copy. One private Workers codebase: 17 of 17 tests unchanged. Real-repository acceptance is unrun as a recorded gate. |
+| **Experimental — selective PR** | `node-readonly-files-v2` on Node **26.7.0** only, on Linux and macOS (it refuses on Windows), within [selective PR limits](selective-pr.md) | Experimental CLI/MCP commands remain available, with installed fixtures and the derived 65-test Express lane. **Outside the supported first release**. Node 22 selective execution refuses. Jest, Vitest, pytest and native selective profiles are unsupported or blocked. |
 
 The core contract covers the deterministic engine, CLI, local stdio MCP,
 report/review/check/audit and ordinary full guard. A collector's existence does not
@@ -26,6 +26,35 @@ native preview runners. Native preview fixture evidence does not
 establish acceptance on a real repository. TypeScript support retains each
 runner's exact source, loader and transform restrictions; arbitrary JSX/TSX or
 transform configurations are not implied.
+Under node:test, `.jsx` and `.tsx` run only through a loader the project sets
+up (for example `--import tsx`, `@swc-node/register`, `@babel/register`, or
+its own `module.register` / `registerHooks` hook in `runners.node.env.NODE_OPTIONS`).
+A JSX source is measured when a test loads it and every script the loader made
+from it carries an inline source map back to the unchanged file: its coverable
+lines come from the project's own `typescript`, and V8's coverage of the
+transformed script is mapped back through the map (the line rule of SPEC K1;
+see [node:test: loaders and JSX](node.md)). A JSX source no test loads, one
+loaded without a usable map, or one the project's TypeScript cannot read is
+listed as not measured, with that reason. The same goes for any source a
+loader transforms (tsx compiling a `.ts`): mapped through its source map, or
+not measured without one. Faults in measured JSX, and every
+fault while a loader is in play, are served beneath the loader and carry a run
+proof: a fault not shown to run in every process that loaded it is reported as
+`error`, never scored ([which setups score](node.md#fault-testing)). On a
+Node with the module-hook bugs Cupel probes for (22.16 to 22.22, for example),
+fault testing that would run into them stops with an environment error
+([Node versions](node.md#node-versions)). A source a runner cannot read is listed as not measured
+with its cause. Reports count not-measured sources beside the coverage
+percentage, and the audit lists them; they are never counted as uncovered.
+TypeScript declaration files (`.d.ts`, `.d.mts`, `.d.cts`) hold no code and
+are never sources. When one runner measures a source another cannot, the
+combined report uses the measuring runner's lines only when the other runner's
+tests never ran it (JSX no node:test test loaded); when the other runner's tests may
+run it unseen (a source-map failure, JSX loaded without a usable map, an unreadable file), Cupel refuses
+rather than report faults without those tests. A guard whose head cannot
+measure a source its base measured warns `source-unmeasured`. The
+experimental Node PR profile refuses a `.tsx` it cannot read, naming JSX as
+the reason.
 
 Selective results always have `wholeGuardPass: false`; they cannot approve a
 whole-suite guard. Historical S12 false greens and later profile failures remain
@@ -69,16 +98,17 @@ passed both runtimes. These results certify that named artifact; they do not
 certify a later source version or licence change. Check the current version and
 corresponding handoff before using the maintainer's stable local path.
 
-The current source release uses version **0.5.1** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd; 0.3.0 makes fault testing faster: reuse of earlier results, Python stops once two units caught a fault, Rust skips lines no test runs, tests only the packages that run the code and honours `maxMutants`; 0.4.0 adds Cupel's own Rust fault runner (`backend: "cupel"`) and fault-test slices for CI; 0.5.0 keeps Rust builds between runs and shares one prepared build between CI slices, tries each fault's most likely catching tests first in every language, and brings Go and Ruby fault testing up to the other runners, with one shared build for Go; 0.5.1 combines the results of runners that test the same sources) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is 0.4.0 (0.1.1 added the `no-assertion` and `tautology` findings; 0.2.0 stops early and reuses results; 0.3.0 plans and runs slices and records each fault's time; 0.4.0 tries each fault's earlier catching tests and its own test files first).
+The current source release uses version **0.6.0** of the npm package (`@vibernt/cupel`; 0.1.1 added collect-once CI collection, 0.1.2 makes `check`'s C3 leave out unstable lines, 0.2.0 adds `cupel audit`, Rust coverage on any OS with cargo-mutants, and Worker code in workerd; 0.3.0 makes fault testing faster: reuse of earlier results, Python stops once two units caught a fault, Rust skips lines no test runs, tests only the packages that run the code and honours `maxMutants`; 0.4.0 adds Cupel's own Rust fault runner (`backend: "cupel"`) and fault-test slices for CI; 0.5.0 keeps Rust builds between runs and shares one prepared build between CI slices, tries each fault's most likely catching tests first in every language, and brings Go and Ruby fault testing up to the other runners, with one shared build for Go; 0.5.1 combines the results of runners that test the same sources; 0.6.0 measures JSX and TypeScript that node:test runs through a project loader, mapped through its source maps, fixes faults in `.ts` under a loader being reported caught when they were not, lists sources a runner cannot measure apart in reports instead of dropping them, and leaves TypeScript declaration files out of coverage; from 0.6.0 the hosted CI passes on Linux, macOS and Windows) and the first-party [MIT licence](../LICENSE). The Python collector package `vibernt-cupel` is 0.4.1 (0.1.1 added the `no-assertion` and `tautology` findings; 0.2.0 stops early and reuses results; 0.3.0 plans and runs slices and records each fault's time; 0.4.0 tries each fault's earlier catching tests and its own test files first; 0.4.1 collects and tests faults on Windows).
 See [local installation](install.md) and [artifact provenance](private-use.md#artifact-provenance).
 The [versioned candidate record](../plans/results/2026-10-26-private-candidate.md)
 records fresh 0.1.0 verification and artifact identities. The
+[0.6.0 release record](../plans/results/2026-11-27-0.6.0-release.md), the
 [0.5.1 release record](../plans/results/2026-11-26-0.5.1-release.md), the
 [0.5.0 release record](../plans/results/2026-11-25-0.5.0-release.md), the
 [0.4.0 release record](../plans/results/2026-11-23-0.4.0-release.md), the
 [0.3.0 release record](../plans/results/2026-11-23-0.3.0-release.md) and the
 [0.2.0 record](../plans/results/2026-11-23-0.2.0-candidate.md) list
-what each adds, its evidence and what is not verified (Linux and Windows, a
+what each adds, its evidence and what is not verified (Linux and Windows before 0.6.0, a
 full cargo-mutants run on a real workspace, `crossRunner` end to end). Registry uploads,
 publishing tags/releases and social posting remain separate approval decisions.
 Historical candidate records continue to describe their named private artifacts.

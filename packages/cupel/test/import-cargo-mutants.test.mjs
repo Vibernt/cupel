@@ -11,6 +11,9 @@ import { parseLog, rustcCompile } from '../src/mutate-cargo/logs.mjs';
 import { validate } from '../src/engine/schema.mjs';
 import { run } from '../src/engine/index.mjs';
 
+// The stand-in is a Node script, and Windows starts only real executables (cargo-mutants.exe is one).
+const FAKE_SKIP = process.platform === 'win32' && 'the cargo-mutants stand-in is a script, which Windows cannot start directly';
+
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const root = join(repo, 'spec/conformance/adapters/cargo-workspace');
 const fixture = fileURLToPath(new URL('fixtures/cargo-mutants-ws/', import.meta.url));
@@ -243,7 +246,7 @@ process.exit(2);
   return { script, project, calls, done: () => { rmSync(dir, { recursive: true, force: true }); rmSync(project, { recursive: true, force: true }); } };
 }
 
-test('mutateCargo: reused rows are copied and not run; no-coverage rows never start cargo-mutants', async () => {
+test('mutateCargo: reused rows are copied and not run; no-coverage rows never start cargo-mutants', { skip: FAKE_SKIP }, async () => {
   const fake = fakeCargoMutants();
   try {
     const config = { runners: { cargo: { mutants: { command: fake.script } } } };

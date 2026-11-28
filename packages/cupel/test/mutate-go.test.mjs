@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
-import test from 'node:test';
+import nodeTest from 'node:test';
+// Go fault testing needs POSIX process-group termination; on Windows it refuses, so these tests skip there (docs/go.md).
+const test = process.platform === 'win32' ? nodeTest.skip : nodeTest;
 import { collectGo } from '../src/collect/go/index.mjs';
 import { confirmGo, mutateGo } from '../src/mutate-go/index.mjs';
 import { parseInventory } from '../src/mutate-go/inventory.mjs';

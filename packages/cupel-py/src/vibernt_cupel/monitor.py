@@ -20,7 +20,10 @@ class Monitor:
     def path(self, filename):
         if filename not in self.cache:
             full = os.path.realpath(filename)
-            rel = os.path.relpath(full, self.root).replace(os.sep, '/')
+            try:
+                rel = os.path.relpath(full, self.root).replace(os.sep, '/')
+            except ValueError:  # Windows: a file on another drive is outside the project
+                rel = None
             self.cache[filename] = rel if rel in self.sources else None
         return self.cache[filename]
 

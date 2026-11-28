@@ -23,15 +23,11 @@ module Cupel
         command << '-Ispec' if File.directory?(File.join(root, 'spec'))
         command += ['-rjson', '-e', 'JSON.parse(ENV.fetch("CUPEL_RUBY_FILES")).each { |file| path = File.expand_path(file); abort "File does not exist: #{path}" unless File.file?(path); require path; Cupel::MinitestPlugin.record_file_setup(file) }',
                     '--', '-n', "/^#{Regexp.escape(name)}$/"]
-        if File.file?(File.join(root, 'Gemfile')) || ENV['BUNDLE_GEMFILE']
-          env['RUBYOPT'] = nil
-          command = ['bundle', 'exec', 'env', "RUBYOPT=-rbundler/setup #{rubyopt}", *command]
-        else
-          env['RUBYOPT'] = rubyopt
-        end
+        env, command = Runner.bundled(root, env, command, rubyopt)
         started = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
+        group = Gem.win_platform? ? { new_pgroup: true } : { pgroup: true }
         pid = ::Process.spawn(env, *command, chdir: root, out: File.join(dir, 'out'),
-                              err: File.join(dir, 'err'), pgroup: true)
+                              err: File.join(dir, 'err'), **group)
         status = nil
         loop do
           finished = ::Process.waitpid2(pid, ::Process::WNOHANG)
@@ -40,7 +36,7 @@ module Cupel
             break
           end
           if ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) - started >= seconds
-            ::Process.kill('KILL', -pid)
+            kill_tree(pid)
             ::Process.waitpid(pid)
             return { timeout: true, wall: (seconds * 1000).round, rows: [], seen: seen_path && File.exist?(seen_path) }
           end
@@ -53,6 +49,19 @@ module Cupel
           stderr: File.read(File.join(dir, 'err'))[-1000..] }
       ensure
         FileUtils.remove_entry(dir) if dir && File.exist?(dir)
+      end
+
+      # The run and every process it started. Windows has no process groups to signal: taskkill /T stops the tree.
+      def self.kill_tree(pid)
+        if Gem.win_platform?
+          return if system('taskkill', '/pid', pid.to_s, '/T', '/F', out: File::NULL, err: File::NULL)
+
+          ::Process.kill('KILL', pid)
+        else
+          ::Process.kill('KILL', -pid)
+        end
+      rescue Errno::ESRCH
+        nil
       end
     end
   end

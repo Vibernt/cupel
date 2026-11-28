@@ -7,8 +7,9 @@ const posix = p => p.split(sep).join('/');
 
 function location(root, stack) {
   for (const line of stack.split('\n').slice(1)) {
-    const match = line.match(/(\/[^():]+\.[cm]?[jt]sx?):(\d+):(\d+)\)?$/);
-    if (!match || match[1].includes('/node_modules/')) continue;
+    // A POSIX path, or a Windows one with its drive letter (D:\\a\\x.test.cjs).
+    const match = line.match(/((?:[A-Za-z]:)?[\\/][^():]+\.[cm]?[jt]sx?):(\d+):(\d+)\)?$/);
+    if (!match || /[\\/]node_modules[\\/]/.test(match[1])) continue;
     const path = realpathSync(resolve(match[1]));
     const rel = posix(relative(root, path));
     if (rel === '..' || rel.startsWith('../')) continue;

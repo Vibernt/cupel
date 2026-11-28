@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // K15: reuse of earlier fault results. A row is copied only when nothing its tests read has changed.
 
 import { test } from 'node:test';
@@ -136,7 +137,7 @@ test('previousInput: off, a missing file is a cache miss, an invalid file is ref
 
 test('the CLI refuses --reuse with --no-reuse, and guard --changed with --base', async () => {
   const { spawnSync } = await import('node:child_process');
-  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
   const run = (args) => spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
   const both = run(['report', '--reuse', 'x.json', '--no-reuse']);
   assert.equal(both.status, 2);
@@ -153,7 +154,7 @@ test('report reuses its own earlier .cupel/input.json in a git project; Cupel fi
   const env = { ...process.env, NO_COLOR: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
     GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
   for (const args of [['init', '-q'], ['add', '-A'], ['commit', '-qm', 'init']]) assert.equal(spawnSync('git', args, { cwd: p.root, env }).status, 0);
-  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
   const report = () => spawnSync(process.execPath, [bin, 'report', '--runs', '1', '--json'], { cwd: p.root, env, encoding: 'utf8' });
   const first = report();
   assert.equal(first.status, 0, first.stderr);
@@ -235,7 +236,7 @@ test('guard, check and mutate reuse only a file named with --reuse, never the in
   const env = { ...process.env, NO_COLOR: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
     GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
   for (const args of [['init', '-q'], ['add', '-A'], ['commit', '-qm', 'init']]) assert.equal(spawnSync('git', args, { cwd: p.root, env }).status, 0);
-  const bin = new URL('../bin/cupel.mjs', import.meta.url).pathname;
+  const bin = fileURLToPath(new URL('../bin/cupel.mjs', import.meta.url));
   const cli = (...args) => spawnSync(process.execPath, [bin, ...args], { cwd: p.root, env, encoding: 'utf8' });
   assert.equal(cli('report', '--runs', '1', '--json').status, 0);
   const { mutation: _m, ...collected } = JSON.parse(readFileSync(join(p.root, '.cupel/input.json'), 'utf8'));

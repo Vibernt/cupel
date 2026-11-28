@@ -1,0 +1,11 @@
+{
+  "diagnostics": [],
+  "suite": {
+    "coverage": {
+      "covered": 6,
+      "coverable": 10,
+      "pct": 60
+    },
+    "unmeasured": "$absent"
+  }
+}

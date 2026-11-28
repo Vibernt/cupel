@@ -19,23 +19,34 @@
 //    node shim (K11): `fork`, a Worker, `node`, `process.execPath`, or a command whose file starts with a node
 //    hashbang (npm, npx and similar shims), directly or through a shell;
 //  - in re-check runs (`childCoverage`), points NODE_V8_COVERAGE of every child process at a directory per
-//    running test, so the coverage of node children can be added to that test (K4).
+//    running test, so the coverage of node children can be added to that test (K4);
+//  - with a loader in play (a preload, `--loader`, `--experimental-transform-types`, `module.register`,
+//    `registerHooks`, any change to `Module._extensions` even if undone later (loader-watch.mjs), or a changed
+//    `Module.prototype._compile`), for every JSX script, and for any script whose length is not its file's (a patched
+//    `Module.wrap`, Node's type stripping, which then compares equal), reads
+//    the exact text V8 runs the first time an in-scope script shows up (`Debugger.getScriptSource`, while the script
+//    is alive). Text at the file's own offsets (the file itself, or Node's type stripping: same-offsets.mjs) keys its
+//    intervals by `<rel>` as before. Text a loader made keys them by `<rel>\0<scriptId>` and is written out under
+//    `scripts`, so the collector maps them through its source map. Without a loader V8 runs the file itself or
+//    Node's offset-keeping type stripping, and nothing is read: the plain path is unchanged.
 // At exit it writes one JSON file per process into the collector's temporary directory.
 //
 // The preload is inert unless CUPEL_NODE_HOOK names a config file and this process runs one of its test files,
 // so node processes that tests start never load node:test from here.
-// Config: { root, sources: [rel paths], testFiles: [real paths], out, mode: 'coverage' | 'spawns', childCoverage }
+// Config: { root, sources: [rel paths], jsx: [rel paths], testFiles: [real paths], out, mode: 'coverage' | 'spawns', childCoverage }
 // Node 22.3+ (TestContext.fullName). Standard library only.
 
 import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import { writeAtomicJson } from '../atomic-json.mjs';
-import { createRequire, syncBuiltinESMExports } from 'node:module';
+import Module, { createRequire, syncBuiltinESMExports } from 'node:module';
 import { basename, delimiter, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bucket, recorder } from '../assertions/recorder.mjs';
 import { installNodeAssertions } from '../assertions/node.mjs';
 import { promisify } from 'node:util';
 import { positiveIntervals, unionIntervals, addAll } from './intervals.mjs';
+import { sameOffsets } from './same-offsets.mjs';
+import { watchLoaders } from './loader-watch.mjs';
 import { WorkerdCoverage, freePort, isWorkerd, textReader, wasmIndex, watchWorkerd } from './workerd.mjs';
 
 const real = (p) => { try { return realpathSync(p); } catch { return p; } };
@@ -48,6 +59,17 @@ async function install(cfg, mainFile) {
   const { before, after, beforeEach, afterEach } = await import('node:test');
   const root = cfg.root;
   const sources = new Set(cfg.sources);
+  const jsx = new Set(cfg.jsx ?? []);
+  // Loaders, which may hand V8 text other than the file's. Preloads run before this module, so flags name them;
+  // later ones are seen by the wrappers installed below and by comparing Module's handlers with these.
+  const self = import.meta.url;
+  const words = [...process.execArgv, ...String(process.env.NODE_OPTIONS ?? '').split(/\s+/).filter(Boolean)];
+  let loader = words.some((w, i) => /^--(experimental-)?loader(=|$)|^--experimental-transform-types$/.test(w) ||
+    (/^(--import|--require|-r)(=|$)/.test(w) && (w.includes('=') ? w.slice(w.indexOf('=') + 1) : words[i + 1]) !== self));
+  // A handler set and restored before the first checkpoint still changed what ran: watch the setters, and keep it.
+  watchLoaders(Module, () => { loader = true; });
+  const compileHandler = Module.prototype._compile;
+  const loaderInPlay = () => loader ||= Module.prototype._compile !== compileHandler;
   const relOf = new Map();
   const pathOf = (url) => {
     let rel = relOf.get(url);
@@ -56,7 +78,7 @@ async function install(cfg, mainFile) {
     if (url.startsWith('file:')) {
       try {
         const r = relative(root, fileURLToPath(url.replace(/[?#].*$/, ''))).split(sep).join('/');
-        if (sources.has(r)) rel = r;
+        if (sources.has(r) || jsx.has(r)) rel = r;
       } catch { /* not a file path */ }
     }
     relOf.set(url, rel);
@@ -92,15 +114,62 @@ async function install(cfg, mainFile) {
     return all.length < 2 ? all : all.filter((t) => !all.some((u) => u !== t && u.fullName.startsWith(`${t.fullName} > `)));
   };
   if (cfg.assertions) installNodeAssertions(recorder(root, () => leaves().map((t) => t.assertions), cfg.assertionCap));
+  // Transformed scripts by V8 script id: { rel, url, source } or { rel, url, error }; `same` holds the ids whose text
+  // is at the file's own offsets.
+  const scripts = {};
+  const scriptsSeen = new Set();
+  const same = new Set();
+  const fileTexts = new Map();
+  const fileText = (rel) => {
+    if (!fileTexts.has(rel)) { try { fileTexts.set(rel, readFileSync(join(root, rel), 'utf8')); } catch { fileTexts.set(rel, null); } }
+    return fileTexts.get(rel);
+  };
+  const readScripts = (fresh) => {
+    let enabled = false;
+    try {
+      post('Debugger.enable');
+      enabled = true;
+      for (const [id, entry] of fresh) {
+        try { entry.source = post('Debugger.getScriptSource', { scriptId: id }).scriptSource; }
+        catch (error) { entry.error = String(error?.message ?? error); }
+      }
+    } catch (error) {
+      for (const [, entry] of fresh) if (entry.source === undefined) entry.error = String(error?.message ?? error);
+    } finally {
+      if (enabled) { try { post('Debugger.disable'); } catch { /* the texts are read */ } }
+    }
+  };
   const checkpoint = () => {
     if (!post) return;
     const { result } = post('Profiler.takePreciseCoverage');
     const got = new Map();
+    const fresh = [];
+    const reading = loaderInPlay();
+    for (const s of result) {
+      const rel = pathOf(s.url);
+      if (!rel || scriptsSeen.has(s.scriptId)) continue;
+      scriptsSeen.add(s.scriptId);
+      // Without a loader in play, a script whose length (its top-level function's range) differs from the file's
+      // was still changed by something (a patched Module.wrap, a transform undone before now): read it too.
+      const length = s.functions?.[0]?.ranges?.[0]?.endOffset;
+      const file = reading || jsx.has(rel) ? null : fileText(rel);
+      const fileLength = file === null ? null : file.charCodeAt(0) === 0xfeff ? [file.length, file.length - 1] : [file.length];
+      if (reading || jsx.has(rel) || fileLength === null || !fileLength.includes(length)) fresh.push([s.scriptId, { rel, url: s.url }]);
+      else same.add(s.scriptId);
+    }
+    if (fresh.length) {
+      readScripts(fresh);
+      for (const [id, entry] of fresh) {
+        if (!jsx.has(entry.rel) && entry.source !== undefined && sameOffsets(entry.source, fileText(entry.rel))) same.add(id);
+        else scripts[id] = entry;
+      }
+    }
     for (const s of result) {
       const rel = pathOf(s.url);
       if (!rel) continue;
+      const key = same.has(s.scriptId) ? rel : `${rel}\u0000${s.scriptId}`;
       const iv = positiveIntervals(s.functions);
-      if (iv.length) got.set(rel, unionIntervals(got.get(rel), iv));
+      if (iv.length) got.set(key, unionIntervals(got.get(key), iv));
     }
     if (!got.size) return;
     const owners = leaves();
@@ -309,6 +378,11 @@ async function install(cfg, mainFile) {
       super(...args);
     }
   };
+  for (const name of ['register', 'registerHooks']) {
+    const original = Module[name];
+    if (typeof original !== 'function') continue;
+    Module[name] = function cupelLoaderHook(...args) { loader = true; return original.apply(this, args); };
+  }
   syncBuiltinESMExports();
 
   process.on('exit', () => {
@@ -324,6 +398,7 @@ async function install(cfg, mainFile) {
       tests: tests.map((t) => ({ fullName: t.fullName, n: t.n, interp: t.interp, cov: Object.fromEntries(t.cov), ...(t.loads.size ? { loads: [...t.loads].sort() } : {}), ...(cfg.assertions ? { assertions: t.assertions } : {}) })),
       setup: Object.fromEntries(setup),
       childDirs,
+      ...(Object.keys(scripts).length ? { scripts } : {}),
       ...(workerdNotes.started ? { workerd: workerdNotes, workerdSources: [...workerdSources].sort() } : {}),
     };
     writeAtomicJson(join(cfg.out, `${process.pid}.json`), body);

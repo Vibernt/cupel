@@ -18,6 +18,15 @@ const SCRATCH = createSmokeWorkspace(join(ROOT, '.scratch/package-smoke'));
 const CASES = join(ROOT, 'spec/conformance/cases');
 
 function run(command, args, options = {}) {
+  // Windows has npm only as npm.cmd, which Node will not start without a shell; run npm's own script with this Node
+  // (npm test sets npm_execpath), else the .cmd through the shell.
+  if (command === 'npm' && process.platform === 'win32') {
+    const cli = process.env.npm_execpath;
+    if (cli && /\.c?js$/.test(cli)) [command, args] = [process.execPath, [cli, ...args]];
+    else options = { ...options, shell: true };
+  }
+  // The installed CLI's own script, which Windows runs through this Node (see the install check below).
+  if (command.endsWith('.mjs')) [command, args] = [process.execPath, [command, ...args]];
   const result = spawnSync(command, args, {
     encoding: 'utf8', timeout: 60_000, maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, NO_COLOR: '1', npm_config_audit: 'false', npm_config_fund: 'false' },
@@ -46,7 +55,8 @@ test('npm tarball installs offline and runs CLI, guard, and MCP smoke checks', (
   const tarball = join(SCRATCH, tarballName);
   assert.ok(existsSync(tarball), `npm pack did not create ${tarball}`);
 
-  const archive = checked('tar', ['-tzf', tarball]).stdout.split('\n');
+  // A relative name: GNU tar on Windows reads 'D:' in an absolute path as a remote host.
+  const archive = checked('tar', ['-tzf', tarballName], { cwd: SCRATCH }).stdout.split('\n');
   for (const asset of ['package/package.json', 'package/bin/cupel.mjs',
     'package/schemas/case.schema.json', 'package/schemas/config.schema.json',
     'package/schemas/input.schema.json', 'package/schemas/report.schema.json',
@@ -59,7 +69,7 @@ test('npm tarball installs offline and runs CLI, guard, and MCP smoke checks', (
   const manifest = JSON.parse(readFileSync(join(PACKAGE, 'package.json'), 'utf8'));
   assert.equal(manifest.private, true);
   assert.equal(manifest.license, 'MIT');
-  assert.equal(manifest.version, '0.5.1');
+  assert.equal(manifest.version, '0.6.0');
   for (const legalFile of ['LICENSE', 'NOTICE']) {
     assert.deepEqual(readFileSync(join(PACKAGE, legalFile)), readFileSync(join(ROOT, legalFile)), `${legalFile} copy drifted`);
   }
@@ -75,8 +85,11 @@ test('npm tarball installs offline and runs CLI, guard, and MCP smoke checks', (
     assert.deepEqual(readFileSync(join(installRoot, 'node_modules/@vibernt/cupel', legalFile)),
       readFileSync(join(ROOT, legalFile)), `installed ${legalFile} differs from the repository original`);
   }
-  const bin = join(installRoot, 'node_modules/.bin/cupel');
-  assert.ok(existsSync(bin), 'installed cupel executable is missing');
+  // Windows: npm installs the command as cupel.cmd, which Node starts only through cmd.exe; the checks run the
+  // installed package's own bin script with this Node instead. POSIX runs the installed link itself.
+  const shim = join(installRoot, 'node_modules/.bin', process.platform === 'win32' ? 'cupel.cmd' : 'cupel');
+  assert.ok(existsSync(shim), 'installed cupel executable is missing');
+  const bin = process.platform === 'win32' ? join(installRoot, 'node_modules/@vibernt/cupel/bin/cupel.mjs') : shim;
 
   const help = checked(bin, ['--help'], { cwd: SCRATCH });
   assert.match(help.stdout, /report\s+score every test/);

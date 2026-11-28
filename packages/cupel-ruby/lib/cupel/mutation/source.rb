@@ -53,12 +53,19 @@ module Cupel
         stat = File.lstat(real)
         raise SourceError, "mutation source is not a single-link regular file: #{@relative}" unless stat.file? && stat.nlink == 1
         raise SourceError, "mutation source exceeds #{MAX_BYTES} bytes: #{@relative}" if stat.size > MAX_BYTES
-        flags = File::RDONLY | File::NOFOLLOW
+        flags = File::RDONLY | File::BINARY | (File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0)
         bytes = File.open(real, flags) do |file|
           opened = file.stat
-          raise SourceError, "mutation source changed during open: #{@relative}" unless opened.file? && opened.nlink == 1 &&
-            [opened.dev, opened.ino] == [stat.dev, stat.ino]
+          # Windows Ruby gives an open file another device and index than its path, and has no NOFOLLOW: there the
+          # path is checked again after the read instead.
+          same = Gem.win_platform? ? opened.file? && opened.size == stat.size : opened.nlink == 1 && [opened.dev, opened.ino] == [stat.dev, stat.ino]
+          raise SourceError, "mutation source changed during open: #{@relative}" unless opened.file? && same
           file.read
+        end
+        if Gem.win_platform?
+          after = File.lstat(real)
+          raise SourceError, "mutation source changed during read: #{@relative}" unless after.file? && after.nlink == 1 &&
+            [after.dev, after.ino, after.size, after.mtime] == [stat.dev, stat.ino, stat.size, stat.mtime]
         end
         [[real, stat.dev, stat.ino], bytes, "sha256:#{Digest::SHA256.hexdigest(bytes)}"]
       rescue Errno::ENOENT, Errno::ELOOP, Errno::EACCES => error

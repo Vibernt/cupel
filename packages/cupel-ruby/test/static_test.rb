@@ -9,9 +9,9 @@ class StaticTest < Minitest::Test
     assert_equal 0x4f9f2cab, Cupel::Static.fnv('hello')
     Dir.mktmpdir do |dir|
       file = File.join(dir, 'test.rb')
-      File.write(file, "def test_one\n  assert_equal 1, 'secret'\nend\n")
+      File.binwrite(file, "def test_one\n  assert_equal 1, 'secret'\nend\n")
       first = Cupel::Static.shape(file, 1)
-      File.write(file, "def test_two\n  assert_equal 9, 'other'\nend\n")
+      File.binwrite(file, "def test_two\n  assert_equal 9, 'other'\nend\n")
       assert_equal first, Cupel::Static.shape(file, 1)
     end
   end
@@ -19,7 +19,7 @@ class StaticTest < Minitest::Test
   def test_analysis_stops_at_method_end
     Dir.mktmpdir do |dir|
       file = File.join(dir, 'test.rb')
-      File.write(file, <<~RUBY)
+      File.binwrite(file, <<~RUBY)
         # cupel:critical
         def test_one
           assert true
@@ -34,7 +34,7 @@ class StaticTest < Minitest::Test
       assert_equal [{ 'test' => 'two', 'kind' => 'doc-wording', 'line' => 5 }],
                    Cupel::Static.flags(file, 5, 'two')[1]
       assert Cupel::Static.spawns_interpreter?(file, 5)
-      File.write(file, <<~RUBY)
+      File.binwrite(file, <<~RUBY)
         def test_unrelated
           File.read('README.md')
           assert true
@@ -53,7 +53,7 @@ class StaticTest < Minitest::Test
   def test_rails_style_block_tag_and_shape
     Dir.mktmpdir do |dir|
       file = File.join(dir, 'test.rb')
-      File.write(file, <<~RUBY)
+      File.binwrite(file, <<~RUBY)
         # cupel:critical
         test 'first' do
           assert_equal 1, value
@@ -70,7 +70,7 @@ class StaticTest < Minitest::Test
   def test_definition_title_handles_generated_minitest_test_declarations
     Dir.mktmpdir do |dir|
       file = File.join(dir, 'test.rb')
-      File.write(file, <<~RUBY)
+      File.binwrite(file, <<~RUBY)
         [false, true].each do |enabled|
           test "with account\#{" in multi-tenant mode" if enabled}, the key is owned" do
             assert true
@@ -85,11 +85,11 @@ class StaticTest < Minitest::Test
   def test_definition_title_rejects_ambiguous_or_malformed_declarations
     Dir.mktmpdir do |dir|
       file = File.join(dir, 'test.rb')
-      File.write(file, "test 'one' do; define_method('two') {}; end\n")
+      File.binwrite(file, "test 'one' do; define_method('two') {}; end\n")
       error = assert_raises(RuntimeError) { Cupel::Static.definition_title(file, 1) }
       assert_match(/ambiguous test declaration/, error.message)
 
-      File.write(file, "test do\n  assert true\nend\n")
+      File.binwrite(file, "test do\n  assert true\nend\n")
       error = assert_raises(RuntimeError) { Cupel::Static.definition_title(file, 1) }
       assert_match(/no test name/, error.message)
     end

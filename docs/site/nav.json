@@ -18,6 +18,7 @@
     {
       "title": "Runners",
       "pages": [
+        { "source": "node.md", "title": "node:test loaders and JSX" },
         { "source": "vitest.md", "title": "Vitest" },
         { "source": "jest.md", "title": "Jest" },
         { "source": "python.md", "title": "Python and pytest" },

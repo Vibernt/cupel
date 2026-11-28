@@ -12,7 +12,7 @@ is the whole-suite protection path. No generic CI speedup is claimed.
 
 ## Choose an executable
 
-Build/install the current **0.5.1 source release** using [the local installation
+Build/install the current **0.6.0 source release** using [the local installation
 guide](install.md). Its examples set an absolute `CUPEL` executable in
 `.scratch/local-install`. To use the maintainer's retained accepted installation:
 
@@ -54,8 +54,9 @@ removal or downgrade. A guard only establishes its measured scope and rules.
 
 Mutation checks source bytes and paths before and after execution. Source changes,
 opaque hashes, unsafe/hardlinked paths or missing required `O_NOFOLLOW` filesystem
-capability refuse with exit 3. Current artifact acceptance covers macOS on Node
-22.23.3 and 26.7.0; other operating systems remain unverified.
+capability refuse with exit 3 (Windows has no `O_NOFOLLOW`: there the opened file's
+identity is checked against its path instead). Current artifact acceptance covers
+macOS, Linux and Windows on Node 22.23.3 and 26.7.0 (the hosted CI, from 0.6.0).
 
 ## Local MCP and Python
 
@@ -77,13 +78,13 @@ still exists. See [installation](install.md) and [Python limits](python.md).
 
 ## Artifact provenance
 
-The current source version is **0.5.1**. The 0.1.0 verified handoff is
+The current source version is **0.6.0**. The 0.1.0 verified handoff is
 `.scratch/private-candidate/release-0.1.0/handoff.json`; the stable executable
 above contains 0.1.0, with the prior installation retained for rollback.
 See [the candidate record](../plans/results/2026-10-26-private-candidate.md) for
 archive hashes and fresh checks.
 
-The current source version is **0.5.1**. A source version and the tests of an
+The current source version is **0.6.0**. A source version and the tests of an
 older artifact do not certify a newly packed archive. Use its actual handoff and
 SHA-256 to identify an accepted installation.
 

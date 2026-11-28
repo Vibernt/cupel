@@ -105,9 +105,11 @@ class SourceFacts:
             raise SourceChangedError(source, 'source is absent from the current input')
         try:
             path = _identity(self.root, source, self.root_real)
-            if not hasattr(os, 'O_NOFOLLOW'):
-                raise SourceChangedError(source, 'safe source open is unavailable on this host')
-            fd = os.open(path.real, os.O_RDONLY | os.O_NOFOLLOW)
+            # O_NOFOLLOW refuses a link swapped in after the path was resolved. Windows has no such flag; there the
+            # identity check below (the opened file's volume and file index against the resolved path's) refuses a
+            # swap alike. O_BINARY: without it the Windows C runtime rewrites line endings while reading.
+            flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+            fd = os.open(path.real, flags)
             try:
                 opened = os.fstat(fd)
                 if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1 or
