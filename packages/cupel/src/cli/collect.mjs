@@ -146,7 +146,7 @@ export function mutatePytest({ root, cfg, input, scope, mutation, ids = [] }) {
     if (mutation) writeFileSync(mutationFile, JSON.stringify(mutation));
     const action = mutation ? 'confirm' : 'mutate';
     const args = mutation
-      ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${ids.map(quote).join(' ')}`
+      ? `--input ${quote(inputFile)} --mutation ${quote(mutationFile)} --ids ${ids.map((id) => quote(id)).join(' ')}`
       : `--input ${quote(inputFile)} --scope ${quote(scopeFile)}`;
     const env = { ...process.env, ...(runner.env ?? {}), TMPDIR: dir, XDG_CACHE_HOME: dir };
     env.PYTHONPATH = [PY_SRC, env.PYTHONPATH].filter(Boolean).join(delimiter);

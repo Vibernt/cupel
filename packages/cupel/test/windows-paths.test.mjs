@@ -10,6 +10,7 @@ test('commands are quoted for /bin/sh on POSIX and for cmd.exe on Windows', () =
   assert.equal(quote('D:\\a\\my project\\in.json', 'win32'), '"D:\\a\\my project\\in.json"');
   assert.throws(() => quote('D:\\100%', 'win32'), /cmd\.exe/);
   assert.throws(() => quote('say "hi"', 'win32'), /cmd\.exe/);
+  assert.throws(() => ['id'].map(quote), /platform must be a string/);
 });
 
 test('a configured Vitest command keeps Windows backslashes; on POSIX a backslash escapes', () => {

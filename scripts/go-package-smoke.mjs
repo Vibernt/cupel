@@ -4,6 +4,8 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function goPackageSmoke({ root, scratch, bin, checked }) {
+  // Go fault testing is POSIX-only (docs/support.md); on Windows it refuses, so there is nothing to smoke.
+  if (process.platform === 'win32') return { skipped: 'Go fault testing is POSIX-only' };
   const probe = spawnSync('go', ['version'], { encoding: 'utf8' });
   if (probe.error || probe.status !== 0 || !/\bgo1\.27\.1\b/.test(probe.stdout)) {
     const reason = 'installed Go smoke needs Go 1.27.1';

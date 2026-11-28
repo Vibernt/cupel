@@ -16,6 +16,14 @@ const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const bin = join(repo, 'packages/cupel/bin/cupel.mjs');
 const python = TEST_PYTHON;
 const scratch = join(repo, '.scratch');
+// A mutation root of its own: the reuse basis hashes every file under the root, and the shared .scratch holds files
+// other tests are writing (on Windows, locked: EBUSY).
+function ownRoot(t) {
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(join(scratch, 'multi-runner-mutate-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  return root;
+}
 const schemas = loadSchemas();
 
 function fixture(second) {
@@ -123,7 +131,7 @@ test('I2 rejects missing and repeated runner membership', () => {
   assert.deepEqual(run('report', { input }, {}, {}, schemas).report.diagnostics.map((d) => d.code), ['unknown-runner']);
 });
 
-test('mutation runs independently for each supported runner', async () => {
+test('mutation runs independently for each supported runner', async (t) => {
   const source = JSON.parse(readFileSync(join(repo, 'spec/conformance/cases/001-report-minimal/input.json'), 'utf8'));
   const a = structuredClone(source), b = structuredClone(source);
   b.tests = b.tests.map((t) => ({ ...t, id: `other/${t.id}` }));
@@ -135,7 +143,7 @@ test('mutation runs independently for each supported runner', async () => {
     seen.push(part.tests[0].id);
     return { mutants: [{ id: `m-${seen.length}`, source: Object.keys(part.sources)[0], line: 1, operator: 'body-replace', status: 'survived' }], targeted: [] };
   } };
-  const mutation = await mutate(mutator, { root: scratch, cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
+  const mutation = await mutate(mutator, { root: ownRoot(t), cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
   assert.equal(seen.length, 2);
   assert.deepEqual(mutation.mutants.map((m) => m.id), ['m-1', 'm-2']);
 });
@@ -263,7 +271,7 @@ function sharedSourceInput() {
   return { input: mergeRunners([{ name: 'node', input: a }, { name: 'vitest', input: b }]), a, b };
 }
 
-test('runners sharing a source give one combined row per mutant: caught if any runner catches it (issue 7)', async () => {
+test('runners sharing a source give one combined row per mutant: caught if any runner catches it (issue 7)', async (t) => {
   const { input, a, b } = sharedSourceInput();
   const path = Object.keys(a.sources)[0];
   const covered = Object.values(a.coverage.byTest)[0][path];
@@ -285,7 +293,7 @@ test('runners sharing a source give one combined row per mutant: caught if any r
     const name = part.tests[0].id.startsWith('web/') ? 'vitest' : 'node';
     return { mutants: rows[name], targeted: [], sampled: false, seed: 1 };
   } };
-  const mutation = await mutate(mutator, { root: scratch, cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
+  const mutation = await mutate(mutator, { root: ownRoot(t), cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
   const byId = Object.fromEntries(mutation.mutants.map((m) => [m.id, m]));
   assert.deepEqual(Object.keys(byId).sort(), ['m-both-survive', 'm-caught-by-web', 'm-node-only']);
   assert.equal(byId['m-caught-by-web'].status, 'killed');
@@ -298,7 +306,7 @@ test('runners sharing a source give one combined row per mutant: caught if any r
   assert.equal(new Set(mutation.mutants.map((m) => m.id)).size, mutation.mutants.length);
 });
 
-test('a mutant one covering runner did not run, and nobody caught, is left out and the result is sampled (issue 7)', async () => {
+test('a mutant one covering runner did not run, and nobody caught, is left out and the result is sampled (issue 7)', async (t) => {
   const { input, a } = sharedSourceInput();
   const path = Object.keys(a.sources)[0];
   const line = Number(String(Object.values(a.coverage.byTest)[0][path]).split(/[,-]/)[0]);
@@ -307,7 +315,7 @@ test('a mutant one covering runner did not run, and nobody caught, is left out a
     // Vitest's sample left `m-partial` out; node:test ran it and it survived there.
     return { mutants: web ? [] : [{ id: 'm-partial', source: path, line, operator: 'arith', status: 'survived' }], targeted: [], sampled: web };
   } };
-  const mutation = await mutate(mutator, { root: scratch, cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
+  const mutation = await mutate(mutator, { root: ownRoot(t), cfg: { runners: { node: {}, vitest: {} } }, input, scope: { critical: true }, log: () => {} });
   assert.deepEqual(mutation.mutants, []);
   assert.equal(mutation.sampled, true);
 });
