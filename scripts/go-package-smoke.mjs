@@ -32,7 +32,9 @@ export function goPackageSmoke({ root, scratch, bin, checked }) {
     't.Fatalf("Choose(2) = %d, want 3", got)', 't.Logf("Choose(2) = %d, want 3", got)'));
   const headPath = join(project, 'head-input.json');
   checked(bin, ['report', '--runs', '1', '--out', headPath, '--json'], { cwd: project });
-  const guarded = spawnSync(bin, ['guard', '--base-input', basePath, '--head-input', headPath, '--json'], {
+  // On Windows `bin` is the installed package's cupel.mjs, which runs through this Node (package-smoke.test.mjs).
+  const guardArgs = ['guard', '--base-input', basePath, '--head-input', headPath, '--json'];
+  const guarded = spawnSync(...(bin.endsWith('.mjs') ? [process.execPath, [bin, ...guardArgs]] : [bin, guardArgs]), {
     cwd: project, encoding: 'utf8', timeout: 120_000, maxBuffer: 16 * 1024 * 1024,
     env: { ...process.env, NO_COLOR: '1' },
   });
