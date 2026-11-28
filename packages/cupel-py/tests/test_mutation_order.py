@@ -41,7 +41,7 @@ class MutationOrderTest(unittest.TestCase):
         source = 'def value():\n    return True\n'
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / 'logic.py').write_text(source)
+            (root / 'logic.py').write_text(source, newline='\n')
             tests = [row('broad', 'tests/broad.py'), row('own', 'other/test_logic.py'), row('history', 'tests/history.py')]
             coverage = {t['id']: {'logic.py': '2'} for t in tests}
             input_data = {

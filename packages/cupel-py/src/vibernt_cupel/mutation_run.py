@@ -39,14 +39,16 @@ def _run(root, nodeids, env, tmp, timeout, deadline, spec=None):
     if budget <= 0:
         return {'cut': True}
     command = [sys.executable, '-m', 'pytest', '-p', 'vibernt_cupel.mutant', '-p', 'no:cacheprovider', '-q', *nodeids]
-    proc = subprocess.Popen(command, cwd=root, env=child_env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True)
+    # Its own process group, so a timeout stops the tests' children too (Windows: a new group, stopped with taskkill).
+    group = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == 'nt' else {'start_new_session': True}
+    proc = subprocess.Popen(command, cwd=root, env=child_env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, **group)
     timed_out = cut = False
     try:
         _, stderr = proc.communicate(timeout=max(.001, min(timeout, budget)))
     except subprocess.TimeoutExpired:
         cut = budget <= timeout
         timed_out = not cut
-        os.killpg(proc.pid, signal.SIGKILL)
+        _kill_tree(proc)
         _, stderr = proc.communicate()
     elapsed = (time.monotonic() - start) * 1000
     try:
@@ -54,6 +56,19 @@ def _run(root, nodeids, env, tmp, timeout, deadline, spec=None):
     finally:
         report.unlink(missing_ok=True)
     return {'cut': cut, 'timeout': timed_out, 'code': proc.returncode, 'wall': elapsed, 'reports': reports, 'stderr': stderr.decode(errors='replace')[-1000:]}
+
+
+def _kill_tree(proc):
+    """Stop a run and every process it started. Windows has no process groups to signal: taskkill /T stops the tree."""
+    if os.name == 'nt':
+        done = subprocess.run(['taskkill', '/pid', str(proc.pid), '/T', '/F'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if done.returncode != 0 and proc.poll() is None:
+            proc.kill()
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
 
 
 class Session:

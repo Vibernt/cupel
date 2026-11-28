@@ -53,8 +53,8 @@ class CollectorTest < Minitest::Test
       FileUtils.mkdir_p(File.join(root, 'lib'))
       FileUtils.mkdir_p(File.join(root, 'test'))
       FileUtils.mkdir_p(File.join(root, '.scratch'))
-      File.write(File.join(root, '.scratch/count'), '0')
-      File.write(File.join(root, 'lib/branch.rb'), <<~RUBY)
+      File.binwrite(File.join(root, '.scratch/count'), '0')
+      File.binwrite(File.join(root, 'lib/branch.rb'), <<~RUBY)
         module Branch
           def self.pick(n)
             if n.odd?
@@ -71,7 +71,7 @@ class CollectorTest < Minitest::Test
         class BranchTest < Minitest::Test
           counter = File.expand_path('../.scratch/count', __dir__)
           n = File.read(counter).to_i
-          File.write(counter, (n + 1).to_s)
+          File.binwrite(counter, (n + 1).to_s)
           [1, 2].each do |value|
             define_method("test_pick_\#{value}") do
               assert_equal(n.odd? ? 1 : 2, Branch.pick(n))
@@ -80,13 +80,13 @@ class CollectorTest < Minitest::Test
         end
       RUBY
       file = File.join(root, 'test/branch_test.rb')
-      File.write(file, body)
+      File.binwrite(file, body)
       first = Cupel::Runner.collect(root, 3, [], [])
       assert_equal ['test/branch_test.rb::BranchTest > "test_pick_#{value}"'], first['tests'].map { |row| row['unit'] }.uniq
       assert_match(/4/, first.dig('coverage', 'unstable', 'lib/branch.rb'))
       assert_match(/6/, first.dig('coverage', 'unstable', 'lib/branch.rb'))
-      File.write(file, "\n\n\n#{body}")
-      File.write(File.join(root, '.scratch/count'), '0')
+      File.binwrite(file, "\n\n\n#{body}")
+      File.binwrite(File.join(root, '.scratch/count'), '0')
       shifted = Cupel::Runner.collect(root, 3, [], [])
       assert_equal first['tests'].map { |row| row['unit'] }, shifted['tests'].map { |row| row['unit'] }
     end
@@ -94,7 +94,7 @@ class CollectorTest < Minitest::Test
 
   def test_generated_minitest_dsl_tests_share_their_source_declaration_unit
     with_fixture do |root|
-      File.write(File.join(root, 'test/generated_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'test/generated_test.rb'), <<~RUBY)
         require 'minitest/autorun'
         class GeneratedTest < Minitest::Test
           def self.test(name, &block)
@@ -123,8 +123,8 @@ class CollectorTest < Minitest::Test
     Dir.mktmpdir('cupel-ruby-test-') do |root|
       FileUtils.mkdir_p(File.join(root, 'lib'))
       FileUtils.mkdir_p(File.join(root, 'test'))
-      File.write(File.join(root, 'lib/app.rb'), "module App\n  def self.touch\n    1\n  end\nend\n")
-      File.write(File.join(root, 'test/app_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'lib/app.rb'), "module App\n  def self.touch\n    1\n  end\nend\n")
+      File.binwrite(File.join(root, 'test/app_test.rb'), <<~RUBY)
         require 'minitest/autorun'
         require_relative '../lib/app'
         class AppTest < Minitest::Test
@@ -154,11 +154,11 @@ class CollectorTest < Minitest::Test
     Dir.mktmpdir('cupel-ruby-rails-') do |root|
       FileUtils.mkdir_p(File.join(root, 'bin'))
       FileUtils.mkdir_p(File.join(root, 'test'))
-      File.write(File.join(root, 'bin/rails'), <<~RUBY)
+      File.binwrite(File.join(root, 'bin/rails'), <<~RUBY)
         ARGV.shift if ARGV.first == 'test'
         require_relative '../test/app_test'
       RUBY
-      File.write(File.join(root, 'test/app_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'test/app_test.rb'), <<~RUBY)
         require 'minitest/autorun'
         class AppTest < Minitest::Test
           def test_one
@@ -181,14 +181,14 @@ class CollectorTest < Minitest::Test
 
     Dir.mktmpdir('cupel-ruby-rake-') do |root|
       FileUtils.mkdir_p(File.join(root, 'test'))
-      File.write(File.join(root, 'Rakefile'), <<~RUBY)
+      File.binwrite(File.join(root, 'Rakefile'), <<~RUBY)
         require 'rake/testtask'
         Rake::TestTask.new(:test) do |task|
           task.libs = ['test']
           task.pattern = 'test/**/*_test.rb'
         end
       RUBY
-      File.write(File.join(root, 'test/app_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'test/app_test.rb'), <<~RUBY)
         require 'minitest/autorun'
         class AppTest < Minitest::Test
           def test_one
@@ -210,8 +210,8 @@ class CollectorTest < Minitest::Test
     Dir.mktmpdir('cupel-ruby-multifile-') do |root|
       FileUtils.mkdir_p(File.join(root, 'test'))
       FileUtils.mkdir_p(File.join(root, 'lib'))
-      File.write(File.join(root, 'lib/shared.rb'), "module SharedSource\n  VALUE = 7\nend\n")
-      File.write(File.join(root, 'test/a_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'lib/shared.rb'), "module SharedSource\n  VALUE = 7\nend\n")
+      File.binwrite(File.join(root, 'test/a_test.rb'), <<~RUBY)
         require 'minitest/autorun'
         require_relative '../lib/shared'
         SHARED_TEST_VALUE = SharedSource::VALUE
@@ -221,7 +221,7 @@ class CollectorTest < Minitest::Test
           end
         end
       RUBY
-      File.write(File.join(root, 'test/b_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'test/b_test.rb'), <<~RUBY)
         class BTest < Minitest::Test
           def test_two
             assert_equal 7, SHARED_TEST_VALUE
@@ -243,11 +243,11 @@ class CollectorTest < Minitest::Test
       FileUtils.mkdir_p(File.join(root, 'lib'))
       FileUtils.mkdir_p(File.join(root, 'test'))
       FileUtils.mkdir_p(File.join(root, 'spec'))
-      File.write(File.join(root, 'Gemfile'), "gem 'minitest', '= 6.0.0'\n")
-      File.write(File.join(root, 'lib/value.rb'), "module Value\n  def self.answer = 42\nend\n")
-      File.write(File.join(root, 'spec/support.rb'), "SPEC_SUPPORT = true\n")
-      File.write(File.join(root, 'test/test_helper.rb'), "require 'minitest/autorun'\nrequire 'value'\nrequire 'support'\n")
-      File.write(File.join(root, 'test/value_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'Gemfile'), "gem 'minitest', '= 6.0.0'\n")
+      File.binwrite(File.join(root, 'lib/value.rb'), "module Value\n  def self.answer = 42\nend\n")
+      File.binwrite(File.join(root, 'spec/support.rb'), "SPEC_SUPPORT = true\n")
+      File.binwrite(File.join(root, 'test/test_helper.rb'), "require 'minitest/autorun'\nrequire 'value'\nrequire 'support'\n")
+      File.binwrite(File.join(root, 'test/value_test.rb'), <<~RUBY)
         require 'test_helper'
         class ValueTest < Minitest::Test
           def test_bundled_paths
@@ -280,7 +280,7 @@ class CollectorTest < Minitest::Test
     FileUtils.mkdir_p(scratch)
     Dir.mktmpdir('cupel-ruby-error-', scratch) do |root|
       FileUtils.mkdir_p(File.join(root, 'test'))
-      File.write(File.join(root, 'test/broken_test.rb'), <<~RUBY)
+      File.binwrite(File.join(root, 'test/broken_test.rb'), <<~RUBY)
         def fail_deeply(level)
           return raise 'FIRST_LINE_SENTINEL' if level.zero?
           fail_deeply(level - 1)
