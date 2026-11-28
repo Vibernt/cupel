@@ -83,7 +83,8 @@ Keep private projects' names, paths and findings out of this public repository; 
 
 ## Open items
 
-- Linux and Windows runs of the 0.2–0.4 features.
+- Go fault testing, the restricted Rust backend and the experimental Node PR profile on Windows (POSIX-only; they
+  refuse there). Everything else runs in the hosted CI on Linux, macOS and Windows from 0.6.0.
 - A timed cargo-mutants run on the same input as the 0.4.0 Rust measurements (the 3-hour figure is an estimate).
 - Slices on a real CI system; sharing one switched Rust build between slices (each slice builds its own today).
 - Worker code bundled or compiled from TypeScript: map through source maps (now reported as not measured);
